@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   description: 'Aprenda programação com sandbox isolada, correção em Git nativo e mentoria socrática de IA.',
 };
 
+import { AuthProvider } from './context/AuthContext';
+
 export default function RootLayout({
   children,
 }: {
@@ -32,7 +34,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
-      <body className="bg-[#09090A] text-[#F4F4F5] antialiased">{children}</body>
+      <body className="bg-[#09090A] text-[#F4F4F5] antialiased">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Logo from './Logo';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { setTokens, API_BASE } from '../lib/apiClient';
 
 interface AuthViewProps {
   onAuth: (user: { id: string; name: string; email: string; role: string }) => void;
@@ -44,6 +43,10 @@ export default function AuthView({ onAuth }: AuthViewProps) {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || 'Credenciais inválidas. Verifique seu e-mail e senha.');
+      }
+
+      if (data.accessToken) {
+        setTokens(data.accessToken, data.refreshToken);
       }
 
       onAuth({

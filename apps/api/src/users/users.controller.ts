@@ -22,6 +22,11 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
+  @Get('me')
+  getMe(@CurrentUser() user: JwtPayload) {
+    return this.users.getMe(user.sub);
+  }
+
   @Get('me/progress')
   getMyProgress(@CurrentUser() user: JwtPayload) {
     return this.users.getUserProgress(user.sub);

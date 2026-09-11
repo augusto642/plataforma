@@ -1,6 +1,5 @@
 import { StudentDashboardData } from '../types';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { apiFetch, API_BASE } from '../../lib/apiClient';
 
 export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
   user: {
@@ -168,10 +167,26 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
   const merged: StudentDashboardData = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_DATA));
 
   try {
+    // 0. Fetch User Profile
+    const resMe = await apiFetch(`${API_BASE}/users/me`).catch(() => null);
+    if (resMe && resMe.ok) {
+      const me = await resMe.json();
+      if (me.name) {
+        merged.user.name = me.name;
+        const parts = me.name.trim().split(' ');
+        merged.user.avatarInitials = ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || 'S')).toUpperCase();
+      }
+      if (me.email) merged.user.email = me.email;
+      if (me.xp !== undefined && me.xp !== null) merged.user.xp = me.xp;
+      if (me.level !== undefined && me.level !== null) merged.user.level = me.level;
+      if (me.streakDays !== undefined && me.streakDays !== null) {
+        merged.user.streakDays = me.streakDays;
+        merged.heatmap.currentStreak = me.streakDays;
+      }
+    }
+
     // 1. Fetch User Progress
-    const resProgress = await fetch(`${API_BASE}/users/me/progress`, {
-      credentials: 'include',
-    }).catch(() => null);
+    const resProgress = await apiFetch(`${API_BASE}/users/me/progress`).catch(() => null);
 
     if (resProgress && resProgress.ok) {
       const data = await resProgress.json();
@@ -191,9 +206,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
     }
 
     // 2. Fetch Courses
-    const resCourses = await fetch(`${API_BASE}/courses`, {
-      credentials: 'include',
-    }).catch(() => null);
+    const resCourses = await apiFetch(`${API_BASE}/courses`).catch(() => null);
 
     if (resCourses && resCourses.ok) {
       const courses = await resCourses.json();
@@ -209,9 +222,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
         }
 
         // 3. Fetch Leaderboard for primary course
-        const resLeaderboard = await fetch(`${API_BASE}/courses/${firstCourse.id}/leaderboard`, {
-          credentials: 'include',
-        }).catch(() => null);
+        const resLeaderboard = await apiFetch(`${API_BASE}/courses/${firstCourse.id}/leaderboard`).catch(() => null);
 
         if (resLeaderboard && resLeaderboard.ok) {
           const lb = await resLeaderboard.json();
@@ -233,7 +244,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
                 avatarGradient: gradients[idx % gradients.length],
                 completedCount: entry.completedActivitiesCount ?? 12,
                 xp: entry.xp ?? 2000,
-                isCurrentUser: idx === 1, // Highlight rank 2 or current user
+                isCurrentUser: idx === 1,
                 todayGain: idx === 0 ? '+620 hoje' : idx === 1 ? 'Na zona de promoção' : undefined,
                 lastActive: idx > 1 ? `${idx + 1}h atrás` : undefined,
               };
@@ -244,9 +255,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
     }
 
     // 4. Fetch Submissions count / stats
-    const resSubmissions = await fetch(`${API_BASE}/submissions`, {
-      credentials: 'include',
-    }).catch(() => null);
+    const resSubmissions = await apiFetch(`${API_BASE}/submissions`).catch(() => null);
 
     if (resSubmissions && resSubmissions.ok) {
       const subs = await resSubmissions.json();

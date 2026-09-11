@@ -178,4 +178,44 @@ describe('UsersService', () => {
       expect(service.giteaUsernameFor({ email: '@x.com', name: 'Maria Ana' })).toBe('mariaana');
     });
   });
+
+  describe('getMe', () => {
+    it('returns the user profile when found', async () => {
+      const mockProfile = {
+        id: 'user-1',
+        email: 'aluno@example.com',
+        name: 'Aluno Teste',
+        role: 'student',
+        xp: 120,
+        level: 2,
+        streakDays: 1,
+        talentVisible: true,
+        createdAt: new Date(),
+      };
+      prisma.user.findUnique.mockResolvedValue(mockProfile);
+
+      const result = await service.getMe('user-1');
+      expect(result).toEqual(mockProfile);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        select: expect.objectContaining({
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          xp: true,
+          level: true,
+          streakDays: true,
+          talentVisible: true,
+          createdAt: true,
+        }),
+      });
+    });
+
+    it('throws NotFoundException when user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getMe('missing')).rejects.toThrow(NotFoundException);
+    });
+  });
 });

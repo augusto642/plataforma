@@ -22,7 +22,7 @@ interface AITutorPanelProps {
   activityId: string;
   activityTitle: string;
   code: string;
-  token: string;
+  token?: string | null;
   onClose: () => void;
 }
 

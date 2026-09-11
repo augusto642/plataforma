@@ -149,6 +149,27 @@ export class UsersService {
     }
   }
 
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        xp: true,
+        level: true,
+        streakDays: true,
+        talentVisible: true,
+        createdAt: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
   async getUserProgress(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

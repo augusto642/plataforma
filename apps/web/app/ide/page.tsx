@@ -12,8 +12,9 @@ import TalentModal from '../components/TalentModal';
 import { useSubmissionStream } from '../hooks/useSubmissionStream';
 import { LeaderboardEntry, UserProgress, CourseProgress, UserBadge, LineFeedbackItem } from '../types';
 import { fireConfetti } from '../dashboard/utils/confetti';
+import { useAuth } from '../context/AuthContext';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NEXUS CODE';
 const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_BRAND_LOGO_URL;
 
@@ -70,8 +71,15 @@ interface Submission {
 }
 
 export default function HomePage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const { user: authUser, token: authToken, logout: authLogout, isLoading: authLoading } = useAuth();
+  const [token, setToken] = useState<string | null>(authToken || (authUser ? 'cookie-auth' : null));
+  const [user, setUser] = useState<User | null>(authUser);
+
+  useEffect(() => {
+    if (authUser) setUser(authUser);
+    if (authToken) setToken(authToken);
+    else if (authUser) setToken('cookie-auth');
+  }, [authUser, authToken]);
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -146,13 +154,9 @@ export default function HomePage() {
   const [newActTestCode, setNewActTestCode] = useState('');
   const [newActHiddenTests, setNewActHiddenTests] = useState('');
 
-  const apiFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-    return fetch(url, { ...options, credentials: 'include' });
-  };
-
   useSubmissionStream(
     streamingSubmissionId,
-    token,
+    token || (user ? 'cookie-auth' : null),
     (updated) => {
       setSubmission(updated as Submission);
       if (['passed', 'failed', 'error'].includes(updated.status)) {
@@ -170,7 +174,7 @@ export default function HomePage() {
       setIsSubmitting(false);
       setStreamingSubmissionId(null);
     },
-   );
+  );
 
   // Keyboard accessibility (Escape key to close modals)
   useEffect(() => {
@@ -196,11 +200,9 @@ export default function HomePage() {
   }, []);
 
   const loadCourses = async () => {
-    if (!token) return;
+    if (!token && !user) return;
     try {
-      const res = await apiFetch(`${API_BASE}/courses`, {
-      
-      });
+      const res = await apiFetch(`${API_BASE}/courses`);
       if (res.ok) {
         const data = await res.json();
         setCourses(data);
@@ -214,10 +216,10 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (token) {
+    if (token || user) {
       loadCourses();
     }
-  }, [token]);
+  }, [token, user]);
 
   const selectCourse = async (course: Course): Promise<Activity[] | null> => {
     courseFetchAbortRef.current?.abort();
@@ -423,16 +425,7 @@ export default function HomePage() {
   const handleLogout = async () => {
     submissionStreamAbortRef.current?.abort();
     courseFetchAbortRef.current?.abort();
-    try {
-      await fetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        credentials: 'include',
-      });
-    } catch {
-      // best-effort
-    }
+    await authLogout();
     setToken(null);
     setUser(null);
     setSelectedCourse(null);
@@ -442,7 +435,7 @@ export default function HomePage() {
   };
 
   const handleRunCode = async () => {
-    if (!selectedActivity || !token) return;
+    if (!selectedActivity) return;
     submissionStreamAbortRef.current?.abort();
     const controller = new AbortController();
     submissionStreamAbortRef.current = controller;
@@ -663,11 +656,22 @@ export default function HomePage() {
     return 'javascript';
   };
 
-  if (!token) {
+  if (!token && !user && !authLoading) {
     return <AuthView onAuth={(currentUser) => {
       setUser(currentUser);
       setToken('cookie-auth');
     }} />;
+  }
+
+  if (authLoading && !user) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f1d', color: '#94a3b8' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 32, height: 32, border: '3px solid rgba(130, 87, 229, 0.2)', borderTopColor: '#8257e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <span>Carregando ambiente NEXUS...</span>
+        </div>
+      </div>
+    );
   }
 
   const isInstructor = user?.role === 'instructor' || user?.role === 'admin';
