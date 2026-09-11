@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-app: #09090a;
+  --bg-surface-base: #121214;
+  --bg-surface-elevated: #18181b;
+  --border-subtle: #27272a;
+  --brand-green: #00B37E;
+  --brand-green-neon: #04D361;
+  --brand-purple: #8257E5;
+  --brand-purple-light: #996DFF;
+  --brand-cyan: #0070F3;
+  --brand-cyan-neon: #00E5FF;
+  --brand-amber: #FFA116;
+  --brand-rose: #F43F5E;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-app);
+  color: #E1E1E6;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   DOPAMINE LOOP & MASTERCLASS 10/10 ANIMATIONS
+   ========================================================================== */
+
+@keyframes rotateConicGlow {
+  0% {
+    --angle: 0deg;
+    transform: rotate(0deg);
+  }
+  100% {
+    --angle: 360deg;
+    transform: rotate(360deg);
+  }
+}
+
+/* Sandbox Execution Running Glow */
+.sandbox-running-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.sandbox-running-glow::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg, #8257E5, #00E5FF, #04D361, #8257E5);
+  animation: rotateConicGlow 2.5s linear infinite;
+  z-index: 0;
+}
+
+.sandbox-running-glow > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Socratic AI Cognitive Breathing Pulse */
+@keyframes socraticBreathing {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(130, 87, 229, 0.3), inset 0 0 10px rgba(130, 87, 229, 0.2);
+    border-color: rgba(130, 87, 229, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(130, 87, 229, 0.7), inset 0 0 20px rgba(0, 229, 255, 0.4);
+    border-color: #00E5FF;
+    transform: scale(1.02);
+  }
+}
+
+.socratic-breathing {
+  animation: socraticBreathing 2.2s ease-in-out infinite;
+}
+
+/* Streak Solar Fire Aura */
+@keyframes streakFire {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(255, 84, 0, 0.4), 0 0 24px rgba(255, 161, 22, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(255, 84, 0, 0.7), 0 0 36px rgba(255, 161, 22, 0.4);
+  }
+}
+
+.streak-fire-aura {
+  animation: streakFire 1.8s ease-in-out infinite;
+}
+
+/* Odometer Pop XP Animation */
+@keyframes xpPop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.xp-pop-anim {
+  animation: xpPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Scrollbar for DevTools Elite Theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3F3F46;
+}

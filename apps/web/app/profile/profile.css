@@ -1,0 +1,249 @@
+/* ==========================================================================
+   NEXUS CODE — DEVELOPER PROFILE DESIGN SYSTEM & TOKENS
+   Deep Obsidian • Neon Green • Rocket Purple • Cyan • Amber • Diamond
+   ========================================================================== */
+
+:root {
+  --obsidian-base: #08080B;
+  --obsidian-card: #121217;
+  --obsidian-elevated: #181820;
+  --obsidian-border: #27272A;
+  --obsidian-border-hover: #3F3F46;
+
+  --neon-green: #04D361;
+  --neon-green-dim: #00B37E;
+  --neon-green-glow: rgba(4, 211, 97, 0.35);
+
+  --rocket-purple: #8257E5;
+  --rocket-purple-light: #996DFF;
+  --rocket-purple-glow: rgba(130, 87, 229, 0.4);
+
+  --cyan-neon: #00E5FF;
+  --cyan-core: #0070F3;
+  --cyan-glow: rgba(0, 229, 255, 0.35);
+
+  --amber-core: #F59E0B;
+  --amber-glow: rgba(245, 158, 11, 0.35);
+
+  --diamond-core: #E2E8F0;
+  --diamond-glow: rgba(226, 232, 240, 0.45);
+  --platinum-glow: rgba(56, 189, 248, 0.45);
+}
+
+/* Cyber Canvas Background with Tech Dot/Grid Overlay */
+.profile-canvas-bg {
+  background-color: var(--obsidian-base);
+  background-image: 
+    radial-gradient(circle at 50% -20%, rgba(130, 87, 229, 0.15), transparent 70%),
+    radial-gradient(circle at 100% 40%, rgba(0, 229, 255, 0.08), transparent 50%),
+    radial-gradient(circle at 0% 80%, rgba(4, 211, 97, 0.08), transparent 50%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+}
+
+/* Glassmorphism Bento Card Container */
+.profile-bento-card {
+  background: rgba(18, 18, 23, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--obsidian-border);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.profile-bento-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.profile-bento-card:hover {
+  border-color: rgba(130, 87, 229, 0.4);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(130, 87, 229, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Cyber Header Banner Graphic */
+.cyber-banner-hero {
+  position: relative;
+  height: 220px;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(135deg, #090b14 0%, #17112c 40%, #0d1e26 100%);
+  overflow: hidden;
+  border-bottom: 1px solid var(--obsidian-border);
+}
+
+.cyber-banner-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(130, 87, 229, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+  transform: perspective(300px) rotateX(25deg) translateY(-20px);
+  transform-origin: top;
+  opacity: 0.7;
+}
+
+.cyber-banner-laser {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #8257E5 30%, #00E5FF 50%, #04D361 70%, transparent 100%);
+  box-shadow: 0 0 16px #00E5FF, 0 0 32px #04D361;
+}
+
+/* Avatar League Frames */
+.avatar-frame-diamond {
+  position: relative;
+  padding: 4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #E2E8F0, #38BDF8, #8257E5, #00E5FF, #E2E8F0);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.5), inset 0 0 12px rgba(226, 232, 240, 0.3);
+  animation: rotateConic 8s linear infinite;
+}
+
+.avatar-frame-platinum {
+  position: relative;
+  padding: 4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #94A3B8, #E2E8F0, #64748B, #CBD5E1, #94A3B8);
+  box-shadow: 0 0 20px rgba(148, 163, 184, 0.4), inset 0 0 10px rgba(226, 232, 240, 0.2);
+  animation: rotateConic 10s linear infinite;
+}
+
+@keyframes rotateConic {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* Verified Pro Glowing Badge */
+.verified-badge-glow {
+  background: linear-gradient(135deg, #0070F3, #00E5FF);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+}
+
+/* 6D Radar Glow FX */
+.radar-vertex-glow {
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+.radar-vertex-glow:hover {
+  r: 7;
+  filter: drop-shadow(0 0 8px #04D361);
+}
+
+/* 52-Week Heatmap Neon Shades */
+.heat-level-0 {
+  background-color: #121217;
+  border: 1px solid rgba(39, 39, 42, 0.6);
+}
+.heat-level-1 {
+  background-color: #04431f;
+  border: 1px solid rgba(4, 67, 31, 0.8);
+}
+.heat-level-2 {
+  background-color: #00875F;
+  box-shadow: 0 0 6px rgba(0, 135, 95, 0.3);
+}
+.heat-level-3 {
+  background-color: #00B37E;
+  box-shadow: 0 0 8px rgba(0, 179, 126, 0.5);
+}
+.heat-level-4 {
+  background-color: #04D361;
+  box-shadow: 0 0 12px rgba(4, 211, 97, 0.8);
+}
+
+/* Git Repository Card Live Unit Test Badge */
+.test-status-pill-passing {
+  background: rgba(4, 211, 97, 0.12);
+  border: 1px solid rgba(4, 211, 97, 0.4);
+  color: #04D361;
+  box-shadow: 0 0 10px rgba(4, 211, 97, 0.15);
+}
+
+.test-status-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #04D361;
+  box-shadow: 0 0 8px #04D361;
+  animation: pulseNeon 1.8s infinite;
+}
+
+@keyframes pulseNeon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.6;
+  }
+}
+
+/* Badges Rarity Card Aesthetics */
+.badge-tier-mitico {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, rgba(24, 24, 32, 0.9), rgba(245, 158, 11, 0.08));
+  box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.1), 0 0 15px rgba(245, 158, 11, 0.2);
+}
+
+.badge-tier-lendario {
+  border-color: rgba(130, 87, 229, 0.5);
+  background: linear-gradient(135deg, rgba(24, 24, 32, 0.9), rgba(130, 87, 229, 0.08));
+  box-shadow: inset 0 0 20px rgba(130, 87, 229, 0.1), 0 0 15px rgba(130, 87, 229, 0.2);
+}
+
+.badge-tier-epico {
+  border-color: rgba(0, 229, 255, 0.5);
+  background: linear-gradient(135deg, rgba(24, 24, 32, 0.9), rgba(0, 229, 255, 0.08));
+  box-shadow: inset 0 0 20px rgba(0, 229, 255, 0.1), 0 0 15px rgba(0, 229, 255, 0.2);
+}
+
+.badge-tier-raro {
+  border-color: rgba(4, 211, 97, 0.5);
+  background: linear-gradient(135deg, rgba(24, 24, 32, 0.9), rgba(4, 211, 97, 0.08));
+  box-shadow: inset 0 0 20px rgba(4, 211, 97, 0.1), 0 0 15px rgba(4, 211, 97, 0.2);
+}
+
+/* Custom Tabs Button */
+.profile-tab-btn {
+  position: relative;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.profile-tab-btn.active {
+  color: #FFFFFF;
+}
+
+.profile-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #8257E5, #00E5FF);
+  border-radius: 2px;
+  box-shadow: 0 0 12px #8257E5;
+}

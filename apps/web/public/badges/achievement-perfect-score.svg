@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" fill="none">
+  <defs>
+    <linearGradient id="star-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="50%" stop-color="#FFB703"/>
+      <stop offset="100%" stop-color="#FB8500"/>
+    </linearGradient>
+    <radialGradient id="star-bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2D1D05"/>
+      <stop offset="100%" stop-color="#120A02"/>
+    </radialGradient>
+    <filter id="star-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#FFB703" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+  <circle cx="40" cy="40" r="36" fill="url(#star-bg)" stroke="url(#star-grad)" stroke-width="2.5" filter="url(#star-glow)"/>
+  <circle cx="40" cy="40" r="30" stroke="#FFB703" stroke-width="1" stroke-dasharray="2 3" opacity="0.4"/>
+  <!-- Star Vector -->
+  <polygon points="40,18 46,30 59,32 49,42 52,55 40,48 28,55 31,42 21,32 34,30" fill="url(#star-grad)"/>
+  <circle cx="40" cy="38" r="3.5" fill="#FFFFFF"/>
+  <text x="40" y="66" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7.5" font-weight="900" fill="#FFE066" letter-spacing="0.08em">100/100</text>
+</svg>

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" fill="none">
+  <defs>
+    <linearGradient id="go-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#101C26" />
+      <stop offset="100%" stop-color="#081017" />
+    </linearGradient>
+    <linearGradient id="go-grad-cyan-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF" />
+      <stop offset="50%" stop-color="#00ADD8" />
+      <stop offset="100%" stop-color="#0070F3" />
+    </linearGradient>
+    <filter id="go-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Base Squircle -->
+  <rect x="4" y="4" width="72" height="72" rx="18" fill="url(#go-bg)" stroke="#27272A" stroke-width="1.5" />
+  <rect x="4" y="4" width="72" height="72" rx="18" stroke="url(#go-grad-cyan-blue)" stroke-width="1.5" stroke-opacity="0.35" />
+
+  <!-- Concurrent Goroutines Pipes / Fast Concurrency Lines -->
+  <g stroke="url(#go-grad-cyan-blue)" stroke-width="2.5" stroke-linecap="round">
+    <!-- Pipeline 1 -->
+    <path d="M18 26H36L44 34H62" stroke-dasharray="4 2" />
+    <!-- Pipeline 2 (Active Fiber with Glow) -->
+    <path d="M18 40H62" filter="url(#go-glow)" stroke-width="3" stroke="#00E5FF" />
+    <!-- Pipeline 3 -->
+    <path d="M18 54H36L44 46H62" stroke-dasharray="4 2" />
+  </g>
+
+  <!-- Channel Nodes / CSP Concurrency Points -->
+  <circle cx="24" cy="40" r="4.5" fill="#00E5FF" filter="url(#go-glow)" />
+  <circle cx="24" cy="40" r="2" fill="#FFFFFF" />
+
+  <circle cx="40" cy="40" r="5" fill="#0070F3" stroke="#00E5FF" stroke-width="1.5" />
+  <circle cx="56" cy="40" r="4.5" fill="#04D361" filter="url(#go-glow)" />
+  <circle cx="56" cy="40" r="2" fill="#FFFFFF" />
+
+  <!-- Microservice Speed Chevrons -->
+  <path d="M46 22L52 26L46 30" stroke="#00E5FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M46 50L52 54L46 58" stroke="#00E5FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

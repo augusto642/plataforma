@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" fill="none">
+  <defs>
+    <linearGradient id="ai-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18201A" />
+      <stop offset="100%" stop-color="#0B120E" />
+    </linearGradient>
+    <linearGradient id="ai-grad-green-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#04D361" />
+      <stop offset="60%" stop-color="#00E5FF" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <filter id="ai-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Base Squircle -->
+  <rect x="4" y="4" width="72" height="72" rx="18" fill="url(#ai-bg)" stroke="#27272A" stroke-width="1.5" />
+  <rect x="4" y="4" width="72" height="72" rx="18" stroke="url(#ai-grad-green-amber)" stroke-width="1.5" stroke-opacity="0.35" />
+
+  <!-- Neural Network Mesh Nodes & Connections -->
+  <g stroke="#04D361" stroke-width="1.2" stroke-opacity="0.4">
+    <line x1="24" y1="28" x2="40" y2="20" />
+    <line x1="24" y1="28" x2="40" y2="38" />
+    <line x1="24" y1="52" x2="40" y2="38" />
+    <line x1="24" y1="52" x2="40" y2="58" />
+    <line x1="40" y1="20" x2="56" y2="36" />
+    <line x1="40" y1="38" x2="56" y2="36" />
+    <line x1="40" y1="58" x2="56" y2="44" />
+  </g>
+
+  <!-- Layer 1 Nodes (Input) -->
+  <circle cx="24" cy="28" r="4" fill="#121217" stroke="#00E5FF" stroke-width="2" />
+  <circle cx="24" cy="52" r="4" fill="#121217" stroke="#00E5FF" stroke-width="2" />
+
+  <!-- Layer 2 Nodes (Hidden AI Neurons) -->
+  <circle cx="40" cy="20" r="4.5" fill="#121217" stroke="#04D361" stroke-width="2" />
+  <circle cx="40" cy="38" r="5" fill="#04D361" filter="url(#ai-glow)" />
+  <circle cx="40" cy="58" r="4.5" fill="#121217" stroke="#04D361" stroke-width="2" />
+
+  <!-- Layer 3 Node (Output Synapse) -->
+  <circle cx="56" cy="40" r="5.5" fill="#F59E0B" filter="url(#ai-glow)" />
+  <circle cx="56" cy="40" r="2" fill="#FFFFFF" />
+
+  <!-- Python Dual Snake Wave Accent -->
+  <path d="M22 64C28 60 34 68 40 64C46 60 52 68 58 64" stroke="#04D361" stroke-width="2.5" stroke-linecap="round" />
+</svg>

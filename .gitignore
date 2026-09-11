@@ -1,0 +1,22 @@
+node_modules
+dist
+.next
+.env
+.env.local
+.env.*.local
+.env.production
+apps/*/dist
+apps/*/.next
+*.log
+coverage
+.turbo
+.tscache
+*.tsbuildinfo
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

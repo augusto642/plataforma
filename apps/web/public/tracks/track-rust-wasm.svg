@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" fill="none">
+  <defs>
+    <linearGradient id="rust-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#241610" />
+      <stop offset="100%" stop-color="#120A07" />
+    </linearGradient>
+    <linearGradient id="rust-grad-amber-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="50%" stop-color="#FF5400" />
+      <stop offset="100%" stop-color="#8257E5" />
+    </linearGradient>
+    <filter id="rust-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Base Squircle -->
+  <rect x="4" y="4" width="72" height="72" rx="18" fill="url(#rust-bg)" stroke="#27272A" stroke-width="1.5" />
+  <rect x="4" y="4" width="72" height="72" rx="18" stroke="url(#rust-grad-amber-purple)" stroke-width="1.5" stroke-opacity="0.35" />
+
+  <!-- Rust Gear Wheel & Memory Safety Shield -->
+  <g transform="translate(40, 40)">
+    <!-- Cog teeth -->
+    <path d="M-6 -22H6L4 -18H-4L-6 -22Z" fill="#F59E0B" />
+    <path d="M-6 22H6L4 18H-4L-6 22Z" fill="#F59E0B" />
+    <path d="M-22 -6V6L-18 4V-4L-22 -6Z" fill="#F59E0B" />
+    <path d="M22 -6V6L18 4V-4L22 -6Z" fill="#F59E0B" />
+    
+    <circle cx="0" cy="0" r="18" fill="#181820" stroke="url(#rust-grad-amber-purple)" stroke-width="2" />
+    <circle cx="0" cy="0" r="14" fill="#121217" stroke="#27272A" stroke-width="1" />
+    
+    <!-- Central Crab Claw / Memory Safety Shield -->
+    <path d="M0 -10L10 -5V3C10 9 5 13 0 15C-5 13 -10 9 -10 3V-5L0 -10Z" fill="url(#rust-grad-amber-purple)" filter="url(#rust-glow)" opacity="0.9" />
+    
+    <!-- Rust 'R' Core -->
+    <text x="0" y="4.5" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="900" fill="#FFFFFF" text-anchor="middle">R</text>
+  </g>
+  
+  <!-- Orbiting Wasm / Zero-Cost Abstraction Sparks -->
+  <circle cx="20" cy="20" r="2.5" fill="#F59E0B" filter="url(#rust-glow)" />
+  <circle cx="60" cy="60" r="2.5" fill="#8257E5" filter="url(#rust-glow)" />
+</svg>

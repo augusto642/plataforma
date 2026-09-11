@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" fill="none">
+  <defs>
+    <linearGradient id="sprout-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#04D361"/>
+      <stop offset="100%" stop-color="#00B37E"/>
+    </linearGradient>
+    <radialGradient id="sprout-bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0E2E1E"/>
+      <stop offset="100%" stop-color="#07140D"/>
+    </radialGradient>
+    <filter id="sprout-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#04D361" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <circle cx="40" cy="40" r="36" fill="url(#sprout-bg)" stroke="url(#sprout-grad)" stroke-width="2.5" filter="url(#sprout-glow)"/>
+  <circle cx="40" cy="40" r="30" stroke="#04D361" stroke-width="1" stroke-dasharray="2 3" opacity="0.4"/>
+  <!-- Sprout / First Step Icon -->
+  <path d="M40 54V38M40 38C40 28 49 26 52 26C52 35 46 38 40 38ZM40 44C40 36 31 34 28 34C28 42 34 44 40 44Z" stroke="url(#sprout-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="rgba(4, 211, 97, 0.2)"/>
+  <circle cx="40" cy="54" r="2.5" fill="#04D361"/>
+</svg>

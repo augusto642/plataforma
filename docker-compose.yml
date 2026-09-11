@@ -1,0 +1,132 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-plataforma}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plataforma_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-plataforma}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-gitea.sql:/docker-entrypoint-initdb.d/init-gitea.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-plataforma}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  gitea:
+    image: gitea/gitea:1.24.5
+    environment:
+      USER_UID: '1000'
+      USER_GID: '1000'
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: postgres:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: ${POSTGRES_USER:-plataforma}
+      GITEA__database__PASSWD: ${POSTGRES_PASSWORD:-plataforma_dev}
+      GITEA__database__SSL_MODE: disable
+      GITEA__server__ROOT_URL: http://localhost:${GITEA_HTTP_PORT:-3030}/
+      GITEA__server__DOMAIN: localhost
+      GITEA__server__SSH_DOMAIN: localhost
+      GITEA__server__SSH_PORT: '${GITEA_SSH_PORT:-2222}'
+      GITEA__server__HTTP_PORT: '3000'
+      GITEA__webhook__ALLOWED_HOST_LIST: http://api:3000
+      GITEA__webhook__DELIVER_TIMEOUT: '30'
+    ports:
+      - '${GITEA_HTTP_PORT:-3030}:3000'
+      - '${GITEA_SSH_PORT:-2222}:22'
+    volumes:
+      - giteadata:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    # init: true NÃO é permitido aqui: o entrypoint do Piston move o PID 1 para
+    # /sys/fs/cgroup/isolate e depois habilita controladores no root cgroup.
+    # Com docker-init, PIDs filhos ficam no root e o kernel rejeita com EBUSY.
+    privileged: true
+    expose:
+      - '2000'
+    restart: unless-stopped
+    networks:
+      - sandbox-net
+    volumes:
+      - piston-packages:/piston
+    # Sandbox de execução de código de alunos (Isolate: namespaces, chroot,
+    # usuário unprivileged, cgroups, rede off). Sem porta no host.
+    # Instale runtimes após o primeiro boot: docker exec piston sh -c "cd /piston && ./cli/index.js ppman install node python java typescript"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - '${API_PORT:-3000}:3000'
+    networks:
+      - default
+      - sandbox-net
+    environment:
+      PORT: '3000'
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-3001}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plataforma}:${POSTGRES_PASSWORD:-plataforma_dev}@postgres:5432/${POSTGRES_DB:-plataforma}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?defina JWT_ACCESS_SECRET no .env (openssl rand -hex 48)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no .env (openssl rand -hex 48)}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      REDIS_URL: redis://redis:6379
+      GITEA_URL: http://gitea:3000
+      GITEA_TOKEN: ${GITEA_TOKEN:-}
+      GITEA_WEBHOOK_SECRET: ${GITEA_WEBHOOK_SECRET:?defina GITEA_WEBHOOK_SECRET no .env (openssl rand -hex 32)}
+      GITEA_ORG: ${GITEA_ORG:-plataforma}
+      PISTON_URL: http://piston:2000
+      CHOKIDAR_USEPOLLING: 'true'
+      WATCHPACK_POLLING: 'true'
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - '${WEB_PORT:-3001}:3001'
+    environment:
+      API_URL: http://api:3000
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-3000}
+      WATCHPACK_POLLING: 'true'
+      CHOKIDAR_USEPOLLING: 'true'
+    volumes:
+      - ./apps/web/app:/app/apps/web/app
+      - ./apps/web/public:/app/apps/web/public
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  giteadata:
+  piston-packages:
+
+networks:
+  # Rede do sandbox: só a API alcança o Piston; o Piston não alcança
+  # postgres/redis/gitea (rede default). Nota: a rede precisa ter egress
+  # para permitir `ppman install` dos runtimes no primeiro boot.
+  sandbox-net: {}

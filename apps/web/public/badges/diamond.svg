@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" fill="none">
+  <defs>
+    <linearGradient id="dia-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C084FC"/>
+      <stop offset="35%" stop-color="#818CF8"/>
+      <stop offset="70%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#00DFD8"/>
+    </linearGradient>
+    <linearGradient id="dia-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1035"/>
+      <stop offset="100%" stop-color="#091428"/>
+    </linearGradient>
+    <filter id="dia-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#818CF8" flood-opacity="0.75"/>
+    </filter>
+  </defs>
+  <!-- Shield Base -->
+  <polygon points="50,2 94,22 94,78 50,98 6,78 6,22" fill="url(#dia-dark)" stroke="url(#dia-grad)" stroke-width="3.5" filter="url(#dia-glow)"/>
+  <polygon points="50,10 86,26 86,74 50,90 14,74 14,26" fill="none" stroke="url(#dia-grad)" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.8"/>
+  <!-- Diamond Gem Cut Facets -->
+  <polygon points="50,20 68,36 50,68 32,36" fill="none" stroke="url(#dia-grad)" stroke-width="2.5"/>
+  <polygon points="50,20 68,36 50,42 32,36" fill="url(#dia-grad)" fill-opacity="0.35"/>
+  <polygon points="32,36 50,42 50,68" fill="url(#dia-grad)" fill-opacity="0.6"/>
+  <polygon points="68,36 50,42 50,68" fill="url(#dia-grad)" fill-opacity="0.9"/>
+  <!-- Star Glint -->
+  <circle cx="50" cy="42" r="3" fill="#FFFFFF"/>
+  <text x="50" y="83" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8.5" font-weight="900" fill="#EDE9FE" letter-spacing="0.12em">DIAMOND</text>
+</svg>

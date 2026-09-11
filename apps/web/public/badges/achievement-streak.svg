@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" fill="none">
+  <defs>
+    <linearGradient id="fire-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDD00"/>
+      <stop offset="40%" stop-color="#FF5400"/>
+      <stop offset="100%" stop-color="#9D0208"/>
+    </linearGradient>
+    <radialGradient id="fire-bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#300A0A"/>
+      <stop offset="100%" stop-color="#120404"/>
+    </radialGradient>
+    <filter id="fire-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#FF5400" flood-opacity="0.65"/>
+    </filter>
+  </defs>
+  <circle cx="40" cy="40" r="36" fill="url(#fire-bg)" stroke="url(#fire-grad)" stroke-width="2.5" filter="url(#fire-glow)"/>
+  <circle cx="40" cy="40" r="30" stroke="#FF5400" stroke-width="1" stroke-dasharray="2 3" opacity="0.4"/>
+  <!-- Fire Flame Vector -->
+  <path d="M40 18C40 26 48 30 48 40C48 48 42 54 36 54C42 52 44 46 42 42C40 38 34 36 34 28C34 24 36 20 40 18Z" fill="url(#fire-grad)"/>
+  <path d="M40 34C40 38 43 40 43 45C43 49 40 52 37 52C40 51 41 48 40 46C39 44 36 43 36 39C36 37 38 35 40 34Z" fill="#FFF275"/>
+  <text x="40" y="66" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7.5" font-weight="900" fill="#FFB703" letter-spacing="0.08em">STREAK</text>
+</svg>

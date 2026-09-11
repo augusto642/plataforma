@@ -1,0 +1,29 @@
+{
+  "name": "plataforma",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "docker compose up",
+    "dev:api": "pnpm --filter @plataforma/api dev",
+    "dev:web": "pnpm --filter @plataforma/web dev",
+    "start": "pnpm --filter @plataforma/web start",
+    "start:web": "pnpm --filter @plataforma/web start",
+    "test": "pnpm -r test",
+    "test:unit": "pnpm -r test:unit",
+    "test:watch": "pnpm --filter @plataforma/api test:watch",
+    "test:coverage": "pnpm -r test:coverage",
+    "codegen:ai-runner": "node scripts/generate-ai-runner.js",
+    "db:push": "pnpm --filter @plataforma/api exec prisma db push",
+    "db:migrate": "pnpm --filter @plataforma/api exec prisma migrate deploy",
+    "db:generate": "pnpm --filter @plataforma/api exec prisma generate",
+    "seed:gitea": "node scripts/seed-gitea.mjs",
+    "seed:data": "node scripts/seed-data.mjs",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

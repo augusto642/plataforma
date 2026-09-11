@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  student
+  instructor
+  admin
+}
+
+enum Language {
+  java
+  javascript
+  typescript
+  python
+  portugol
+}
+
+enum SubmissionStatus {
+  pending
+  queued
+  running
+  passed
+  failed
+  error
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  role         Role      @default(student)
+  giteaUserId  Int?      @unique @map("gitea_user_id")
+  xp           Int       @default(0)
+  level        Int       @default(1)
+  streakDays   Int       @default(0) @map("streak_days")
+  talentVisible Boolean  @default(true) @map("talent_visible")
+  lastActiveAt DateTime? @map("last_active_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens     RefreshToken[]
+  instructedCourses Course[]        @relation("InstructedCourses")
+  enrollments       Enrollment[]
+  submissions       Submission[]
+  badges            UserBadge[]
+  chatMessages      AiChatMessage[]
+  studentRepos      StudentRepo[]
+
+  @@map("users")
+}
+
+model UserBadge {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  badgeCode   String   @map("badge_code")
+  title       String
+  description String
+  icon        String   @default("🏆")
+  unlockedAt  DateTime @default(now()) @map("unlocked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeCode])
+  @@map("user_badges")
+}
+
+model AiChatMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  role       String
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, activityId])
+  @@map("ai_chat_messages")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Course {
+  id              String   @id @default(uuid()) @db.Uuid
+  title           String
+  slug            String   @unique
+  description     String?
+  enrollmentCode  String?  @unique @map("enrollment_code")
+  isPublicLibrary Boolean  @default(false) @map("is_public_library")
+  instructorId    String   @map("instructor_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  instructor   User         @relation("InstructedCourses", fields: [instructorId], references: [id], onDelete: Restrict)
+  enrollments  Enrollment[]
+  activities   Activity[]
+
+  @@index([instructorId])
+  @@map("courses")
+}
+
+model Enrollment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  courseId  String   @map("course_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@map("enrollments")
+}
+
+model Activity {
+  id                String   @id @default(uuid()) @db.Uuid
+  courseId          String   @map("course_id") @db.Uuid
+  title             String
+  slug              String
+  description       String
+  instructions      String?
+  language          Language @default(javascript)
+  initialCode       String   @map("initial_code")
+  testCode          String?  @map("test_code")
+  hiddenTests       String?  @map("hidden_tests")
+  timeLimitMs       Int      @default(5000) @map("time_limit_ms")
+  memoryLimitMb     Int      @default(256) @map("memory_limit_mb")
+  order             Int      @default(0)
+  conceptTags       String[] @default([]) @map("concept_tags")
+  referenceSolution String?  @map("reference_solution")
+  giteaTemplateRepo String?  @map("gitea_template_repo")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  course       Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions  Submission[]
+  chatMessages AiChatMessage[]
+  studentRepos StudentRepo[]
+
+  @@unique([courseId, slug])
+  @@map("activities")
+}
+
+model Submission {
+  id           String           @id @default(uuid()) @db.Uuid
+  activityId   String           @map("activity_id") @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  codeSnapshot String?          @map("code_snapshot")
+  commitSha    String?          @map("commit_sha")
+  status       SubmissionStatus @default(pending)
+  score        Float?
+  maxScore     Float?           @default(100) @map("max_score")
+  durationMs   Int?             @map("duration_ms")
+  errorMessage String?          @map("error_message")
+  logs         String?
+  aiFeedback   String?          @map("ai_feedback")
+  aiHints      String?          @map("ai_hints")
+  aiLineFeedback String?        @map("ai_line_feedback")
+  xpAwarded    Boolean          @default(false) @map("xp_awarded")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  activity    Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testResults TestCaseResult[]
+
+  @@unique([activityId, userId, commitSha])
+  @@index([activityId, userId])
+  @@index([userId, status])
+  @@index([activityId, status])
+  @@index([commitSha])
+  @@map("submissions")
+}
+
+model TestCaseResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  submissionId String   @map("submission_id") @db.Uuid
+  name         String
+  passed       Boolean
+  durationMs   Int?     @map("duration_ms")
+  stdout       String?
+  stderr       String?
+  errorMessage String?  @map("error_message")
+  isHidden     Boolean  @default(false) @map("is_hidden")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("test_case_results")
+}
+
+model WebhookDelivery {
+  id           String   @id @default(uuid()) @db.Uuid
+  deliveryId   String   @unique @map("delivery_id")
+  eventType    String   @map("event_type")
+  repoFullName String   @map("repo_full_name")
+  commitSha    String?  @map("commit_sha")
+  receivedAt   DateTime @default(now()) @map("received_at")
+
+  @@index([receivedAt])
+  @@map("webhook_deliveries")
+}
+
+model StudentRepo {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  repoFullName  String   @map("repo_full_name")
+  giteaUsername String   @map("gitea_username")
+  activityId    String?  @map("activity_id") @db.Uuid
+  commitSha     String?  @map("commit_sha")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, repoFullName])
+  @@index([userId])
+  @@index([giteaUsername])
+  @@map("student_repos")
+}
+
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  tokenHash String   @unique @map("token_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("companies")
+}
