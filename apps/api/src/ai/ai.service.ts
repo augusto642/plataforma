@@ -2,10 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 
+export type SocraticTier = 1 | 2 | 3;
+
 export interface PedagogicalFeedback {
   summary: string;
   hints: string[];
   suggestedConcept: string;
+  tier?: SocraticTier;
 }
 
 export interface ComplexityAnalysisResult {
@@ -28,7 +31,26 @@ export class AiService {
     private readonly config: ConfigService,
   ) {
     this.apiKey = this.config.get<string>('AI_API_KEY') || '';
-    this.apiUrl = this.config.get<string>('AI_API_URL') || 'https://api.openai.com/v1/chat/completions';
+    this.apiUrl = this.config.get<string>('AI_API_URL') || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+  }
+
+  async calculateTier(userId: string, activityId: string): Promise<SocraticTier> {
+    try {
+      const [failedCount, chatCount] = await Promise.all([
+        this.prisma.submission.count({
+          where: { userId, activityId, status: { in: ['failed', 'error'] } },
+        }),
+        this.prisma.aiChatMessage.count({
+          where: { userId, activityId },
+        }),
+      ]);
+
+      if (failedCount >= 3 || chatCount >= 6) return 3;
+      if (failedCount >= 2 || chatCount >= 3) return 2;
+      return 1;
+    } catch {
+      return 1;
+    }
   }
 
   async generatePedagogicalHint(submissionId: string, userId: string): Promise<PedagogicalFeedback> {
@@ -44,6 +66,8 @@ export class AiService {
       throw new NotFoundException('Submissão não encontrada ou acesso não autorizado');
     }
 
+    const tier = await this.calculateTier(userId, submission.activityId);
+
     // Return cached feedback if available
     if (submission.aiFeedback && submission.aiHints) {
       try {
@@ -51,6 +75,7 @@ export class AiService {
           summary: submission.aiFeedback,
           hints: JSON.parse(submission.aiHints),
           suggestedConcept: 'Revisão Pedagógica',
+          tier,
         };
       } catch {}
     }
@@ -61,6 +86,7 @@ export class AiService {
       submission.activity.description,
       submission.codeSnapshot || '',
       failedTests,
+      tier,
     );
 
     // Persist AI feedback
@@ -120,8 +146,15 @@ export class AiService {
     instructions: string,
     studentCode: string,
     failedTests: any[],
+    tier: SocraticTier = 1,
   ): Promise<PedagogicalFeedback> {
     const sanitizedStudentCode = this.sanitizePrompt(studentCode);
+
+    const tierPrompts: Record<SocraticTier, string> = {
+      1: 'ESTÁGIO SOCRÁTICO TIER 1 (MODELO MENTAL & INVARIANTES): O aluno está na primeira tentativa. Conduza o aluno com perguntas sobre o modelo mental e a invariante de saída esperada. Não mencione código pronto nem sintaxe.',
+      2: 'ESTÁGIO SOCRÁTICO TIER 2 (CASOS DE BORDA & TESTE DE MESA): O aluno já errou anteriormente. Aponte a natureza do caso limite ou asserção que falhou e estimule o aluno a simular a execução passo a passo no papel (teste de mesa). Não forneça o código.',
+      3: 'ESTÁGIO SOCRÁTICO TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS): O aluno persiste com dificuldades ou atingiu limites de tempo/memória. Discuta a ordem de complexidade O(N) vs O(N²), loops aninhados e uso de estruturas eficientes (Maps, Sets). Nunca entregue a resposta final.',
+    };
 
     // If external AI LLM API key is configured, call it
     if (this.apiKey) {
@@ -131,19 +164,21 @@ export class AiService {
           .join('\n');
 
         const prompt = [
-          'Você é um tutor de programação socrático e paciente.',
+          'Você é um tutor de programação socrático e rigoroso da NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activityTitle}".`,
           `Enunciado: ${instructions}`,
           '',
+          tierPrompts[tier],
+          '',
           'Código do aluno:',
-          sanitizedStudentCode,
+          sanitizedStudentCode || '// Arquivo em branco',
           '',
           'Testes que falharam:',
-          failedSummary,
+          failedSummary || 'Nenhuma falha de teste detalhada.',
           '',
           'Regras estritas:',
           '1. NUNCA forneça o código pronto ou a resposta final.',
-          '2. Explique a causa conceitual do erro de forma amigável.',
+          '2. Explique a causa conceitual do erro de forma amigável e provocativa.',
           '3. Forneça 2 ou 3 dicas passo a passo (hints) para o aluno descobrir o erro sozinho.',
           '4. Responda em formato JSON com as chaves: summary (string), hints (array de strings), suggestedConcept (string).',
         ].join('\n');
@@ -155,7 +190,7 @@ export class AiService {
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify({
-            model: this.config.get<string>('AI_MODEL', 'gpt-4o-mini'),
+            model: this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' },
           }),
@@ -168,6 +203,7 @@ export class AiService {
             summary: parsed.summary,
             hints: parsed.hints || [],
             suggestedConcept: parsed.suggestedConcept || 'Lógica e Algoritmos',
+            tier,
           };
         }
       } catch (err: any) {
@@ -176,13 +212,14 @@ export class AiService {
     }
 
     // Heuristic Socratic Engine (offline & default)
-    return this.generateHeuristicSocraticHints(studentCode, failedTests, activityTitle);
+    return this.generateHeuristicSocraticHints(studentCode, failedTests, activityTitle, tier);
   }
 
   private generateHeuristicSocraticHints(
     code: string,
     failedTests: any[],
     title: string,
+    tier: SocraticTier = 1,
   ): PedagogicalFeedback {
     const hints: string[] = [];
     let summary = 'Notei que o seu código ainda não passou em todos os testes. Vamos analisar juntos!';
@@ -192,38 +229,43 @@ export class AiService {
       summary = 'Seu arquivo de resposta está em branco.';
       hints.push('Comece declarando a função solicitada no enunciado.');
       hints.push('Certifique-se de que o nome da função e a quantidade de parâmetros correspondem exatamente ao solicitado.');
-      return { summary, hints, suggestedConcept: 'Declaração de Funções' };
+      return { summary, hints, suggestedConcept: 'Declaração de Funções', tier };
     }
 
-    if (!code.includes('return')) {
-      hints.push('Lembre-se de que a função precisa explicitamente usar a palavra-chave `return` para devolver o resultado calculado.');
-      hints.push('Sem o `return`, a função em JavaScript devolve `undefined` por padrão.');
-    }
-
-    if (code.includes('for') || code.includes('while')) {
-      concept = 'Laços de Repetição e Condicionais';
-      hints.push('Verifique os limites do seu laço (condição de parada e índices iniciais).');
-      hints.push('Cuidado com loops infinitos ou acessos fora do tamanho do array.');
-    }
-
-    if (failedTests.length > 0) {
-      const firstError = failedTests[0].errorMessage || '';
-      if (firstError.includes('function')) {
-        hints.push('Verifique a ortografia do nome da função; ela precisa ser exportada ou definida no escopo global.');
+    if (tier === 1) {
+      summary = `Tier 1 (Modelo Mental) — Exercício: "${title}". Antes de mexer na sintaxe, vamos entender a invariante.`;
+      concept = 'Modelo Mental e Invariantes';
+      hints.push('Em suas próprias palavras: qual transformação o algoritmo deve produzir entre os parâmetros recebidos e a saída esperada?');
+      if (!code.includes('return')) {
+        hints.push('Pense no momento em que a função termina: você está usando `return` para devolver explicitamente o valor aos testes?');
       } else {
-        hints.push(`Observe o primeiro teste com falha: "${firstError}". Tente simular a execução manualmente com esses valores.`);
+        hints.push('Quais condições lógicas precisam ser satisfeitas para cada caso de teste ser aprovado?');
       }
-    }
-
-    if (hints.length === 0) {
-      hints.push('Revise se você considerou casos especiais, como números negativos, arrays vazios ou textos com caracteres repetidos.');
-      hints.push('Adicione mensagens de depuração intermediárias para acompanhar o valor das suas variáveis.');
+    } else if (tier === 2) {
+      summary = `Tier 2 (Casos de Borda & Teste de Mesa) — Exercício: "${title}". Identificando asserções que falharam.`;
+      concept = 'Casos de Borda e Simulação Passo a Passo';
+      if (failedTests.length > 0) {
+        const firstError = failedTests[0].errorMessage || failedTests[0].name || '';
+        hints.push(`Observe o teste que falhou: "${firstError}". Que valores causaram essa divergência?`);
+      }
+      hints.push('Realize um teste de mesa: anote em um papel o valor das variáveis linha a linha simulando a entrada do teste.');
+      hints.push('Você considerou valores extremos como zero, negativos, listas vazias ou limites de tamanho?');
+    } else {
+      summary = `Tier 3 (Complexidade Big-O & Eficiência) — Exercício: "${title}". Otimizando trade-offs de tempo e espaço.`;
+      concept = 'Complexidade Assintótica e Estruturas de Dados';
+      if (code.includes('for') || code.includes('while')) {
+        hints.push('Quantas iterações seu algoritmo realiza no pior caso? Se houver laços aninhados, a complexidade pode ser O(N²).');
+        hints.push('Considere se uma tabela hash (Map/Set) ou ordenação prévia permite reduzir o tempo de busca para O(1) ou O(log N).');
+      } else {
+        hints.push('Avalie os limites de tempo e memória: a sua solução atual escala bem se o volume de dados aumentar significativamente?');
+      }
     }
 
     return {
       summary,
       hints,
       suggestedConcept: concept,
+      tier,
     };
   }
 
@@ -287,15 +329,22 @@ export class AiService {
     }
 
     let fullAssistantContent = '';
+    const tier = userId ? await this.calculateTier(userId, dto.activityId) : 1;
+    const tierInstructions: Record<SocraticTier, string> = {
+      1: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 1 (MODELO MENTAL & INVARIANTES). Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
+      2: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 2 (CASOS DE BORDA & TESTE DE MESA). O aluno já tentou e falhou. Destaque cenários limites e incentive o rastreamento manual linha a linha.',
+      3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
+    };
 
     // If API key is available, call streaming endpoint
     if (this.apiKey) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
         const systemPrompt = [
-          'Você é o Tutor de IA da plataforma de ensino de programação.',
+          'Você é o Tutor de IA socrático e rigoroso da plataforma NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
+          tierInstructions[tier],
           sanitizedCode ? `Código atual do aluno:\n${sanitizedCode}` : '',
           'Instruções pedagógicas:',
           '- NUNCA escreva o código pronto da solução.',
@@ -316,7 +365,7 @@ export class AiService {
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify({
-            model: this.config.get<string>('AI_MODEL', 'gpt-4o-mini'),
+            model: this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
             messages: apiMessages,
             stream: true,
           }),
@@ -436,14 +485,21 @@ export class AiService {
     }
 
     let assistantContent = '';
+    const tier = userId ? await this.calculateTier(userId, dto.activityId) : 1;
+    const tierInstructions: Record<SocraticTier, string> = {
+      1: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 1 (MODELO MENTAL & INVARIANTES). Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
+      2: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 2 (CASOS DE BORDA & TESTE DE MESA). O aluno já tentou e falhou. Destaque cenários limites e incentive o rastreamento manual linha a linha.',
+      3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
+    };
 
     if (this.apiKey) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
         const systemPrompt = [
-          'Você é o Tutor de IA da plataforma de ensino de programação.',
+          'Você é o Tutor de IA socrático e rigoroso da plataforma NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
+          tierInstructions[tier],
           sanitizedCode ? `Código atual do aluno:\n${sanitizedCode}` : '',
           'Instruções pedagógicas:',
           '- NUNCA escreva o código pronto da solução.',
@@ -464,7 +520,7 @@ export class AiService {
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify({
-            model: this.config.get<string>('AI_MODEL', 'gpt-4o-mini'),
+            model: this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
             messages: apiMessages,
           }),
         });

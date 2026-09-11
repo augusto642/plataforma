@@ -10,6 +10,7 @@ describe('AiService', () => {
     submission: {
       findFirst: jest.fn(),
       update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
     activity: {
       findUnique: jest.fn().mockResolvedValue({
@@ -21,6 +22,7 @@ describe('AiService', () => {
     aiChatMessage: {
       create: jest.fn().mockResolvedValue({ id: 'msg-1' }),
       findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
     },
   };
 
@@ -90,6 +92,85 @@ describe('AiService', () => {
 
       expect(response.role).toBe('assistant');
       expect(response.content).toContain('Como seu tutor socrático, meu papel é te guiar');
+    });
+  });
+
+  describe('calculateTier', () => {
+    it('should return Tier 1 for 0 or 1 failures', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(0);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(1);
+
+      const tier = await service.calculateTier('user-1', 'act-1');
+      expect(tier).toBe(1);
+    });
+
+    it('should return Tier 2 for 2 failures', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(2);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(2);
+
+      const tier = await service.calculateTier('user-1', 'act-1');
+      expect(tier).toBe(2);
+    });
+
+    it('should return Tier 3 for 3 or more failures', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(3);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(1);
+
+      const tier = await service.calculateTier('user-1', 'act-1');
+      expect(tier).toBe(3);
+    });
+  });
+
+  describe('generatePedagogicalHint with Tiers', () => {
+    it('should generate Tier 1 mental model hint on first failure', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(1);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(0);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-1',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [{ passed: false, name: 'caso 1', errorMessage: 'expected 5 got undefined' }],
+        codeSnapshot: 'function somar(a, b) { const x = a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-1', 'user-1');
+      expect(feedback.tier).toBe(1);
+      expect(feedback.summary).toContain('Tier 1');
+      expect(feedback.suggestedConcept).toContain('Modelo Mental');
+    });
+
+    it('should generate Tier 2 edge case hint on second failure', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(2);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(2);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-2',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [{ passed: false, name: 'caso 0', errorMessage: 'expected 0 got NaN' }],
+        codeSnapshot: 'function somar(a, b) { return a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-2', 'user-1');
+      expect(feedback.tier).toBe(2);
+      expect(feedback.summary).toContain('Tier 2');
+      expect(feedback.suggestedConcept).toContain('Casos de Borda');
+    });
+
+    it('should generate Tier 3 complexity hint on third failure', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(3);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(4);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-3',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [{ passed: false, name: 'tempo limite', errorMessage: 'Time limit exceeded' }],
+        codeSnapshot: 'function somar(a, b) { for(let i=0;i<1000000;i++) {} return a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-3', 'user-1');
+      expect(feedback.tier).toBe(3);
+      expect(feedback.summary).toContain('Tier 3');
+      expect(feedback.suggestedConcept).toContain('Complexidade');
     });
   });
 });
