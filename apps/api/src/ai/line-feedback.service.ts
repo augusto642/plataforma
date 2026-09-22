@@ -4,9 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from './ai.service';
+import { LlmClient } from './llm-client';
+import { UNTRUSTED_DATA_SYSTEM_NOTE, wrapUntrusted } from './prompt-guard';
 
 export interface LineFeedbackItem {
   line: number;
@@ -22,17 +23,12 @@ const SIMPLE_NUMBERS = new Set(['0', '1']);
 @Injectable()
 export class LineFeedbackService {
   private readonly logger = new Logger(LineFeedbackService.name);
-  private readonly apiKey: string;
-  private readonly apiUrl: string;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
     private readonly ai: AiService,
-  ) {
-    this.apiKey = this.config.get<string>('AI_API_KEY') || '';
-    this.apiUrl = this.config.get<string>('AI_API_URL') || 'https://api.openai.com/v1/chat/completions';
-  }
+    private readonly llm: LlmClient,
+  ) {}
 
   async analyze(
     submissionId: string,
@@ -264,7 +260,7 @@ export class LineFeedbackService {
     language: string,
     heuristicItems: LineFeedbackItem[],
   ): Promise<LineFeedbackItem[]> {
-    if (!this.apiKey) {
+    if (!this.llm.hasApiKey) {
       return heuristicItems;
     }
     try {
@@ -273,30 +269,18 @@ export class LineFeedbackService {
         `A linguagem do código é ${language}. Analise linha a linha e aponte problemas pontuais de estilo, clareza ou possíveis erros.`,
         'Responda em formato JSON com a chave "items", um array de objetos { line, comment, severity }, onde severity é "info" ou "warning".',
         'Responda em português brasileiro. Máximo de 10 itens. Se não houver nada relevante, devolva um array vazio.',
+        UNTRUSTED_DATA_SYSTEM_NOTE,
         '',
-        'Código:',
-        this.ai.sanitizePrompt(code),
+        wrapUntrusted('CODIGO_DO_ALUNO', this.ai.sanitizePrompt(code)),
       ].join('\n');
 
-      const res = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.config.get<string>('AI_MODEL', 'gpt-4o-mini'),
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-        }),
+      // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
+      const content = await this.llm.complete({
+        messages: [{ role: 'user', content: prompt }],
+        jsonMode: true,
       });
 
-      if (!res.ok) {
-        return heuristicItems;
-      }
-
-      const data = await res.json();
-      const parsed = JSON.parse(data.choices[0].message.content);
+      const parsed = JSON.parse(content);
       const externalItems: unknown = parsed?.items;
       if (!Array.isArray(externalItems)) {
         return heuristicItems;

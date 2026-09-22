@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 function parseCorsOrigins(value: string | undefined): string[] {
@@ -18,6 +19,29 @@ async function bootstrap() {
     rawBody: true,
     bodyParser: false,
   });
+
+  // Security headers (finding ALTA — AppSec). Aplicado ANTES das rotas e do
+  // body parser: helmet não toca no corpo da requisição, então o rawBody do
+  // webhook do Gitea (verificação HMAC) continua íntegro.
+  // - contentSecurityPolicy: a API só serve JSON (CSP do HTML fica no Next,
+  //   next.config.js); mantemos a CSP restritiva default do helmet.
+  // - crossOriginResourcePolicy: 'cross-origin' porque o web app (outra
+  //   origem em dev) consome respostas/SSE da API com CORS + credentials.
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  // Trust proxy: atrás de um reverse proxy (docker-compose/produção), sem
+  // isso o ThrottlerGuard vê todos os clientes com o mesmo IP (o do proxy)
+  // e o rate limit vira global. Confiar apenas em loopback/link-local/
+  // unique-local (redes privadas) impede spoofing de X-Forwarded-For vindo
+  // da internet pública.
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
+
   // Limite explícito de payload (o default de 100kb rejeitava pushes legítimos
   // do Gitea antes do check de 1MB do controller de webhooks).
   app.useBodyParser('json', { limit: '1mb' });
@@ -28,7 +52,7 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-metrics-token'],
   });
 
   app.useGlobalPipes(

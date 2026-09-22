@@ -79,4 +79,25 @@ describe('GamificationService', () => {
     expect(result?.xpGained).toBe(20);
     expect(result?.totalXp).toBe(170);
   });
+
+  it('calls user.update with xp increment delta instead of absolute value', async () => {
+    let capturedUpdate: any;
+    const txWithCapture = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(mockUser),
+        update: jest.fn().mockImplementation((args: any) => {
+          capturedUpdate = args;
+          return Promise.resolve({ ...mockUser, ...args.data });
+        }),
+      },
+      userBadge: { create: jest.fn().mockResolvedValue({ id: 'badge-1' }) },
+    };
+    (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(txWithCapture));
+
+    const result = await service.awardSubmissionXp(mockUser.id, 'activity-1', true, 100);
+
+    expect(result?.xpGained).toBe(120);
+    expect(capturedUpdate.data.xp).toEqual({ increment: 120 });
+    expect(capturedUpdate.data.level).toBe(2);
+  });
 });

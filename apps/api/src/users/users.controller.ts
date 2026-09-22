@@ -9,18 +9,28 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateTalentVisibilityDto } from './dto/update-talent-visibility.dto';
+import { CareerTierGuard } from './guards/career-tier.guard';
 import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
+
+  @Get('check-nickname')
+  @Public()
+  checkNickname(@Query('nickname') nickname?: string) {
+    return this.users.checkNickname(nickname);
+  }
 
   @Get('me')
   getMe(@CurrentUser() user: JwtPayload) {
@@ -43,6 +53,23 @@ export class UsersController {
     @Body() dto: UpdateTalentVisibilityDto,
   ) {
     return this.users.updateTalentVisibility(user.sub, dto.talentVisible);
+  }
+
+  @Patch('me/career-tier')
+  @UseGuards(CareerTierGuard)
+  updateCareerTier(
+    @CurrentUser() user: JwtPayload,
+    @Body('careerTier') careerTier: string,
+  ) {
+    return this.users.updateCareerTier(user.sub, careerTier);
+  }
+
+  @Post('me/companion')
+  adoptCompanion(
+    @CurrentUser() user: JwtPayload,
+    @Body('starterName') starterName: string,
+  ) {
+    return this.users.adoptCompanion(user.sub, starterName);
   }
 
   @Delete('me')

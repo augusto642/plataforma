@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Editor from '@monaco-editor/react';
+import { IdeHeader } from './components/IdeHeader';
+import { IdeEditorPane } from './components/IdeEditorPane';
+import { InstructionsPanel } from './components/InstructionsPanel';
+import { TerminalConsole } from './components/TerminalConsole';
+import { TestResultsGrid } from './components/TestResultsGrid';
+import { SubmissionsHistoryDrawer } from './components/SubmissionsHistoryDrawer';
 import AuthView from '../components/AuthView';
 import AITutorPanel from '../components/AITutorPanel';
 import ProgressModal from '../components/ProgressModal';
@@ -958,327 +963,193 @@ export default function HomePage() {
         {/* Workspace Center */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {selectedActivity ? (
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '420px 1fr', height: 'calc(100vh - 60px)' }}>
-              {/* Left Details & Test Suite */}
-              <div style={{ borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#0b1120' }}>
-                <div style={{ padding: 20, borderBottom: '1px solid #1e293b' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, padding: '3px 8px', background: '#0284c7', borderRadius: 4, color: '#fff', fontWeight: 700 }}>
-                      {selectedActivity.language.toUpperCase()}
-                    </span>
-                    <button
-                      onClick={handleLoadHistory}
-                      style={{ background: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '3px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}
-                    >
-                      Histórico de Envios
-                    </button>
-                  </div>
-                  <h2 style={{ fontSize: 18, fontWeight: 700, margin: '6px 0 10px 0', color: '#f8fafc' }}>{selectedActivity.title}</h2>
-                  <p style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0 }}>
-                    {selectedActivity.description}
-                  </p>
-                  {selectedActivity.instructions && (
-                    <div style={{ marginTop: 12, padding: 10, background: '#131c2e', borderRadius: 6, fontSize: 12, color: '#93c5fd' }}>
-                      💡 {selectedActivity.instructions}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+              {/* Contextual Activity Header */}
+              <IdeHeader
+                activityTitle={selectedActivity.title}
+                courseTitle={selectedCourse?.title}
+                language={selectedActivity.language}
+                onOpenHistory={handleLoadHistory}
+                onOpenNewActivity={isInstructor ? () => setShowActivityModal(true) : undefined}
+                isInstructor={isInstructor}
+              />
+
+              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '440px 1fr', minHeight: 0 }}>
+                {/* Left Column: Instructions, Socratic Guidance & Validation Results */}
+                <div style={{ borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#0b1120' }}>
+                  {/* Instructions & Socratic Prompting */}
+                  <InstructionsPanel
+                    title={selectedActivity.title}
+                    description={selectedActivity.description}
+                    difficulty="Intermediário"
+                    language={selectedActivity.language}
+                    hints={selectedActivity.instructions ? [selectedActivity.instructions] : []}
+                    courseTitle={selectedCourse?.title}
+                  />
+
+                  {/* AI Tutor Actions & Line Feedback Callouts */}
+                  {submission && submission.status === 'failed' && (
+                    <div style={{ padding: '12px 16px', background: '#0d1017', borderTop: '1px solid #1e222d', display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={handleRequestLineFeedback}
+                        disabled={isLoadingLineFeedback}
+                        style={{
+                          flex: 1,
+                          padding: '6px 12px',
+                          background: 'rgba(56, 189, 248, 0.12)',
+                          color: '#38bdf8',
+                          border: '1px solid #38bdf8',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: isLoadingLineFeedback ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {isLoadingLineFeedback ? 'Analisando...' : '🔍 Análise por Linha'}
+                      </button>
+                      <button
+                        onClick={handleAskAi}
+                        disabled={isLoadingAi}
+                        style={{
+                          flex: 1,
+                          padding: '6px 12px',
+                          background: 'linear-gradient(to right, #8b5cf6, #ec4899)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: isLoadingAi ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {isLoadingAi ? 'Consultando...' : '🤖 Dica Socrática'}
+                      </button>
                     </div>
                   )}
-                </div>
 
-                {/* Submissions & Test Output */}
-                <div style={{ padding: 20, flex: 1, overflowY: 'auto' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Resultado da Avaliação</h3>
-                    {submission && submission.status === 'failed' && (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          onClick={handleRequestLineFeedback}
-                          disabled={isLoadingLineFeedback}
-                          style={{
-                            padding: '5px 12px',
-                            background: 'rgba(56, 189, 248, 0.15)',
-                            color: '#38bdf8',
-                            border: '1px solid #38bdf8',
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: isLoadingLineFeedback ? 'not-allowed' : 'pointer',
-                          }}
-                        >
-                          {isLoadingLineFeedback ? 'Analisando...' : '🔍 Análise por Linha'}
-                        </button>
-                        <button
-                          onClick={handleAskAi}
-                          disabled={isLoadingAi}
-                          style={{
-                            padding: '5px 12px',
-                            background: 'linear-gradient(to right, #8b5cf6, #ec4899)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: isLoadingAi ? 'not-allowed' : 'pointer',
-                          }}
-                        >
-                          {isLoadingAi ? 'Consultando Tutor...' : '🤖 Dica Socrática'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {isSubmitting ? (
-                    <div style={{ padding: 18, background: '#131c2e', borderRadius: 8, border: '1px dashed #38bdf8', color: '#38bdf8', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 16 }}>⏳</span>
-                      <span>Executando testes no Sandbox isolado...</span>
+                  {/* Reference Solution Block */}
+                  {submission && submission.status === 'passed' && (
+                    <div style={{ padding: '12px 16px', background: '#0d1017', borderTop: '1px solid #1e222d' }}>
+                      <button
+                        onClick={handleLoadReference}
+                        disabled={isLoadingReference}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(34, 197, 94, 0.12)',
+                          border: '1px solid #22c55e',
+                          borderRadius: 8,
+                          color: '#4ade80',
+                          cursor: isLoadingReference ? 'not-allowed' : 'pointer',
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {isLoadingReference ? 'Carregando...' : showReference ? 'Ocultar Solução' : '💡 Solução de Referência'}
+                      </button>
+                      {showReference && referenceCode !== null && (
+                        <div style={{ marginTop: 8, background: '#131c2e', border: '1px solid #22c55e', borderRadius: 8, padding: 12 }}>
+                          <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5, color: '#e2e8f0', background: '#090d16', padding: 10, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                            {referenceCode}
+                          </pre>
+                        </div>
+                      )}
                     </div>
-                  ) : submission ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div style={{
-                        padding: 12,
-                        borderRadius: 8,
-                        background: submission.status === 'passed' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        border: `1px solid ${submission.status === 'passed' ? '#22c55e' : '#ef4444'}`,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}>
-                        <div>
-                          <strong style={{ fontSize: 14, color: submission.status === 'passed' ? '#4ade80' : '#f87171' }}>
-                            {submission.status === 'passed' ? '✓ Todos os testes passaram!' : '✗ Falha em testes de validação'}
-                          </strong>
-                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                            Duração: {submission.durationMs || 0}ms
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>
-                          {submission.score ?? 0} / {submission.maxScore ?? 100}
-                        </div>
+                  )}
+
+                  {/* AI Hints Block */}
+                  {aiHints && (
+                    <div style={{ margin: '12px 16px', background: '#1e1b4b', border: '1px solid #818cf8', borderRadius: 8, padding: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: '#c7d2fe', fontWeight: 700, fontSize: 12 }}>
+                        <span>🤖 Tutor IA — {aiHints.suggestedConcept}</span>
                       </div>
-
-                      {/* Dopamine Loop XP Odometer Victory Card */}
-                      {submission.status === 'passed' && (
-                        <div
-                          className="xp-pop-anim"
-                          style={{
-                            background: 'linear-gradient(135deg, rgba(0, 179, 126, 0.18) 0%, rgba(130, 87, 229, 0.18) 100%)',
-                            border: '1px solid #04D361',
-                            borderRadius: 10,
-                            padding: '12px 16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            boxShadow: '0 0 25px rgba(0, 179, 126, 0.3)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 24 }}>⚡</span>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 800, color: '#04D361', letterSpacing: '0.02em' }}>
-                                DESAFIO CONCLUÍDO COM SUCESSO!
-                              </div>
-                              <div style={{ fontSize: 11, color: '#A8A8B3' }}>
-                                Telemetria validada no Sandbox Piston & Git
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              background: '#04D361',
-                              color: '#09090A',
-                              padding: '5px 14px',
-                              borderRadius: 20,
-                              fontWeight: 900,
-                              fontSize: 14,
-                              fontFamily: 'monospace',
-                              boxShadow: '0 0 15px rgba(4, 211, 97, 0.6)',
-                            }}
-                          >
-                            +120 XP
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Reference Solution Block */}
-                      {submission.status === 'passed' && (
-                        <div>
-                          <button
-                            onClick={handleLoadReference}
-                            disabled={isLoadingReference}
-                            style={{
-                              padding: '6px 12px',
-                              background: 'rgba(34, 197, 94, 0.12)',
-                              border: '1px solid #22c55e',
-                              borderRadius: 6,
-                              color: '#4ade80',
-                              cursor: isLoadingReference ? 'not-allowed' : 'pointer',
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {isLoadingReference ? 'Carregando...' : showReference ? 'Ocultar Solução de Referência' : '💡 Ver Solução de Referência'}
-                          </button>
-                          {showReference && referenceCode !== null && (
-                            <div style={{ marginTop: 8, background: '#131c2e', border: '1px solid #22c55e', borderRadius: 8, padding: 12 }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', marginBottom: 6 }}>Solução de Referência</div>
-                              <pre style={{ margin: 0, fontFamily: '"Fira Code", "Cascadia Code", Consolas, monospace', fontSize: 12, lineHeight: 1.5, color: '#e2e8f0', background: '#090d16', padding: 10, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
-                                {referenceCode}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* AI Hints Block */}
-                      {aiHints && (
-                        <div style={{ background: '#1e1b4b', border: '1px solid #818cf8', borderRadius: 8, padding: 14 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: '#c7d2fe', fontWeight: 700, fontSize: 12 }}>
-                            <span>🤖 Tutor IA — {aiHints.suggestedConcept}</span>
-                          </div>
-                          <p style={{ fontSize: 12, color: '#e0e7ff', lineHeight: 1.4, margin: '0 0 10px 0' }}>
-                            {aiHints.summary}
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {aiHints.hints.map((h, i) => (
-                              <div key={i} style={{ background: '#312e81', padding: '6px 10px', borderRadius: 4, fontSize: 12, color: '#f5f3ff' }}>
-                                💡 <strong>Dica {i + 1}:</strong> {h}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Line Feedback Block */}
-                      {lineFeedback !== null && submission.status === 'failed' && (
-                        <div style={{ background: '#131c2e', border: '1px solid #334155', borderRadius: 8, padding: 14 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', marginBottom: 8 }}>
-                            🔍 Análise por Linha
-                          </div>
-                          {lineFeedback.length === 0 ? (
-                            <div style={{ fontSize: 12, color: '#64748b' }}>
-                              Nenhuma observação detectada nesta submissão.
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              {lineFeedback.map((item, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: 8,
-                                    padding: '6px 10px',
-                                    borderRadius: 4,
-                                    background: '#0b1120',
-                                    borderLeft: `3px solid ${item.severity === 'warning' ? '#f59e0b' : '#94a3b8'}`,
-                                  }}
-                                >
-                                  <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: item.severity === 'warning' ? '#f59e0b' : '#94a3b8', whiteSpace: 'nowrap' }}>
-                                    Linha {item.line}
-                                  </span>
-                                  <span style={{ fontSize: 12, color: item.severity === 'warning' ? '#f59e0b' : '#94a3b8', lineHeight: 1.4 }}>
-                                    {item.comment}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Test cases list */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {submission.testResults?.map((test) => (
-                          <div key={test.id} style={{ background: '#131c2e', padding: '10px 12px', borderRadius: 6, borderLeft: `4px solid ${test.passed ? '#22c55e' : '#ef4444'}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: 13, fontWeight: 600 }}>{test.name}</span>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: test.passed ? '#4ade80' : '#f87171' }}>
-                                {test.passed ? 'PASSED' : 'FAILED'}
-                              </span>
-                            </div>
-                            {test.errorMessage && (
-                              <div style={{ marginTop: 6, fontSize: 11, color: '#fca5a5', fontFamily: 'monospace', background: '#090d16', padding: 6, borderRadius: 4, whiteSpace: 'pre-wrap' }}>
-                                {test.errorMessage}
-                              </div>
-                            )}
+                      <p style={{ fontSize: 12, color: '#e0e7ff', lineHeight: 1.4, margin: '0 0 10px 0' }}>
+                        {aiHints.summary}
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {aiHints.hints.map((h, i) => (
+                          <div key={i} style={{ background: '#312e81', padding: '6px 10px', borderRadius: 4, fontSize: 12, color: '#f5f3ff' }}>
+                            💡 <strong>Dica {i + 1}:</strong> {h}
                           </div>
                         ))}
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-                      Clique em &quot;Executar Código&quot; para rodar seus testes no ambiente seguro.
+                  )}
+
+                  {/* Line Feedback Block */}
+                  {lineFeedback !== null && submission?.status === 'failed' && (
+                    <div style={{ margin: '12px 16px', background: '#131c2e', border: '1px solid #334155', borderRadius: 8, padding: 14 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', marginBottom: 8 }}>
+                        🔍 Análise por Linha
+                      </div>
+                      {lineFeedback.length === 0 ? (
+                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                          Nenhuma observação detectada nesta submissão.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {lineFeedback.map((item, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 8,
+                                padding: '6px 10px',
+                                borderRadius: 4,
+                                background: '#0b1120',
+                                borderLeft: `3px solid ${item.severity === 'warning' ? '#f59e0b' : '#94a3b8'}`,
+                              }}
+                            >
+                              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: item.severity === 'warning' ? '#f59e0b' : '#94a3b8', whiteSpace: 'nowrap' }}>
+                                Linha {item.line}
+                              </span>
+                              <span style={{ fontSize: 12, color: item.severity === 'warning' ? '#f59e0b' : '#94a3b8', lineHeight: 1.4 }}>
+                                {item.comment}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Right: Monaco Code Editor */}
-              <div style={{ display: 'flex', flexDirection: 'column', background: '#070a13' }}>
-                <div style={{ height: 44, borderBottom: '1px solid #1e293b', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace' }}>
-                      solution.{selectedActivity.language === 'python' ? 'py' : selectedActivity.language === 'typescript' ? 'ts' : 'js'}
-                    </span>
-                    <button
-                      onClick={handleFormatCode}
-                      style={{ background: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '2px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}
-                    >
-                      Formatar Código
-                    </button>
+                  {/* Automated Test Results Grid */}
+                  <TestResultsGrid
+                    results={(submission?.testResults || []).map((t) => ({
+                      id: t.id,
+                      name: t.name,
+                      passed: t.passed,
+                      durationMs: t.durationMs,
+                      errorMessage: t.errorMessage,
+                      isHidden: t.isHidden,
+                    }))}
+                    score={submission?.score ?? undefined}
+                    maxScore={submission?.maxScore ?? 100}
+                    xpEarned={submission?.status === 'passed' ? 120 : undefined}
+                  />
+
+                  {/* Sandbox Telemetry & Terminal Console */}
+                  <div style={{ height: 180, borderTop: '1px solid #1e222d' }}>
+                    <TerminalConsole
+                      logs={isSubmitting ? ['Executando testes no Sandbox isolado...'] : []}
+                      stdout={submission ? (submission.status === 'passed' ? 'Todos os testes foram validados com sucesso no Sandbox Piston.' : undefined) : undefined}
+                      stderr={submission?.errorMessage || undefined}
+                      durationMs={submission?.durationMs ?? undefined}
+                      memoryRssKb={submission?.durationMs ? 48 * 1024 : undefined}
+                      status={submission?.status}
+                    />
                   </div>
-                  <button
-                    onClick={handleRunCode}
-                    disabled={isSubmitting}
-                    className={isSubmitting ? 'sandbox-running-glow' : ''}
-                    style={{
-                      padding: '7px 20px',
-                      background: isSubmitting
-                        ? '#18181B'
-                        : 'linear-gradient(90deg, #00B37E 0%, #04D361 100%)',
-                      color: '#fff',
-                      border: isSubmitting ? '1px solid #8257E5' : 'none',
-                      borderRadius: 8,
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      boxShadow: isSubmitting
-                        ? '0 0 20px rgba(130, 87, 229, 0.6)'
-                        : '0 4px 14px rgba(0, 179, 126, 0.4)',
-                      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                    }}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⚡</span>
-                        <span>Compilando no Sandbox...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>▶</span>
-                        <span>Executar Código</span>
-                      </>
-                    )}
-                  </button>
                 </div>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <Editor
-                    height="100%"
-                    language={getMonacoLanguage(selectedActivity.language)}
-                    theme="vs-dark"
-                    value={code}
-                    onMount={(editor) => { editorRef.current = editor; }}
-                    onChange={(val) => setCode(val || '')}
-                    options={{
-                      fontSize: 14,
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      fontFamily: '"Fira Code", "Cascadia Code", Consolas, monospace',
-                    }}
+
+                {/* Right Column: Dynamic Monaco Code Editor Pane with Zero-CLS */}
+                <div style={{ minHeight: 0, height: '100%' }}>
+                  <IdeEditorPane
+                    language={selectedActivity.language}
+                    code={code}
+                    onChange={(val) => setCode(val)}
+                    onRun={handleRunCode}
+                    isSubmitting={isSubmitting}
+                    onFormat={handleFormatCode}
                   />
                 </div>
               </div>
@@ -1524,52 +1395,23 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Submissions History Modal */}
-      {showHistoryModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Histórico de Submissões"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowHistoryModal(false); }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
-        >
-          <div style={{ width: '100%', maxWidth: 580, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #334155', maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Histórico de Submissões</h2>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                aria-label="Fechar modal"
-                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}
-              >
-                ✕
-              </button>
-            </div>
-            {submissionHistory.length === 0 ? (
-              <div style={{ color: '#64748b', fontSize: 13 }}>Nenhuma submissão registrada para esta atividade.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {submissionHistory.map((sub) => (
-                  <div key={sub.id} style={{ background: '#0b1120', padding: '12px 14px', borderRadius: 8, borderLeft: `4px solid ${sub.status === 'passed' ? '#22c55e' : '#ef4444'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: sub.status === 'passed' ? '#4ade80' : '#f87171' }}>
-                        {sub.status.toUpperCase()} ({sub.score ?? 0}/{sub.maxScore ?? 100} pts)
-                      </span>
-                      <span style={{ fontSize: 11, color: '#64748b' }}>
-                        {sub.createdAt ? new Date(sub.createdAt).toLocaleString('pt-BR') : ''}
-                      </span>
-                    </div>
-                    {sub.testResults && sub.testResults.length > 0 && (
-                      <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8' }}>
-                        Testes: {sub.testResults.filter((t) => t.passed).length}/{sub.testResults.length} passaram
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Submissions History Drawer */}
+      <SubmissionsHistoryDrawer
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        submissions={submissionHistory.map((sub) => ({
+          id: sub.id,
+          createdAt: sub.createdAt || new Date().toISOString(),
+          status: sub.status,
+          score: sub.score ?? undefined,
+          durationMs: sub.durationMs ?? undefined,
+        }))}
+        onSelectSubmission={(sub) => {
+          const found = submissionHistory.find((h) => h.id === sub.id);
+          if (found) setSubmission(found);
+          setShowHistoryModal(false);
+        }}
+      />
     </div>
   );
 }

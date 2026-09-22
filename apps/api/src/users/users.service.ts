@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -60,7 +62,11 @@ export class UsersService {
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('Email already registered');
+        // Anti-enumeração de e-mail: mesma mensagem genérica do auth.service
+        // register (não revela se o e-mail já existe). Ver auth.service.ts.
+        throw new ConflictException(
+          'Não foi possível concluir o cadastro com os dados informados. Verifique os campos e tente novamente.',
+        );
       }
       throw e;
     }
@@ -149,6 +155,51 @@ export class UsersService {
     }
   }
 
+  async checkNickname(nickname?: string): Promise<{ available: boolean; reason?: string }> {
+    if (!nickname || typeof nickname !== 'string' || !nickname.trim()) {
+      return {
+        available: false,
+        reason: 'Nickname não fornecido.',
+      };
+    }
+
+    const trimmed = nickname.trim();
+    const regex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!regex.test(trimmed)) {
+      return {
+        available: false,
+        reason: 'O nickname deve ser alfanumérico e conter entre 3 e 20 caracteres.',
+      };
+    }
+
+    const reserved = new Set(['admin', 'system', 'root', 'moderator', 'null', 'undefined']);
+    if (reserved.has(trimmed.toLowerCase())) {
+      return {
+        available: false,
+        reason: 'Nickname reservado pelo sistema.',
+      };
+    }
+
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        nickname: {
+          equals: trimmed,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return {
+        available: false,
+        reason: 'Nickname indisponível ou já em uso.',
+      };
+    }
+
+    return { available: true };
+  }
+
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -156,12 +207,17 @@ export class UsersService {
         id: true,
         email: true,
         name: true,
+        nickname: true,
         role: true,
+        careerTier: true,
         xp: true,
         level: true,
         streakDays: true,
+        bitsBalance: true,
+        streakFreezes: true,
         talentVisible: true,
         createdAt: true,
+        companion: true,
       },
     });
     if (!user) {
@@ -260,6 +316,59 @@ export class UsersService {
       where: { id: userId },
       data: { talentVisible },
       select: { id: true, talentVisible: true },
+    });
+  }
+
+  async updateCareerTier(userId: string, careerTier: string) {
+    const normalized = String(careerTier || '').toLowerCase().trim();
+    if (normalized !== 'beginner') {
+      throw new ForbiddenException(
+        'Patente bloqueada: conclua o nível Iniciante primeiro',
+      );
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { careerTier: 'beginner' as any },
+      select: { id: true, careerTier: true },
+    });
+  }
+
+  async adoptCompanion(userId: string, starterName: string) {
+    if (!starterName || typeof starterName !== 'string' || !starterName.trim()) {
+      throw new BadRequestException('starterName é obrigatório');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const existing = await this.prisma.userCompanion.findUnique({
+      where: { userId },
+    });
+    if (existing) {
+      return this.prisma.userCompanion.update({
+        where: { userId },
+        data: { starterName: starterName.trim() },
+      });
+    }
+
+    return this.prisma.userCompanion.create({
+      data: {
+        userId,
+        starterName: starterName.trim(),
+        currentStage: 1,
+        xp: 0,
+      },
     });
   }
 

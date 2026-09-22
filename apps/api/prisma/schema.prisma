@@ -29,21 +29,33 @@ enum SubmissionStatus {
   error
 }
 
+enum CareerTier {
+  beginner
+  junior
+  mid
+  senior
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   email        String    @unique
+  nickname     String?   @unique @db.VarChar(30)
   name         String
   passwordHash String    @map("password_hash")
   role         Role      @default(student)
+  careerTier   CareerTier @default(beginner) @map("career_tier")
   giteaUserId  Int?      @unique @map("gitea_user_id")
   xp           Int       @default(0)
   level        Int       @default(1)
   streakDays   Int       @default(0) @map("streak_days")
-  talentVisible Boolean  @default(true) @map("talent_visible")
+  bitsBalance  Int       @default(420) @map("bits_balance")
+  streakFreezes Int      @default(0) @map("streak_freezes")
+  talentVisible Boolean  @default(false) @map("talent_visible")
   lastActiveAt DateTime? @map("last_active_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  companion         UserCompanion?
   refreshTokens     RefreshToken[]
   instructedCourses Course[]        @relation("InstructedCourses")
   enrollments       Enrollment[]
@@ -68,6 +80,20 @@ model UserBadge {
 
   @@unique([userId, badgeCode])
   @@map("user_badges")
+}
+
+model UserCompanion {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  starterName  String   @map("starter_name")
+  currentStage Int      @default(1) @map("current_stage")
+  xp           Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_companions")
 }
 
 model AiChatMessage {
@@ -96,6 +122,7 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -149,6 +176,9 @@ model Activity {
   conceptTags       String[] @default([]) @map("concept_tags")
   referenceSolution String?  @map("reference_solution")
   giteaTemplateRepo String?  @map("gitea_template_repo")
+  isBossFight       Boolean  @default(false) @map("is_boss_fight")
+  bossMetadata      Json?    @map("boss_metadata")
+  lessonPayload     Json?    @map("lesson_payload")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -177,6 +207,7 @@ model Submission {
   aiHints      String?          @map("ai_hints")
   aiLineFeedback String?        @map("ai_line_feedback")
   xpAwarded    Boolean          @default(false) @map("xp_awarded")
+  requeueCount Int              @default(0) @map("requeue_count")
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
 
@@ -187,6 +218,7 @@ model Submission {
   @@unique([activityId, userId, commitSha])
   @@index([activityId, userId])
   @@index([userId, status])
+  @@index([userId, createdAt])
   @@index([activityId, status])
   @@index([commitSha])
   @@map("submissions")

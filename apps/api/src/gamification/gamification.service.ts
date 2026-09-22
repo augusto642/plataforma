@@ -21,6 +21,9 @@ export class GamificationService {
 
         if (!user) return null;
 
+        // newXp/newLevel são derivados apenas para o retorno e para badges;
+        // a escrita usa {increment} atômico do Prisma para evitar lost update
+        // entre réplicas/jobs concorrentes (read-modify-write não é seguro).
         const newXp = user.xp + totalXpDelta;
         const newLevel = Math.floor(newXp / 200) + 1;
 
@@ -40,7 +43,7 @@ export class GamificationService {
         const updated = await tx.user.update({
           where: { id: userId },
           data: {
-            xp: newXp,
+            xp: { increment: totalXpDelta },
             level: newLevel,
             streakDays: newStreak,
             lastActiveAt: now,

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LlmClient } from './llm-client';
 
 describe('AiService', () => {
   let service: AiService;
@@ -30,16 +31,29 @@ describe('AiService', () => {
     get: jest.fn().mockReturnValue(''),
   };
 
+  // Sem AI_API_KEY: LlmClient reporta hasApiKey=false e o serviço usa o
+  // motor heurístico (degrade offline preservado).
+  const mockLlmClient = {
+    hasApiKey: false,
+    apiKey: '',
+    complete: jest.fn(),
+    stream: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: LlmClient, useValue: mockLlmClient },
       ],
     }).compile();
 
     service = module.get<AiService>(AiService);
+    mockLlmClient.hasApiKey = false;
+    mockLlmClient.complete.mockReset();
+    mockLlmClient.stream.mockReset();
   });
 
   it('should be defined', () => {
@@ -173,4 +187,39 @@ describe('AiService', () => {
       expect(feedback.suggestedConcept).toContain('Complexidade');
     });
   });
+
+  describe('generateSocraticGuidance', () => {
+    it('should return contextual socratic question for bug and error inquiries', async () => {
+      const result = await service.generateSocraticGuidance({
+        question: 'Estou com um bug no meu código de retorno',
+        starterName: 'Pyra',
+      });
+
+      expect(result.hint).toContain('Bugs e falhas de runtime');
+      expect(result.socraticQuestion).toContain('tipo esperado e o tipo que você calculou');
+      expect(result.cached).toBe(false);
+      expect(result.tier).toBe(1);
+    });
+
+    it('should return algorithmic invariant question for loop questions', async () => {
+      const result = await service.generateSocraticGuidance({
+        question: 'meu loop while fica rodando infinito',
+        starterName: 'Byte',
+      });
+
+      expect(result.hint).toContain('condição de terminação');
+      expect(result.socraticQuestion).toContain('condição de parada será atingida');
+    });
+
+    it('should handle general inquiries referencing starter companion', async () => {
+      const result = await service.generateSocraticGuidance({
+        question: 'como resolvo essa quest?',
+        starterName: 'Giga',
+      });
+
+      expect(result.hint).toContain('Giga');
+      expect(result.socraticQuestion).toContain('caso base da sua função');
+    });
+  });
 });
+

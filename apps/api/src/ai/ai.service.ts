@@ -1,6 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
+import { SocraticGuidanceDto } from './dto/socratic-guidance.dto';
+import { LlmClient } from './llm-client';
+import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prompt-guard';
 
 export type SocraticTier = 1 | 2 | 3;
 
@@ -9,6 +12,14 @@ export interface PedagogicalFeedback {
   hints: string[];
   suggestedConcept: string;
   tier?: SocraticTier;
+}
+
+export interface SocraticGuidanceResult {
+  hint: string;
+  socraticQuestion: string;
+  tier: SocraticTier;
+  timestamp: string;
+  cached: boolean;
 }
 
 export interface ComplexityAnalysisResult {
@@ -23,16 +34,12 @@ export interface ComplexityAnalysisResult {
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly apiKey: string;
-  private readonly apiUrl: string;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
-  ) {
-    this.apiKey = this.config.get<string>('AI_API_KEY') || '';
-    this.apiUrl = this.config.get<string>('AI_API_URL') || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-  }
+    private readonly llm: LlmClient,
+    @Optional() private readonly cache?: CacheService,
+  ) {}
 
   async calculateTier(userId: string, activityId: string): Promise<SocraticTier> {
     try {
@@ -157,7 +164,7 @@ export class AiService {
     };
 
     // If external AI LLM API key is configured, call it
-    if (this.apiKey) {
+    if (this.llm.hasApiKey) {
       try {
         const failedSummary = failedTests
           .map((t) => `- ${t.name}: ${t.errorMessage || 'Falha de asserção'}`)
@@ -170,11 +177,12 @@ export class AiService {
           '',
           tierPrompts[tier],
           '',
-          'Código do aluno:',
-          sanitizedStudentCode || '// Arquivo em branco',
+          UNTRUSTED_DATA_SYSTEM_NOTE,
           '',
-          'Testes que falharam:',
-          failedSummary || 'Nenhuma falha de teste detalhada.',
+          buildUntrustedStudentContext({
+            code: sanitizedStudentCode || '// Arquivo em branco',
+            errorMessage: failedSummary || 'Nenhuma falha de teste detalhada.',
+          }),
           '',
           'Regras estritas:',
           '1. NUNCA forneça o código pronto ou a resposta final.',
@@ -183,29 +191,19 @@ export class AiService {
           '4. Responda em formato JSON com as chaves: summary (string), hints (array de strings), suggestedConcept (string).',
         ].join('\n');
 
-        const res = await fetch(this.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' },
-          }),
+        // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
+        const content = await this.llm.complete({
+          messages: [{ role: 'user', content: prompt }],
+          jsonMode: true,
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          const parsed = JSON.parse(data.choices[0].message.content);
-          return {
-            summary: parsed.summary,
-            hints: parsed.hints || [],
-            suggestedConcept: parsed.suggestedConcept || 'Lógica e Algoritmos',
-            tier,
-          };
-        }
+        const parsed = JSON.parse(content);
+        return {
+          summary: parsed.summary,
+          hints: parsed.hints || [],
+          suggestedConcept: parsed.suggestedConcept || 'Lógica e Algoritmos',
+          tier,
+        };
       } catch (err: any) {
         this.logger.warn(`AI API call failed, falling back to heuristic tutor: ${err.message}`);
       }
@@ -296,6 +294,30 @@ export class AiService {
 
     const lastUserMessage = dto.messages[dto.messages.length - 1]?.content || '';
 
+    // Guardrail ampliado (finding MÉDIA — AppSec): antes só a última mensagem
+    // do chat era inspecionada; `code` também é conteúdo não confiável e pode
+    // carregar prompt injection (ex.: comentário "// ignore previous
+    // instructions").
+    const untrustedCode = dto.code || '';
+    if (this.detectJailbreakOrBypass(untrustedCode)) {
+      const redirectMessage =
+        'Notei instruções escondidas no código enviado. Como seu tutor socrático, meu papel é te guiar no raciocínio — vamos focar na lógica da atividade?';
+      if (userId) {
+        await this.prisma.aiChatMessage.create({
+          data: {
+            userId,
+            activityId: dto.activityId,
+            role: 'assistant',
+            content: redirectMessage,
+          },
+        });
+      }
+      for (const word of redirectMessage.split(' ')) {
+        yield `${word} `;
+      }
+      return;
+    }
+
     // Persist user message
     if (userId && lastUserMessage) {
       await this.prisma.aiChatMessage.create({
@@ -337,7 +359,7 @@ export class AiService {
     };
 
     // If API key is available, call streaming endpoint
-    if (this.apiKey) {
+    if (this.llm.hasApiKey) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
         const systemPrompt = [
@@ -345,7 +367,10 @@ export class AiService {
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
           tierInstructions[tier],
-          sanitizedCode ? `Código atual do aluno:\n${sanitizedCode}` : '',
+          UNTRUSTED_DATA_SYSTEM_NOTE,
+          sanitizedCode
+            ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
+            : '',
           'Instruções pedagógicas:',
           '- NUNCA escreva o código pronto da solução.',
           '- Guie o aluno através de perguntas reflexivas (método socrático).',
@@ -354,51 +379,15 @@ export class AiService {
         ].filter(Boolean).join('\n\n');
 
         const apiMessages = [
-          { role: 'system', content: systemPrompt },
+          { role: 'system' as const, content: systemPrompt },
           ...dto.messages.map((m) => ({ role: m.role, content: this.sanitizePrompt(m.content) })),
         ];
 
-        const res = await fetch(this.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
-            messages: apiMessages,
-            stream: true,
-          }),
-        });
-
-        if (res.ok && res.body) {
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data:')) continue;
-              const dataStr = trimmed.replace(/^data:\s*/, '');
-              if (dataStr === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(dataStr);
-                const delta = parsed.choices?.[0]?.delta?.content;
-                if (delta) {
-                  fullAssistantContent += delta;
-                  yield delta;
-                }
-              } catch {}
-            }
-          }
+        // LlmClient.stream: timeout + retry no handshake e idle-timeout no
+        // reader — a conexão SSE nunca pendura indefinidamente.
+        for await (const delta of this.llm.stream({ messages: apiMessages })) {
+          fullAssistantContent += delta;
+          yield delta;
         }
       } catch (err: any) {
         this.logger.warn(`Streaming AI API call failed, falling back to heuristic streaming: ${err.message}`);
@@ -457,6 +446,25 @@ export class AiService {
 
     const lastUserMessage = dto.messages[dto.messages.length - 1]?.content || '';
 
+    // Guardrail ampliado: `code` também é conteúdo não confiável (prompt
+    // injection via comentário de código), não apenas a última mensagem.
+    const untrustedCode = dto.code || '';
+    if (this.detectJailbreakOrBypass(untrustedCode)) {
+      const redirectMessage =
+        'Notei instruções escondidas no código enviado. Como seu tutor socrático, meu papel é te guiar no raciocínio — vamos focar na lógica da atividade?';
+      if (userId) {
+        await this.prisma.aiChatMessage.create({
+          data: {
+            userId,
+            activityId: dto.activityId,
+            role: 'assistant',
+            content: redirectMessage,
+          },
+        });
+      }
+      return { role: 'assistant', content: redirectMessage };
+    }
+
     // Persist User Message if userId provided
     if (userId && lastUserMessage) {
       await this.prisma.aiChatMessage.create({
@@ -492,7 +500,7 @@ export class AiService {
       3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
     };
 
-    if (this.apiKey) {
+    if (this.llm.hasApiKey) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
         const systemPrompt = [
@@ -500,7 +508,10 @@ export class AiService {
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
           tierInstructions[tier],
-          sanitizedCode ? `Código atual do aluno:\n${sanitizedCode}` : '',
+          UNTRUSTED_DATA_SYSTEM_NOTE,
+          sanitizedCode
+            ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
+            : '',
           'Instruções pedagógicas:',
           '- NUNCA escreva o código pronto da solução.',
           '- Guie o aluno através de perguntas reflexivas (método socrático).',
@@ -509,26 +520,13 @@ export class AiService {
         ].filter(Boolean).join('\n\n');
 
         const apiMessages = [
-          { role: 'system', content: systemPrompt },
+          { role: 'system' as const, content: systemPrompt },
           ...dto.messages.map((m) => ({ role: m.role, content: this.sanitizePrompt(m.content) })),
         ];
 
-        const res = await fetch(this.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
-            messages: apiMessages,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          assistantContent = this.applyAntiSpoilerGuardrail(data.choices[0].message.content);
-        }
+        // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
+        const content = await this.llm.complete({ messages: apiMessages });
+        assistantContent = this.applyAntiSpoilerGuardrail(content);
       } catch (err: any) {
         this.logger.warn(`AI chat API call failed, falling back to heuristic reply: ${err.message}`);
       }
@@ -652,5 +650,68 @@ export class AiService {
       }
       return match;
     });
+  }
+
+  async generateSocraticGuidance(
+    dto: SocraticGuidanceDto,
+    userId?: string,
+  ): Promise<SocraticGuidanceResult> {
+    const cacheKey = `ai:socratic:${dto.challengeId || 'general'}:${dto.question.trim().toLowerCase()}`;
+    if (this.cache) {
+      try {
+        const cached = await this.cache.get<SocraticGuidanceResult>(cacheKey);
+        if (cached) {
+          return { ...cached, cached: true };
+        }
+      } catch {
+        // Cache miss or Redis connection not established; proceed with computation
+      }
+    }
+
+    let tier: SocraticTier = 1;
+    if (userId && dto.challengeId) {
+      tier = await this.calculateTier(userId, dto.challengeId);
+    }
+
+    const questionLower = (dto.question || '').toLowerCase();
+    const starter = dto.starterName || 'Companion';
+
+    let hint = '';
+    let socraticQuestion = '';
+
+    if (questionLower.includes('erro') || questionLower.includes('bug') || questionLower.includes('falha')) {
+      hint = `Bugs e falhas de runtime revelam divergências entre a assunção lógica e a execução real do interpretador.`;
+      socraticQuestion = `Se você inspecionar o valor retornado antes de finalizar a execução, qual a diferença entre o tipo esperado e o tipo que você calculou?`;
+    } else if (questionLower.includes('loop') || questionLower.includes('for') || questionLower.includes('while') || questionLower.includes('infinito')) {
+      hint = `Loops dependem de uma condição de terminação estrita e de avanço do ponteiro ou índice.`;
+      socraticQuestion = `Qual variável garante que a condição de parada será atingida em um número finito de iterações?`;
+    } else if (questionLower.includes('complexidade') || questionLower.includes('tempo') || questionLower.includes('memoria') || questionLower.includes('heap')) {
+      hint = `O consumo de tempo e memória reflete as iterações e alocações dinâmicas acumuladas.`;
+      socraticQuestion = `Se a entrada dobrar de tamanho, o número de instruções executadas dobra O(N) ou quadruplica O(N²)?`;
+    } else if (questionLower.includes('imposto') || questionLower.includes('tax') || questionLower.includes('preco')) {
+      hint = `Lembre-se da precedência de operadores: somar o valor base com a taxa aplicada gera o valor total final.`;
+      socraticQuestion = `O resultado da formatação matemática gerou um número ou uma string? Você precisa reconverter o tipo?`;
+    } else {
+      hint = `Junto ao seu ${starter}, analise as entradas e saídas exigidas pela especificação do desafio.`;
+      socraticQuestion = `Qual é o caso base da sua função quando a entrada for vazia ou nula? O que cada linha deve garantir?`;
+    }
+
+    const result: SocraticGuidanceResult = {
+      hint,
+      socraticQuestion,
+      tier,
+      timestamp: new Date().toISOString(),
+      cached: false,
+    };
+
+    if (this.cache) {
+      try {
+        await this.cache.set(cacheKey, result, 3600);
+      } catch {
+        // Ignora erro de gravação no cache
+      }
+    }
+
+    return result;
   }
 }

@@ -222,11 +222,12 @@ export class WebhooksController {
       };
     }
 
-    const authorEmail: string =
-      latestCommit?.author?.email || payload.pusher?.email || '';
     const giteaUsername = repoMatch.groups?.username || '';
 
-    // 8. Authoritative identity mapping via StudentRepo relation.
+    // 8. Authoritative identity mapping via StudentRepo relation ONLY.
+    // O fallback anterior por e-mail do autor do commit foi REMOVIDO: o e-mail
+    // vem do git config local (campo arbitrário controlável pelo aluno), o que
+    // permitia spoofing de identidade para criar submissões em nome de outros.
     const studentRepo = this.prisma.studentRepo
       ? await this.prisma.studentRepo.findFirst({
           where: {
@@ -241,31 +242,26 @@ export class WebhooksController {
 
     let user = studentRepo?.user ?? null;
 
-    if (!user) {
-      if (authorEmail) {
-        user = await this.prisma.user.findUnique({
-          where: { email: authorEmail },
-        });
-      } else if (giteaUsername) {
-        user = await this.prisma.user.findFirst({
-          where: {
-            studentRepos: {
-              some: { giteaUsername },
-            },
+    if (!user && giteaUsername) {
+      // Vínculo legítimo: usuário dono de um StudentRepo com este giteaUsername.
+      user = await this.prisma.user.findFirst({
+        where: {
+          studentRepos: {
+            some: { giteaUsername },
           },
-        });
-      }
+        },
+      });
     }
 
     if (!user) {
       this.logger.warn(
-        `No platform user found for Gitea repo ${repoFullName} (username: ${giteaUsername})`,
+        `No StudentRepo binding found for Gitea repo ${repoFullName}; ignoring event`,
       );
       return { status: 'ignored', reason: 'User not recognized' };
     }
 
     this.logger.log(
-      `Received Gitea push webhook for repo ${repoName}, commit ${commitSha}, user ${user.id} (${user.email})`,
+      `Received Gitea push webhook for repo ${repoName}, commit ${commitSha}, user ${user.id}`,
     );
 
     // 9. Match activity by exact slug, repo template, or course activity.

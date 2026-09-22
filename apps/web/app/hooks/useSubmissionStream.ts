@@ -72,12 +72,7 @@ export function useSubmissionStream(
 
     const startStream = async () => {
       try {
-        const headers: Record<string, string> = {};
-        if (token && token !== 'cookie-auth') {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
         const res = await fetch(`${API_BASE}/submissions/${submissionId}/events`, {
-          headers,
           signal: controller.signal,
           credentials: 'include',
         });

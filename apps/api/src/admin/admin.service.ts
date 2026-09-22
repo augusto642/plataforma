@@ -153,7 +153,11 @@ export class AdminService {
     });
 
     if (existing) {
-      throw new ConflictException('Email already registered');
+      // Anti-enumeração de e-mail: mesma mensagem genérica do auth.service
+      // register (não revela se o e-mail já existe).
+      throw new ConflictException(
+        'Não foi possível concluir o cadastro com os dados informados. Verifique os campos e tente novamente.',
+      );
     }
 
     const rawPassword = dto.password || randomBytes(12).toString('base64url');
@@ -186,7 +190,11 @@ export class AdminService {
       };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('Email already registered');
+        // Anti-enumeração de e-mail: mesma mensagem genérica do auth.service
+        // register (corrida entre o pre-check e o create).
+        throw new ConflictException(
+          'Não foi possível concluir o cadastro com os dados informados. Verifique os campos e tente novamente.',
+        );
       }
       throw e;
     }

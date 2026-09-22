@@ -160,31 +160,44 @@ export class ActivitiesService {
     });
   }
 
-  async findByCourse(courseId: string, userRole: string = 'student', conceptTag?: string) {
+  async findByCourse(
+    courseId: string,
+    userRole: string = 'student',
+    userId?: string,
+    conceptTag?: string,
+  ) {
     const activities = await this.prisma.activity.findMany({
       where: {
         courseId,
         ...(conceptTag ? { conceptTags: { has: conceptTag } } : {}),
       },
       orderBy: { order: 'asc' },
+      include: { course: { select: { instructorId: true } } },
     });
 
+    // Finding MÉDIA — AppSec: hiddenTests/referenceSolution vazavam para
+    // QUALQUER instructor (o strip era só `if role === 'student'`). Agora só
+    // admin ou o instrutor dono do curso recebem esses campos; os demais
+    // (students e instructors de outros cursos) recebem a atividade sem eles.
+    const course = activities[0]?.course;
+    const canSeePrivilegedFields =
+      userRole === 'admin' || (userRole === 'instructor' && !!userId && course?.instructorId === userId);
+
     return activities.map((act) => {
-      const { referenceSolution, ...rest } = act;
-      if (userRole === 'student') {
-        const { hiddenTests, ...studentRest } = rest;
-        return studentRest;
+      const { referenceSolution, hiddenTests, course: _course, ...rest } = act;
+      if (canSeePrivilegedFields) {
+        return { ...rest, hiddenTests, referenceSolution };
       }
       return rest;
     });
   }
 
-  async findById(id: string, userRole: string = 'student') {
+  async findById(id: string, userRole: string = 'student', userId?: string) {
     const activity = await this.prisma.activity.findUnique({
       where: { id },
       include: {
         course: {
-          select: { id: true, title: true, slug: true },
+          select: { id: true, title: true, slug: true, instructorId: true },
         },
       },
     });
@@ -193,14 +206,25 @@ export class ActivitiesService {
       throw new NotFoundException('Activity not found');
     }
 
-    const { referenceSolution, ...rest } = activity;
+    // Ver findByCourse: privileged fields só para admin ou instrutor dono.
+    const canSeePrivilegedFields =
+      userRole === 'admin' ||
+      (userRole === 'instructor' &&
+        !!userId &&
+        activity.course.instructorId === userId);
 
-    if (userRole === 'student') {
-      const { hiddenTests, ...studentRest } = rest;
-      return studentRest;
+    const { referenceSolution, hiddenTests, course, ...rest } = activity;
+    const publicCourse = {
+      id: course.id,
+      title: course.title,
+      slug: course.slug,
+    };
+
+    if (canSeePrivilegedFields) {
+      return { ...rest, course: publicCourse, hiddenTests, referenceSolution };
     }
 
-    return rest;
+    return { ...rest, course: publicCourse };
   }
 
   async getDaily(userId: string) {

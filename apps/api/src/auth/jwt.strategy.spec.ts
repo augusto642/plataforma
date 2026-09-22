@@ -19,7 +19,7 @@ describe('JwtStrategy (fail-fast secret)', () => {
     );
   });
 
-  it('is constructed when the secret is configured and resolves the payload', () => {
+  it('is constructed when the secret is configured and resolves the payload', async () => {
     configStub.get.mockImplementation((key: string, def?: any) =>
       key === 'JWT_ACCESS_SECRET' ? 'configured-secret' : def,
     );
@@ -27,15 +27,18 @@ describe('JwtStrategy (fail-fast secret)', () => {
     const strategy = new JwtStrategy(configStub as any);
     expect(strategy).toBeDefined();
 
-    strategy.validate({ sub: 'user-1', email: 'a@b.com', role: 'student' }).then(
-      (result) => {
-        expect(result).toEqual({
-          id: 'user-1',
-          sub: 'user-1',
-          email: 'a@b.com',
-          role: 'student',
-        });
-      },
-    );
+    // Regressão: antes este teste era fire-and-forget (.then() sem await),
+    // passando mesmo que validate() rejeitasse ou a asserção falhasse.
+    const result = await strategy.validate({
+      sub: 'user-1',
+      email: 'a@b.com',
+      role: 'student',
+    });
+    expect(result).toEqual({
+      id: 'user-1',
+      sub: 'user-1',
+      email: 'a@b.com',
+      role: 'student',
+    });
   });
 });

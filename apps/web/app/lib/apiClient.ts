@@ -1,108 +1,61 @@
-import { parseJwt } from './jwt';
-
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-const TOKEN_STORAGE_KEY = 'plataforma_access_token';
-const REFRESH_STORAGE_KEY = 'plataforma_refresh_token';
+/**
+ * Fluxo cookie-only: os tokens vivem APENAS em cookies httpOnly
+ * (`access_token` / `refresh_token`) definidos pelo backend NestJS.
+ * O front nunca vê nem guarda tokens — nenhuma chamada envia
+ * `Authorization: Bearer` nem usa localStorage para credenciais.
+ * Este sentinel é exportado para consumidores antigos que esperavam
+ * um "acessor de token": ele indica apenas que a sessão é gerida por cookie.
+ */
+export const COOKIE_AUTH = 'cookie-auth';
 
-let inMemoryToken: string | null = null;
-
-export function getStoredToken(): string | null {
-  if (inMemoryToken) return inMemoryToken;
-  if (typeof window !== 'undefined') {
-    try {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-      if (token) {
-        inMemoryToken = token;
-        return token;
-      }
-    } catch {
-      // localStorage indisponível (SSR ou modo anônimo restrito)
-    }
-  }
-  return null;
+/** Rotas de auth que nunca devem disparar o re-refresh automático (evita loop). */
+function isAuthRoute(url: string): boolean {
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/register') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/logout')
+  );
 }
 
-export function getStoredRefreshToken(): string | null {
-  if (typeof window !== 'undefined') {
-    try {
-      return localStorage.getItem(REFRESH_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-export function setTokens(accessToken: string, refreshToken?: string) {
-  inMemoryToken = accessToken;
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(TOKEN_STORAGE_KEY, accessToken);
-      if (refreshToken) {
-        localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken);
-      }
-    } catch {}
-  }
-}
-
-export function clearTokens() {
-  inMemoryToken = null;
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(REFRESH_STORAGE_KEY);
-      localStorage.removeItem('user_session');
-    } catch {}
-  }
-}
-
-let isRefreshing = false;
-let refreshSubscribers: ((token: string | null) => void)[] = [];
-
-function onRefreshed(token: string | null) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
-}
-
-function addRefreshSubscriber(cb: (token: string | null) => void) {
-  refreshSubscribers.push(cb);
-}
-
-export async function refreshAuthToken(): Promise<string | null> {
-  const refreshToken = getStoredRefreshToken();
+/**
+ * Renova a sessão chamando POST /auth/refresh SEM body: o backend lê o
+ * cookie httpOnly `refresh_token` e regrava os dois cookies.
+ * Retorna true se a renovação funcionou (nova sessão no cookie).
+ */
+export async function refreshAuthToken(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: refreshToken || '' }),
       credentials: 'include',
     });
-
-    if (!res.ok) {
-      clearTokens();
-      return null;
-    }
-
-    const data = await res.json();
-    if (data.accessToken) {
-      setTokens(data.accessToken, data.refreshToken);
-      return data.accessToken;
-    }
-    return null;
+    return res.ok;
   } catch {
-    return null;
+    return false;
   }
+}
+
+// Single-flight: várias requests 401 simultâneas disparam UMA única chamada
+// de refresh; as demais aguardam o mesmo promise e depois repetem a request.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshOnce(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAuthToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
 }
 
 export async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const url = input.startsWith('http') ? input : `${API_BASE}${input.startsWith('/') ? input : `/${input}`}`;
-  const token = getStoredToken();
 
   const headers = new Headers(init?.headers || {});
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
+  // Nunca envia Authorization: Bearer — a autenticação é 100% via cookie httpOnly.
+  headers.delete('Authorization');
 
   const mergedInit: RequestInit = {
     ...init,
@@ -112,31 +65,29 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
 
   let response = await fetch(url, mergedInit);
 
-  // Se receber 401 e não for rota de auth, tentar renovar token uma vez
-  if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/register') && !url.includes('/auth/refresh')) {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      const newToken = await refreshAuthToken();
-      isRefreshing = false;
-      onRefreshed(newToken);
-
-      if (newToken) {
-        headers.set('Authorization', `Bearer ${newToken}`);
-        response = await fetch(url, { ...mergedInit, headers });
-      }
-    } else {
-      // Aguardar refresh em andamento
-      const retryToken = await new Promise<string | null>((resolve) => {
-        addRefreshSubscriber((t) => resolve(t));
-      });
-      if (retryToken) {
-        headers.set('Authorization', `Bearer ${retryToken}`);
-        response = await fetch(url, { ...mergedInit, headers });
-      }
+  // 401 em rota não-auth: tenta renovar o cookie uma vez e repete a request original.
+  if (response.status === 401 && !isAuthRoute(url)) {
+    const renewed = await refreshOnce();
+    if (renewed) {
+      response = await fetch(url, mergedInit);
     }
   }
 
   return response;
+}
+
+/**
+ * Limpa resquícios locais de sessão antiga (não-tokens). Chamado no logout
+ * para descartar caches de UI enquanto o backend corta os cookies.
+ */
+export function clearStoredSession() {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('user_session');
+    } catch {
+      // storage indisponível (SSR / modo anônimo) — nada a limpar
+    }
+  }
 }
 
 export const apiClient = {

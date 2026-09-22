@@ -3,23 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigError } from '../../config/secrets.validation';
+import { ACCESS_TOKEN_COOKIE, parseCookies } from '../cookies.util';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
-
-function parseCookies(header: string | undefined): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!header) return out;
-  for (const part of header.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx < 1) continue;
-    const key = part.slice(0, idx).trim();
-    try {
-      out[key] = decodeURIComponent(part.slice(idx + 1).trim());
-    } catch {
-      out[key] = part.slice(idx + 1).trim();
-    }
-  }
-  return out;
-}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -34,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request) => {
           const cookies = parseCookies(request?.headers?.cookie);
-          if (cookies['access_token']) return cookies['access_token'];
+          if (cookies[ACCESS_TOKEN_COOKIE]) return cookies[ACCESS_TOKEN_COOKIE];
           const authHeader = request?.headers?.authorization;
           if (authHeader?.startsWith('Bearer ')) {
             return authHeader.slice(7);

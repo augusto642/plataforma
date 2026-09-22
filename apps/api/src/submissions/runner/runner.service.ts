@@ -324,7 +324,7 @@ export class PistonRunnerService implements RunnerService {
     const rawMemoryMb = options.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB;
     const memoryMb =
       Number.isFinite(rawMemoryMb) && rawMemoryMb > 0
-        ? Math.floor(rawMemoryMb)
+        ? Math.min(512, Math.floor(rawMemoryMb))
         : DEFAULT_MEMORY_LIMIT_MB;
     const memoryBytes = memoryMb * 1024 * 1024;
 
@@ -516,11 +516,20 @@ export class PistonRunnerService implements RunnerService {
     testExpression?: string,
   ): string {
     const expr = testExpression ? `\n${testExpression}` : '';
+    const jsAssertShim = `if (typeof console !== 'undefined' && console.assert) {
+  const _origAssert = console.assert;
+  console.assert = function(assertion, ...args) {
+    if (!assertion) {
+      throw new Error('AssertionError: ' + (args.join(' ') || 'Assertion failed'));
+    }
+  };
+}\n`;
+
     switch (language) {
       case 'javascript':
-        return `"use strict";\n${code}${expr}`;
+        return `"use strict";\n${jsAssertShim}${code}${expr}`;
       case 'typescript':
-        return `${code}${expr}`;
+        return `${jsAssertShim}${code}${expr}`;
       case 'python':
         return `${code}${expr}`;
       case 'java':
@@ -540,6 +549,17 @@ export class PistonRunnerService implements RunnerService {
   }> {
     const parse = (script: string | undefined, hidden: boolean) => {
       if (!script || !script.trim()) return [];
+
+      // Suporte a delimitadores explícitos de blocos de teste: ---TEST--- ou \n---\n
+      if (script.includes('---TEST---') || script.includes('\n---\n')) {
+        const delimiter = script.includes('---TEST---') ? /---TEST---/g : /\n---\n/g;
+        return script
+          .split(delimiter)
+          .map((b) => b.trim())
+          .filter((b) => b.length > 0)
+          .map((expression) => ({ expression, hidden }));
+      }
+
       return script
         .split('\n')
         .map((l) => l.trim())

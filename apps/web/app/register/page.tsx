@@ -9,6 +9,7 @@ import { StepCredentials, RoleType } from './components/StepCredentials';
 import { StepTracks, TrackId } from './components/StepTracks';
 import { StepGoals, ExpLevel, TimeCommitment, CareerGoal } from './components/StepGoals';
 import { StepTerminalProvision } from './components/StepTerminalProvision';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -51,24 +52,37 @@ export default function RegisterPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const { register: authRegister } = useAuth();
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
+
   const handleStep3Next = useCallback(async () => {
-    // Non-blocking API call attempt to register account
+    setIsRegistering(true);
+    setRegisterError(null);
+
     try {
-      fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, role }),
-        credentials: 'include',
-      }).catch(() => {
-        // Graceful fallback for standalone / demo environments
+      const result = await authRegister({
+        email: email.trim(),
+        password,
+        name: name.trim(),
+        role: 'student',
       });
+
+      if (!result.success) {
+        // Se a API retornou erro formal (ex: email duplicado), exibe para o usuário
+        setRegisterError(result.error || 'Falha ao registrar conta.');
+        setIsRegistering(false);
+        return;
+      }
     } catch {
-      // Ignore network errors in demo
+      // Fallback gracioso para modo demonstração offline
+    } finally {
+      setIsRegistering(false);
     }
 
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [email, password, name, role]);
+  }, [email, password, name, authRegister]);
 
   const handleProvisionFinished = useCallback(() => {
     confettiRef.current?.fire();
@@ -246,6 +260,26 @@ export default function RegisterPage() {
               background: 'linear-gradient(90deg, transparent, #8257E5, #04D361, transparent)',
             }}
           />
+
+          {registerError && (
+            <div
+              style={{
+                marginBottom: '20px',
+                padding: '12px 16px',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                borderRadius: '8px',
+                color: '#F87171',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <span>⚠️</span>
+              <span>{registerError}</span>
+            </div>
+          )}
 
           {/* STEP 1: CREDENCIAIS & CONTA */}
           {currentStep === 1 && (

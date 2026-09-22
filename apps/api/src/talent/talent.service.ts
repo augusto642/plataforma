@@ -66,7 +66,7 @@ export class TalentService {
       .map((entry, index) => ({
         rank: index + 1,
         initials: getInitials(entry.name),
-        name: entry.name,
+        candidateId: `cand_${entry.userId.slice(0, 8)}`,
         xp: entry.xp,
         level: entry.level,
         streakDays: entry.streakDays,

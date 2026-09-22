@@ -4,24 +4,31 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  ACCESS_TOKEN_COOKIE,
+  ACCESS_TOKEN_TTL_MS,
+  REFRESH_TOKEN_COOKIE,
+  REFRESH_TOKEN_TTL_MS,
+  cookieOptions,
+  parseCookies,
+} from './cookies.util';
 
-const COOKIE_OPTIONS = (maxAgeMs: number) => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  maxAge: maxAgeMs,
-  path: '/',
-});
-
+/**
+ * Fluxo de autenticação 100% via cookies httpOnly (finding ALTA — AppSec):
+ * accessToken/refreshToken NUNCA aparecem no corpo das respostas. O corpo
+ * retorna apenas o perfil público do usuário (`user`), suficiente para o
+ * front hidratar a sessão; a detecção de sessão usa o cookie + /users/me.
+ */
 @Controller('auth')
 @Public()
 export class AuthController {
@@ -31,9 +38,8 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const tokens = await this.auth.register(dto);
-    res.cookie('access_token', tokens.accessToken, COOKIE_OPTIONS(15 * 60 * 1000));
-    res.cookie('refresh_token', tokens.refreshToken, COOKIE_OPTIONS(7 * 24 * 60 * 60 * 1000));
-    return tokens;
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user: tokens.user };
   }
 
   @Post('login')
@@ -41,27 +47,37 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const tokens = await this.auth.login(dto.email, dto.password);
-    res.cookie('access_token', tokens.accessToken, COOKIE_OPTIONS(15 * 60 * 1000));
-    res.cookie('refresh_token', tokens.refreshToken, COOKIE_OPTIONS(7 * 24 * 60 * 60 * 1000));
-    return tokens;
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user: tokens.user };
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  async refresh(@Body() dto: RefreshTokenDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.auth.refresh(dto.token);
-    res.cookie('access_token', tokens.accessToken, COOKIE_OPTIONS(15 * 60 * 1000));
-    res.cookie('refresh_token', tokens.refreshToken, COOKIE_OPTIONS(7 * 24 * 60 * 60 * 1000));
-    return tokens;
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = parseCookies(req.headers.cookie)[REFRESH_TOKEN_COOKIE];
+    if (!refreshToken) {
+      throw new UnauthorizedException('Missing refresh token cookie');
+    }
+    const tokens = await this.auth.refresh(refreshToken);
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user: tokens.user };
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Body() dto: RefreshTokenDto, @Res({ passthrough: true }) res: Response) {
-    await this.auth.logout(dto.token);
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/' });
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = parseCookies(req.headers.cookie)[REFRESH_TOKEN_COOKIE];
+    if (refreshToken) {
+      await this.auth.logout(refreshToken);
+    }
+    res.clearCookie(ACCESS_TOKEN_COOKIE, { path: '/' });
+    res.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/' });
     return null;
+  }
+
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+    res.cookie(ACCESS_TOKEN_COOKIE, accessToken, cookieOptions(ACCESS_TOKEN_TTL_MS));
+    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions(REFRESH_TOKEN_TTL_MS));
   }
 }

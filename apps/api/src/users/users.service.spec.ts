@@ -2,6 +2,13 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { UsersService } from './users.service';
 
+/**
+ * Mensagem genérica compartilhada com auth.service.register e admin.service
+ * (anti-enumeração de e-mail): não revela se o endereço já está cadastrado.
+ */
+const EMAIL_CONFLICT_MESSAGE =
+  'Não foi possível concluir o cadastro com os dados informados. Verifique os campos e tente novamente.';
+
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: any;
@@ -97,6 +104,25 @@ describe('UsersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.exportUserData('missing')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('create (anti-enumeration)', () => {
+    it('uses the generic message (same as auth.register) on duplicate email (P2002)', async () => {
+      prisma.user.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.create({
+          email: 'aluno@example.com',
+          name: 'Aluno Teste',
+          password: 'SenhaForte123!',
+        }),
+      ).rejects.toThrow(EMAIL_CONFLICT_MESSAGE);
     });
   });
 
@@ -216,6 +242,105 @@ describe('UsersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.getMe('missing')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('checkNickname', () => {
+    it('returns unavailable if nickname is empty or not provided', async () => {
+      const res = await service.checkNickname('');
+      expect(res.available).toBe(false);
+      expect(res.reason).toBe('Nickname não fornecido.');
+    });
+
+    it('returns unavailable if nickname contains invalid characters or wrong length', async () => {
+      const tooShort = await service.checkNickname('ab');
+      expect(tooShort.available).toBe(false);
+
+      const invalidChars = await service.checkNickname('dev@123!');
+      expect(invalidChars.available).toBe(false);
+      expect(invalidChars.reason).toContain('alfanumérico');
+    });
+
+    it('returns unavailable if nickname is in reserved blacklist', async () => {
+      const res = await service.checkNickname('admin');
+      expect(res.available).toBe(false);
+      expect(res.reason).toContain('reservado');
+
+      const upperRoot = await service.checkNickname('ROOT');
+      expect(upperRoot.available).toBe(false);
+    });
+
+    it('returns unavailable if nickname already exists in database (case-insensitive)', async () => {
+      prisma.user.findFirst = jest.fn().mockResolvedValue({ id: 'existing-id' });
+
+      const res = await service.checkNickname('DevHero');
+      expect(res.available).toBe(false);
+      expect(res.reason).toContain('já em uso');
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          nickname: {
+            equals: 'DevHero',
+            mode: 'insensitive',
+          },
+        },
+        select: { id: true },
+      });
+    });
+
+    it('returns available true when nickname is valid and unique', async () => {
+      prisma.user.findFirst = jest.fn().mockResolvedValue(null);
+
+      const res = await service.checkNickname('super_coder_42');
+      expect(res.available).toBe(true);
+      expect(res.reason).toBeUndefined();
+    });
+  });
+
+  describe('updateCareerTier', () => {
+    it('allows setting beginner career tier', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', careerTier: 'beginner' });
+
+      const res = await service.updateCareerTier('user-1', 'beginner');
+      expect(res.careerTier).toBe('beginner');
+    });
+
+    it('blocks junior, mid, and senior career tiers with ForbiddenException', async () => {
+      await expect(service.updateCareerTier('user-1', 'junior')).rejects.toThrow(
+        'Patente bloqueada: conclua o nível Iniciante primeiro',
+      );
+      await expect(service.updateCareerTier('user-1', 'mid')).rejects.toThrow(
+        'Patente bloqueada: conclua o nível Iniciante primeiro',
+      );
+      await expect(service.updateCareerTier('user-1', 'senior')).rejects.toThrow(
+        'Patente bloqueada: conclua o nível Iniciante primeiro',
+      );
+    });
+  });
+
+  describe('adoptCompanion', () => {
+    beforeEach(() => {
+      prisma.userCompanion = {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      };
+    });
+
+    it('creates new companion if none exists', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.userCompanion.findUnique.mockResolvedValue(null);
+      prisma.userCompanion.create.mockResolvedValue({
+        id: 'comp-1',
+        userId: 'user-1',
+        starterName: 'pythox',
+        currentStage: 1,
+        xp: 0,
+      });
+
+      const res = await service.adoptCompanion('user-1', 'pythox');
+      expect(res.starterName).toBe('pythox');
+      expect(res.currentStage).toBe(1);
     });
   });
 });

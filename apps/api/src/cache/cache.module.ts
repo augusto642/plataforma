@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { CacheService } from './cache.service';
+import { RedisLockService } from './redis-lock.service';
 
 @Module({
   imports: [ConfigModule],
-  providers: [CacheService],
-  exports: [CacheService],
+  providers: [CacheService, RedisLockService],
+  exports: [CacheService, RedisLockService],
 })
 export class CacheModule {}

@@ -9,6 +9,7 @@ import { ActiveMissionBanner } from './components/ActiveMissionBanner';
 import { CourseFilters } from './components/CourseFilters';
 import { CourseCard } from './components/CourseCard';
 import { CourseModal } from './components/CourseModal';
+import { useCoursesQuery } from '../hooks/useCoursesQuery';
 
 export default function CoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,11 +17,53 @@ export default function CoursesPage() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
+  // TanStack Query v5 Hook
+  const { data: apiCourses, isLoading, isError } = useCoursesQuery();
+
+  // Consolidação dinâmica de cursos: API com fallback enriquecido para COURSES_DATA
+  const allCourses: Course[] = useMemo(() => {
+    if (!apiCourses || !Array.isArray(apiCourses) || apiCourses.length === 0) {
+      return COURSES_DATA;
+    }
+
+    const mappedApiCourses: Course[] = apiCourses.map((apiCourse: any) => {
+      const match = COURSES_DATA.find(
+        (c) => c.id === apiCourse.id || c.title.toLowerCase() === apiCourse.title?.toLowerCase()
+      );
+      if (match) {
+        return {
+          ...match,
+          title: apiCourse.title || match.title,
+          desc: apiCourse.description || match.desc,
+        };
+      }
+      return {
+        id: apiCourse.id,
+        title: apiCourse.title,
+        level: 'Intermediário',
+        hours: '40h',
+        challenges: `${apiCourse._count?.activities || 12} Desafios`,
+        xp: '3.000 XP',
+        iconType: 'fullstack',
+        desc: apiCourse.description || 'Trilha avançada com foco em engenharia prática e computação de alto desempenho.',
+        tags: ['Engenharia', 'Sistemas'],
+        filterTags: ['backend', 'sistemas'],
+        modules: [],
+      };
+    });
+
+    const missingStatic = COURSES_DATA.filter(
+      (sc) => !mappedApiCourses.some((mc) => mc.id === sc.id || mc.title.toLowerCase() === sc.title.toLowerCase())
+    );
+
+    return [...mappedApiCourses, ...missingStatic];
+  }, [apiCourses]);
+
   // Filter courses based on search query, level and selected tag
   const filteredCourses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return COURSES_DATA.filter((course) => {
+    return allCourses.filter((course) => {
       // 1. Text search match (title, desc, shortDesc, tags, filterTags)
       const matchesSearch =
         !query ||
@@ -45,7 +88,7 @@ export default function CoursesPage() {
 
       return matchesSearch && matchesLevel && matchesTag;
     });
-  }, [searchQuery, selectedLevel, selectedTag]);
+  }, [allCourses, searchQuery, selectedLevel, selectedTag]);
 
   const handleTagToggle = (tagValue: string) => {
     setSelectedTag((prev) => (prev === tagValue ? null : tagValue));
@@ -144,9 +187,32 @@ export default function CoursesPage() {
         </section>
 
         {/* ========================================================================= */}
-        {/* 3. COURSES GRID                                                           */}
+        {/* 3. COURSES GRID & SKELETONS                                               */}
         {/* ========================================================================= */}
-        {filteredCourses.length > 0 ? (
+        {isLoading ? (
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div
+                key={idx}
+                className="bg-[#121217] border border-[#27272A] rounded-[20px] p-6 h-[260px] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-800/60" />
+                    <div className="w-20 h-5 rounded-full bg-zinc-800/60" />
+                  </div>
+                  <div className="w-3/4 h-5 rounded bg-zinc-800/80 mb-2" />
+                  <div className="w-full h-3 rounded bg-zinc-800/40 mb-1" />
+                  <div className="w-2/3 h-3 rounded bg-zinc-800/40" />
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t border-zinc-800/40">
+                  <div className="w-16 h-4 rounded bg-zinc-800/50" />
+                  <div className="w-24 h-4 rounded bg-zinc-800/50" />
+                </div>
+              </div>
+            ))}
+          </section>
+        ) : filteredCourses.length > 0 ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => (
               <CourseCard

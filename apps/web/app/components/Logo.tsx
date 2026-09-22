@@ -4,10 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 
 interface LogoProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   showText?: boolean;
   href?: string;
   className?: string;
+  theme?: 'light' | 'dark';
 }
 
 export const Logo: React.FC<LogoProps> = ({
@@ -15,19 +16,26 @@ export const Logo: React.FC<LogoProps> = ({
   showText = true,
   href = '/',
   className = '',
+  theme = 'dark',
 }) => {
   // Dimension tokens
   const dimensions = {
-    sm: { box: 'w-8 h-7 min-w-[32px] min-h-[28px]', text: 'text-sm', badge: 'text-[9px] px-1 py-0.2' },
-    md: { box: 'w-10 h-8 min-w-[40px] min-h-[32px]', text: 'text-base', badge: 'text-[10px] px-1.5 py-0.5' },
-    lg: { box: 'w-12 h-10 min-w-[48px] min-h-[40px]', text: 'text-xl', badge: 'text-xs px-2 py-0.5' },
+    sm: { box: 'w-7 h-7 min-w-[28px]', text: 'text-sm', badge: 'text-[9px] px-1 py-0.5', gap: 'gap-4' },
+    md: { box: 'w-9 h-9 min-w-[36px]', text: 'text-base', badge: 'text-[10px] px-1.5 py-0.5', gap: 'gap-5' },
+    lg: { box: 'w-11 h-11 min-w-[44px]', text: 'text-lg', badge: 'text-xs px-2 py-0.5', gap: 'gap-6' },
+    xl: { box: 'w-14 h-14 min-w-[56px]', text: 'text-2xl', badge: 'text-xs px-2.5 py-1', gap: 'gap-7' },
+    '2xl': { box: 'w-16 h-16 min-w-[64px]', text: 'text-2xl', badge: 'text-xs px-2.5 py-0.5', gap: 'gap-8' },
   }[size];
 
   const content = (
-    <div className={`flex items-center gap-2.5 group cursor-pointer select-none ${className}`}>
+    <div className={`flex items-center ${dimensions.gap} group cursor-pointer select-none ${className}`}>
       {/* Official Geometric Cyber Badge */}
       <div
-        className={`${dimensions.box} rounded-xl bg-[#121217] border border-[#8257E5]/50 flex items-center justify-center p-1 shadow-[0_0_15px_rgba(130,87,229,0.25)] group-hover:border-[#04D361] group-hover:shadow-[0_0_20px_rgba(4,211,97,0.3)] transition-all duration-300`}
+        className={`${dimensions.box} rounded-xl ${
+          theme === 'light' 
+            ? 'bg-[#0F172A] border border-zinc-700 shadow-md shadow-zinc-300/50' 
+            : 'bg-[#121217] border border-[#8257E5]/50 shadow-[0_0_15px_rgba(130,87,229,0.25)]'
+        } flex items-center justify-center p-1 group-hover:border-[#8257E5] transition-all duration-300`}
       >
         <svg viewBox="0 0 84 64" className="w-full h-full" fill="none">
           {/* N Letter */}
@@ -56,10 +64,16 @@ export const Logo: React.FC<LogoProps> = ({
 
       {/* Brand Typography */}
       {showText && (
-        <div className="flex items-center gap-1.5 font-bold tracking-tight text-white font-heading">
+        <div className={`flex items-center gap-4 sm:gap-5 font-bold tracking-tight font-heading ${
+          theme === 'light' ? 'text-zinc-900' : 'text-white'
+        }`}>
           <span className={`${dimensions.text} tracking-tight`}>NEXUS</span>
           <span
-            className={`${dimensions.badge} font-mono text-[#04D361] bg-[#04D361]/10 border border-[#04D361]/30 rounded font-bold uppercase tracking-wider`}
+            className={`${dimensions.badge} font-mono ${
+              theme === 'light'
+                ? 'text-[#8257E5] bg-[#8257E5]/10 border border-[#8257E5]/30'
+                : 'text-[#04D361] bg-[#04D361]/10 border border-[#04D361]/30'
+            } rounded font-bold uppercase tracking-wider`}
           >
             CODE
           </span>
@@ -70,7 +84,7 @@ export const Logo: React.FC<LogoProps> = ({
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex items-center text-decoration-none">
+      <Link href={href} className="inline-flex items-center text-decoration-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8257E5] rounded-xl">
         {content}
       </Link>
     );

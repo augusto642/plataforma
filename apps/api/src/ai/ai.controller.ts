@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -9,20 +10,27 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { randomUUID } from 'crypto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AiService } from './ai.service';
 import { ChatWithTutorDto } from './dto/chat-with-tutor.dto';
 import { ComplexityAnalysisDto } from './dto/complexity-analysis.dto';
 import { LineFeedbackDto } from './dto/line-feedback.dto';
+import { SocraticCatHintDto } from './dto/socratic-cat-hint.dto';
+import { SocraticGuidanceDto } from './dto/socratic-guidance.dto';
 import { LineFeedbackService } from './line-feedback.service';
+import { SocraticCatService } from './socratic-cat.service';
 
 @Controller('ai')
 @Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class AiController {
+  private readonly logger = new Logger(AiController.name);
+
   constructor(
     private readonly ai: AiService,
     private readonly lineFeedback: LineFeedbackService,
+    private readonly socraticCat: SocraticCatService,
   ) {}
 
   @Post('hint/:submissionId')
@@ -75,7 +83,16 @@ export class AiController {
       }
       res.write(`data: [DONE]\n\n`);
     } catch (err: any) {
-      res.write(`data: ${JSON.stringify({ error: err?.message || 'Stream error' })}\n\n`);
+      // Nunca vazar err.message ao cliente (pode expor detalhes internos,
+      // URLs de upstream ou chaves). Loga com correlation id para o suporte.
+      const errorId = randomUUID();
+      this.logger.error(
+        `[${errorId}] SSE stream error in /ai/chat/stream (user=${user.sub}, activity=${dto.activityId}): ${err?.message || err}`,
+        err?.stack,
+      );
+      res.write(
+        `data: ${JSON.stringify({ error: 'Não foi possível concluir a resposta do tutor agora. Tente novamente em instantes.', errorId })}\n\n`,
+      );
     } finally {
       res.end();
     }
@@ -96,5 +113,26 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.lineFeedback.analyze(dto.submissionId, user.sub, user.role);
+  }
+
+  /**
+   * Socratic hints agora exigem JWT (finding MÉDIA — AppSec): eram @Public(),
+   * permitindo que não autenticados consumissem a AI_API_KEY (custo/abuso)
+   * e vetores de prompt injection. O front (LumiAITutorDrawer/AITutorPanel)
+   * já envia cookies via apiFetch com credentials:'include'.
+   */
+  @Post('socratic-hint')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  getSocraticHint(
+    @Body() dto: SocraticGuidanceDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.ai.generateSocraticGuidance(dto, user.sub);
+  }
+
+  @Post('socratic-cat-hint')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  getSocraticCatHint(@Body() dto: SocraticCatHintDto) {
+    return this.socraticCat.generateCatHint(dto);
   }
 }

@@ -37,12 +37,13 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<AuthTokens> {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     try {
+      const email = dto.email.toLowerCase().trim();
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
-          name: dto.name,
+          email,
+          name: dto.name.trim(),
           passwordHash,
-          role: dto.role === Role.instructor ? Role.instructor : Role.student,
+          role: Role.student,
         },
       });
       const tokens = await this.issueTokens(user.id, user.email, user.role, user.name);
@@ -52,14 +53,22 @@ export class AuthService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ConflictException('Email already registered');
+        // Anti-enumeração de e-mail (finding BAIXA — AppSec): a resposta não
+        // revela se o e-mail já existe. Mensagem genérica e mesmo status code
+        // de outros erros de validação do fluxo de registro.
+        // TODO(security): implementar verificação por e-mail (código de
+        // confirmação) para notificar o dono do endereço sem expor o cadastro.
+        throw new ConflictException(
+          'Não foi possível concluir o cadastro com os dados informados. Verifique os campos e tente novamente.',
+        );
       }
       throw e;
     }
   }
 
   async login(email: string, password: string): Promise<AuthTokens> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }

@@ -18,8 +18,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -55,20 +58,58 @@ services:
 
   piston:
     image: ghcr.io/engineer-man/piston:latest
-    # init: true NÃO é permitido aqui: o entrypoint do Piston move o PID 1 para
-    # /sys/fs/cgroup/isolate e depois habilita controladores no root cgroup.
-    # Com docker-init, PIDs filhos ficam no root e o kernel rejeita com EBUSY.
     privileged: true
     expose:
       - '2000'
     restart: unless-stopped
     networks:
       - sandbox-net
+    environment:
+      - PISTON_DISABLE_NETWORKING=true
+      - PISTON_RUN_TIMEOUT=5000
+      - PISTON_RUN_CPU_TIME=5000
+      - PISTON_RUN_MEMORY_LIMIT=268435456
+      - PISTON_COMPILE_TIMEOUT=10000
+      - PISTON_COMPILE_MEMORY_LIMIT=268435456
+      - PISTON_MAX_PROCESS_COUNT=64
     volumes:
-      - piston-packages:/piston
-    # Sandbox de execução de código de alunos (Isolate: namespaces, chroot,
-    # usuário unprivileged, cgroups, rede off). Sem porta no host.
-    # Instale runtimes após o primeiro boot: docker exec piston sh -c "cd /piston && ./cli/index.js ppman install node python java typescript"
+      - piston-packages:/piston/packages
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:2000/api/v2/packages', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  piston-init:
+    image: curlimages/curl:latest
+    networks:
+      - default
+      - sandbox-net
+    depends_on:
+      piston:
+        condition: service_healthy
+    restart: "no"
+    command: >
+      sh -c '
+        echo "==> [piston-init] Instalando runtimes do Sandbox via API REST do Piston..."
+        curl -s -X POST http://piston:2000/api/v2/packages -H "Content-Type: application/json" -d "{\"language\":\"node\",\"version\":\"20.11.1\"}" || true
+        curl -s -X POST http://piston:2000/api/v2/packages -H "Content-Type: application/json" -d "{\"language\":\"python\",\"version\":\"3.12.0\"}" || true
+        curl -s -X POST http://piston:2000/api/v2/packages -H "Content-Type: application/json" -d "{\"language\":\"java\",\"version\":\"15.0.2\"}" || true
+        echo "==> [piston-init] Runtimes do Sandbox provisionados."
+      '
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["pnpm", "--filter", "@plataforma/api", "exec", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plataforma}:${POSTGRES_PASSWORD:-plataforma_dev}@postgres:5432/${POSTGRES_DB:-plataforma}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   api:
     build:
@@ -89,6 +130,7 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       REDIS_URL: redis://redis:6379
       GITEA_URL: http://gitea:3000
+      GITEA_ENABLED: ${GITEA_ENABLED:-true}
       GITEA_TOKEN: ${GITEA_TOKEN:-}
       GITEA_WEBHOOK_SECRET: ${GITEA_WEBHOOK_SECRET:?defina GITEA_WEBHOOK_SECRET no .env (openssl rand -hex 32)}
       GITEA_ORG: ${GITEA_ORG:-plataforma}
@@ -97,10 +139,21 @@ services:
       WATCHPACK_POLLING: 'true'
     volumes:
       - ./apps/api/src:/app/apps/api/src
+    command: ["sh", "-c", "pnpm --filter @plataforma/api exec prisma generate && pnpm --filter @plataforma/api dev"]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+      piston:
         condition: service_healthy
 
   web:
@@ -118,12 +171,14 @@ services:
       - ./apps/web/app:/app/apps/web/app
       - ./apps/web/public:/app/apps/web/public
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
   giteadata:
   piston-packages:
+  redisdata:
 
 networks:
   # Rede do sandbox: só a API alcança o Piston; o Piston não alcança

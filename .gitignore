@@ -20,3 +20,9 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+
+# artefatos de teste/build locais
+.agents/
+apps/web/playwright-report/
+apps/web/test-results/
+*.tsbuildinfo

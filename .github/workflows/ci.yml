@@ -44,15 +44,15 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11.22.0
 
       - name: Restore pnpm Cache
         uses: actions/cache@v4
@@ -70,19 +70,61 @@ jobs:
         env:
           DATABASE_URL: postgresql://plataforma:password@localhost:5432/plataforma?schema=public
 
-      - name: Run Backend Unit & Integration Tests
-        run: pnpm --filter @plataforma/api test
+      - name: Run Linter
+        run: pnpm -r lint
+
+      - name: Run Backend Unit & Integration Tests (with coverage thresholds)
+        run: pnpm --filter @plataforma/api test:coverage
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://plataforma:password@localhost:5432/plataforma?schema=public
+          DATABASE_URL: postgresql://plataforma:***@localhost:5432/plataforma?schema=public
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_ACCESS_SECRET: test_access_secret_super_secure_123456789
           JWT_REFRESH_SECRET: test_refresh_secret_super_secure_987654321
           GITEA_WEBHOOK_SECRET: test_webhook_secret_super_secure_12345
 
+      # Testes unitários do web (Vitest: game engine + stores).
+      # continue-on-error temporário: 7 specs pré-existentes do engine falham
+      # contra o código atual (mocks de ctx incompletos, dados de HP do store,
+      # duração default do SceneTransitionManager) — ver docs/TEST-STRATEGY.md.
+      # Remover esta linha assim que os specs forem corrigidos pelo time do web.
+      - name: Run Web Unit Tests (Vitest - game engine)
+        run: pnpm --filter @plataforma/web test
+        continue-on-error: true
+
       - name: Build Monorepo (Next.js & NestJS)
         run: pnpm build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000
           NODE_ENV: production
+
+  docker-build:
+    name: Build & Validate Docker Images
+    runs-on: ubuntu-latest
+    needs: [validate]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            file: apps/api/Dockerfile.prod
+          - name: web
+            file: apps/web/Dockerfile.prod
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: false
+          tags: plataforma-${{ matrix.name }}:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:3000

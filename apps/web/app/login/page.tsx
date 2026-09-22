@@ -8,9 +8,8 @@ export default function LoginPage() {
   const router = useRouter();
 
   const handleAuth = (user: { id: string; name: string; email: string; role: string }) => {
-    try {
-      localStorage.setItem('user_session', JSON.stringify(user));
-    } catch {}
+    // Sessão já hidratada pelo AuthContext via cookie httpOnly + /users/me;
+    // nada de tokens/estado de auth em localStorage.
     router.push('/dashboard');
   };
 

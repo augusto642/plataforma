@@ -17,6 +17,19 @@ export interface RequiredSecretsEnv {
 const REQUIRED_AUTH_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const;
 
 /**
+ * Segredos que precisam de alta entropia (>= 32 chars). Finding BAIXA —
+ * AppSec: antes apenas o literal 'change_me' era bloqueado; valores fracos
+ * como '123456' passavam. Um segredo de 32+ chars (hex 32 = 128 bits de
+ * entropia via `openssl rand -hex 32`) é o mínimo aceitável.
+ */
+const STRONG_SECRETS = [
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'GITEA_WEBHOOK_SECRET',
+] as const;
+const MIN_STRONG_SECRET_LENGTH = 32;
+
+/**
  * Fail-fast validation of required secrets. Pure and sync so it can be unit
  * tested and wired into ConfigModule.forRoot({ validate }).
  * NODE_ENV=test skips the checks entirely (so unit tests can run without env).
@@ -65,6 +78,20 @@ export function validateRequiredSecrets(
   if (placeholder.length > 0) {
     throw new ConfigError(
       `Insecure placeholder value for environment variable(s): ${placeholder.join(', ')}. Gere segredos reais (openssl rand -hex).`,
+    );
+  }
+
+  // Segredos fracos (curtos, ex.: '123456') também são rejeitados.
+  const weak: string[] = [];
+  for (const key of STRONG_SECRETS) {
+    const value = env[key];
+    if (value && value.length < MIN_STRONG_SECRET_LENGTH) {
+      weak.push(key);
+    }
+  }
+  if (weak.length > 0) {
+    throw new ConfigError(
+      `Weak secret value for environment variable(s): ${weak.join(', ')} (mínimo de ${MIN_STRONG_SECRET_LENGTH} caracteres). Gere segredos reais (openssl rand -hex 32).`,
     );
   }
 

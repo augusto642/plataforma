@@ -1,6 +1,13 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { Role, SubmissionStatus } from '@prisma/client';
+import { Prisma, Role, SubmissionStatus } from '@prisma/client';
 import { AdminService } from './admin.service';
+
+/**
+ * Mensagem genérica compartilhada com auth.service.register e users.service
+ * (anti-enumeração de e-mail): não revela se o endereço já está cadastrado.
+ */
+const EMAIL_CONFLICT_MESSAGE =
+  'Não foi possível concluir o cadastro com os dados informados. Verifique os campos e tente novamente.';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -146,7 +153,24 @@ describe('AdminService', () => {
           email: 'prof@nexus.edu',
           name: 'Professor Turing',
         }),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toThrow(EMAIL_CONFLICT_MESSAGE);
+    });
+
+    it('uses the same generic message on P2002 (anti-enumeration, race with the pre-check)', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.createInstructor({
+          email: 'prof@nexus.edu',
+          name: 'Professor Turing',
+        }),
+      ).rejects.toThrow(EMAIL_CONFLICT_MESSAGE);
     });
   });
 

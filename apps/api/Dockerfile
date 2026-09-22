@@ -12,6 +12,7 @@ COPY apps/web/package.json ./apps/web/package.json
 RUN pnpm install --filter @plataforma/api --frozen-lockfile
 
 COPY apps/api ./apps/api
+RUN pnpm --filter @plataforma/api exec prisma generate
 
 EXPOSE 3000
 # Gera o cliente Prisma e aplica migrations antes de subir (primeiro boot reprodutível)

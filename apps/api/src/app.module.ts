@@ -1,7 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ActivitiesModule } from './activities/activities.module';
 import { AiModule } from './ai/ai.module';
@@ -20,11 +20,20 @@ import { TalentModule } from './talent/talent.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AdminModule } from './admin/admin.module';
+import { CommonModule } from './common/common.module';
+import { HousekeepingModule } from './housekeeping/housekeeping.module';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateRequiredSecrets }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '../../.env', '../.env'],
+      validate: validateRequiredSecrets,
+    }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -71,9 +80,10 @@ import { AdminModule } from './admin/admin.module';
     SubmissionsModule,
     WebhooksModule,
     AiModule,
-    TalentModule,
     MetricsModule,
     AdminModule,
+    CommonModule,
+    HousekeepingModule,
   ],
   controllers: [AppController],
   providers: [
@@ -89,6 +99,18 @@ import { AdminModule } from './admin/admin.module';
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    {
+      provide: APP_FILTER,
+      useClass: PrismaExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+  }
+}

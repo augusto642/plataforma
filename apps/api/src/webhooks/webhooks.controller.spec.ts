@@ -346,4 +346,40 @@ describe('WebhooksController (fail-closed webhook)', () => {
       code: 'console.log(1)',
     });
   });
+
+  describe('identity anti-spoofing (email fallback removed)', () => {
+    it('ignores the event when no StudentRepo binding exists, even if the commit author email matches a platform user', async () => {
+      const prisma = makeMocks().prisma;
+      prisma.studentRepo.findFirst.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue(null);
+      // E-mail do autor do commit casa com um usuário real da plataforma —
+      // antes isso resolvia a identidade (spoofing via git config); agora não.
+      prisma.user.findUnique.mockResolvedValue({ id: 'victim-1', email: 'student@example.com' });
+      const { controller, mocks } = makeController({ prisma });
+
+      const result = await invoke(controller);
+
+      expect(result).toEqual({ status: 'ignored', reason: 'User not recognized' });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(mocks.submissions.create).not.toHaveBeenCalled();
+    });
+
+    it('resolves identity via StudentRepo binding by giteaUsername when repoFullName does not match', async () => {
+      const prisma = makeMocks().prisma;
+      prisma.studentRepo.findFirst.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2', email: 'owner@example.com' });
+      const { controller, mocks } = makeController({ prisma });
+
+      const result = await invoke(controller);
+
+      expect(result).toEqual({ status: 'success', submissionId: 'sub-1' });
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { studentRepos: { some: { giteaUsername: 'student1' } } },
+      });
+      expect(mocks.submissions.create).toHaveBeenCalledWith(
+        'user-2',
+        expect.objectContaining({ activityId: 'act-1' }),
+      );
+    });
+  });
 });

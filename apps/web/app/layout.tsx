@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from './context/AuthContext';
+import { QueryProvider } from './providers/QueryProvider';
 
 export default function RootLayout({
   children,
@@ -35,7 +36,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-[#09090A] text-[#F4F4F5] antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

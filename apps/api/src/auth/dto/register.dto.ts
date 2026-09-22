@@ -1,9 +1,9 @@
 import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 import { Role } from '@prisma/client';
 
-// Auto-registro só permite estes papéis. 'admin' NUNCA pode ser escolhido
-// publicamente (escalada de privilégio trivial via endpoint @Public()).
-export const SELF_SERVICE_ROLES: Role[] = [Role.student, Role.instructor];
+// Auto-registro só permite o papel de estudante. 'instructor' e 'admin' NUNCA
+// podem ser escolhidos publicamente (prevenção de escalada de privilégio).
+export const SELF_SERVICE_ROLES: Role[] = [Role.student];
 
 export class RegisterDto {
   @IsEmail()

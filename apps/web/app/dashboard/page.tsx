@@ -12,6 +12,8 @@ import { WeeklyLeagueTable } from './components/WeeklyLeagueTable';
 import { SocraticCopilotBox } from './components/SocraticCopilotBox';
 import { CelebrationModal } from './components/CelebrationModal';
 import { TutorModal } from './components/TutorModal';
+import { CareerPetBanner } from './components/CareerPetBanner';
+import { PetEvolutionModal } from '../game/components/PetEvolutionModal';
 import { DEFAULT_DASHBOARD_DATA, fetchDashboardData } from './utils/api';
 import { fireConfetti } from './utils/confetti';
 import { StudentDashboardData } from './types';
@@ -103,6 +105,9 @@ export default function StudentDashboardPage() {
       {/* 2. MAIN BENTO GRID */}
       <main ref={mainRef} className="flex-1 max-w-[1520px] w-full mx-auto p-4 md:p-8 space-y-6">
         
+        {/* SECTION 0: CARREIRA & PET COMPANION STATUS BANNER */}
+        <CareerPetBanner />
+
         {/* SECTION 1: HERO ACTIVE MISSION & WEEKLY GOAL */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 flex flex-col">
@@ -176,6 +181,9 @@ export default function StudentDashboardPage() {
         onClose={() => setTutorOpen(false)}
         activityTitle={data.activeMission.title}
       />
+
+      {/* 5. PET EVOLUTION / METAMORFOSE CELEBRATION MODAL */}
+      <PetEvolutionModal />
     </div>
   );
 }

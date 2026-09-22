@@ -68,7 +68,10 @@ interface Harness {
   gamificationMock: { awardSubmissionXp: ReturnType<typeof mockFn<AnyFn>> };
   prismaMock: any;
   txMock: {
-    submission: { update: ReturnType<typeof mockFn<AnyFn>> };
+    submission: {
+      update: ReturnType<typeof mockFn<AnyFn>>;
+      updateMany: ReturnType<typeof mockFn<AnyFn>>;
+    };
     testCaseResult: {
       deleteMany: ReturnType<typeof mockFn<AnyFn>>;
       createMany: ReturnType<typeof mockFn<AnyFn>>;
@@ -92,6 +95,8 @@ function buildHarness(submissionOverrides: Record<string, unknown> = {}): Harnes
       stderr: '',
     })),
   };
+  // Estado "persistido" da submissão para simular o compare-and-set do updateMany
+  const dbState = { xpAwarded: Boolean((submissionOverrides as any).xpAwarded) };
   const txMock = {
     testCaseResult: {
       deleteMany: mockFn<AnyFn>(async () => ({ count: 0 })),
@@ -101,6 +106,16 @@ function buildHarness(submissionOverrides: Record<string, unknown> = {}): Harnes
       update: mockFn<AnyFn>(async (args: any) => {
         updateArgs.push(args);
         return args.data;
+      }),
+      updateMany: mockFn<AnyFn>(async (args: any) => {
+        updateArgs.push(args);
+        // CAS real: só atualiza (count=1) se o where casar com o estado do "banco"
+        const matches =
+          args.where?.xpAwarded === undefined ||
+          args.where.xpAwarded === dbState.xpAwarded;
+        if (!matches) return { count: 0 };
+        dbState.xpAwarded = Boolean(args.data?.xpAwarded);
+        return { count: 1 };
       }),
     },
   };
@@ -241,8 +256,68 @@ describe('EvaluatorService', () => {
     const h = buildHarness({ xpAwarded: true });
     await h.evaluator.processSubmission('sub-1');
 
-    assert.equal(lastSubmissionUpdate(h).data.xpAwarded, true);
+    // CAS perdeu (where xpAwarded:false não casa): updateMany conta 0 e o
+    // resultado é persistido via update sem tocar no flag nem premiar XP.
+    const casArgs = h.txMock.submission.updateMany.calls[0][0];
+    assert.equal(casArgs.where.xpAwarded, false);
     assert.equal(h.gamificationMock.awardSubmissionXp.calls.length, 0);
+    const fallback = lastSubmissionUpdate(h);
+    assert.equal(fallback.data.status, 'passed');
+    assert.equal(fallback.data.xpAwarded, undefined);
+  });
+
+  it('awards XP exactly once when two concurrent workers process the same submission', async () => {
+    // Simula BullMQ attempts:2 / duas réplicas: ambos os workers leem
+    // xpAwarded:false ANTES da transação; apenas o vencedor do
+    // compare-and-set (updateMany count===1) pode premiar.
+    const sharedState = { xpAwarded: false };
+    const gamificationMock = {
+      awardSubmissionXp: mockFn<AnyFn>(async () => null),
+    };
+    const runnerMock = {
+      executeInSandbox: mockFn<AnyFn>(async () => evaluation({})),
+      execute: mockFn<AnyFn>(async () => ({ kind: 'passed', status: 'passed' })),
+    };
+    const txMock = {
+      testCaseResult: {
+        deleteMany: mockFn<AnyFn>(async () => ({ count: 0 })),
+        createMany: mockFn<AnyFn>(async () => ({ count: 0 })),
+      },
+      submission: {
+        update: mockFn<AnyFn>(async (args: any) => args.data),
+        updateMany: mockFn<AnyFn>(async (args: any) => {
+          const matches = args.where.xpAwarded === sharedState.xpAwarded;
+          if (!matches) return { count: 0 };
+          sharedState.xpAwarded = true;
+          return { count: 1 };
+        }),
+      },
+    };
+    const prismaMock = {
+      submission: {
+        // AMBOS os workers leem o flag como false (stale read pré-transação)
+        findUnique: mockFn<AnyFn>(async () => makeSubmission({ xpAwarded: false })),
+        update: mockFn<AnyFn>(async (args: any) => args.data),
+      },
+      $transaction: mockFn<AnyFn>(async (cb: any) => cb(txMock)),
+    };
+    const evaluator = new EvaluatorService(
+      prismaMock as any,
+      runnerMock as any,
+      gamificationMock as any,
+    );
+
+    await Promise.all([
+      evaluator.processSubmission('sub-1'),
+      evaluator.processSubmission('sub-1'),
+    ]);
+
+    assert.equal(sharedState.xpAwarded, true);
+    assert.equal(
+      gamificationMock.awardSubmissionXp.calls.length,
+      1,
+      'XP must be awarded exactly once even with two concurrent processors',
+    );
   });
 
   it('persists test case results inside the transaction', async () => {

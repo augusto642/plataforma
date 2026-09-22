@@ -39,7 +39,7 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ) {
     if (courseId) {
-      return this.activities.findByCourse(courseId, user.role, conceptTag || undefined);
+      return this.activities.findByCourse(courseId, user.role, user.sub, conceptTag || undefined);
     }
     return [];
   }
@@ -65,7 +65,7 @@ export class ActivitiesController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.activities.findById(id, user.role);
+    return this.activities.findById(id, user.role, user.sub);
   }
 
   @Get(':id/reference-solution')

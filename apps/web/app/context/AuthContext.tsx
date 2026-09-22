@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiFetch, apiClient, getStoredToken, setTokens, clearTokens, refreshAuthToken, API_BASE } from '../lib/apiClient';
-import { parseJwt } from '../lib/jwt';
+import { apiFetch, API_BASE, COOKIE_AUTH, clearStoredSession, refreshAuthToken } from '../lib/apiClient';
 
 export interface User {
   id: string;
@@ -20,7 +19,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   register: (dto: { email: string; name: string; password: string; role?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -28,73 +27,52 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeUser(raw: any): User | null {
+  if (!raw || !raw.id) return null;
+  return {
+    id: raw.id,
+    name: raw.name ?? String(raw.email ?? '').split('@')[0] ?? 'Usuário',
+    email: raw.email ?? '',
+    role: raw.role ?? 'student',
+    xp: raw.xp,
+    level: raw.level,
+    streakDays: raw.streakDays,
+    talentVisible: raw.talentVisible,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const fetchCurrentUser = useCallback(async (activeToken?: string | null): Promise<User | null> => {
+  // Fluxo cookie-only: o backend NUNCA devolve tokens no corpo. A sessão é
+  // detectada via GET /users/me com credentials:'include' (401 => deslogado).
+  // O contexto expõe `token` apenas como o sentinel 'cookie-auth' para
+  // consumidores antigos (ex.: /ide) — nunca um JWT real.
+  const token: string | null = user ? COOKIE_AUTH : null;
+
+  const fetchCurrentUser = useCallback(async (): Promise<User | null> => {
     try {
       const res = await apiFetch(`${API_BASE}/users/me`);
       if (res.ok) {
-        const data = await res.json();
-        return data as User;
+        return normalizeUser(await res.json());
       }
     } catch {
-      // Backend pode não estar alcançável ou sessão inválida
+      // Backend inalcançável — mantém estado atual
     }
-
-    // Fallback: tentar decodificar do JWT se a rota me falhar mas o token for válido
-    const tok = activeToken || getStoredToken();
-    if (tok) {
-      const decoded = parseJwt(tok);
-      if (decoded && decoded.exp && decoded.exp * 1000 > Date.now()) {
-        return {
-          id: decoded.sub,
-          email: decoded.email,
-          name: decoded.name || decoded.email.split('@')[0],
-          role: decoded.role,
-        };
-      }
-    }
-
-    // Fallback de contingência caso haja sessão local gravada
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('user_session');
-        if (stored) {
-          return JSON.parse(stored) as User;
-        }
-      } catch {}
-    }
-
     return null;
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const existingToken = getStoredToken();
-    if (existingToken) {
-      setToken(existingToken);
-      const profile = await fetchCurrentUser(existingToken);
-      if (profile) {
-        setUser(profile);
-        setIsLoading(false);
-        return;
+    let profile = await fetchCurrentUser();
+    if (!profile) {
+      // access_token pode ter expirado; /auth/refresh renova os cookies httpOnly
+      const renewed = await refreshAuthToken();
+      if (renewed) {
+        profile = await fetchCurrentUser();
       }
     }
-
-    // Tentar refresh token caso access token expirou
-    const refreshed = await refreshAuthToken();
-    if (refreshed) {
-      setToken(refreshed);
-      const profile = await fetchCurrentUser(refreshed);
-      if (profile) {
-        setUser(profile);
-      }
-    } else {
-      setUser(null);
-      setToken(null);
-    }
+    setUser(profile);
     setIsLoading(false);
   }, [fetchCurrentUser]);
 
@@ -102,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshSession();
   }, [refreshSession]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
@@ -118,30 +96,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.message || 'Credenciais inválidas.' };
       }
 
-      if (data.accessToken) {
-        setTokens(data.accessToken, data.refreshToken);
-        setToken(data.accessToken);
-      }
-
-      const loggedUser: User = {
-        id: data.user?.id || 'user-id',
-        name: data.user?.name || email.split('@')[0],
-        email: data.user?.email || email,
-        role: data.user?.role || 'student',
+      // Corpo agora é { user } — cookies httpOnly já vieram no Set-Cookie.
+      let loggedUser = normalizeUser(data.user) ?? {
+        id: 'user-id',
+        name: email.split('@')[0],
+        email,
+        role: 'student' as const,
       };
-
       setUser(loggedUser);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user_session', JSON.stringify(loggedUser));
-      }
 
-      // Buscar perfil completo atualizado
-      fetchCurrentUser(data.accessToken).then((fullProfile) => {
-        if (fullProfile) setUser(fullProfile);
-      });
+      // Perfil completo via /users/me (xp, level, streak etc.)
+      const fullProfile = await fetchCurrentUser();
+      if (fullProfile) {
+        loggedUser = fullProfile;
+        setUser(fullProfile);
+      }
 
       setIsLoading(false);
-      return { success: true };
+      return { success: true, user: loggedUser };
     } catch (err: any) {
       setIsLoading(false);
       return { success: false, error: err.message || 'Erro de conexão com o servidor.' };
@@ -169,22 +141,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.message || 'Erro ao realizar cadastro.' };
       }
 
-      if (data.accessToken) {
-        setTokens(data.accessToken, data.refreshToken);
-        setToken(data.accessToken);
-      }
-
-      const registeredUser: User = {
-        id: data.user?.id || 'user-id',
-        name: data.user?.name || dto.name,
-        email: data.user?.email || dto.email,
-        role: (data.user?.role || dto.role || 'student') as any,
+      // Corpo agora é { user }; sessão vive nos cookies httpOnly.
+      const registeredUser = normalizeUser(data.user) ?? {
+        id: 'user-id',
+        name: dto.name,
+        email: dto.email,
+        role: (dto.role || 'student') as User['role'],
       };
-
       setUser(registeredUser);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user_session', JSON.stringify(registeredUser));
-      }
+
+      const fullProfile = await fetchCurrentUser();
+      if (fullProfile) setUser(fullProfile);
 
       setIsLoading(false);
       return { success: true };
@@ -196,18 +163,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async (): Promise<void> => {
     try {
+      // Backend corta os cookies httpOnly (204 No Content).
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
         credentials: 'include',
       });
     } catch {
       // best-effort
     }
-    clearTokens();
+    clearStoredSession();
     setUser(null);
-    setToken(null);
   };
 
   return (

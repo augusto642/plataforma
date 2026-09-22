@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
+const isWindows = process.platform === 'win32';
+
 const nextConfig = {
+  // Standalone ativado em Linux / Docker / CI; no Windows local desativa para prevenir EPERM symlink
+  output: !isWindows || process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
   async rewrites() {
     return [
       {

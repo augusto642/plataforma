@@ -44,12 +44,8 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
     const loadHistory = async () => {
       setIsLoadingHistory(true);
       try {
-        const headers: Record<string, string> = {};
-        if (token && token !== 'cookie-auth') {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+        // Cookie-only: sem Authorization — sessão vem do cookie httpOnly.
         const res = await fetch(`${API_BASE}/ai/history/${activityId}`, {
-          headers,
           signal: controller.signal,
           credentials: 'include',
         });
@@ -123,9 +119,6 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token && token !== 'cookie-auth') {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const res = await fetch(`${API_BASE}/ai/chat/stream`, {
         method: 'POST',
@@ -226,9 +219,6 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token && token !== 'cookie-auth') {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const res = await fetch(`${API_BASE}/ai/complexity-analysis`, {
         method: 'POST',

@@ -20,8 +20,9 @@ test.describe('NEXUS CODE — WCAG 2.1 AA & Critical Flow E2E Audits', () => {
     await page.goto('/courses');
     await expect(page.locator('h1, h2').first()).toBeVisible();
 
-    // Verify course links have valid href
-    const courseCards = page.locator('a[href^="/courses/"]');
+    // Verify course cards and buttons are present
+    const courseCards = page.locator('button:has-text("Ver Ementa")');
+    await expect(courseCards.first()).toBeVisible({ timeout: 10000 });
     const count = await courseCards.count();
     expect(count).toBeGreaterThan(0);
   });

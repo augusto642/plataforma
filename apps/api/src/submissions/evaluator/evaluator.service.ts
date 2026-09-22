@@ -69,7 +69,7 @@ export class EvaluatorService {
       const errorMessage =
         evaluation.errorMessage || (kind === 'passed' ? undefined : KIND_MESSAGES[kind]);
 
-      await this.prisma.$transaction(async (tx) => {
+      const shouldAwardXp = await this.prisma.$transaction(async (tx) => {
         // Clean up previous test results if this is a retry
         await tx.testCaseResult.deleteMany({
           where: { submissionId },
@@ -91,24 +91,47 @@ export class EvaluatorService {
           });
         }
 
-        // Update submission status, score, and xpAwarded flag
+        const resultData = {
+          status: kind === 'sandbox_unavailable' ? 'error' : evaluation.status,
+          score: evaluation.score,
+          maxScore: evaluation.maxScore,
+          durationMs: evaluation.durationMs,
+          errorMessage,
+          logs: evaluation.logs,
+        };
+
+        if (canAwardXp) {
+          // Compare-and-set atômico: só o worker que flipar xpAwarded false->true
+          // (count === 1) tem o direito de premiar XP. Impede XP em dobro quando
+          // BullMQ retries (attempts: 2) ou réplicas concorrentes processam a
+          // mesma submissão.
+          const claimed = await tx.submission.updateMany({
+            where: { id: submissionId, xpAwarded: false },
+            data: { ...resultData, xpAwarded: true },
+          });
+          if (claimed.count === 1) {
+            return true;
+          }
+          // Outra corrida já processou esta submissão; persiste o resultado
+          // mais recente sem premiar XP novamente.
+          await tx.submission.update({
+            where: { id: submissionId },
+            data: resultData,
+          });
+          return false;
+        }
+
+        // Outcomes que nunca premiam XP preservam o flag existente.
         await tx.submission.update({
           where: { id: submissionId },
-          data: {
-            status: kind === 'sandbox_unavailable' ? 'error' : evaluation.status,
-            score: evaluation.score,
-            maxScore: evaluation.maxScore,
-            durationMs: evaluation.durationMs,
-            errorMessage,
-            logs: evaluation.logs,
-            xpAwarded: canAwardXp ? true : submission.xpAwarded,
-          },
+          data: { ...resultData, xpAwarded: submission.xpAwarded },
         });
+        return false;
       });
 
-      // Award XP and evaluate Badges only once per submission and only for
-      // outcomes that can be granted (never for unsupported/unavailable/compile errors)
-      if (canAwardXp && !submission.xpAwarded) {
+      // Award XP and evaluate Badges only for the worker that won the
+      // compare-and-set above (exactly-once per submission)
+      if (shouldAwardXp) {
         await this.gamification.awardSubmissionXp(
           submission.userId,
           submission.activityId,
