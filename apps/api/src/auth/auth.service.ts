@@ -50,6 +50,7 @@ export class AuthService {
         },
       });
       const tokens = await this.issueTokens(user.id, user.email, user.role, user.name);
+      await this.linkDiagnosticResult(dto.diagnosticSessionToken, user.id);
       return { ...tokens, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
     } catch (e) {
       if (
@@ -66,6 +67,32 @@ export class AuthService {
         );
       }
       throw e;
+    }
+  }
+
+  /**
+   * Vincula o resultado anônimo do quiz diagnóstico (B09) à conta nova.
+   * É um vínculo de conveniência: se qualquer passo falhar (token
+   * inexistente, resultado já vinculado a outra conta, erro de banco),
+   * o cadastro NÃO pode quebrar por causa dele — por isso o try/catch.
+   */
+  private async linkDiagnosticResult(
+    sessionToken: string | undefined,
+    userId: string,
+  ): Promise<void> {
+    if (!sessionToken) return;
+    try {
+      const result = await this.prisma.diagnosticResult.findUnique({
+        where: { sessionToken },
+      });
+      if (result && result.userId === null) {
+        await this.prisma.diagnosticResult.update({
+          where: { id: result.id },
+          data: { userId },
+        });
+      }
+    } catch {
+      // Silencioso de propósito: ver o comentário do método.
     }
   }
 

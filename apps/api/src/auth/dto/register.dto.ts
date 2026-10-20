@@ -38,4 +38,12 @@ export class RegisterDto {
   @IsString()
   @MaxLength(255)
   utmCampaign?: string;
+
+  // Quiz diagnóstico (B09): quem fez o quiz anônimo antes de se cadastrar
+  // envia o sessionToken; o AuthService vincula o DiagnosticResult daquela
+  // sessão à conta recém-criada (se existir e ainda estiver sem dono).
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  diagnosticSessionToken?: string;
 }

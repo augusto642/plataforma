@@ -54,4 +54,30 @@ describe('RegisterDto (self-service roles — B1 regression)', () => {
       expect(errors.some((e) => e.property === 'utmCampaign')).toBe(true);
     });
   });
+
+  describe('diagnosticSessionToken (B09)', () => {
+    function dtoComToken(extra: Record<string, unknown>) {
+      return Object.assign(new RegisterDto(), { ...base, ...extra });
+    }
+
+    it('accepts registration without the token and with a valid token', async () => {
+      expect(await validate(dtoComToken({}))).toHaveLength(0);
+      expect(
+        await validate(dtoComToken({ diagnosticSessionToken: 'abc-123' })),
+      ).toHaveLength(0);
+    });
+
+    it('rejects a non-string token and one longer than 64 chars', async () => {
+      const notString = await validate(dtoComToken({ diagnosticSessionToken: 42 }));
+      expect(
+        notString.some((e) => e.property === 'diagnosticSessionToken'),
+      ).toBe(true);
+      const tooLong = await validate(
+        dtoComToken({ diagnosticSessionToken: 'x'.repeat(65) }),
+      );
+      expect(tooLong.some((e) => e.property === 'diagnosticSessionToken')).toBe(
+        true,
+      );
+    });
+  });
 });

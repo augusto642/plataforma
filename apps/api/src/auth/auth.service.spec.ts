@@ -148,3 +148,82 @@ describe('AuthService register — UTMs (B07)', () => {
     expect(JSON.stringify(res)).not.toContain('utm');
   });
 });
+
+describe('AuthService register — vínculo do quiz diagnóstico (B09)', () => {
+  function makeService(diagnosticResult: any) {
+    const create = jest.fn().mockImplementation(({ data }: any) =>
+      Promise.resolve({ id: 'user-10', ...data }),
+    );
+    const prismaReg: any = {
+      user: { create, findUnique: jest.fn() },
+      refreshToken: { create: jest.fn().mockResolvedValue({ id: 'rt-10' }) },
+      diagnosticResult,
+    };
+    const jwtReg: any = { signAsync: jest.fn().mockResolvedValue('signed-token') };
+    const configReg: any = {
+      get: jest.fn((key: string, def?: any) => {
+        if (key === 'JWT_ACCESS_SECRET') return 'configured-secret';
+        return def;
+      }),
+    };
+    return { svc: new AuthService(prismaReg, jwtReg, configReg), create };
+  }
+
+  const dto = {
+    email: 'quiz@example.com',
+    name: 'Aluna Quiz',
+    password: '12345678',
+    diagnosticSessionToken: 'token-da-sessao',
+  } as any;
+
+  it('vincula o DiagnosticResult sem dono à conta recém-criada', async () => {
+    const findUnique = jest
+      .fn()
+      .mockResolvedValue({ id: 'diag-1', userId: null, sessionToken: 'token-da-sessao' });
+    const update = jest.fn().mockResolvedValue({});
+    const { svc } = makeService({ findUnique, update });
+
+    const res = await svc.register(dto);
+
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { sessionToken: 'token-da-sessao' },
+    });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'diag-1' },
+      data: { userId: 'user-10' },
+    });
+    expect(res.user.id).toBe('user-10');
+  });
+
+  it('não sobrescreve resultado já vinculado a outra conta', async () => {
+    const findUnique = jest
+      .fn()
+      .mockResolvedValue({ id: 'diag-2', userId: 'outro-user', sessionToken: 'token-da-sessao' });
+    const update = jest.fn();
+    const { svc } = makeService({ findUnique, update });
+
+    await svc.register(dto);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('token inexistente ou erro no vínculo NÃO quebram o cadastro', async () => {
+    const findUnique = jest.fn().mockRejectedValue(new Error('db down'));
+    const update = jest.fn();
+    const { svc } = makeService({ findUnique, update });
+
+    const res = await svc.register(dto);
+    expect(res.user.email).toBe('quiz@example.com');
+  });
+
+  it('sem diagnosticSessionToken, nem consulta a tabela de diagnóstico', async () => {
+    const findUnique = jest.fn();
+    const { svc } = makeService({ findUnique, update: jest.fn() });
+
+    await svc.register({
+      email: 'semquiz@example.com',
+      name: 'Sem Quiz',
+      password: '12345678',
+    } as any);
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+});
