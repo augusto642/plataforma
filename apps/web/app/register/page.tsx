@@ -13,8 +13,65 @@ import { useAuth } from '../context/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
+// B07 — atribuição de marketing (padrão Codewars): UTMs da URL de chegada são
+// persistidos em sessionStorage e enviados no payload do cadastro.
+const UTM_STORAGE_KEY = 'nexus_utm';
+// Formato do payload da API (RegisterDto): camelCase. Os parâmetros da URL
+// continuam snake_case (convenção UTM) e são traduzidos na captura.
+type UtmData = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+function captureUtmFromUrl(): void {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const utm: UtmData = {};
+    const source = params.get('utm_source');
+    const medium = params.get('utm_medium');
+    const campaign = params.get('utm_campaign');
+    if (source) utm.utmSource = source;
+    if (medium) utm.utmMedium = medium;
+    if (campaign) utm.utmCampaign = campaign;
+    if (Object.keys(utm).length > 0) {
+      sessionStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utm));
+    }
+  } catch {
+    // sessionStorage indisponível: atribuição é opcional, nunca bloqueia o cadastro
+  }
+}
+
+function readStoredUtm(): UtmData {
+  try {
+    const raw = sessionStorage.getItem(UTM_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as UtmData & {
+      // sessões abertas antes desta correção podem ter gravado snake_case
+      utm_source?: string;
+      utm_medium?: string;
+      utm_campaign?: string;
+    };
+    const utm: UtmData = {};
+    const source = parsed.utmSource ?? parsed.utm_source;
+    const medium = parsed.utmMedium ?? parsed.utm_medium;
+    const campaign = parsed.utmCampaign ?? parsed.utm_campaign;
+    if (source) utm.utmSource = source;
+    if (medium) utm.utmMedium = medium;
+    if (campaign) utm.utmCampaign = campaign;
+    return utm;
+  } catch {
+    return {};
+  }
+}
+
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // B07 — captura as UTMs da URL de chegada uma única vez, na montagem
+  useEffect(() => {
+    captureUtmFromUrl();
+  }, []);
 
   // Form State (Step 1)
   const [role, setRole] = useState<RoleType>('student');
@@ -66,6 +123,8 @@ export default function RegisterPage() {
         password,
         name: name.trim(),
         role: 'student',
+        // B07 — inclui as UTMs capturadas; sem UTM, nenhum campo é enviado
+        ...readStoredUtm(),
       });
 
       if (!result.success) {

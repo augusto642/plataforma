@@ -125,6 +125,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string;
     password: string;
     role?: string;
+    // B07 — atribuição de marketing capturada na página de registro
+    // (camelCase: é o contrato do RegisterDto da API; snake_case é rejeitado
+    // pelo ValidationPipe com forbidNonWhitelisted)
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
   }): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
