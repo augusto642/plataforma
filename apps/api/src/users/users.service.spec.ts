@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { UsersService } from './users.service';
+import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 
 /**
  * Mensagem genérica compartilhada com auth.service.register e admin.service
@@ -98,6 +99,37 @@ describe('UsersService', () => {
       expect(result.sections.submissions[0].testResults).toEqual([
         { id: 't1', name: 'case 1', passed: true },
       ]);
+    });
+
+    it('mascara errorMessage de testes ocultos na exportação (B01b) e preserva os visíveis', async () => {
+      const rowWithHidden = {
+        ...userRow,
+        submissions: [
+          {
+            ...userRow.submissions[0],
+            testResults: [
+              { id: 't1', name: 'case 1', passed: true, isHidden: false, errorMessage: null },
+              { id: 't2', name: 'caso visível', passed: false, isHidden: false, errorMessage: 'expected 5 got 3' },
+              { id: 't3', name: 'caso oculto falho', passed: false, isHidden: true, errorMessage: 'AssertionError [export-hidden-stderr]' },
+              { id: 't4', name: 'caso oculto ok', passed: true, isHidden: true, errorMessage: 'detalhe interno bruto' },
+            ],
+          },
+        ],
+      };
+      prisma.user.findUnique.mockResolvedValue(rowWithHidden);
+
+      const result = await service.exportUserData('user-1');
+
+      const results = result.sections.submissions[0].testResults as any[];
+      const serialized = JSON.stringify(results);
+      expect(serialized).not.toContain('export-hidden-stderr');
+      expect(serialized).not.toContain('detalhe interno bruto');
+      expect(results.find((t) => t.id === 't2')?.errorMessage).toBe('expected 5 got 3');
+      expect(results.find((t) => t.id === 't3')?.errorMessage).toBe(HIDDEN_TEST_FAILED_MESSAGE);
+      expect(results.find((t) => t.id === 't4')?.errorMessage).toBeUndefined();
+      // Demais dados do aluno intactos.
+      expect(result.sections.submissions[0].codeSnapshot).toBe('console.log("hello")');
+      expect(result.sections.profile.email).toBe('aluno@example.com');
     });
 
     it('throws NotFoundException for unknown user', async () => {

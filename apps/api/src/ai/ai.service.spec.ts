@@ -188,6 +188,89 @@ describe('AiService', () => {
     });
   });
 
+  describe('B01b — testes ocultos não vazam para o tutor', () => {
+    it('dica heurística com apenas teste oculto falho não contém o stderr bruto', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(2);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(2);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-hidden',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          {
+            passed: false,
+            isHidden: true,
+            name: 'caso oculto',
+            errorMessage: 'AssertionError: expected 42 got undefined [hidden-stderr-marker]',
+          },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-hidden', 'user-1');
+
+      expect(feedback.tier).toBe(2);
+      const serialized = JSON.stringify(feedback);
+      expect(serialized).not.toContain('hidden-stderr-marker');
+      expect(serialized).not.toContain('expected 42');
+      expect(serialized).toContain('Um teste oculto não passou');
+
+      // A dica persistida (aiHints, exposta via findProgress) também sai limpa.
+      const updateCalls = mockPrismaService.submission.update.mock.calls;
+      const updateArgs = updateCalls[updateCalls.length - 1]?.[0];
+      expect(JSON.stringify(updateArgs?.data)).not.toContain('hidden-stderr-marker');
+    });
+
+    it('dica heurística cita o teste visível e nunca o oculto, mesmo com o oculto primeiro', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(2);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(2);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-mixed',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          { passed: false, isHidden: true, name: 'caso oculto', errorMessage: 'AssertionError [mixed-hidden-stderr]' },
+          { passed: false, isHidden: false, name: 'caso visível', errorMessage: 'expected 7 got 8' },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-mixed', 'user-1');
+
+      const hints = feedback.hints.join(' ');
+      expect(hints).toContain('expected 7 got 8');
+      expect(hints).not.toContain('mixed-hidden-stderr');
+    });
+
+    it('prompt do LLM não contém errorMessage de teste oculto (e mantém o visível)', async () => {
+      mockLlmClient.hasApiKey = true;
+      mockLlmClient.complete.mockResolvedValue(
+        JSON.stringify({ summary: 'Resumo do tutor', hints: ['dica 1'], suggestedConcept: 'Lógica' }),
+      );
+      mockPrismaService.submission.count.mockResolvedValueOnce(1);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(0);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-llm',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          { passed: false, isHidden: false, name: 'caso visível', errorMessage: 'expected 5 got undefined' },
+          { passed: false, isHidden: true, name: 'caso oculto', errorMessage: 'AssertionError [llm-hidden-stderr]' },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a - b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-llm', 'user-1');
+
+      expect(feedback.summary).toBe('Resumo do tutor');
+      expect(mockLlmClient.complete).toHaveBeenCalledTimes(1);
+      const prompt = (mockLlmClient.complete as jest.Mock).mock.calls[0][0].messages[0].content as string;
+      expect(prompt).not.toContain('llm-hidden-stderr');
+      expect(prompt).not.toContain('AssertionError');
+      expect(prompt).toContain('expected 5 got undefined');
+    });
+  });
+
   describe('generateSocraticGuidance', () => {
     it('should return contextual socratic question for bug and error inquiries', async () => {
       const result = await service.generateSocraticGuidance({

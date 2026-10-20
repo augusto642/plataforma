@@ -121,6 +121,19 @@ const UNSUPPORTED_LANGUAGE_MESSAGE =
 const SANDBOX_UNAVAILABLE_MESSAGE =
   'O sandbox de execução está temporariamente indisponível. Tente novamente mais tarde.';
 
+/**
+ * Mensagem genérica exibida ao aluno quando quem falha é um teste OCULTO.
+ * O errorMessage bruto de um teste oculto nasce do stderr do harness
+ * (run.message || run.stderr) e carrega traceback/assert com a entrada e o
+ * valor esperado do teste — ou seja, o próprio gabarito. Por isso ele nunca
+ * pode aparecer em respostas ao aluno: nem por caso de teste (serialização
+ * em SubmissionsService) nem agregado na mensagem da execução (aqui). O
+ * detalhe completo permanece nos registros persistidos (TestCaseResult),
+ * visíveis apenas a instrutor/admin.
+ */
+export const HIDDEN_TEST_FAILED_MESSAGE =
+  'Um teste oculto não passou. Revise sua solução e tente novamente.';
+
 @Injectable()
 export class PistonRunnerService implements RunnerService {
   private readonly logger = new Logger(PistonRunnerService.name);
@@ -278,6 +291,15 @@ export class PistonRunnerService implements RunnerService {
           : 'failed';
     const kind = this.aggregateKind(testCases, fatalKind);
     const worstTest = testCases.find((t) => t.kind && t.kind !== 'passed');
+    // Se o pior caso é oculto, a mensagem agregada NÃO herda o errorMessage
+    // dele (stderr do harness = entrada/esperado do teste oculto). O detalhe
+    // fica apenas em testCases (persistido p/ instrutor/admin e mascarado na
+    // serialização para o aluno).
+    const worstErrorMessage = worstTest
+      ? worstTest.isHidden
+        ? HIDDEN_TEST_FAILED_MESSAGE
+        : worstTest.errorMessage
+      : undefined;
     const logs = testCases
       .map((t) => `${t.name}: ${t.passed ? 'PASS' : 'FAIL'}`)
       .join('\n');
@@ -291,7 +313,7 @@ export class PistonRunnerService implements RunnerService {
       logs,
       errorMessage:
         fatalMessage ||
-        (status === 'passed' ? undefined : worstTest?.errorMessage) ||
+        (status === 'passed' ? undefined : worstErrorMessage) ||
         (status === 'failed' ? 'Os testes não passaram.' : undefined),
       testCases,
     };

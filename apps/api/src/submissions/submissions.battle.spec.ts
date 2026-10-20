@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { SubmissionsService } from './submissions.service';
 import { BattleRunDto } from './dto/battle-run.dto';
+import { HIDDEN_TEST_FAILED_MESSAGE } from './runner/runner.service';
 
 describe('SubmissionsService - Battle Run', () => {
   let service: SubmissionsService;
@@ -210,6 +211,39 @@ describe('SubmissionsService - Battle Run', () => {
     expect(res.recoilDamage).toBe(10); // 50% of boss attack 20
     expect(res.remainingBossHp).toBeGreaterThan(0);
     expect(res.combatLog).toContain('contra-atacou');
+  });
+
+  it('masks hidden test errorMessage in the battle response (B01: no hidden stderr leak)', async () => {
+    prisma.activity.findUnique.mockResolvedValue(mockActivity);
+    prisma.userCompanion.findFirst.mockResolvedValue(dbCompanion);
+    prisma.user.findUnique.mockResolvedValue(dbUser);
+    prisma.submission.create.mockResolvedValue({ id: 'sub-hidden' });
+
+    runner.executeInSandbox.mockResolvedValue({
+      status: 'failed',
+      errorMessage: 'AssertionError: esperado 42 para a entrada secreta 7',
+      testCases: [
+        { name: 'Test 1', passed: false, durationMs: 10, errorMessage: 'Expected 2 but got 1' },
+        { name: 'Hidden Test 2', passed: false, durationMs: 10, isHidden: true, errorMessage: 'AssertionError: esperado 42 para a entrada secreta 7' },
+      ],
+      durationMs: 20,
+    });
+
+    const dto: BattleRunDto = {
+      activityId: 'act-1',
+      companionId: 'comp-1',
+      code: 'function partial() {}',
+      language: 'javascript' as any,
+    };
+
+    const res = await service.battleRun('user-1', dto);
+
+    const visible = res.testResults.find((t) => !t.isHidden) as any;
+    const hidden = res.testResults.find((t) => t.isHidden) as any;
+    expect(visible.errorMessage).toBe('Expected 2 but got 1');
+    expect(hidden.errorMessage).toBe(HIDDEN_TEST_FAILED_MESSAGE);
+    expect(JSON.stringify(res.testResults)).not.toContain('esperado 42');
+    expect(JSON.stringify(res.testResults)).not.toContain('secreta');
   });
 
   it('handles full test failure: 0 damage dealt, full boss recoil damage taken, 0 XP', async () => {

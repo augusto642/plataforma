@@ -10,6 +10,7 @@ import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { GiteaService } from '../gitea/gitea.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 import { CreateUserDto } from './dto/create-user.dto';
 
 const BCRYPT_ROUNDS = 12;
@@ -434,6 +435,23 @@ export class UsersService {
 
     const { badges, chatMessages, enrollments, submissions, ...profile } = user;
 
+    // B01b: a exportação é do próprio aluno, mas o errorMessage de um teste
+    // OCULTO é o stderr bruto do harness (entrada + valor esperado) e não
+    // pode sair nem aqui. Mesma regra da serialização de aluno do B01:
+    // oculto aprovado sem mensagem; oculto falho, só a genérica. Os demais
+    // dados do aluno seguem intactos.
+    const maskedSubmissions = submissions.map((submission) => ({
+      ...submission,
+      testResults: submission.testResults.map((t) =>
+        t.isHidden
+          ? {
+              ...t,
+              errorMessage: t.passed ? undefined : HIDDEN_TEST_FAILED_MESSAGE,
+            }
+          : t,
+      ),
+    }));
+
     return {
       exportedAt: new Date().toISOString(),
       sections: {
@@ -441,7 +459,7 @@ export class UsersService {
         gamification: { badges },
         chat: { messages: chatMessages },
         enrollments: enrollments.map((e) => ({ course: e.course, enrolledAt: e.createdAt })),
-        submissions,
+        submissions: maskedSubmissions,
       },
     };
   }

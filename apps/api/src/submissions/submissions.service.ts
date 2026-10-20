@@ -12,7 +12,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BattleRunDto } from './dto/battle-run.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { EvaluatorService } from './evaluator/evaluator.service';
-import { PistonRunnerService } from './runner/runner.service';
+import {
+  HIDDEN_TEST_FAILED_MESSAGE,
+  PistonRunnerService,
+} from './runner/runner.service';
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
@@ -415,8 +418,13 @@ export class SubmissionsService {
         passed: t.passed,
         durationMs: t.durationMs,
         isHidden: t.isHidden ?? false,
-        errorMessage:
-          t.isHidden && !t.passed ? 'Teste oculto falhou' : t.errorMessage,
+        // Teste oculto nunca expõe o errorMessage bruto (stderr do harness
+        // com entrada/esperado): aluno recebe só a mensagem genérica.
+        errorMessage: t.isHidden
+          ? t.passed
+            ? undefined
+            : HIDDEN_TEST_FAILED_MESSAGE
+          : t.errorMessage,
       })),
     };
   }
@@ -498,6 +506,28 @@ export class SubmissionsService {
     this.assertCanAccess(submission, userId, userRole);
 
     const { userId: _ownerId, activity: _activity, ...progress } = submission;
+
+    if (userRole === 'student') {
+      // Anti-vazamento (B01): o TestCaseResult persistido guarda o
+      // errorMessage completo (visível a instrutor/admin via findById), mas
+      // para o aluno o caso oculto expõe apenas a mensagem genérica — o
+      // bruto é stderr do harness com a entrada e o valor esperado do teste.
+      // (stdout/stderr já não fazem parte desta projeção leve.)
+      return {
+        ...progress,
+        testResults: progress.testResults.map((t) =>
+          t.isHidden
+            ? {
+                ...t,
+                errorMessage: t.passed
+                  ? undefined
+                  : HIDDEN_TEST_FAILED_MESSAGE,
+              }
+            : t,
+        ),
+      };
+    }
+
     return progress;
   }
 

@@ -4,6 +4,7 @@ import { CacheService } from '../cache/cache.service';
 import { SocraticGuidanceDto } from './dto/socratic-guidance.dto';
 import { LlmClient } from './llm-client';
 import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prompt-guard';
+import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 
 export type SocraticTier = 1 | 2 | 3;
 
@@ -157,6 +158,17 @@ export class AiService {
   ): Promise<PedagogicalFeedback> {
     const sanitizedStudentCode = this.sanitizePrompt(studentCode);
 
+    // B01b: o errorMessage de um teste OCULTO é o stderr bruto do harness
+    // (entrada + valor esperado = o gabarito) e nunca pode alimentar o
+    // tutor: no prompt do LLM o modelo pode ecoá-lo na resposta, e a engine
+    // heurística Tier 2 o citava verbatim na dica. Para o tutor, um oculto
+    // falho é só "um teste não passou" — conta na estatística de falhas,
+    // sem detalhe (mesma máscara do B01). Este é o funil único das duas
+    // vias (prompt e heurística), então a troca acontece aqui.
+    const safeFailedTests = failedTests.map((t) =>
+      t.isHidden ? { ...t, errorMessage: HIDDEN_TEST_FAILED_MESSAGE } : t,
+    );
+
     const tierPrompts: Record<SocraticTier, string> = {
       1: 'ESTÁGIO SOCRÁTICO TIER 1 (MODELO MENTAL & INVARIANTES): O aluno está na primeira tentativa. Conduza o aluno com perguntas sobre o modelo mental e a invariante de saída esperada. Não mencione código pronto nem sintaxe.',
       2: 'ESTÁGIO SOCRÁTICO TIER 2 (CASOS DE BORDA & TESTE DE MESA): O aluno já errou anteriormente. Aponte a natureza do caso limite ou asserção que falhou e estimule o aluno a simular a execução passo a passo no papel (teste de mesa). Não forneça o código.',
@@ -166,7 +178,7 @@ export class AiService {
     // If external AI LLM API key is configured, call it
     if (this.llm.hasApiKey) {
       try {
-        const failedSummary = failedTests
+        const failedSummary = safeFailedTests
           .map((t) => `- ${t.name}: ${t.errorMessage || 'Falha de asserção'}`)
           .join('\n');
 
@@ -210,7 +222,7 @@ export class AiService {
     }
 
     // Heuristic Socratic Engine (offline & default)
-    return this.generateHeuristicSocraticHints(studentCode, failedTests, activityTitle, tier);
+    return this.generateHeuristicSocraticHints(studentCode, safeFailedTests, activityTitle, tier);
   }
 
   private generateHeuristicSocraticHints(
@@ -243,7 +255,11 @@ export class AiService {
       summary = `Tier 2 (Casos de Borda & Teste de Mesa) — Exercício: "${title}". Identificando asserções que falharam.`;
       concept = 'Casos de Borda e Simulação Passo a Passo';
       if (failedTests.length > 0) {
-        const firstError = failedTests[0].errorMessage || failedTests[0].name || '';
+        // B01b: cita o primeiro teste VISÍVEL com detalhe. Se só ocultos
+        // falharam, o errorMessage já chega mascarado de produceSocraticHint
+        // (mensagem genérica), nunca o stderr bruto.
+        const quotable = failedTests.find((t) => !t.isHidden) || failedTests[0];
+        const firstError = quotable.errorMessage || quotable.name || '';
         hints.push(`Observe o teste que falhou: "${firstError}". Que valores causaram essa divergência?`);
       }
       hints.push('Realize um teste de mesa: anote em um papel o valor das variáveis linha a linha simulando a entrada do teste.');
