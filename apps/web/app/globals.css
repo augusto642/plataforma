@@ -9,25 +9,44 @@
 }
 
 :root {
-  --bg-app: #09090a;
-  --bg-surface-base: #121214;
-  --bg-surface-elevated: #18181b;
-  --border-subtle: #27272a;
+  /* D1 — fundo único e superfícies na escala nomeada (espelho do tailwind.config) */
+  --bg-app: #0B0B10;
+  --bg-surface-base: #13131B;
+  --bg-surface-card: #1A1A24;
+  --bg-surface-elevated: #22222F;
+  --border-subtle: #22222F;
+  --border-card: #2B2B3B;
+  /* Textos em 3 níveis */
+  --text-heading: #E0E0EE;
+  --text-body: #C0C0D1;
+  --text-span: #8B8B9A;
   --brand-green: #00B37E;
   --brand-green-neon: #04D361;
   --brand-purple: #8257E5;
   --brand-purple-light: #996DFF;
+  /* D2 — escala da marca e semânticas */
+  --brand-purple-low: #241A3F;
+  --brand-purple-dark: #6E4AC3;
   --brand-cyan: #0070F3;
   --brand-cyan-neon: #00E5FF;
   --brand-amber: #FFA116;
+  --brand-warning: #EF6220;
   --brand-rose: #F43F5E;
+  /* D2 — token de foco visível */
+  --focus: #03B2CB;
 }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--bg-app);
-  color: #E1E1E6;
+  color: var(--text-body);
   overflow-x: hidden;
+}
+
+/* D2 — anel de foco global e visível em qualquer elemento interativo */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 /* ==========================================================================
@@ -126,11 +145,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090A;
+  background: #0B0B10;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272A;
+  background: #2B2B3B;
   border-radius: 4px;
 }
 

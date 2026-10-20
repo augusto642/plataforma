@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import './dashboard.css';
 import { Topbar } from './components/Topbar';
 import { HeroActiveMission } from './components/HeroActiveMission';
@@ -19,11 +20,14 @@ import { fireConfetti } from './utils/confetti';
 import { StudentDashboardData } from './types';
 
 export default function StudentDashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<StudentDashboardData>(DEFAULT_DASHBOARD_DATA);
   const [userXp, setUserXp] = useState<number>(DEFAULT_DASHBOARD_DATA.user.xp);
   const [userLevel, setUserLevel] = useState<number>(DEFAULT_DASHBOARD_DATA.user.level);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
   const [tutorOpen, setTutorOpen] = useState(false);
+  const [searchNotice, setSearchNotice] = useState<string | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -78,10 +82,15 @@ export default function StudentDashboardPage() {
     setCelebrationOpen(true);
   };
 
+  // B05: busca sem alert() — aviso temporário não-bloqueante + leva o aluno
+  // até a árvore de habilidades, onde estão os desafios.
   const handleSearch = (query: string) => {
-    if (query.trim()) {
-      alert(`Buscando por: "${query}" na base de conhecimento e desafios...`);
-    }
+    const q = query.trim();
+    if (!q) return;
+    setSearchNotice(`Busca por "${q}" — explore os desafios na árvore de habilidades abaixo.`);
+    document.getElementById('skill-roadmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => setSearchNotice(null), 4000);
   };
 
   const currentUserData = {
@@ -93,8 +102,17 @@ export default function StudentDashboardPage() {
   return (
     <div
       onMouseMove={handleMouseMove}
-      className="dashboard-root min-h-screen flex flex-col antialiased selection:bg-[#8257E5] selection:text-white bg-[#09090A] text-[#EDEDED]"
+      className="dashboard-root min-h-screen flex flex-col antialiased selection:bg-[#8257E5] selection:text-white bg-background text-ink-heading"
     >
+      {/* Aviso temporário da busca (não-bloqueante) */}
+      {searchNotice && (
+        <div
+          role="status"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-surface-3 border border-border-2 text-ink-body text-xs font-medium shadow-2xl"
+        >
+          {searchNotice}
+        </div>
+      )}
       {/* 1. TOPBAR */}
       <Topbar
         user={currentUserData}
@@ -122,12 +140,14 @@ export default function StudentDashboardPage() {
         </section>
 
         {/* SECTION 2: SKILL TREE / ROADMAP DE NÓS */}
-        <SkillRoadmapTree
-          nodes={data.skillRoadmap}
-          onSelectActiveNode={() => {
-            window.location.href = '/';
-          }}
-        />
+        <div id="skill-roadmap">
+          <SkillRoadmapTree
+            nodes={data.skillRoadmap}
+            onSelectActiveNode={() => {
+              router.push('/ide');
+            }}
+          />
+        </div>
 
         {/* SECTION 3: RADAR DE HABILIDADES + HEATMAP ANUAL */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -171,7 +191,7 @@ export default function StudentDashboardPage() {
         leaguePosition={`#${data.user.league.rank} na ${data.user.league.name}`}
         onContinue={() => {
           setCelebrationOpen(false);
-          window.location.href = '/';
+          router.push('/ide');
         }}
       />
 

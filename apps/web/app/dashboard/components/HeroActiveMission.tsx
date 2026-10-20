@@ -102,7 +102,7 @@ export const HeroActiveMission: React.FC<HeroActiveMissionProps> = ({
             <span>Dicas do Tutor IA</span>
           </button>
           <Link
-            href="/"
+            href="/ide"
             className="px-6 py-2.5 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-extrabold text-xs transition-all glow-purple shadow-lg flex items-center gap-2 active:scale-95 text-decoration-none"
           >
             <span>Abrir no Editor Monaco</span>
