@@ -1,0 +1,605 @@
+{
+  "cases": [
+    {
+      "activity": {
+        "description": "Crie uma função somar(a, b) que retorne a soma dos dois parâmetros.",
+        "title": "Soma de Dois Números"
+      },
+      "errorClass": "sintaxe",
+      "expectedConceptContains": "Modelo Mental",
+      "expectedTier": 1,
+      "failedTests": [
+        {
+          "durationMs": 12,
+          "errorMessage": "SyntaxError: Unexpected end of input",
+          "isHidden": false,
+          "name": "execução do código do aluno",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 0,
+        "failedSubmissions": 1
+      },
+      "id": "js-sintaxe-chave-ausente",
+      "language": "javascript",
+      "referenceSolution": "function somar(a, b) {\n  const resultado = a + b;\n  return resultado;\n}",
+      "required": [
+        "Tier 1 (Modelo Mental)"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "function somar(a, b) {\n  return a + b;"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função somar(a, b) que retorne a soma dos dois parâmetros.",
+        "title": "Soma de Dois Números"
+      },
+      "errorClass": "funcao-retorno",
+      "expectedConceptContains": "Modelo Mental",
+      "expectedTier": 1,
+      "failedTests": [
+        {
+          "durationMs": 30,
+          "errorMessage": "expected 5, got undefined",
+          "isHidden": false,
+          "name": "somar(2, 3) retorna 5",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 1,
+        "failedSubmissions": 1
+      },
+      "id": "js-retorno-ausente",
+      "language": "javascript",
+      "referenceSolution": "function somar(a, b) {\n  const resultado = a + b;\n  return resultado;\n}",
+      "required": [
+        "Tier 1 (Modelo Mental)"
+      ],
+      "requiredAny": [
+        "?",
+        "devolvido explicitamente",
+        "devolver explicitamente",
+        "não entrega",
+        "usando `return`"
+      ],
+      "studentCode": "function somar(a, b) {\n  const total = a + b;\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função somar(a, b) que retorne a soma numérica dos dois parâmetros, mesmo quando eles chegarem como texto.",
+        "title": "Soma de Dois Números"
+      },
+      "errorClass": "tipo",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 28,
+          "errorMessage": "expected 10 (number), got \"55\" (string)",
+          "isHidden": false,
+          "name": "somar('5', '5') retorna o número 10",
+          "passed": false
+        },
+        {
+          "durationMs": 31,
+          "errorMessage": "AssertionError: expected 13, got \"77\" [HIDDEN-TYPE-EXPECT-13]",
+          "isHidden": true,
+          "name": "caso oculto de conversão",
+          "passed": false
+        }
+      ],
+      "forbidden": [
+        "HIDDEN-TYPE-EXPECT-13",
+        "expected 13"
+      ],
+      "history": {
+        "chatMessages": 1,
+        "failedSubmissions": 2
+      },
+      "id": "js-tipo-concatenacao-strings",
+      "language": "javascript",
+      "referenceSolution": "function somar(a, b) {\n  const somaNumerica = Number(a) + Number(b);\n  return somaNumerica;\n}",
+      "required": [
+        "Tier 2 (Casos de Borda",
+        "teste de mesa"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "function somar(a, b) {\n  return a + b;\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função maioridade(idade) que retorne true quando a pessoa tiver 18 anos ou mais.",
+        "title": "Maioridade"
+      },
+      "errorClass": "condicao",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 22,
+          "errorMessage": "expected true for idade 18, got false",
+          "isHidden": false,
+          "name": "maioridade(18) é true",
+          "passed": false
+        },
+        {
+          "durationMs": 25,
+          "errorMessage": "AssertionError: expected true for idade 65, got false [HIDDEN-COND-EXPECT-65]",
+          "isHidden": true,
+          "name": "caso oculto de fronteira",
+          "passed": false
+        }
+      ],
+      "forbidden": [
+        "HIDDEN-COND-EXPECT-65",
+        "idade 65"
+      ],
+      "history": {
+        "chatMessages": 0,
+        "failedSubmissions": 2
+      },
+      "id": "js-condicao-fronteira-maioridade",
+      "language": "javascript",
+      "referenceSolution": "function maioridade(idade) {\n  return idade >= 18;\n}",
+      "required": [
+        "Tier 2 (Casos de Borda",
+        "teste de mesa"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "function maioridade(idade) {\n  if (idade > 18) {\n    return true;\n  }\n  return false;\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função somarAte(n) que retorne a soma de todos os inteiros de 0 até n.",
+        "title": "Soma de 0 até N"
+      },
+      "errorClass": "laco",
+      "expectedConceptContains": "Complexidade",
+      "expectedTier": 3,
+      "failedTests": [
+        {
+          "durationMs": 5000,
+          "errorMessage": "Time limit exceeded after 5000ms",
+          "isHidden": false,
+          "name": "somarAte(4) retorna 10",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 2,
+        "failedSubmissions": 3
+      },
+      "id": "js-laco-infinito-sem-incremento",
+      "language": "javascript",
+      "referenceSolution": "function somarAte(n) {\n  let acumulado = 0;\n  for (let passo = 0; passo <= n; passo++) {\n    acumulado += passo;\n  }\n  return acumulado;\n}",
+      "required": [
+        "Tier 3 (Complexidade"
+      ],
+      "requiredAny": [
+        "?",
+        "iterações",
+        "quantas vezes",
+        "condição de parada"
+      ],
+      "studentCode": "function somarAte(n) {\n  let total = 0;\n  let i = 0;\n  while (i < n) {\n    total += i;\n  }\n  return total;\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função parDoAlvo(numeros, alvo) que retorne os índices dos dois números cuja soma é o alvo.",
+        "title": "Par que Soma o Alvo"
+      },
+      "errorClass": "complexidade",
+      "expectedConceptContains": "Complexidade",
+      "expectedTier": 3,
+      "failedTests": [
+        {
+          "durationMs": 5000,
+          "errorMessage": "Time limit exceeded after 5000ms",
+          "isHidden": false,
+          "name": "entrada grande dentro do tempo limite",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 6,
+        "failedSubmissions": 1
+      },
+      "id": "js-complexidade-lacos-aninhados",
+      "language": "javascript",
+      "referenceSolution": "function parDoAlvo(numeros, alvo) {\n  const vistos = new Map();\n  for (let i = 0; i < numeros.length; i++) {\n    const complemento = alvo - numeros[i];\n    if (vistos.has(complemento)) {\n      return [vistos.get(complemento), i];\n    }\n    vistos.set(numeros[i], i);\n  }\n  return [];\n}",
+      "required": [
+        "Tier 3 (Complexidade",
+        "Map/Set"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "function parDoAlvo(numeros, alvo) {\n  for (let i = 0; i < numeros.length; i++) {\n    for (let j = 0; j < numeros.length; j++) {\n      if (i !== j && numeros[i] + numeros[j] === alvo) {\n        return [i, j];\n      }\n    }\n  }\n  return [];\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função ultimo(lista) que retorne o último elemento da lista.",
+        "title": "Último Elemento"
+      },
+      "errorClass": "indice-lista",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 40,
+          "errorMessage": "IndexError: list index out of range",
+          "isHidden": false,
+          "name": "ultimo([4, 8, 15]) retorna 15",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 2,
+        "failedSubmissions": 2
+      },
+      "id": "py-indice-fora-do-intervalo",
+      "language": "python",
+      "referenceSolution": "def ultimo(lista):\n    posicao_final = len(lista) - 1\n    return lista[posicao_final]",
+      "required": [
+        "Tier 2 (Casos de Borda"
+      ],
+      "requiredAny": [
+        "?",
+        "teste de mesa",
+        "valores extremos",
+        "tamanho menos um"
+      ],
+      "studentCode": "def ultimo(lista):\n    return lista[len(lista)]"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função somar_lista(numeros) que retorne a soma de todos os números da lista.",
+        "title": "Soma da Lista"
+      },
+      "errorClass": "variavel-indefinida",
+      "expectedConceptContains": "Modelo Mental",
+      "expectedTier": 1,
+      "failedTests": [
+        {
+          "durationMs": 35,
+          "errorMessage": "NameError: name 'total' is not defined",
+          "isHidden": false,
+          "name": "somar_lista([1, 2, 3]) retorna 6",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 0,
+        "failedSubmissions": 1
+      },
+      "id": "py-variavel-indefinida",
+      "language": "python",
+      "referenceSolution": "def somar_lista(numeros):\n    acumulado = 0\n    for valor in numeros:\n        acumulado = acumulado + valor\n    return acumulado",
+      "required": [
+        "Tier 1 (Modelo Mental)"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "def somar_lista(numeros):\n    soma = 0\n    for n in numeros:\n        soma += n\n    return total"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função area(base, altura) que retorne a área do retângulo.",
+        "title": "Área do Retângulo"
+      },
+      "errorClass": "funcao-retorno",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 33,
+          "errorMessage": "expected 42, got None",
+          "isHidden": false,
+          "name": "area(6, 7) retorna 42",
+          "passed": false
+        },
+        {
+          "durationMs": 36,
+          "errorMessage": "AssertionError: expected 100, got None [HIDDEN-RET-EXPECT-100]",
+          "isHidden": true,
+          "name": "caso oculto de retorno",
+          "passed": false
+        }
+      ],
+      "forbidden": [
+        "HIDDEN-RET-EXPECT-100",
+        "expected 100"
+      ],
+      "history": {
+        "chatMessages": 1,
+        "failedSubmissions": 2
+      },
+      "id": "py-retorno-print-no-lugar",
+      "language": "python",
+      "referenceSolution": "def area(base, altura):\n    calculo = base * altura\n    return calculo",
+      "required": [
+        "Tier 2 (Casos de Borda"
+      ],
+      "requiredAny": [
+        "?",
+        "teste de mesa",
+        "valores extremos",
+        "devolvido explicitamente",
+        "não entrega"
+      ],
+      "studentCode": "def area(base, altura):\n    resultado = base * altura\n    print(resultado)"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função media(notas) que retorne a média aritmética das notas da lista.",
+        "title": "Média das Notas"
+      },
+      "errorClass": "indice-lista",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 29,
+          "errorMessage": "ZeroDivisionError: division by zero",
+          "isHidden": false,
+          "name": "media([]) não quebra",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 3,
+        "failedSubmissions": 2
+      },
+      "id": "py-lista-vazia-divisao",
+      "language": "python",
+      "referenceSolution": "def media(notas):\n    if len(notas) == 0:\n        return 0\n    soma_total = sum(notas)\n    return soma_total / len(notas)",
+      "required": [
+        "Tier 2 (Casos de Borda",
+        "listas vazias"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "def media(notas):\n    soma = 0\n    for n in notas:\n        soma += n\n    return soma / len(notas)"
+    },
+    {
+      "activity": {
+        "description": "Leia duas notas e escreva a média aritmética entre elas, com casas decimais.",
+        "title": "Média de Duas Notas"
+      },
+      "errorClass": "tipo",
+      "expectedConceptContains": "Modelo Mental",
+      "expectedTier": 1,
+      "failedTests": [
+        {
+          "durationMs": 45,
+          "errorMessage": "expected 7.5, got 7",
+          "isHidden": false,
+          "name": "média de 7 e 8 é 7.5",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 0,
+        "failedSubmissions": 1
+      },
+      "id": "portugol-tipo-divisao-inteira",
+      "language": "portugol",
+      "referenceSolution": "programa {\n  funcao inicio() {\n    real notaUm = 7.0, notaDois = 8.0\n    real mediaFinal\n    mediaFinal = (notaUm + notaDois) / 2\n    escreva(mediaFinal)\n  }\n}",
+      "required": [
+        "Tier 1 (Modelo Mental)"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "programa {\n  funcao inicio() {\n    inteiro n1 = 7, n2 = 8\n    inteiro media\n    media = (n1 + n2) / 2\n    escreva(media)\n  }\n}"
+    },
+    {
+      "activity": {
+        "description": "Escreva os números de 0 a 9, um por linha, usando um laço de repetição.",
+        "title": "Contagem até Dez"
+      },
+      "errorClass": "laco",
+      "expectedConceptContains": "Complexidade",
+      "expectedTier": 3,
+      "failedTests": [
+        {
+          "durationMs": 5000,
+          "errorMessage": "Time limit exceeded after 5000ms",
+          "isHidden": false,
+          "name": "programa termina e imprime 0..9",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 1,
+        "failedSubmissions": 4
+      },
+      "id": "portugol-laco-enquanto-infinito",
+      "language": "portugol",
+      "referenceSolution": "programa {\n  funcao inicio() {\n    inteiro passo = 0\n    enquanto (passo < 10) {\n      escreva(passo)\n      passo = passo + 1\n    }\n  }\n}",
+      "required": [
+        "Tier 3 (Complexidade"
+      ],
+      "requiredAny": [
+        "?",
+        "limites de tempo e memória",
+        "não terminou dentro do limite",
+        "condição de parada"
+      ],
+      "studentCode": "programa {\n  funcao inicio() {\n    inteiro contador = 0\n    enquanto (contador < 10) {\n      escreva(contador)\n    }\n  }\n}"
+    },
+    {
+      "activity": {
+        "description": "Dada a média do aluno, escreva \"Aprovado\" quando a média for 7 ou maior; caso contrário, escreva \"Reprovado\".",
+        "title": "Aprovado ou Reprovado"
+      },
+      "errorClass": "condicao",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 38,
+          "errorMessage": "expected \"Aprovado\" for media 7, got \"Reprovado\"",
+          "isHidden": false,
+          "name": "média 7 aprova",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 0,
+        "failedSubmissions": 2
+      },
+      "id": "portugol-condicao-aprovacao",
+      "language": "portugol",
+      "referenceSolution": "programa {\n  funcao inicio() {\n    real mediaAluno = 7.0\n    se (mediaAluno >= 7) {\n      escreva(\"Aprovado\")\n    } senao {\n      escreva(\"Reprovado\")\n    }\n  }\n}",
+      "required": [
+        "Tier 2 (Casos de Borda",
+        "teste de mesa"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "programa {\n  funcao inicio() {\n    real media = 7.0\n    se (media > 7) {\n      escreva(\"Aprovado\")\n    } senao {\n      escreva(\"Reprovado\")\n    }\n  }\n}"
+    },
+    {
+      "activity": {
+        "description": "Implemente o método somar(int a, int b) retornando a soma dos dois inteiros.",
+        "title": "Soma de Dois Inteiros"
+      },
+      "errorClass": "sintaxe",
+      "expectedConceptContains": "Modelo Mental",
+      "expectedTier": 1,
+      "failedTests": [
+        {
+          "durationMs": 60,
+          "errorMessage": "error: ';' expected",
+          "isHidden": false,
+          "name": "compilação da classe Soma",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 2,
+        "failedSubmissions": 1
+      },
+      "id": "java-sintaxe-ponto-e-virgula",
+      "language": "java",
+      "referenceSolution": "public class Soma {\n  public static int somar(int a, int b) {\n    int totalCalculado = a + b;\n    return totalCalculado;\n  }\n}",
+      "required": [
+        "Tier 1 (Modelo Mental)"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "public class Soma {\n  public static int somar(int a, int b) {\n    int resultado = a + b\n    return resultado;\n  }\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função fatorial(n) que retorne o fatorial de n.",
+        "title": "Fatorial"
+      },
+      "errorClass": "regressao-ocultos",
+      "expectedConceptContains": "Casos de Borda",
+      "expectedTier": 2,
+      "failedTests": [
+        {
+          "durationMs": 18,
+          "errorMessage": null,
+          "isHidden": false,
+          "name": "fatorial(0) retorna 1",
+          "passed": true
+        },
+        {
+          "durationMs": 21,
+          "errorMessage": "AssertionError: expected 120, got 24 [HIDDEN-FACT-EXPECT-120]",
+          "isHidden": true,
+          "name": "caso oculto 1",
+          "passed": false
+        },
+        {
+          "durationMs": 23,
+          "errorMessage": "AssertionError: expected 720, got 120 [HIDDEN-FACT-EXPECT-720]",
+          "isHidden": true,
+          "name": "caso oculto 2",
+          "passed": false
+        }
+      ],
+      "forbidden": [
+        "HIDDEN-FACT-EXPECT-120",
+        "HIDDEN-FACT-EXPECT-720",
+        "expected 120",
+        "expected 720"
+      ],
+      "history": {
+        "chatMessages": 1,
+        "failedSubmissions": 2
+      },
+      "id": "js-somente-testes-ocultos",
+      "language": "javascript",
+      "referenceSolution": "function fatorial(n) {\n  let acumulado = 1;\n  for (let multiplicador = 2; multiplicador <= n; multiplicador++) {\n    acumulado *= multiplicador;\n  }\n  return acumulado;\n}",
+      "required": [
+        "Tier 2 (Casos de Borda",
+        "Um teste oculto não passou"
+      ],
+      "requiredAny": [
+        "?"
+      ],
+      "studentCode": "function fatorial(n) {\n  let total = 1;\n  for (let i = 1; i < n; i++) {\n    total *= i;\n  }\n  return total;\n}"
+    },
+    {
+      "activity": {
+        "description": "Crie uma função dobrar(n) que retorne o dobro de n.",
+        "title": "Dobro de um Número"
+      },
+      "errorClass": "estrutura-declaracao",
+      "expectedConceptContains": "Declaração de Funções",
+      "expectedTier": 1,
+      "failedTests": [
+        {
+          "durationMs": 15,
+          "errorMessage": "ReferenceError: dobrar is not defined",
+          "isHidden": false,
+          "name": "dobrar(3) retorna 6",
+          "passed": false
+        }
+      ],
+      "forbidden": [],
+      "history": {
+        "chatMessages": 0,
+        "failedSubmissions": 1
+      },
+      "id": "js-codigo-em-branco",
+      "language": "javascript",
+      "referenceSolution": "function dobrar(n) {\n  const resultadoDobro = n * 2;\n  return resultadoDobro;\n}",
+      "required": [
+        "está em branco",
+        "Comece declarando a função"
+      ],
+      "requiredAny": [],
+      "studentCode": ""
+    }
+  ],
+  "description": "Golden set v1 do tutor IA (B06) — régua versionada de qualidade pedagógica e anti-spoiler. Cada caso alimenta o AiService como caixa-preta via generatePedagogicalHint (caminho offline/heurístico, LlmClient sem API key) com a estrutura real que o tutor recebe: submissão com activity, codeSnapshot e testResults no formato TestCaseResult (name/passed/isHidden/errorMessage). O tier esperado é dirigido pelo histórico (contadores de submissões falhas e mensagens de chat, que é como calculateTier decide). 'forbidden' lista substrings que JAMAIS podem aparecer na saída (feedback + hints + payload persistido em aiFeedback/aiHints): valores esperados e stderr de testes OCULTOS e marcadores únicos. A solução de referência nunca pode aparecer — o runner deriva linhas distintivas dela automaticamente (checagem anti-solução).",
+  "version": 1
+}
