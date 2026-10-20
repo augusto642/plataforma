@@ -27,18 +27,8 @@ export class GamificationService {
         const newXp = user.xp + totalXpDelta;
         const newLevel = Math.floor(newXp / 200) + 1;
 
-        let newStreak = user.streakDays || 0;
         const now = new Date();
-        if (user.lastActiveAt) {
-          const diffHours = (now.getTime() - new Date(user.lastActiveAt).getTime()) / (1000 * 60 * 60);
-          if (diffHours >= 20 && diffHours <= 48) {
-            newStreak += 1;
-          } else if (diffHours > 48) {
-            newStreak = 1;
-          }
-        } else {
-          newStreak = 1;
-        }
+        const newStreak = this.computeStreakDays(user.streakDays || 0, user.lastActiveAt, now);
 
         const updated = await tx.user.update({
           where: { id: userId },
@@ -60,6 +50,37 @@ export class GamificationService {
       this.logger.error(`Failed to award gamification XP: ${err.message}`);
       return null;
     }
+  }
+
+  /**
+   * Regra de streak com dia de descanso (padrão Rocketseat — B15):
+   * meta semanal de 6 dias de atividade com 1 dia de descanso perdoado.
+   *
+   * A conta é por DIAS DE CALENDÁRIO (UTC), não por janela de horas — a
+   * regra antiga (20–48h) quebrava a sequência de quem estuda em horários
+   * diferentes a cada dia e perdoava folgas diferentes conforme o relógio.
+   *
+   * - sem atividade anterior: hoje é o dia 1;
+   * - mesmo dia (ou relógio adiantado): sequência intacta;
+   * - dia seguinte: +1;
+   * - 1 dia sem atividade entre a última e hoje (o dia de descanso da
+   *   semana): sequência PRESERVADA e hoje soma +1;
+   * - 2 ou mais dias sem atividade: quebra — hoje recomeça em 1.
+   *
+   * Como só olhamos os dias corridos entre as duas atividades, a virada
+   * de semana não quebra nada por si só: pular o domingo e voltar na
+   * segunda (ou pular a segunda e voltar na terça) mantém a sequência.
+   */
+  private computeStreakDays(currentStreak: number, lastActiveAt: Date | null, now: Date): number {
+    if (!lastActiveAt) return 1;
+
+    const dayIndex = (d: Date) =>
+      Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86_400_000);
+    const gap = dayIndex(now) - dayIndex(new Date(lastActiveAt));
+
+    if (gap <= 0) return Math.max(currentStreak, 1);
+    if (gap <= 2) return currentStreak + 1;
+    return 1;
   }
 
   private async evaluateBadges(tx: any, user: any, existingBadges: any[], passed: boolean, score: number, streak: number) {

@@ -44,6 +44,9 @@ export class AuthService {
           name: dto.name.trim(),
           passwordHash,
           role: Role.student,
+          utmSource: dto.utmSource?.trim() || null,
+          utmMedium: dto.utmMedium?.trim() || null,
+          utmCampaign: dto.utmCampaign?.trim() || null,
         },
       });
       const tokens = await this.issueTokens(user.id, user.email, user.role, user.name);

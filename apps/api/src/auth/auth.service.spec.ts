@@ -3,7 +3,10 @@ import * as bcrypt from 'bcrypt';
 import { ConfigError } from '../config/secrets.validation';
 import { AuthService } from './auth.service';
 
-jest.mock('bcrypt', () => ({ compare: jest.fn() }));
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn().mockResolvedValue('hashed-password'),
+}));
 
 describe('AuthService (no secret defaults)', () => {
   let auth: AuthService;
@@ -96,5 +99,52 @@ describe('AuthService (no secret defaults)', () => {
     await expect(auth.login('student@example.com', 'wrong')).rejects.toThrow(
       UnauthorizedException,
     );
+  });
+});
+
+describe('AuthService register — UTMs (B07)', () => {
+  it('persists trimmed UTMs on signup and never returns them in the response', async () => {
+    const create = jest.fn().mockImplementation(({ data }: any) =>
+      Promise.resolve({ id: 'user-9', ...data }),
+    );
+    const prismaReg: any = {
+      user: { create, findUnique: jest.fn() },
+      refreshToken: { create: jest.fn().mockResolvedValue({ id: 'rt-9' }) },
+    };
+    const jwtReg: any = { signAsync: jest.fn().mockResolvedValue('signed-token') };
+    const configReg: any = {
+      get: jest.fn((key: string, def?: any) => {
+        if (key === 'JWT_ACCESS_SECRET') return 'configured-secret';
+        return def;
+      }),
+    };
+    const svc = new AuthService(prismaReg, jwtReg, configReg);
+    const res = await svc.register({
+      email: 'Novo@Example.com',
+      name: ' Novo Aluno ',
+      password: '12345678',
+      utmSource: ' google ',
+      utmMedium: 'cpc',
+      // utmCampaign ausente de propósito -> deve persistir null
+    } as any);
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: 'novo@example.com',
+        name: 'Novo Aluno',
+        utmSource: 'google',
+        utmMedium: 'cpc',
+        utmCampaign: null,
+      }),
+    });
+    // Resposta pública do cadastro: só id/email/name/role — nada de UTM.
+    expect(res.user).toEqual({
+      id: 'user-9',
+      email: 'novo@example.com',
+      name: 'Novo Aluno',
+      role: 'student',
+    });
+    expect(JSON.stringify(res)).not.toContain('google');
+    expect(JSON.stringify(res)).not.toContain('utm');
   });
 });
