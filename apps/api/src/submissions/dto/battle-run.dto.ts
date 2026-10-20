@@ -4,7 +4,9 @@ import {
   IsNotEmpty,
   IsString,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
+import { MAX_SUBMISSION_CODE_LENGTH } from './create-submission.dto';
 
 export class BattleRunDto {
   @IsUUID()
@@ -15,8 +17,11 @@ export class BattleRunDto {
   @IsNotEmpty()
   companionId!: string;
 
+  // Mesmo teto da submissão clássica: o código vai ao sandbox e é persistido
+  // como codeSnapshot da submissão da batalha.
   @IsString()
   @IsNotEmpty()
+  @MaxLength(MAX_SUBMISSION_CODE_LENGTH)
   code!: string;
 
   @IsEnum(Language)
