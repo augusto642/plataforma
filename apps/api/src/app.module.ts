@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { CacheModule } from './cache/cache.module';
 import { CoursesModule } from './courses/courses.module';
+import { DiagnosticModule } from './diagnostic/diagnostic.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { GiteaModule } from './gitea/gitea.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -75,6 +76,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     AuthModule,
     UsersModule,
     CoursesModule,
+    DiagnosticModule,
     GamificationModule,
     ActivitiesModule,
     SubmissionsModule,

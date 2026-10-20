@@ -60,6 +60,7 @@ model User {
 
   companion         UserCompanion?
   refreshTokens     RefreshToken[]
+  diagnosticResults DiagnosticResult[]
   instructedCourses Course[]        @relation("InstructedCourses")
   enrollments       Enrollment[]
   submissions       Submission[]
@@ -281,4 +282,19 @@ model Company {
   tokenHash String   @unique @map("token_hash")
   createdAt DateTime @default(now()) @map("created_at")
   @@map("companies")
+}
+model DiagnosticResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  quizVersion  String   @map("quiz_version") @db.VarChar(16)
+  answers      Json
+  scores       Json
+  archetype    String   @db.VarChar(32)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("diagnostic_results")
 }
