@@ -65,6 +65,29 @@ function readStoredUtm(): UtmData {
   }
 }
 
+// B09 — vínculo do diagnóstico: quem fez o quiz (/diagnostico) antes de se
+// cadastrar guarda o sessionToken bruto nesta chave. O cadastro o envia como
+// diagnosticSessionToken (camelCase, contrato do RegisterDto) para a API
+// ligar o resultado à conta nova; após o registro, a chave é limpa.
+const DIAGNOSTIC_STORAGE_KEY = 'nexus_diagnostic_token';
+
+function readStoredDiagnosticToken(): { diagnosticSessionToken?: string } {
+  try {
+    const token = sessionStorage.getItem(DIAGNOSTIC_STORAGE_KEY);
+    return token ? { diagnosticSessionToken: token } : {};
+  } catch {
+    return {};
+  }
+}
+
+function clearStoredDiagnosticToken(): void {
+  try {
+    sessionStorage.removeItem(DIAGNOSTIC_STORAGE_KEY);
+  } catch {
+    // sessionStorage indisponível: nada a limpar, nunca bloqueia o cadastro
+  }
+}
+
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
 
@@ -125,6 +148,8 @@ export default function RegisterPage() {
         role: 'student',
         // B07 — inclui as UTMs capturadas; sem UTM, nenhum campo é enviado
         ...readStoredUtm(),
+        // B09 — inclui o token do diagnóstico; quem não fez o quiz não envia nada
+        ...readStoredDiagnosticToken(),
       });
 
       if (!result.success) {
@@ -133,6 +158,9 @@ export default function RegisterPage() {
         setIsRegistering(false);
         return;
       }
+
+      // B09 — resultado vinculado à conta: o token não é mais necessário
+      clearStoredDiagnosticToken();
     } catch {
       // Fallback gracioso para modo demonstração offline
     } finally {

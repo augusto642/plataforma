@@ -131,6 +131,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     utmSource?: string;
     utmMedium?: string;
     utmCampaign?: string;
+    // B09 — token da sessão do quiz diagnóstico: presente quando o aluno fez
+    // o quiz antes de se cadastrar; a API vincula o resultado à conta nova
+    diagnosticSessionToken?: string;
   }): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
