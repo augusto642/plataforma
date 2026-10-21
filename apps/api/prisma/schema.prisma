@@ -317,3 +317,18 @@ model AnalyticsEvent {
   @@index([visitorId])
   @@map("analytics_events")
 }
+
+// Sprint 6 — mensagens do formulário público /contato (destino real do
+// CTA "Falar com Engenharia" do plano Staff). Tabela própria, escrita
+// apenas pelo endpoint POST /contact; nenhuma leitura pública — a
+// mensagem (e o e-mail de quem escreveu) nunca volta pela API.
+model ContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(120)
+  email     String   @db.VarChar(254)
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("contact_messages")
+}
