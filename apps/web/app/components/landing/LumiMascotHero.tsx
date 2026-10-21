@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
+import React, { useState, useEffect } from 'react';
 
 interface SocraticPrompt {
   tag: string;
@@ -12,22 +11,22 @@ interface SocraticPrompt {
 
 const SOCRATIC_ITEMS: SocraticPrompt[] = [
   {
-    tag: 'CONCORRÊNCIA & DEADLOCK',
-    question: 'Como conserto um Deadlock em concorrência?',
-    response: '✨ Observe quem está retendo o lock! Se duas threads disputam recursos em ordens opostas, que tal definir uma ordem global de aquisição ou utilizar um `defer mutex.Unlock()` garantido?',
-    insight: 'Taxonomia de Bloom: Análise de Causa Raiz',
+    tag: 'PRIMEIROS PASSOS',
+    question: 'O que é uma variável?',
+    response: '✨ Imagine uma caixa com uma etiqueta. Se você guarda o número 7 numa caixa chamada "pontos", o que acontece com a caixa quando o jogo soma +10 — ela muda, ou nasce outra caixa?',
+    insight: 'Conceito: Variáveis & Memória',
   },
   {
-    tag: 'RECURSÃO & PILHA',
-    question: 'Meu código estourou a pilha (Stack Overflow). E agora?',
-    response: '✨ Toda jornada recursiva precisa de um ponto de repouso. Onde está o seu caso base (condição de parada) e você tem certeza de que seus parâmetros caminham em direção a ele a cada chamada?',
-    insight: 'Taxonomia de Bloom: Modelo Mental de Pilha',
+    tag: 'LAÇOS DE REPETIÇÃO',
+    question: 'Por que meu laço não para nunca?',
+    response: '✨ Boa pergunta para investigar: se o laço repete enquanto uma condição é verdadeira, o que precisa mudar dentro dele a cada volta para um dia ela virar falsa? Seu contador está andando em direção ao fim?',
+    insight: 'Taxonomia de Bloom: Condição de Parada',
   },
   {
-    tag: 'MEMORY SAFETY',
-    question: 'O compilador Rust barrou meu ponteiro mutável!',
-    response: '✨ O Borrow Checker está te protegendo de uma corrida de dados! Se você já tem uma referência mutável exclusiva, por que outra parte do código precisaria ler o mesmo endereço ao mesmo tempo?',
-    insight: 'Taxonomia de Bloom: Propriedade e Exclusividade',
+    tag: 'LÓGICA & ERROS',
+    question: 'Deu erro e não sei onde. Por onde começo?',
+    response: '✨ Todo erro conta uma história. Qual é a primeira linha da mensagem? Ela mostra onde o programa parou — o que aquela linha estava tentando fazer com os valores que recebeu?',
+    insight: 'Habilidade: Leitura de Erros',
   },
 ];
 
@@ -38,11 +37,6 @@ export const LumiMascotHero: React.FC = () => {
   const [lumiEmotion, setLumiEmotion] = useState<'thinking' | 'speaking' | 'insight'>('speaking');
 
   const currentItem = SOCRATIC_ITEMS[activeIndex];
-  const audioRef = useRef<AudioSynthesizer | null>(null);
-
-  useEffect(() => {
-    audioRef.current = AudioSynthesizer.getInstance();
-  }, []);
 
   useEffect(() => {
     setDisplayedText('');
@@ -60,12 +54,6 @@ export const LumiMascotHero: React.FC = () => {
     const interval = setInterval(() => {
       if (charIndex < fullText.length) {
         setDisplayedText(fullText.slice(0, charIndex + 1));
-        
-        // Emite chirp sonoro sutil a cada 10 caracteres
-        if (charIndex % 10 === 0 && audioRef.current) {
-          audioRef.current.playLumiChirp();
-        }
-
         charIndex++;
       } else {
         setIsTyping(false);
@@ -96,16 +84,6 @@ export const LumiMascotHero: React.FC = () => {
 
   const handleSelectQuestion = (idx: number) => {
     if (idx === activeIndex && isTyping) return;
-    if (audioRef.current) {
-      void audioRef.current.resume();
-      audioRef.current.playTone({
-        frequency: 620,
-        pitchBendTo: 780,
-        duration: 0.05,
-        type: 'sine',
-        volume: 0.2,
-      });
-    }
     setActiveIndex(idx);
   };
 
