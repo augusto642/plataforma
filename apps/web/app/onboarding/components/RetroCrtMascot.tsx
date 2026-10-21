@@ -247,7 +247,7 @@ export const RetroCrtMascot: React.FC<RetroCrtMascotProps> = ({
                     <span>
                       {currentLineIndex < dialogueLines.length - 1
                         ? 'CONTINUAR [ENTER]'
-                        : 'CONFIGURAR AVATAR →'}
+                        : 'IR PARA A MISSÃO 1 →'}
                     </span>
                   </button>
                 </div>
