@@ -44,7 +44,7 @@ const STAGES: StageMeta[] = [
     level: 'DESTINO',
     name: 'Mercado',
     short: 'A prova',
-    desc: 'Tudo o que você construiu vira um portfólio público de evidências — a prova que qualquer empresa pode verificar antes de te chamar.',
+    desc: 'Tudo o que você construiu vira um portfólio público de evidências — a prova que qualquer empresa busca antes de te chamar.',
   },
 ];
 

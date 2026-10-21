@@ -470,7 +470,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Portfólio de evidências que empresas verificam</span>
+              <span>Portfólio de evidências que as empresas buscam</span>
             </div>
           </div>
         </div>
