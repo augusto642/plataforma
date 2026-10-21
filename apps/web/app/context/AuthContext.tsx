@@ -20,7 +20,22 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
-  register: (dto: { email: string; name: string; password: string; role?: string }) => Promise<{ success: boolean; error?: string }>;
+  register: (dto: {
+    email: string;
+    name: string;
+    password: string;
+    role?: string;
+    // B07/B09 — atribuição e diagnóstico (ver implementação)
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    diagnosticSessionToken?: string;
+    // Sprint 8 — escolhas da porta fria (etapas 2–3 do /register)
+    preferredTrack?: string;
+    experienceLevel?: string;
+    weeklyTimeCommitment?: string;
+    careerGoal?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -134,6 +149,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // B09 — token da sessão do quiz diagnóstico: presente quando o aluno fez
     // o quiz antes de se cadastrar; a API vincula o resultado à conta nova
     diagnosticSessionToken?: string;
+    // Sprint 8 — escolhas das etapas 2–3 do /register (porta fria): a API
+    // persiste o nível como careerTier; os demais campos são aceitos no
+    // contrato e analisados via props do funil (ver RegisterDto)
+    preferredTrack?: string;
+    experienceLevel?: string;
+    weeklyTimeCommitment?: string;
+    careerGoal?: string;
   }): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {

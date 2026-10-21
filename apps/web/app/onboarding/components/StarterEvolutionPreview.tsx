@@ -171,8 +171,14 @@ export const StarterEvolutionPreview: React.FC<StarterEvolutionPreviewProps> = (
 }) => {
   const startersCatalog = useGameStore((s) => s.startersCatalog);
   const setStarter = useGameStore((s) => s.setStarter);
+  const storeStarterId = useGameStore((s) => s.selectedStarter.id);
 
-  const [selectedStarterId, setSelectedStarterId] = useState<string>('pythox');
+  // Sprint 8 — a etapa abre com o starter que a store já traz (escolha
+  // retomada do espelho ou ?starter= do card TCG), quando ele faz parte
+  // da grade canônica desta etapa; senão, o padrão de sempre.
+  const [selectedStarterId, setSelectedStarterId] = useState<string>(() =>
+    CANONICAL_STARTERS.some((s) => s.id === storeStarterId) ? storeStarterId : 'pythox',
+  );
   const [selectedStage, setSelectedStage] = useState<1 | 2 | 3>(1);
   const [customPetName, setCustomPetName] = useState<string>('');
 

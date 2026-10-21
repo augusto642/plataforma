@@ -46,4 +46,27 @@ export class RegisterDto {
   @IsString()
   @MaxLength(64)
   diagnosticSessionToken?: string;
+
+  // Porta fria (Sprint 8): as escolhas das etapas 2–3 do /register
+  // (trilha, nível, tempo, objetivo) eram coletadas e DESCARTADAS —
+  // fricção morta apontada pelo Growth. Agora viajam no payload:
+  // o nível declarado persiste como careerTier da conta (o enum do
+  // modelo fala a mesma língua); trilha/tempo/objetivo não têm coluna
+  // no User e seguem aceitos aqui (não quebram o ValidationPipe) e
+  // analisáveis nas props dos eventos signup_* do funil.
+  @IsOptional()
+  @IsIn(['web3', 'backend', 'frontend', 'ai'])
+  preferredTrack?: string;
+
+  @IsOptional()
+  @IsIn(['junior', 'mid', 'senior'])
+  experienceLevel?: string;
+
+  @IsOptional()
+  @IsIn(['5h', '10h', '20h'])
+  weeklyTimeCommitment?: string;
+
+  @IsOptional()
+  @IsIn(['global', 'lead', 'startup', 'hackathons'])
+  careerGoal?: string;
 }

@@ -34,6 +34,8 @@ import {
   saveOnboardingChoices,
   type OnboardingStepName,
 } from '../lib/onboardingChoices';
+// Sprint 8 — ?starter= dos cards TCG da landing vira pré-seleção real
+import { resolveStarterIdParam } from '../lib/deepLinks';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RetroCrtMascot } from './components/RetroCrtMascot';
@@ -96,6 +98,19 @@ export default function OnboardingPage(): JSX.Element {
         restoredStepRef.current = saved.step;
         setCurrentStep(saved.step);
         track('onboarding_resumed', undefined, { step: saved.step, source: 'onboarding' });
+      }
+    }
+    // Sprint 8 — ?starter=<card TCG>: os cards da landing sempre
+    // linkaram para cá com o card inspecionado, mas o prólogo ignorava
+    // o parâmetro. Agora o starter da linguagem do card é pré-
+    // selecionado (vale para a Missão 1 e para a etapa de starter).
+    // O parâmetro vence o espelho salvo: é a intenção do clique atual.
+    const starterParam = new URLSearchParams(window.location.search).get('starter');
+    const resolvedStarter = resolveStarterIdParam(starterParam);
+    if (resolvedStarter) {
+      const store = useGameStore.getState();
+      if (store.startersCatalog.some((s) => s.id === resolvedStarter)) {
+        store.setStarter(resolvedStarter);
       }
     }
     hydratedRef.current = true;

@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Role } from '@prisma/client';
+import { CareerTier, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ConfigError } from '../config/secrets.validation';
 import { PrismaService } from '../prisma/prisma.service';
@@ -47,6 +47,13 @@ export class AuthService {
           utmSource: dto.utmSource?.trim() || null,
           utmMedium: dto.utmMedium?.trim() || null,
           utmCampaign: dto.utmCampaign?.trim() || null,
+          // Sprint 8 — o nível declarado na porta fria vira o
+          // careerTier da conta; sem declaração, o default do modelo
+          // (beginner) se aplica. Trilha/tempo/objetivo não têm coluna
+          // no User: vivem nas props dos eventos signup_* (ver DTO).
+          ...(dto.experienceLevel
+            ? { careerTier: dto.experienceLevel as CareerTier }
+            : {}),
         },
       });
       const tokens = await this.issueTokens(user.id, user.email, user.role, user.name);

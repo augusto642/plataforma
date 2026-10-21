@@ -407,13 +407,16 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
         </div>
       )}
 
-      {/* Final Action Buttons */}
+      {/* Final Action Buttons — Sprint 8: a IDE é o ÚNICO próximo
+          passo em destaque (o "Explorar Catálogo de Trilhas" competia
+          com a primeira missão e saiu); o primário segue o roxo sólido
+          da casa, sem o gradiente verde aposentado */}
       {isDone && (
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             gap: '16px',
             marginTop: '28px',
             paddingTop: '20px',
@@ -422,59 +425,28 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
         >
           <button
             type="button"
-            onClick={() => router.push('/courses')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '13px 20px',
-              background: '#151821',
-              border: '1px solid #232738',
-              borderRadius: '12px',
-              color: '#9499AD',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.25s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#1B1E2B';
-              e.currentTarget.style.color = '#FFF';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#151821';
-              e.currentTarget.style.color = '#9499AD';
-              e.currentTarget.style.borderColor = '#232738';
-            }}
-          >
-            📚 Explorar Catálogo de Trilhas
-          </button>
-
-          <button
-            type="button"
             onClick={handleGoToFirstMission}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               padding: '13px 28px',
-              background: 'linear-gradient(90deg, #04D361 0%, #00E5FF 100%)',
+              background: '#8257E5',
               border: 'none',
               borderRadius: '12px',
-              color: '#07080B',
+              color: '#FFFFFF',
               fontSize: '14px',
               fontWeight: 800,
               cursor: 'pointer',
-              boxShadow: '0 8px 24px -4px rgba(4, 211, 97, 0.4)',
+              boxShadow: '0 8px 24px -4px rgba(130, 87, 229, 0.4)',
               transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 12px 30px -4px rgba(4, 211, 97, 0.65)';
+              e.currentTarget.style.boxShadow = '0 12px 30px -4px rgba(130, 87, 229, 0.65)';
               e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(4, 211, 97, 0.4)';
+              e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(130, 87, 229, 0.4)';
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >

@@ -227,3 +227,53 @@ describe('AuthService register — vínculo do quiz diagnóstico (B09)', () => {
     expect(findUnique).not.toHaveBeenCalled();
   });
 });
+
+describe('AuthService register — escolhas da porta fria (Sprint 8)', () => {
+  function makeRegisterService() {
+    const create = jest.fn().mockImplementation(({ data }: any) =>
+      Promise.resolve({ id: 'user-11', ...data }),
+    );
+    const prismaReg: any = {
+      user: { create, findUnique: jest.fn() },
+      refreshToken: { create: jest.fn().mockResolvedValue({ id: 'rt-11' }) },
+    };
+    const jwtReg: any = { signAsync: jest.fn().mockResolvedValue('signed-token') };
+    const configReg: any = {
+      get: jest.fn((key: string, def?: any) => {
+        if (key === 'JWT_ACCESS_SECRET') return 'configured-secret';
+        return def;
+      }),
+    };
+    return { svc: new AuthService(prismaReg, jwtReg, configReg), create };
+  }
+
+  it('persiste o nível declarado como careerTier da conta', async () => {
+    const { svc, create } = makeRegisterService();
+
+    await svc.register({
+      email: 'fria@example.com',
+      name: 'Porta Fria',
+      password: '12345678',
+      preferredTrack: 'backend',
+      experienceLevel: 'mid',
+      weeklyTimeCommitment: '10h',
+      careerGoal: 'lead',
+    } as any);
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ careerTier: 'mid' }),
+    });
+  });
+
+  it('sem nível declarado, não força careerTier (default beginner do modelo)', async () => {
+    const { svc, create } = makeRegisterService();
+
+    await svc.register({
+      email: 'fria2@example.com',
+      name: 'Sem Nivel',
+      password: '12345678',
+    } as any);
+
+    expect(create.mock.calls[0][0].data.careerTier).toBeUndefined();
+  });
+});

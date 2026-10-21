@@ -27,16 +27,31 @@ import { track, trackPageview } from '../lib/analytics';
 // Sprint 6 — cadastro concluído por esta porta também aposenta o
 // espelho local das escolhas do prólogo (a conta vira a fonte)
 import { clearOnboardingChoices } from '../lib/onboardingChoices';
+// Sprint 8 — a trilha clicada na landing chega por ?track= e pré-
+// seleciona a etapa 2 (antes o clique se perdia na porta)
+import { resolveRegisterTrackParam } from '../lib/deepLinks';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
+  // Sprint 8 — trilha de origem (landing): o valor cru viaja nas props
+  // do funil (sourceTrack) mesmo quando o mapeamento o aproxima de
+  // outra especialização na etapa 2
+  const [landingTrack, setLandingTrack] = useState<string | null>(null);
 
   // B07 — captura as UTMs da URL de chegada uma única vez, na montagem
+  // Sprint 8 — e o ?track= da landing: pré-seleciona a etapa 2 com a
+  // especialização correspondente à trilha clicada
   useEffect(() => {
     captureUtmFromUrl();
     trackPageview();
+    const rawTrack = new URLSearchParams(window.location.search).get('track');
+    const resolvedTrack = resolveRegisterTrackParam(rawTrack);
+    if (resolvedTrack) {
+      setSelectedTrack(resolvedTrack);
+      setLandingTrack(rawTrack);
+    }
   }, []);
 
   // Form State (Step 1)
@@ -85,7 +100,18 @@ export default function RegisterPage() {
     // B08 — o funil mede a tentativa e a conversão do cadastro.
     // Sprint 5 — a intenção de plano (escolha nos preços) e a campanha
     // acompanham o cadastro nas props, para a leitura do funil fechar.
-    const signupProps = { ...readPlanIntentProps(), ...readAttributionProps() };
+    // Sprint 8 — as escolhas das etapas 2–3 (trilha/nível/tempo/objetivo)
+    // entram nas props: até aqui eram coletadas e descartadas.
+    const signupProps = {
+      ...readPlanIntentProps(),
+      ...readAttributionProps(),
+      source: 'register',
+      track: selectedTrack,
+      expLevel,
+      timeCommitment,
+      careerGoal,
+      ...(landingTrack ? { sourceTrack: landingTrack } : {}),
+    };
     track('signup_submit', 'register_submit', signupProps);
 
     try {
@@ -98,6 +124,12 @@ export default function RegisterPage() {
         ...readStoredUtm(),
         // B09 — inclui o token do diagnóstico; quem não fez o quiz não envia nada
         ...readStoredDiagnosticToken(),
+        // Sprint 8 — as escolhas da porta fria valem de verdade: a API
+        // persiste o nível como careerTier da conta (ver RegisterDto)
+        preferredTrack: selectedTrack,
+        experienceLevel: expLevel,
+        weeklyTimeCommitment: timeCommitment,
+        careerGoal,
       });
 
       if (!result.success) {
@@ -121,7 +153,7 @@ export default function RegisterPage() {
 
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [email, password, name, authRegister]);
+  }, [email, password, name, authRegister, selectedTrack, expLevel, timeCommitment, careerGoal, landingTrack]);
 
   const handleProvisionFinished = useCallback(() => {
     confettiRef.current?.fire();

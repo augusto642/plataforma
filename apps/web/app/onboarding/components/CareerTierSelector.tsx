@@ -168,10 +168,12 @@ export const CareerTierSelector: React.FC<CareerTierSelectorProps> = ({ onSelect
             </div>
 
             <div className="pt-4 border-t border-white/[0.06]">
+              {/* Sprint 8 — primário no padrão da casa (roxo sólido):
+                  o gradiente verde aposentado vivia só neste CTA */}
               <button
                 type="button"
                 onClick={handleStartBeginner}
-                className="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#04D361] via-[#00E58F] to-[#04D361] hover:from-[#00E58F] hover:to-[#04D361] text-black font-heading font-black text-xs uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-[0_0_25px_rgba(4,211,97,0.4)] flex items-center justify-center gap-2"
+                className="w-full cursor-pointer py-3.5 px-4 rounded-xl bg-[#8257E5] hover:bg-[#6D28D9] text-white font-heading font-black text-xs uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-lg shadow-[#8257E5]/30 flex items-center justify-center gap-2"
               >
                 <span>{tier.ctaLabel}</span>
               </button>

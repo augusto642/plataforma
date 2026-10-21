@@ -326,6 +326,8 @@ export const StepGoals: React.FC<StepGoalsProps> = ({
           Voltar
         </button>
 
+        {/* Sprint 8 — primário no roxo sólido da casa (o gradiente
+            verde aposentado só restava nos primários internos) */}
         <button
           type="button"
           onClick={onNext}
@@ -334,22 +336,22 @@ export const StepGoals: React.FC<StepGoalsProps> = ({
             alignItems: 'center',
             gap: '8px',
             padding: '13px 28px',
-            background: 'linear-gradient(90deg, #04D361 0%, #00E5FF 100%)',
+            background: '#8257E5',
             border: 'none',
             borderRadius: '12px',
-            color: '#07080B',
+            color: '#FFFFFF',
             fontSize: '14px',
             fontWeight: 800,
             cursor: 'pointer',
-            boxShadow: '0 8px 24px -4px rgba(4, 211, 97, 0.4)',
+            boxShadow: '0 8px 24px -4px rgba(130, 87, 229, 0.4)',
             transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = '0 12px 30px -4px rgba(4, 211, 97, 0.65)';
+            e.currentTarget.style.boxShadow = '0 12px 30px -4px rgba(130, 87, 229, 0.65)';
             e.currentTarget.style.transform = 'translateY(-1px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(4, 211, 97, 0.4)';
+            e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(130, 87, 229, 0.4)';
             e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
