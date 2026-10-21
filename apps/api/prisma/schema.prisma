@@ -36,6 +36,14 @@ enum CareerTier {
   senior
 }
 
+// B32 (Sprint 10) — o plano vira entidade: antes o User não tinha campo
+// de plano e a distinção free × Pro da landing era ficcional (zero
+// gating). Default free preserva a experiência atual de todos.
+enum Plan {
+  free
+  pro
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   email        String    @unique
@@ -43,6 +51,7 @@ model User {
   name         String
   passwordHash String    @map("password_hash")
   role         Role      @default(student)
+  plan         Plan      @default(free)
   careerTier   CareerTier @default(beginner) @map("career_tier")
   giteaUserId  Int?      @unique @map("gitea_user_id")
   xp           Int       @default(0)

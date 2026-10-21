@@ -210,6 +210,9 @@ export class UsersService {
         name: true,
         nickname: true,
         role: true,
+        // B32 (Sprint 10) — o plano do usuário passa a ser exposto:
+        // é a leitura real da entidade criada nesta sprint.
+        plan: true,
         careerTier: true,
         xp: true,
         level: true,

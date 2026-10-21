@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminService } from './admin.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
+import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
 @Controller('admin')
@@ -57,6 +58,18 @@ export class AdminController {
     @Body() dto: UpdateUserRoleDto,
   ) {
     return this.adminService.updateUserRole(id, dto.role);
+  }
+
+  // B32 (Sprint 10) — plano do usuário (free/pro), gestão manual do
+  // admin enquanto não há gateway de pagamento.
+  @Patch('users/:id/plan')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  updateUserPlan(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserPlanDto,
+  ) {
+    return this.adminService.updateUserPlan(id, dto.plan);
   }
 
   @Post('instructors')
