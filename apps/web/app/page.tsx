@@ -738,13 +738,16 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Rodapé: Nível e CTA */}
-          <div className="pt-3.5 border-t border-border-1/80 flex items-center justify-between">
+          {/* Rodapé: Nível e CTA — Sprint 10 (B36): empilhado. Lado a
+              lado, o CTA quebrava em 2 linhas e os selos desalinhavam
+              entre os 4 cards; agora o selo vai acima e o CTA ocupa a
+              largura toda, sem quebra. */}
+          <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-amber"></span>
               <span className="text-xs font-mono text-ink-span">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register?track=rust" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=rust" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -793,13 +796,13 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Rodapé: Nível e CTA */}
-          <div className="pt-3.5 border-t border-border-1/80 flex items-center justify-between">
+          {/* Rodapé: Nível e CTA — Sprint 10 (B36): empilhado (ver Trilha 1) */}
+          <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-cyan-neon"></span>
               <span className="text-xs font-mono text-ink-span">Intermediário</span>
             </div>
-            <Link href="/register?track=go" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=go" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -848,13 +851,13 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Rodapé: Nível e CTA */}
-          <div className="pt-3.5 border-t border-border-1/80 flex items-center justify-between">
+          {/* Rodapé: Nível e CTA — Sprint 10 (B36): empilhado (ver Trilha 1) */}
+          <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-green-neon"></span>
               <span className="text-xs font-mono text-ink-span">Do Zero ao Deploy</span>
             </div>
-            <Link href="/register?track=web" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=web" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -903,13 +906,13 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Rodapé: Nível e CTA */}
-          <div className="pt-3.5 border-t border-border-1/80 flex items-center justify-between">
+          {/* Rodapé: Nível e CTA — Sprint 10 (B36): empilhado (ver Trilha 1) */}
+          <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
               <span className="text-xs font-mono text-ink-span">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register?track=python" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-bold transition-all duration-200 active:scale-95 shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=python" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-bold whitespace-nowrap transition-all duration-200 active:scale-95 shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>

@@ -96,8 +96,13 @@ const N: React.FC<{ children: React.ReactNode }> = ({ children }) => <span class
 /* ---------- Estágio 1 · Iniciante: a missão (o jogo) ---------- */
 
 const StageGame: React.FC = () => {
-  // Arena 5×4: caminho do herói (3 → direita, 2 ↓) até o cristal
+  // Arena 5×4: caminho do herói (3 → direita, 2 ↓) até o cristal.
+  // Sprint 10 (B36) — a análise profunda apontou o tabuleiro "apagado":
+  // 14 de 20 células eram fundo morto. Agora a arena tem cenário
+  // (pinheiros como obstáculo, na linguagem do próprio jogo) e as
+  // células vazias ganham relevo de tile, não de vazio.
   const pathCells = new Set(['0-1', '1-1', '2-1', '3-1', '3-2', '3-3']);
+  const treeCells = new Set(['4-0', '0-2', '4-2', '1-3']);
   const heroCell = '0-1';
   const crystalCell = '3-3';
 
@@ -125,23 +130,24 @@ const StageGame: React.FC = () => {
           />
         </div>
 
-        <div>
-          <div className="rounded-xl border border-border-1 bg-surface-2 p-3">
-            <div className="grid grid-cols-5 gap-1.5">
+        <div className="flex flex-col">
+          <div className="rounded-xl border border-border-1 bg-surface-2 p-3 flex-1 flex flex-col">
+            <div className="grid grid-cols-5 gap-1.5 flex-1">
               {Array.from({ length: 20 }).map((_, i) => {
                 const key = `${i % 5}-${Math.floor(i / 5)}`;
                 const isPath = pathCells.has(key);
                 const isHero = key === heroCell;
                 const isCrystal = key === crystalCell;
+                const isTree = treeCells.has(key);
                 return (
                   <div
                     key={key}
-                    className={`aspect-square rounded-md flex items-center justify-center border ${
+                    className={`min-h-[42px] rounded-md flex items-center justify-center border ${
                       isHero
                         ? 'bg-brand-purple border-border-brand'
                         : isPath
                           ? 'bg-brand-purple-low border-border-brand/50'
-                          : 'bg-surface-3 border-border-1'
+                          : 'bg-surface-1 border-border-2'
                     }`}
                   >
                     {isHero && (
@@ -153,6 +159,15 @@ const StageGame: React.FC = () => {
                       <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="text-focus" aria-label="Cristal">
                         <path d="M8 1.5 13.5 6 8 14.5 2.5 6 8 1.5Z" fill="currentColor" />
                       </svg>
+                    )}
+                    {isTree && (
+                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="text-brand-green/60" aria-hidden="true">
+                        <path d="M8 1.5 12.5 8h-2.6L13.5 12.5h-11L6.1 8H3.5L8 1.5Z" fill="currentColor" />
+                        <rect x="7.3" y="12.5" width="1.4" height="2" fill="currentColor" />
+                      </svg>
+                    )}
+                    {!isHero && !isCrystal && !isTree && !isPath && (
+                      <span className="w-1 h-1 rounded-full bg-ink-span/30" aria-hidden="true" />
                     )}
                   </div>
                 );
@@ -277,26 +292,32 @@ const StageIde: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 bg-surface-1">
-        <div className="lg:col-span-3 p-4 border-b lg:border-b-0 lg:border-r border-border-1">
-          <Chip tone="brand">DESAFIO · NÍVEL PLENO</Chip>
-          <h4 className="font-heading font-bold text-ink-heading text-sm mt-3 mb-1.5">API de produtos</h4>
-          <p className="font-sans text-xs text-ink-body leading-relaxed">
-            Implemente o endpoint de listagem com paginação e filtro por categoria.
-          </p>
-          <div className="mt-3 rounded-lg bg-surface-2 border border-border-1 p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-body">
+      {/* Sprint 10 (B36) — o fragmento da IDE ocupava uma coluna de
+          ~metade da página, mas o layout interno era de 3 colunas de
+          largura lg: o desafio espremia em ~110px e código/testes
+          truncavam nas bordas. Agora o fragmento é empilhado na
+          largura real do slot: desafio em faixa, código em largura
+          total e testes em 2 colunas. */}
+      <div className="bg-surface-1">
+        <div className="p-4 border-b border-border-1 flex flex-col sm:flex-row sm:items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <Chip tone="brand">DESAFIO · NÍVEL PLENO</Chip>
+            <h4 className="font-heading font-bold text-ink-heading text-sm mt-3 mb-1.5">API de produtos</h4>
+            <p className="font-sans text-xs text-ink-body leading-relaxed">
+              Implemente o endpoint de listagem com paginação e filtro por categoria. Travou? A tutora pede a próxima
+              dica — ela nunca entrega a solução.
+            </p>
+          </div>
+          <div className="rounded-lg bg-surface-2 border border-border-1 p-2.5 font-mono text-[10.5px] leading-relaxed text-ink-body shrink-0">
             <span className="text-ink-span">ENTRADA</span>
             <br />GET /produtos?pagina=2
             <br />
             <span className="text-ink-span">SAÍDA</span>
             <br />{'{ itens: […20], total }'}
           </div>
-          <p className="mt-3 font-sans text-[11px] text-ink-span leading-relaxed">
-            Travou? A tutora pede a próxima dica — ela nunca entrega a solução.
-          </p>
         </div>
 
-        <div className="lg:col-span-5 p-4 border-b lg:border-b-0 lg:border-r border-border-1">
+        <div className="p-4 border-b border-border-1">
           <CodeBlock
             lines={[
               { node: <><K>export async function</K> <F>listarProdutos</F>(</> },
@@ -312,15 +333,17 @@ const StageIde: React.FC = () => {
           />
         </div>
 
-        <div className="lg:col-span-4 p-4">
-          <div className="text-[10px] font-mono font-bold tracking-wider text-ink-span mb-2">
-            TESTES · EXECUTADOS NO SERVIDOR
+        <div className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <span className="text-[10px] font-mono font-bold tracking-wider text-ink-span">
+              TESTES · EXECUTADOS NO SERVIDOR
+            </span>
+            <span className="font-heading font-bold text-ink-heading text-sm">
+              7 de 7 testes aprovados{' '}
+              <span className="text-[11px] text-ink-span font-mono font-normal">· Pontuação: 100 / 100</span>
+            </span>
           </div>
-          <div className="rounded-lg bg-surface-2 border border-border-1 px-3 py-2 mb-2">
-            <div className="font-heading font-bold text-ink-heading text-sm">7 de 7 testes aprovados</div>
-            <div className="text-[11px] text-ink-span font-mono">Pontuação: 100 / 100</div>
-          </div>
-          <div className="space-y-1.5">
+          <div className="grid sm:grid-cols-2 gap-1.5">
             {tests.map((t, i) => (
               <div
                 key={i}

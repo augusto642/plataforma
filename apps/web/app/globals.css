@@ -27,7 +27,8 @@
   /* D2 — escala da marca e semânticas */
   --brand-purple-low: #241A3F;
   --brand-purple-dark: #6E4AC3;
-  --brand-cyan: #0070F3;
+  /* Sprint 10 (B36) — ciano único: --brand-cyan alinhada ao neon */
+  --brand-cyan: #00E5FF;
   --brand-cyan-neon: #00E5FF;
   --brand-amber: #FFA116;
   --brand-warning: #EF6220;

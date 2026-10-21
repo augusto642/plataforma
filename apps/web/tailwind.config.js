@@ -51,7 +51,12 @@ module.exports = {
           // D2 — escala da marca: low (fundo de badge) e dark (hover/pressionado)
           'purple-low': '#241A3F',
           'purple-dark': '#6E4AC3',
-          cyan: '#0070F3',
+          // Sprint 10 (B36) — ciano único no sistema: o royal #0070F3
+          // convivia com o neon #00E5FF e a coluna Nexus do Versus
+          // parecia de outro site (fundo royal, texto neon). O token
+          // brand-cyan passa a valer o MESMO neon; usos antigos de
+          // bg/text-brand-cyan herdam o ciano único automaticamente.
+          cyan: '#00E5FF',
           'cyan-neon': '#00E5FF',
           amber: '#FFA116',
           'amber-solar': '#F59E0B',
@@ -82,6 +87,14 @@ module.exports = {
         // texto miúdo de card). Substitui o text-[13px] arbitrário que
         // estava espalhado pelo conjunto renderizado.
         'body-sm': '13px',
+      },
+      spacing: {
+        // Sprint 10 (B36) — a análise profunda achou classes MORTAS na
+        // landing: w-13/h-13 (tile dos Pilares) e py-4.5 (CTAs do Versus
+        // e do cockpit final) não existiam na escala padrão e os
+        // elementos se dimensionavam por acidente. Agora são tokens.
+        '4.5': '1.125rem',
+        '13': '3.25rem',
       },
       boxShadow: {
         // Sprint 9 (item 2 do Designer) — escala única de sombras,
