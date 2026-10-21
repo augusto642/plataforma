@@ -2,10 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { LeaderboardUser } from '../types';
+import type { LeaderboardDisplayUser } from '../types';
 
 interface PodiumTop3Props {
-  top3: LeaderboardUser[];
+  top3: LeaderboardDisplayUser[];
 }
 
 export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
@@ -48,10 +48,10 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
             <h4 className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
               {second.name}
             </h4>
-            <p className="text-[11px] font-mono text-zinc-400">@{second.handle}</p>
+            <p className="text-[11px] font-mono text-zinc-400">Nível {second.level}</p>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
               <span className="text-[10px] font-mono bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">
-                {second.currentTrack}
+                {second.badges.length} {second.badges.length === 1 ? 'badge' : 'badges'}
               </span>
             </div>
           </div>
@@ -63,7 +63,7 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
                 {second.xp.toLocaleString('pt-BR')} XP
               </div>
               <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
-                🔥 {second.streakDays} dias • {second.gitSolvedCount} labs
+                🔥 {second.streakDays} dias • {second.completedActivitiesCount} atividades concluídas
               </div>
             </div>
             <div className="text-[11px] font-mono text-[#E2E8F0] bg-[#E2E8F0]/10 border border-[#E2E8F0]/30 py-1 rounded-lg font-bold">
@@ -94,10 +94,10 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
             <h4 className="text-base font-black text-white flex items-center justify-center gap-1.5">
               {first.name}
             </h4>
-            <p className="text-xs font-mono text-amber-400/90">@{first.handle}</p>
+            <p className="text-xs font-mono text-amber-400/90">Nível {first.level}</p>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
               <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 px-2.5 py-0.5 rounded border border-amber-500/30">
-                {first.currentTrack}
+                {first.badges.length} {first.badges.length === 1 ? 'badge' : 'badges'}
               </span>
             </div>
           </div>
@@ -109,7 +109,7 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
                 {first.xp.toLocaleString('pt-BR')} XP
               </div>
               <div className="text-xs font-mono text-zinc-300 mt-0.5">
-                🔥 {first.streakDays} dias streak • {first.gitSolvedCount} labs Git
+                🔥 {first.streakDays} dias streak • {first.completedActivitiesCount} atividades concluídas
               </div>
             </div>
             <div className="text-xs font-mono text-[#FFA116] bg-[#FFA116]/15 border border-[#FFA116]/40 py-1.5 rounded-lg font-black">
@@ -138,10 +138,10 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
             <h4 className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
               {third.name}
             </h4>
-            <p className="text-[11px] font-mono text-zinc-400">@{third.handle}</p>
+            <p className="text-[11px] font-mono text-zinc-400">Nível {third.level}</p>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
               <span className="text-[10px] font-mono bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">
-                {third.currentTrack}
+                {third.badges.length} {third.badges.length === 1 ? 'badge' : 'badges'}
               </span>
             </div>
           </div>
@@ -153,7 +153,7 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
                 {third.xp.toLocaleString('pt-BR')} XP
               </div>
               <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
-                🔥 {third.streakDays} dias • {third.gitSolvedCount} labs
+                🔥 {third.streakDays} dias • {third.completedActivitiesCount} atividades concluídas
               </div>
             </div>
             <div className="text-[11px] font-mono text-[#CD7F32] bg-[#CD7F32]/10 border border-[#CD7F32]/30 py-1 rounded-lg font-bold">
