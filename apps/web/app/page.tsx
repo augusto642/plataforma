@@ -8,6 +8,10 @@ import { LumiMascotHero } from './components/landing/LumiMascotHero';
 import { TcgCardsShowcase } from './components/landing/TcgCardsShowcase';
 import { NexusPillarsGrid } from './components/landing/NexusPillarsGrid';
 import { ComparisonVersus } from './components/landing/ComparisonVersus';
+// B11 — captura de atribuição na chegada (a porta de cadastro lê da lib)
+import { captureUtmFromUrl } from './lib/attribution';
+// B08 — eventos do funil da landing
+import { track } from './lib/analytics';
 
 
 type LangKey = 'python' | 'rust' | 'go';
@@ -145,6 +149,13 @@ export default function HomePage() {
   const [commandSearchQuery, setCommandSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // B11 — a atribuição nasce na chegada: UTMs da URL da landing são
+  // persistidos aqui, para qualquer porta de cadastro (register ou
+  // onboarding) herdá-los depois, mesmo sem UTM na URL final.
+  useEffect(() => {
+    captureUtmFromUrl();
+  }, []);
+
   // Global Command Palette Shortcut (⌘K / Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -161,6 +172,8 @@ export default function HomePage() {
   }, []);
 
   const handleRun = () => {
+    // B08 — interação com a demonstração do sandbox
+    track('sandbox_cta', 'sandbox_run');
     setIsExecuting(true);
     setTerminalOutput('Preparando a demonstração com a saída de exemplo...');
     setTimeout(() => {
@@ -235,7 +248,7 @@ export default function HomePage() {
               <span>🎮</span>
               <span>Modo RPG 2D</span>
             </Link>
-            <Link href="/onboarding" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-emerald-400 font-bold">
+            <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => track('nav_cta', 'nav_avatar')} className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-emerald-400 font-bold">
               <span>✨</span>
               <span>Criar Avatar</span>
             </Link>
@@ -258,8 +271,10 @@ export default function HomePage() {
               Entrar
             </Link>
 
-            <Link 
-              href="/onboarding" 
+            <Link
+              href="/onboarding"
+              data-cta-id="nav_primary"
+              onClick={() => track('nav_cta', 'nav_primary')}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#04D361] to-[#00E58F] text-black text-xs sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-[0_0_25px_rgba(4,211,97,0.35)] hover:shadow-[0_0_35px_rgba(4,211,97,0.5)] group"
             >
               <span>Começar Grátis</span>
@@ -308,7 +323,7 @@ export default function HomePage() {
               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-xs font-semibold text-zinc-300 hover:text-white py-2">
                 Entrar
               </Link>
-              <Link href="/register" onClick={() => setIsMobileMenuOpen(false)} className="px-4 py-2 rounded-xl bg-[#8257E5] text-white text-xs font-bold shadow-md">
+              <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="px-4 py-2 rounded-xl bg-[#8257E5] text-white text-xs font-bold shadow-md">
                 Criar Conta Grátis
               </Link>
             </div>
@@ -358,7 +373,11 @@ export default function HomePage() {
                   <Link
                     key={i}
                     href={cmd.href}
-                    onClick={() => setIsCommandPaletteOpen(false)}
+                    data-cta-id={cmd.href === '/register' ? 'palette_register' : undefined}
+                    onClick={() => {
+                      if (cmd.href === '/register') track('nav_cta', 'palette_register');
+                      setIsCommandPaletteOpen(false);
+                    }}
                     className="flex items-center justify-between p-3 rounded-xl hover:bg-[#181820] text-xs text-zinc-300 transition-colors group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
@@ -434,6 +453,8 @@ export default function HomePage() {
         <div className="hero-rise flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-4" style={{ animationDelay: '300ms' }}>
           <Link
             href="/onboarding"
+            data-cta-id="hero_primary"
+            onClick={() => track('hero_cta', 'hero_primary')}
             className="group inline-flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-brand-purple hover:bg-brand-purple-dark text-white text-sm sm:text-base font-heading font-black tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-brand-purple/30 cursor-pointer"
           >
             <span>Começar grátis agora</span>
@@ -442,6 +463,8 @@ export default function HomePage() {
 
           <Link
             href="/diagnostico"
+            data-cta-id="hero_quiz"
+            onClick={() => track('quiz_cta', 'hero_quiz')}
             className="group inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-transparent hover:bg-surface-2 border border-border-2 hover:border-border-brand text-ink-heading font-heading font-bold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>Descubra seu nível em 3 min</span>
@@ -669,7 +692,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-amber-400"></span>
               <span className="text-xs font-mono text-zinc-400">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register" className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181820] hover:bg-amber-500 hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-[#27272A] hover:border-amber-400">
+            <Link href="/register" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181820] hover:bg-amber-500 hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-[#27272A] hover:border-amber-400">
               <span>Começar →</span>
             </Link>
           </div>
@@ -730,7 +753,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-[#00E5FF]"></span>
               <span className="text-xs font-mono text-zinc-400">Intermediário</span>
             </div>
-            <Link href="/register" className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181820] hover:bg-[#00E5FF] hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-[#27272A] hover:border-[#00E5FF]">
+            <Link href="/register" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181820] hover:bg-[#00E5FF] hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-[#27272A] hover:border-[#00E5FF]">
               <span>Começar →</span>
             </Link>
           </div>
@@ -788,7 +811,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span className="text-xs font-mono text-zinc-400">Do Zero ao Deploy</span>
             </div>
-            <Link href="/register" className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181820] hover:bg-emerald-500 hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-[#27272A] hover:border-emerald-400">
+            <Link href="/register" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181820] hover:bg-emerald-500 hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-[#27272A] hover:border-emerald-400">
               <span>Começar →</span>
             </Link>
           </div>
@@ -854,7 +877,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-[#8257E5]"></span>
               <span className="text-xs font-mono text-zinc-400">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register" className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#27272A] hover:bg-[#8257E5] text-white text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm">
+            <Link href="/register" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#27272A] hover:bg-[#8257E5] text-white text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm">
               <span>Começar →</span>
             </Link>
           </div>
@@ -1120,7 +1143,7 @@ export default function HomePage() {
           </p>
         </div>
       </div>
-      <Link href="/register" className="whitespace-nowrap inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#04D361] hover:bg-[#00E58F] text-black font-heading font-extrabold text-xs sm:text-sm shadow-lg shadow-[#04D361]/30 active:scale-95 transition-all">
+      <Link href="/register" data-cta-id="sandbox_banner" onClick={() => track('sandbox_cta', 'sandbox_banner')} className="whitespace-nowrap inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#04D361] hover:bg-[#00E58F] text-black font-heading font-extrabold text-xs sm:text-sm shadow-lg shadow-[#04D361]/30 active:scale-95 transition-all">
         <span>Criar Conta Grátis & Salvar</span>
         <span>→</span>
       </Link>
@@ -1195,7 +1218,7 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
         </div>
-        <Link href="/register" className="w-full py-3 rounded-xl bg-[#18181B] hover:bg-[#202024] text-white text-xs font-mono font-bold text-center border border-[#27272A] transition-colors">
+        <Link href="/register" data-cta-id="pricing_explorer" onClick={() => track('pricing_cta', 'pricing_explorer', { plan: 'explorer' })} className="w-full py-3 rounded-xl bg-[#18181B] hover:bg-[#202024] text-white text-xs font-mono font-bold text-center border border-[#27272A] transition-colors">
           Criar Conta Grátis
         </Link>
       </div>
@@ -1233,7 +1256,7 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Destaque nas Ligas Semanais</li>
           </ul>
         </div>
-        <Link href="/register" className="w-full py-3.5 rounded-xl bg-[#8257E5] hover:bg-[#7146D4] text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-[#8257E5]/30 hover:shadow-xl hover:shadow-[#8257E5]/40 transition-all active:scale-95 border border-white/20">
+        <Link href="/register" data-cta-id="pricing_pro" onClick={() => track('pricing_cta', 'pricing_pro', { plan: 'pro' })} className="w-full py-3.5 rounded-xl bg-[#8257E5] hover:bg-[#7146D4] text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-[#8257E5]/30 hover:shadow-xl hover:shadow-[#8257E5]/40 transition-all active:scale-95 border border-white/20">
           Começar Agora ⚡
         </Link>
       </div>
@@ -1261,7 +1284,7 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Relatórios de Performance de Engenharia</li>
           </ul>
         </div>
-        <Link href="/register" className="w-full py-3 rounded-xl bg-[#18181B] hover:bg-[#202024] text-white text-xs font-mono font-bold text-center border border-[#27272A] transition-colors">
+        <Link href="/register" data-cta-id="pricing_staff" onClick={() => track('pricing_cta', 'pricing_staff', { plan: 'staff' })} className="w-full py-3 rounded-xl bg-[#18181B] hover:bg-[#202024] text-white text-xs font-mono font-bold text-center border border-[#27272A] transition-colors">
           Falar com Engenharia
         </Link>
       </div>
@@ -1451,7 +1474,7 @@ export default function HomePage() {
           <p className="text-xs sm:text-sm text-zinc-400 font-sans">Nossa comunidade e time de engenharia estão online para te apoiar em cada etapa.</p>
         </div>
       </div>
-      <a href="#hero" className="shrink-0 px-6 py-3 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-mono font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95 shadow-lg shadow-[#8257E5]/25 border border-[#996DFF]/50">
+      <a href="/onboarding" data-cta-id="faq_banner" onClick={() => track('final_cta', 'faq_banner')} className="shrink-0 px-6 py-3 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-mono font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95 shadow-lg shadow-[#8257E5]/25 border border-[#996DFF]/50">
         Começar Agora Gratuitamente →
       </a>
     </div>
@@ -1525,6 +1548,8 @@ export default function HomePage() {
 
             <Link
               href="/onboarding"
+              data-cta-id="final_primary"
+              onClick={() => track('final_cta', 'final_primary')}
               className="w-full inline-flex items-center justify-center gap-3 px-8 py-4.5 rounded-2xl bg-gradient-to-r from-[#04D361] via-[#00E58F] to-[#04D361] hover:from-[#00E58F] hover:to-[#04D361] text-[#050505] font-heading font-black text-base transition-all duration-200 cursor-pointer active:scale-95 shadow-[0_0_35px_rgba(4,211,97,0.45)] group"
             >
               <span>Começar Grátis Agora</span>
@@ -1668,7 +1693,7 @@ export default function HomePage() {
             </h4>
             <ul className="space-y-3 text-sm font-sans">
               <li>
-                <a href="/register" className="text-zinc-400 hover:text-white transition-colors">
+                <a href="/register" data-cta-id="footer_register" onClick={() => track('nav_cta', 'footer_register')} className="text-zinc-400 hover:text-white transition-colors">
                   Começar Grátis
                 </a>
               </li>

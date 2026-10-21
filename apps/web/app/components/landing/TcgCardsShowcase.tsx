@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
+// B08 — eventos do funil da landing
+import { track } from '../../lib/analytics';
 
 interface TcgCardData {
   id: string;
@@ -329,6 +331,8 @@ export const TcgCardsShowcase: React.FC = () => {
       <div className="mt-12 text-center">
         <Link
           href="/onboarding"
+          data-cta-id="tcg_onboarding"
+          onClick={() => track('nav_cta', 'tcg_onboarding')}
           className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 text-xs font-mono text-cyan-300 hover:text-white transition-all group"
         >
           <span>Escolha seu primeiro Card Starter no Onboarding</span>
@@ -404,6 +408,8 @@ export const TcgCardsShowcase: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-white/[0.08]">
                   <Link
                     href={`/onboarding?starter=${inspectedCard.id}`}
+                    data-cta-id="tcg_starter"
+                    onClick={() => track('nav_cta', 'tcg_starter', { starter: inspectedCard.id })}
                     className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#04D361] hover:from-[#04D361] hover:to-[#00E5FF] text-black font-heading font-black text-xs uppercase tracking-wider text-center transition-all shadow-[0_0_25px_rgba(0,229,255,0.4)] flex items-center justify-center gap-2"
                   >
                     <span>⚡ Escolher Como Meu Starter</span>

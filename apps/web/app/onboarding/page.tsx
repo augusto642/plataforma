@@ -11,7 +11,9 @@
  * - Fase 4: Inicialização de Operador e Transição Épica para /game
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+// B11 — esta porta também captura a atribuição na chegada (a lib é única)
+import { captureUtmFromUrl } from '../lib/attribution';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RetroCrtMascot } from './components/RetroCrtMascot';
@@ -25,6 +27,12 @@ type OnboardingStep = 'mascot' | 'tier' | 'starter' | 'avatar' | 'complete';
 
 export default function OnboardingPage(): JSX.Element {
   const router = useRouter();
+
+  // B11 — captura UTMs da URL de chegada (quem cai direto aqui de um anúncio
+  // não perde a atribuição; o cadastro lê da sessionStorage via lib)
+  useEffect(() => {
+    captureUtmFromUrl();
+  }, []);
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('mascot');
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
 

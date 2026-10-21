@@ -1,8 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+// B11 — o cadastro do onboarding passa pela MESMA porta do /register
+// (AuthContext), herdando UTMs (B07) e o token do diagnóstico (B09) da lib
+// compartilhada de atribuição. Antes era um fetch direto sem nenhum dos dois.
+import {
+  captureUtmFromUrl,
+  readStoredUtm,
+  readStoredDiagnosticToken,
+  clearStoredDiagnosticToken,
+} from '../lib/attribution';
+// B08 — eventos do funil (signup_submit / signup_success)
+import { track } from '../lib/analytics';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NEXUS CODE';
 
 export interface UserSession {
@@ -71,6 +82,13 @@ const TRACKS: TrackOption[] = [
 ];
 
 export default function OnboardingView({ onComplete, onSwitchToLogin }: OnboardingViewProps) {
+  const { register: authRegister } = useAuth();
+
+  // B11 — captura UTMs da URL de chegada desta porta também
+  useEffect(() => {
+    captureUtmFromUrl();
+  }, []);
+
   // Current Step: 1 = Credenciais, 2 = Trilha, 3 = Setup IA & Ritmo, 4 = Terminal Sandbox Provisioning
   const [currentStep, setCurrentStep] = useState<number>(1);
 
@@ -143,22 +161,33 @@ export default function OnboardingView({ onComplete, onSwitchToLogin }: Onboardi
     }
 
     setIsSubmitting(true);
+    // B08 — o funil mede a tentativa de cadastro também nesta porta
+    track('signup_submit', 'onboarding_submit');
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, role }),
-        credentials: 'include',
+      // B11 — cadastro via AuthContext (porta única), com o contexto do
+      // funil: UTMs da chegada + token do diagnóstico, como no /register.
+      const result = await authRegister({
+        email,
+        password,
+        name,
+        role,
+        ...readStoredUtm(),
+        ...readStoredDiagnosticToken(),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
+      if (!result.success) {
+        const message = result.error || 'Erro ao registrar conta.';
         // If user already exists or other error, display message
-        if (data.message && data.message.includes('já cadastrado')) {
-          throw new Error('Este e-mail já possui cadastro. Faça login ou use outro e-mail.');
-        }
-        throw new Error(data.message || 'Erro ao registrar conta.');
+        throw new Error(
+          message.includes('já cadastrado')
+            ? 'Este e-mail já possui cadastro. Faça login ou use outro e-mail.'
+            : message,
+        );
       }
+
+      track('signup_success', 'onboarding_submit');
+      // B09 — resultado vinculado à conta: o token não é mais necessário
+      clearStoredDiagnosticToken();
 
       // Proceed to Step 2: Track Selection
       setCurrentStep(2);

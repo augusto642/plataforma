@@ -2,6 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
+// B08 — eventos do funil da landing
+import { track } from '../../lib/analytics';
 
 interface Pillar {
   number: string;
@@ -155,6 +157,8 @@ export const NexusPillarsGrid: React.FC = () => {
         </Link>
         <Link
           href="/onboarding"
+          data-cta-id="pillars_onboarding"
+          onClick={() => track('nav_cta', 'pillars_onboarding')}
           className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-[#04D361] hover:bg-[#00E58F] text-black font-heading font-black text-sm uppercase tracking-wider transition-all shadow-[0_0_30px_rgba(4,211,97,0.35)] active:scale-95"
         >
           <span>⚡ Criar Meu Personagem Grátis</span>
