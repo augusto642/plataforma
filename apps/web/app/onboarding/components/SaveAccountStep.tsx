@@ -145,6 +145,16 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
             </span>
           </>
         )}
+        {/* Sprint 7 — fecha o laço de quem TENTOU e não venceu (a
+            tentativa é gravada ao iniciar a batalha): o resumo diz com
+            honestidade que a missão continua esperando na IDE, em vez de
+            silenciar a derrota como fazia até a Sprint 6 */}
+        {firstMission && !firstMission.completed && (
+          <>
+            {' '}·{' '}
+            <span className="font-bold text-slate-200">Sua Missão 1 te espera na IDE</span>
+          </>
+        )}
       </p>
 
       {user ? (

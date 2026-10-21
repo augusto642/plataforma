@@ -5,19 +5,32 @@
 // lidas na montagem do onboarding; quando o cadastro conclui, são
 // limpas (a conta vira a fonte da verdade).
 //
+// Sprint 7 — a ETAPA atual do prólogo também persiste: quem volta
+// continua da etapa salva, não do mascote (retomada do corredor curto).
+//
 // Escopo deliberado: só as ESCOLHAS do prólogo (codename, starter,
-// nível de carreira e o resultado da Missão 1). Estado de batalha,
-// posição no overworld e inventário continuam efêmeros no store.
+// nível de carreira e o resultado da Missão 1) + a etapa atual. Estado
+// de batalha, posição no overworld e inventário continuam efêmeros.
 
 import type { CareerTier, FirstMissionResult } from '../game/stores/useGameStore';
 
 const STORAGE_KEY = 'nexus_onboarding_choices';
+
+// Etapas retomáveis do prólogo ('complete' é terminal e nunca persiste)
+export type OnboardingStepName =
+  | 'mascot'
+  | 'mission'
+  | 'tier'
+  | 'starter'
+  | 'avatar'
+  | 'account';
 
 export interface OnboardingChoices {
   codename?: string;
   starterId?: string;
   careerTier?: CareerTier;
   firstMission?: FirstMissionResult | null;
+  step?: OnboardingStepName;
 }
 
 export function saveOnboardingChoices(choices: OnboardingChoices): void {

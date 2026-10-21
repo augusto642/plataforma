@@ -25,7 +25,8 @@ import { CodeBattleModal } from '../../game/components/CodeBattleModal';
 import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
 
 interface FirstMissionStepProps {
-  /** Missão concluída (ou pulada): segue para a etapa de conta. */
+  /** Missão concluída (ou pulada): segue para a próxima etapa do
+   *  prólogo (desde a Sprint 7, o nível de carreira — a conta é a última). */
   onComplete: () => void;
 }
 
@@ -82,6 +83,14 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
 
   const handleStartMission = () => {
     skippingRef.current = false;
+    // Sprint 7 — começar a batalha já grava a TENTATIVA (completed:
+    // false): é esse marcador que permite à etapa de conta fechar o
+    // laço de quem tentou e não venceu ("Sua Missão 1 te espera na
+    // IDE"). A vitória sobrescreve com completed: true; pular a intro
+    // sem jogar não grava nada (não houve tentativa).
+    if (!firstMission?.completed) {
+      setFirstMission({ completed: false, xpEarned: 0, bitsEarned: 0 });
+    }
     restoreHpFull();
     startBattle();
     setPhase('battle');
@@ -116,11 +125,11 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             Um bug corrompeu o runtime. Resolva com código.
           </h2>
           <p className="mt-3 font-mono text-xs leading-relaxed text-slate-400">
-            Antes de qualquer cadastro: jogue a primeira batalha de verdade. Use as skills do seu
-            starter <span className="font-bold text-[#FFA116]">{selectedStarter.name}</span> e
-            escreva o código do ataque para derrotar o{' '}
-            <span className="font-bold text-rose-300">SyntaxBug #404</span>. Venceu? Aí sim a gente
-            salva seu progresso numa conta grátis.
+            Antes de qualquer cadastro: jogue a primeira batalha de verdade. Você batalha com o
+            starter <span className="font-bold text-[#FFA116]">{selectedStarter.name}</span> — o
+            seu, você escolhe logo depois da missão. Escreva o código do ataque para derrotar o{' '}
+            <span className="font-bold text-rose-300">SyntaxBug #404</span>. Venceu? Seu progresso
+            fica guardado para a conta grátis que fecha o prólogo.
           </p>
           <button
             type="button"
@@ -135,7 +144,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
               onClick={onComplete}
               className="font-mono text-xs font-bold text-slate-400 underline-offset-4 transition hover:text-slate-200 hover:underline"
             >
-              Pular por agora e ir para a conta →
+              Pular por agora →
             </button>
           </div>
         </>
@@ -263,15 +272,15 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             <span className="font-bold text-slate-200">
               +{firstMission?.xpEarned ?? 0} XP · +{firstMission?.bitsEarned ?? 0} Bits
             </span>
-            . Isso já é progresso de verdade — crie sua conta grátis no próximo passo para ele não
-            se perder.
+            . Isso já é progresso de verdade — ele fica guardado e a conta grátis do fim do
+            prólogo salva tudo de uma vez.
           </p>
           <button
             type="button"
             onClick={onComplete}
             className="mt-6 w-full rounded-xl bg-[#8257E5] px-6 py-3.5 font-mono text-sm font-black text-white shadow-lg shadow-[#8257E5]/30 transition hover:bg-[#6D28D9] active:scale-[0.98]"
           >
-            Salvar meu progresso →
+            Continuar →
           </button>
         </>
       )}
@@ -283,8 +292,8 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
           </h2>
           <p className="mt-3 font-mono text-xs leading-relaxed text-slate-400">
             Programar é isso: errar, ler o log e tentar de novo. Seu HP foi restaurado — a Missão 1
-            continua aqui quando você quiser. Se preferir, siga para a conta e volte à missão
-            depois.
+            continua aqui quando você quiser. Se preferir, siga o prólogo e volte à missão depois,
+            na IDE.
           </p>
           <div className="mt-6 flex flex-col gap-3">
             <button
@@ -299,7 +308,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
               onClick={onComplete}
               className="font-mono text-xs font-bold text-slate-400 underline-offset-4 transition hover:text-slate-200 hover:underline"
             >
-              Continuar para a conta sem concluir →
+              Continuar sem concluir →
             </button>
           </div>
         </>

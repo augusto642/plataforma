@@ -6,26 +6,31 @@
  * 
  * Jornada de Entrada do Jogador:
  * - Fase 1: Mascote PC Retrô (Nexi) em tela CRT vintage com diálogo interativo
- * - Fase 2: Nível de Carreira — entrada real (Iniciante) + roteiro de progressão
- * - Fase 3: Seleção de Starter em Cards TCG Holográficos com efeito 3D Tilt
- * - Fase 4: Estúdio de Avatar Pixel Art
- * - Fase 5: Missão 1 (Sprint 6) — a primeira batalha REAL do jogo, jogada
- *   ANTES da conta: a vitória vem primeiro, o cadastro salva o progresso
+ * - Fase 2: Missão 1 (Sprint 6; promovida na Sprint 7) — a primeira
+ *   batalha REAL do jogo, jogada ANTES da conta e ANTES da
+ *   personalização: a vitória vem primeiro, o cadastro salva o progresso
+ * - Fase 3: Nível de Carreira — entrada real (Iniciante) + roteiro de progressão
+ * - Fase 4: Seleção de Starter em Cards TCG Holográficos com efeito 3D Tilt
+ * - Fase 5: Estúdio de Avatar Pixel Art
  * - Fase 6: Salvar a Conta (Sprint 5/B11 real) — cadastro via AuthContext
  *   com o contexto do funil, ou "testar sem conta" explicitamente rotulado
  * - Quem salvou a conta segue para a primeira missão na IDE; o convidado
  *   segue para o /game
+ * - Sprint 7: a etapa atual persiste junto das escolhas — quem volta
+ *   continua da etapa salva, não do mascote
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // B11 — esta porta também captura a atribuição na chegada (a lib é única)
 import { captureUtmFromUrl } from '../lib/attribution';
 // Sprint 5 — pageview do funil (B08 completo)
 import { trackPageview } from '../lib/analytics';
 // Sprint 6 — escolhas do prólogo persistem entre sessões (D3)
+// Sprint 7 — a etapa atual entra no mesmo espelho (retomada)
 import {
   readOnboardingChoices,
   saveOnboardingChoices,
+  type OnboardingStepName,
 } from '../lib/onboardingChoices';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -41,9 +46,12 @@ import { AudioSynthesizer } from '../game/engine/AudioSynthesizer';
 // Sprint 5 — o prólogo ganha a etapa 'account' (salvar a conta) antes da
 // transição para /game: a porta quente da landing agora termina em
 // cadastro, não num beco sem conta.
-// Sprint 6 — entre o avatar e a conta entra a etapa 'mission': a
-// primeira vitória acontece ANTES do formulário (Fase 1 do plano).
-type OnboardingStep = 'mascot' | 'tier' | 'starter' | 'avatar' | 'mission' | 'account' | 'complete';
+// Sprint 6 — entra a etapa 'mission': a primeira vitória acontece ANTES
+// do formulário (Fase 1 do plano).
+// Sprint 7 — corredor curto: a Missão 1 sobe para logo depois do
+// mascote (mascot → mission → tier → starter → avatar → account) e a
+// etapa atual é persistida/retomada via onboardingChoices.
+type OnboardingStep = OnboardingStepName | 'complete';
 
 export default function OnboardingPage(): JSX.Element {
   const router = useRouter();
@@ -63,6 +71,8 @@ export default function OnboardingPage(): JSX.Element {
   // Sprint 6 (D3) — hidrata as escolhas persistidas na montagem: quem
   // fechou a aba no meio do prólogo volta com codename, starter, nível
   // e resultado da Missão 1 intactos.
+  // Sprint 7 — e volta NA ETAPA SALVA: a retomada restaura também o
+  // ponto do corredor onde a pessoa parou.
   useEffect(() => {
     const saved = readOnboardingChoices();
     if (!saved) return;
@@ -71,7 +81,13 @@ export default function OnboardingPage(): JSX.Element {
     if (saved.starterId) store.setStarter(saved.starterId);
     if (saved.careerTier) store.setCareerTier(saved.careerTier);
     if (saved.firstMission) store.setFirstMission(saved.firstMission);
+    if (saved.step) setCurrentStep(saved.step);
   }, []);
+
+  // Sprint 7 — a etapa vigente acompanha cada gravação do espelho:
+  // o subscribe do store lê o step deste ref, e o efeito do step
+  // persiste a foto completa a cada avanço de etapa.
+  const stepRef = useRef<OnboardingStep>('mascot');
 
   // Sprint 6 (D3) — espelha as escolhas do store no localStorage a cada
   // mudança: a persistência acompanha o prólogo inteiro sem cada etapa
@@ -83,10 +99,24 @@ export default function OnboardingPage(): JSX.Element {
         starterId: state.selectedStarter.id,
         careerTier: state.careerTier,
         firstMission: state.firstMission,
+        step: stepRef.current === 'complete' ? undefined : stepRef.current,
       });
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    stepRef.current = currentStep;
+    if (currentStep === 'complete') return;
+    const state = useGameStore.getState();
+    saveOnboardingChoices({
+      codename: state.player.name,
+      starterId: state.selectedStarter.id,
+      careerTier: state.careerTier,
+      firstMission: state.firstMission,
+      step: currentStep,
+    });
+  }, [currentStep]);
 
   const player = useGameStore((s) => s.player);
   const selectedStarter = useGameStore((s) => s.selectedStarter);
@@ -95,9 +125,17 @@ export default function OnboardingPage(): JSX.Element {
 
   const audio = AudioSynthesizer.getInstance();
 
+  // Sprint 7 — corredor curto: do mascote o visitante vai DIRETO para
+  // a Missão 1 (com o starter padrão da store); a personalização
+  // (nível, starter, avatar) vira pós-vitória e a conta fecha o prólogo.
   const handleMascotDone = () => {
-    setCurrentStep('tier');
+    setCurrentStep('mission');
     void audio.playTone({ frequency: 660, duration: 0.1, type: 'square' });
+  };
+
+  const handleMissionComplete = () => {
+    setCurrentStep('tier');
+    void audio.playTone({ frequency: 920, duration: 0.1, type: 'square' });
   };
 
   const handleTierSelected = () => {
@@ -110,17 +148,11 @@ export default function OnboardingPage(): JSX.Element {
     void audio.playTone({ frequency: 800, duration: 0.1, type: 'square' });
   };
 
-  // Avatar pronto NÃO vai mais direto para a conta: antes do
-  // formulário, o visitante JOGA a Missão 1 (Sprint 6). A vitória vem
-  // primeiro; a conta, depois, é o que salva o progresso.
+  // Avatar é a última personalização: daqui segue para a etapa de
+  // conta, que salva TUDO (vitória da Missão 1 + escolhas do prólogo).
   const handleAvatarDone = () => {
-    setCurrentStep('mission');
-    void audio.playTone({ frequency: 880, duration: 0.1, type: 'square' });
-  };
-
-  const handleMissionComplete = () => {
     setCurrentStep('account');
-    void audio.playTone({ frequency: 920, duration: 0.1, type: 'square' });
+    void audio.playTone({ frequency: 880, duration: 0.1, type: 'square' });
   };
 
   // Sprint 6 — dois destinos, duas promessas distintas:
@@ -156,7 +188,9 @@ export default function OnboardingPage(): JSX.Element {
             </span>
           </div>
 
-          {/* Indicador de Passos */}
+          {/* Indicador de Passos — Sprint 7: ordem do corredor curto
+              (1 Terminal → 2 Missão 1 → 3 Nível → 4 Pet & Curso →
+              5 Avatar → 6 Salvar Conta) */}
           <div className="hidden md:flex items-center space-x-3 font-mono text-xs">
             <button
               type="button"
@@ -174,6 +208,20 @@ export default function OnboardingPage(): JSX.Element {
             </button>
             <span className="text-slate-700">→</span>
 
+            <span
+              className={`flex items-center space-x-1.5 transition ${
+                currentStep === 'mission'
+                  ? 'text-[#00E5FF] font-bold'
+                  : 'text-slate-500'
+              }`}
+            >
+              <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
+                2
+              </span>
+              <span>MISSÃO 1</span>
+            </span>
+            <span className="text-slate-700">→</span>
+
             <button
               type="button"
               onClick={() => setCurrentStep('tier')}
@@ -184,7 +232,7 @@ export default function OnboardingPage(): JSX.Element {
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
-                2
+                3
               </span>
               <span>NÍVEL DE CARREIRA</span>
             </button>
@@ -200,7 +248,7 @@ export default function OnboardingPage(): JSX.Element {
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
-                3
+                4
               </span>
               <span>PET & CURSO</span>
             </button>
@@ -216,24 +264,10 @@ export default function OnboardingPage(): JSX.Element {
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
-                4
+                5
               </span>
               <span>AVATAR STUDIO</span>
             </button>
-            <span className="text-slate-700">→</span>
-
-            <span
-              className={`flex items-center space-x-1.5 transition ${
-                currentStep === 'mission'
-                  ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500'
-              }`}
-            >
-              <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
-                5
-              </span>
-              <span>MISSÃO 1</span>
-            </span>
             <span className="text-slate-700">→</span>
 
             <span
@@ -276,6 +310,10 @@ export default function OnboardingPage(): JSX.Element {
           <RetroCrtMascot onDialogueComplete={handleMascotDone} />
         )}
 
+        {currentStep === 'mission' && (
+          <FirstMissionStep onComplete={handleMissionComplete} />
+        )}
+
         {currentStep === 'tier' && (
           <CareerTierSelector onSelectBeginner={handleTierSelected} />
         )}
@@ -288,11 +326,7 @@ export default function OnboardingPage(): JSX.Element {
         )}
 
         {currentStep === 'avatar' && (
-          <PixelAvatarStudio onComplete={handleAvatarDone} submitLabel="CONTINUAR PARA A MISSÃO 1 →" />
-        )}
-
-        {currentStep === 'mission' && (
-          <FirstMissionStep onComplete={handleMissionComplete} />
+          <PixelAvatarStudio onComplete={handleAvatarDone} submitLabel="CONTINUAR PARA SALVAR A CONTA →" />
         )}
 
         {currentStep === 'account' && (

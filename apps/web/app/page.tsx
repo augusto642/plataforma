@@ -16,7 +16,7 @@ import { track, trackPageview } from './lib/analytics';
 // Frente 3 — ícones SVG únicos da landing (fim do emoji como sistema)
 import {
   IconBolt, IconBox, IconCard, IconChart, IconChat, IconClose, IconCode,
-  IconCpu, IconGamepad, IconGear, IconGitBranch, IconKey, IconLogoMark,
+  IconCpu, IconGamepad, IconGear, IconGitBranch, IconGithub, IconKey, IconLogoMark,
   IconMap, IconMenu, IconMonitor, IconNodes, IconPlay, IconRocket,
   IconSearch, IconShield, IconShieldCheck, IconSparkle, IconSpeech,
   IconSun, IconTarget, IconTerminal,
@@ -254,18 +254,11 @@ export default function HomePage() {
 
           {/* Navegação Central com maior espaçamento */}
           <nav className="hidden md:flex items-center justify-center gap-6 lg:gap-8 xl:gap-10 text-[15px] font-semibold text-ink-body">
-            {/* Sprint 6 (D1 do QA) — "Modo RPG 2D" e "Criar Avatar" com o
-                MESMO tratamento dos demais links da navbar: nada de neon
-                nem negrito saturado só para os links do jogo */}
-            <Link href="/game" className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
-              <IconGamepad className="w-5 h-5" />
-              <span>Modo RPG 2D</span>
-            </Link>
-            <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => track('nav_cta', 'nav_avatar')} className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
-              <IconSparkle className="w-5 h-5" />
-              <span>Criar Avatar</span>
-            </Link>
-            <a href="#colecionaveis" className="hover:text-ink-heading transition-colors">Cards TCG</a>
+            {/* Sprint 7 — a navbar segue a ORDEM DA OFERTA (a mesma das
+                seções da página): Como Funciona → Trilhas → Terminal →
+                Planos → Dúvidas. Os links do jogo vêm depois, mantido o
+                tratamento comum da Sprint 6 (D1: sem neon, sem destaque) */}
+            <a href="#metodologia" className="hover:text-ink-heading transition-colors">Como Funciona</a>
             <a href="#trilhas" className="hover:text-ink-heading transition-colors">Trilhas</a>
             <a href="#sandbox" className="hover:text-ink-heading transition-colors flex items-center gap-2">
               <span>Terminal Prático</span>
@@ -276,6 +269,15 @@ export default function HomePage() {
             </a>
             <a href="#precos" className="hover:text-ink-heading transition-colors">Planos</a>
             <a href="#faq" className="hover:text-ink-heading transition-colors">Dúvidas</a>
+            <Link href="/game" className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
+              <IconGamepad className="w-5 h-5" />
+              <span>Modo RPG 2D</span>
+            </Link>
+            <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => track('nav_cta', 'nav_avatar')} className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
+              <IconSparkle className="w-5 h-5" />
+              <span>Criar Avatar</span>
+            </Link>
+            <a href="#colecionaveis" className="hover:text-ink-heading transition-colors">Cards TCG</a>
           </nav>
 
           {/* Botões do Navbar na Direita */}
@@ -316,11 +318,12 @@ export default function HomePage() {
         {/* Mobile Drawer */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-border-1 px-6 py-5 bg-surface-1/95 backdrop-blur-xl shadow-2xl flex flex-col gap-3 animate-fadeIn">
-            <a href="#trilhas" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              4 Trilhas Práticas
-            </a>
+            {/* Sprint 7 — drawer na mesma ordem da oferta do desktop */}
             <a href="#metodologia" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
               Como Funciona
+            </a>
+            <a href="#trilhas" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+              4 Trilhas Práticas
             </a>
             <a href="#sandbox" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2 flex items-center justify-between">
               <span>Terminal Interativo</span>
@@ -331,6 +334,15 @@ export default function HomePage() {
             </a>
             <a href="#faq" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
               Perguntas Frequentes
+            </a>
+            <Link href="/game" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+              Modo RPG 2D
+            </Link>
+            <Link href="/onboarding" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+              Criar Avatar
+            </Link>
+            <a href="#colecionaveis" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+              Cards TCG
             </a>
             <div className="pt-3 border-t border-border-1 flex items-center justify-between gap-3">
               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-[13px] font-semibold text-ink-body hover:text-ink-heading py-2">
@@ -687,7 +699,10 @@ export default function HomePage() {
                 Carga horária não entra: a ementa não a declara. */}
             <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
               <div>4 módulos · 7 desafios práticos</div>
-              <div>Projeto final: <span className="font-bold text-ink-heading">NexusDB Distribuído</span></div>
+              {/* Sprint 7 — capstone em linguagem de resultado: o destaque
+                  é o que o aluno constrói; o nome técnico vira subtítulo */}
+              <div>Projeto final: <span className="font-bold text-ink-heading">Banco de dados distribuído próprio</span></div>
+              <div>NexusDB Distribuído</div>
             </div>
           </div>
 
@@ -741,7 +756,8 @@ export default function HomePage() {
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 2) */}
             <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
               <div>4 módulos · 4 desafios práticos</div>
-              <div>Projeto final: <span className="font-bold text-ink-heading">High-Throughput Payment Engine</span></div>
+              <div>Projeto final: <span className="font-bold text-ink-heading">Motor de pagamentos de alta vazão</span></div>
+              <div>High-Throughput Payment Engine</div>
             </div>
           </div>
 
@@ -795,7 +811,8 @@ export default function HomePage() {
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 3) */}
             <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
               <div>3 módulos · 3 desafios práticos</div>
-              <div>Projeto final: <span className="font-bold text-ink-heading">Web IDE Colaborativa em Tempo Real</span></div>
+              <div>Projeto final: <span className="font-bold text-ink-heading">IDE web colaborativa em tempo real</span></div>
+              <div>Web IDE Colaborativa em Tempo Real</div>
             </div>
           </div>
 
@@ -849,7 +866,8 @@ export default function HomePage() {
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 4) */}
             <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
               <div>3 módulos · 3 desafios práticos</div>
-              <div>Projeto final: <span className="font-bold text-ink-heading">Autonomous Socratic Code Reviewer</span></div>
+              <div>Projeto final: <span className="font-bold text-ink-heading">Revisor de código autônomo com IA</span></div>
+              <div>Autonomous Socratic Code Reviewer</div>
             </div>
           </div>
 
@@ -1292,10 +1310,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-2 border border-border-1 text-xs font-mono text-ink-span shrink-0 self-start lg:self-end">
-        <span className="w-2 h-2 rounded-full bg-brand-green-neon"></span>
-        <span>COMMUNITY & ENG TEAM ONLINE</span>
-      </div>
+      {/* Sprint 7 (honestidade, régua do PM) — o selo "COMMUNITY & ENG
+          TEAM ONLINE" saiu: era um claim de status ao vivo sem fonte */}
     </div>
 
     {/* Grid de Perguntas em 2 Colunas com Cores Semânticas */}
@@ -1425,7 +1441,7 @@ export default function HomePage() {
         </div>
         <div>
           <h4 className="font-heading font-bold text-ink-heading text-base sm:text-lg">Ainda tem alguma dúvida sobre a plataforma?</h4>
-          <p className="text-xs sm:text-sm text-ink-span font-sans">Nossa comunidade e time de engenharia estão online para te apoiar em cada etapa.</p>
+          <p className="text-[13px] sm:text-sm text-ink-span font-sans">Nossa comunidade e time de engenharia apoiam você em cada etapa.</p>
         </div>
       </div>
       <a href="/onboarding" data-cta-id="faq_banner" onClick={() => track('final_cta', 'faq_banner')} className="shrink-0 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-light text-white font-mono font-bold text-[13px] sm:text-sm transition-all duration-200 active:scale-95 shadow-lg shadow-brand-purple/25 border border-brand-purple-light/50">
@@ -1486,9 +1502,8 @@ export default function HomePage() {
                 <span className="w-2.5 h-2.5 rounded-full bg-brand-green-neon"></span>
                 <span className="text-xs font-mono font-bold text-ink-heading uppercase">ARENA DE PRODUÇÃO</span>
               </div>
-              <span className="text-xs font-mono text-brand-green-neon bg-brand-green/15 px-2 py-0.5 rounded border border-brand-green/30">
-                ONLINE
-              </span>
+              {/* Sprint 7 (honestidade) — o badge "ONLINE" saiu: claim de
+                  status ao vivo sem fonte, igual ao selo removido do FAQ */}
             </div>
 
             <div>
@@ -1554,22 +1569,12 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Redes Sociais Limpas */}
+          {/* Redes Sociais — Sprint 7 (honestidade): só destinos reais.
+              O GitHub aponta para o repositório real do produto; Discord
+              e X saíram (não há comunidade nesses canais hoje) */}
           <div className="flex items-center gap-4 mt-8">
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-ink-span hover:text-ink-heading transition-colors" aria-label="GitHub">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-              </svg>
-            </a>
-            <a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="text-ink-span hover:text-brand-cyan transition-colors" aria-label="Discord">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-              </svg>
-            </a>
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-ink-span hover:text-ink-heading transition-colors" aria-label="X (Twitter)">
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-              </svg>
+            <a href="https://github.com/augusto642/plataforma" target="_blank" rel="noopener noreferrer" className="text-ink-span hover:text-ink-heading transition-colors" aria-label="GitHub">
+              <IconGithub className="w-5 h-5" />
             </a>
           </div>
         </div>
