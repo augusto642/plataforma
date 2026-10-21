@@ -466,11 +466,11 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Roda no navegador — sem instalar nada</span>
+              <span>Comece no navegador, sem instalar nada</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Portfólio de evidências que as empresas buscam</span>
+              <span>Monte um portfólio profissional e de alto valor</span>
             </div>
           </div>
         </div>
