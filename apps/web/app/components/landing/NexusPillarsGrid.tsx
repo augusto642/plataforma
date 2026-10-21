@@ -1,11 +1,11 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
-// B08 — eventos do funil da landing
-import { track } from '../../lib/analytics';
+/* Sprint 10 · B34 — este grid virou Server Component: o único gesto
+   rastreado (CTA pro onboarding) usa <TrackedLink/> (ilha mínima);
+   o Link pro /game é navegação pura e segue server. */
 // Frente 3 — ícones SVG únicos da landing
 import { IconBolt, IconCards, IconChat, IconGamepad, IconShield } from './icons';
+import { TrackedLink } from './TrackedLink';
 
 interface Pillar {
   number: string;
@@ -167,16 +167,16 @@ export const NexusPillarsGrid: React.FC = () => {
         </Link>
         {/* Sprint 5 — primário unificado (roxo sólido + rótulo único);
             a ação de jogo (Overworld, acima) segue secundária e distinta */}
-        <Link
+        <TrackedLink
           href="/onboarding"
-          data-cta-id="pillars_onboarding"
-          onClick={() => track('nav_cta', 'pillars_onboarding')}
+          ctaId="pillars_onboarding"
+          event="nav_cta"
           className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-brand-purple hover:bg-brand-purple-dark text-white font-heading font-black text-sm tracking-tight transition-all shadow-lg shadow-brand-purple/30 active:scale-95"
         >
           <IconBolt className="w-5 h-5" />
           <span>Começar grátis agora</span>
           <span>→</span>
-        </Link>
+        </TrackedLink>
       </div>
     </section>
   );

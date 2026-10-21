@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 // Frente 3 — ícones SVG únicos da landing
