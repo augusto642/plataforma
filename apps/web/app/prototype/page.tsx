@@ -251,10 +251,10 @@ export default function PrototypePage() {
       </a>
     </div>
 
-    {/* MICRO-GATILHO DE ATIVAÇÃO RÁPIDA EM 1 CLIQUE */}
+    {/* MICRO-GATILHO DE ATIVAÇÃO RÁPIDA */}
     <p className="text-xs text-zinc-400 font-sans -mt-3 mb-7 flex items-center justify-center gap-2">
       <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#04D361]"></span>
-      <span>Cadastro rápido em 1 clique com GitHub ou Google • Acesso imediato</span>
+      <span>Crie sua conta gratuita e comece pelo nível Iniciante</span>
     </p>
 
     {/* MICRO-GATILHOS DE ALTA CONVERSÃO COM CHECKS VERDES VIBRANTES (#04D361) */}
@@ -284,14 +284,14 @@ export default function PrototypePage() {
         <div className="inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-zinc-900 bg-[#00E5FF] text-[10px] font-extrabold font-mono text-black">GO</div>
         <div className="inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-zinc-900 bg-[#04D361] text-[10px] font-extrabold font-mono text-black">JS</div>
         <div className="inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-zinc-900 bg-[#FFA116] text-[10px] font-extrabold font-mono text-black">PY</div>
-        <div className="inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-zinc-900 bg-[#181820] text-xs font-bold font-mono text-zinc-300">+14k</div>
+        <div className="inline-flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-zinc-900 bg-[#181820] text-xs font-bold font-mono text-zinc-300">NC</div>
       </div>
 
       <div className="text-left">
         <div className="flex items-center gap-2 font-semibold text-white text-sm">
-          <span>+14.800 pessoas aprendendo a programar</span>
+          <span>Aprenda programando desde a primeira lição</span>
           <span className="text-zinc-500">•</span>
-          <span className="text-[#04D361] font-mono text-xs">140k exercícios concluídos</span>
+          <span className="text-[#04D361] font-mono text-xs">exercícios práticos com correção automática</span>
         </div>
         <p className="text-xs text-zinc-300 font-normal">
           Aprenda do zero ao avançado em Rust, Go, Web e Python com prática direta no navegador
@@ -840,10 +840,10 @@ export default function PrototypePage() {
         <div>
           <div className="text-sm sm:text-base font-heading font-bold text-white flex items-center gap-2">
             <span>Gostou da velocidade de resposta?</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#04D361]/20 text-[#04D361] font-bold">SUB-30MS</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#04D361]/20 text-[#04D361] font-bold">SANDBOX</span>
           </div>
           <p className="text-xs text-zinc-300 font-sans mt-0.5">
-            Cadastre-se gratuitamente para salvar seu histórico, acumular XP e liberar 30+ desafios reais no terminal.
+            Cadastre-se gratuitamente para salvar seu histórico, acumular XP e avançar pelos desafios do nível Iniciante.
           </p>
         </div>
       </div>
@@ -888,7 +888,7 @@ export default function PrototypePage() {
         >
           <span>Anual</span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#996DFF]/20 text-[#996DFF] font-bold">
-            ECONOMIZE 27%
+            ECONOMIZE 25%
           </span>
         </button>
       </div>
@@ -909,11 +909,11 @@ export default function PrototypePage() {
             <span className="text-xs font-mono text-zinc-400 ml-1">/ para sempre</span>
           </div>
           <ul className="space-y-3 text-xs font-mono text-zinc-300 mb-8">
-            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> +30 Desafios Fundamentais</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Sandbox Linux Piston</li>
-            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Acesso à Liga Bronze</li>
-            <li className="flex items-center gap-2 text-zinc-500">✕ Sem tutor dialético socrático</li>
-            <li className="flex items-center gap-2 text-zinc-500">✕ Portfólio SHA-256 Auditável</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Leaderboard público da comunidade</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
         </div>
         <a href="#sandbox" className="w-full py-3 rounded-xl bg-[#18181B] hover:bg-[#202024] text-white text-xs font-mono font-bold text-center border border-[#27272A] transition-colors">
@@ -933,15 +933,15 @@ export default function PrototypePage() {
             Para quem busca autonomia técnica e preparação para vagas de alto nível.
           </p>
           <div className="mb-6">
-            <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-white">R$ 65</span>
-            <span id="cycle-pro" className="text-xs font-mono text-zinc-400 ml-1">/ mês (R$ 790/ano)</span>
+            <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-white">{billingCycle === 'annual' ? 'R$ 29,90' : 'R$ 39,90'}</span>
+            <span id="cycle-pro" className="text-xs font-mono text-zinc-400 ml-1">{billingCycle === 'annual' ? '/ mês (R$ 358,80/ano)' : '/ mês'}</span>
           </div>
           <ul className="space-y-3 text-xs font-mono text-zinc-200 mb-8">
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Acesso total a todas as 4 Trilhas Master</li>
-            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Tutor IA Socrático Ilimitado 24/7</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
-            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Suporte a Concorrência & Stress Tests</li>
-            <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Destaque nas Ligas Semanais</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Capstones de concorrência e sistemas distribuídos</li>
+            <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Destaque no leaderboard da comunidade</li>
           </ul>
         </div>
         <a href="#sandbox" className="w-full py-3.5 rounded-xl bg-[#8257E5] hover:bg-[#7146D4] text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-[#8257E5]/30 hover:shadow-xl hover:shadow-[#8257E5]/40 transition-all active:scale-95 border border-white/20">
@@ -958,13 +958,13 @@ export default function PrototypePage() {
             Para times de engenharia, tech academies e posições seniores.
           </p>
           <div className="mb-6">
-            <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-white">R$ 115</span>
-            <span id="cycle-staff" className="text-xs font-mono text-zinc-400 ml-1">/ mês (R$ 1.390/ano)</span>
+            <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-white">{billingCycle === 'annual' ? 'R$ 59,90' : 'R$ 79,90'}</span>
+            <span id="cycle-staff" className="text-xs font-mono text-zinc-400 ml-1">{billingCycle === 'annual' ? '/ mês (R$ 718,80/ano)' : '/ mês'}</span>
           </div>
           <ul className="space-y-3 text-xs font-mono text-zinc-300 mb-8">
             <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Painel de Gestão de Equipes</li>
             <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Desafios Customizados de Empresa</li>
-            <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> SSO / SAML & Segurança SOC-2</li>
+            <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Tudo do plano Pro incluído</li>
             <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Relatórios de Performance de Engenharia</li>
           </ul>
         </div>
@@ -1018,7 +1018,7 @@ export default function PrototypePage() {
           Preciso instalar algo na minha máquina para começar?
         </h3>
         <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-          Não. Todo o ambiente roda em <span className="text-white font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes de estresse em Python, Go e Rust.
+          Não. Todo o ambiente roda em <span className="text-white font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar seus exercícios direto no navegador.
         </p>
       </div>
 
@@ -1110,7 +1110,7 @@ export default function PrototypePage() {
           Como funciona o feedback quando meu código dá erro?
         </h3>
         <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-          Nossa tutoria socrática analisa a <span className="text-white font-medium">Árvore Sintática Abstrata (AST)</span> da sua solução e aponta pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.
+          Quando seu código falha, nossa tutora de IA lê a <span className="text-white font-medium">mensagem de erro e o seu código</span>, reconhece o padrão do problema e devolve pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.
         </p>
       </div>
 
@@ -1132,7 +1132,7 @@ export default function PrototypePage() {
           Como os projetos e certificados me ajudam a conseguir vagas?
         </h3>
         <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-          Cada projeto gera repositórios Git reais com commits assinados e certificados com <span className="text-white font-medium">verificação criptográfica SHA-256</span>. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.
+          Seus projetos concluídos ficam no seu portfólio público e os certificados emitidos têm <span className="text-white font-medium">código de verificação</span> que pode ser conferido na página pública de verificação da plataforma. Assim, recrutadores veem evidências reais do que você construiu.
         </p>
       </div>
 
@@ -1171,7 +1171,7 @@ export default function PrototypePage() {
       </h2>
 
       <p className="font-sans text-sm sm:text-lg text-zinc-300 max-w-2xl mx-auto leading-relaxed mb-10">
-        Crie sua conta em menos de 30 segundos e envie seu primeiro commit hoje mesmo. O mercado não contrata certificados de vídeo — ele contrata quem resolve problemas no código.
+        Crie sua conta gratuita e comece pelo nível Iniciante, no seu ritmo. O mercado não contrata certificados de vídeo — ele contrata quem resolve problemas no código.
       </p>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mb-8">
