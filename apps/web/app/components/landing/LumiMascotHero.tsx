@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+// Frente 3 — ícones SVG únicos da landing
+import { IconChat } from './icons';
 
 interface SocraticPrompt {
   tag: string;
@@ -13,19 +15,19 @@ const SOCRATIC_ITEMS: SocraticPrompt[] = [
   {
     tag: 'PRIMEIROS PASSOS',
     question: 'O que é uma variável?',
-    response: '✨ Imagine uma caixa com uma etiqueta. Se você guarda o número 7 numa caixa chamada "pontos", o que acontece com a caixa quando o jogo soma +10 — ela muda, ou nasce outra caixa?',
+    response: 'Imagine uma caixa com uma etiqueta. Se você guarda o número 7 numa caixa chamada "pontos", o que acontece com a caixa quando o jogo soma +10 — ela muda, ou nasce outra caixa?',
     insight: 'Conceito: Variáveis & Memória',
   },
   {
     tag: 'LAÇOS DE REPETIÇÃO',
     question: 'Por que meu laço não para nunca?',
-    response: '✨ Boa pergunta para investigar: se o laço repete enquanto uma condição é verdadeira, o que precisa mudar dentro dele a cada volta para um dia ela virar falsa? Seu contador está andando em direção ao fim?',
+    response: 'Boa pergunta para investigar: se o laço repete enquanto uma condição é verdadeira, o que precisa mudar dentro dele a cada volta para um dia ela virar falsa? Seu contador está andando em direção ao fim?',
     insight: 'Taxonomia de Bloom: Condição de Parada',
   },
   {
     tag: 'LÓGICA & ERROS',
     question: 'Deu erro e não sei onde. Por onde começo?',
-    response: '✨ Todo erro conta uma história. Qual é a primeira linha da mensagem? Ela mostra onde o programa parou — o que aquela linha estava tentando fazer com os valores que recebeu?',
+    response: 'Todo erro conta uma história. Qual é a primeira linha da mensagem? Ela mostra onde o programa parou — o que aquela linha estava tentando fazer com os valores que recebeu?',
     insight: 'Habilidade: Leitura de Erros',
   },
 ];
@@ -91,7 +93,7 @@ export const LumiMascotHero: React.FC = () => {
     <section className="relative my-20 max-w-5xl mx-auto px-4">
       {/* Moldura com 1px Specular Border */}
       <div className="relative rounded-[28px] p-[1px] bg-gradient-to-r from-purple-500/30 via-cyan-500/20 to-purple-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-        <div className="relative rounded-[27px] bg-gradient-to-br from-[#0C1024]/95 via-[#060815]/95 to-[#120E26]/95 p-6 sm:p-9 backdrop-blur-2xl">
+        <div className="relative rounded-[27px] bg-gradient-to-br from-surface-1/95 via-background/95 to-surface-1/95 p-6 sm:p-9 backdrop-blur-2xl">
           {/* Ambient Top Glow */}
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -106,18 +108,18 @@ export const LumiMascotHero: React.FC = () => {
                 </>
               )}
 
-              <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-[#8257E5] via-[#A855F7] to-[#00E5FF] p-[2px] shadow-[0_0_35px_rgba(130,87,229,0.35)] transition-all duration-300 ${
+              <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-[0_0_35px_rgba(130,87,229,0.35)] transition-all duration-300 ${
                 isTyping ? 'scale-105 shadow-[0_0_45px_rgba(0,229,255,0.45)]' : 'hover:scale-102'
               }`}>
-                <div className="w-full h-full bg-[#050814] rounded-[14px] flex items-center justify-center text-4xl select-none transition-transform">
+                <div className="w-full h-full bg-background rounded-[14px] flex items-center justify-center text-4xl select-none transition-transform">
                   <span className={isTyping ? 'animate-pulse' : ''}>{getEmotionIcon()}</span>
                 </div>
 
                 {/* Badge de Status de Lumi */}
-                <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black border border-black shadow transition-all ${
+                <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-xs font-mono font-black border border-black shadow transition-all ${
                   isTyping
-                    ? 'bg-[#00E5FF] text-black animate-pulse'
-                    : 'bg-[#04D361] text-black'
+                    ? 'bg-brand-cyan-neon text-black animate-pulse'
+                    : 'bg-brand-green-neon text-black'
                 }`}>
                   {isTyping ? 'REFLETINDO' : 'IA ONLINE'}
                 </span>
@@ -125,40 +127,40 @@ export const LumiMascotHero: React.FC = () => {
 
               {/* Equalizador de Voz Socrática */}
               <div className="flex items-center gap-1 mt-3.5 h-3">
-                <span className={`w-1 bg-[#00E5FF] rounded-full transition-all duration-150 ${isTyping ? 'h-3 animate-bounce' : 'h-1.5 opacity-40'}`} />
-                <span className={`w-1 bg-[#A855F7] rounded-full transition-all duration-150 delay-75 ${isTyping ? 'h-4 animate-bounce' : 'h-2 opacity-40'}`} />
-                <span className={`w-1 bg-[#04D361] rounded-full transition-all duration-150 delay-150 ${isTyping ? 'h-2.5 animate-bounce' : 'h-1.5 opacity-40'}`} />
-                <span className={`w-1 bg-[#00E5FF] rounded-full transition-all duration-150 delay-100 ${isTyping ? 'h-3.5 animate-bounce' : 'h-2 opacity-40'}`} />
+                <span className={`w-1 bg-brand-cyan-neon rounded-full transition-all duration-150 ${isTyping ? 'h-3 animate-bounce' : 'h-1.5 opacity-40'}`} />
+                <span className={`w-1 bg-brand-purple rounded-full transition-all duration-150 delay-75 ${isTyping ? 'h-4 animate-bounce' : 'h-2 opacity-40'}`} />
+                <span className={`w-1 bg-brand-green-neon rounded-full transition-all duration-150 delay-150 ${isTyping ? 'h-2.5 animate-bounce' : 'h-1.5 opacity-40'}`} />
+                <span className={`w-1 bg-brand-cyan-neon rounded-full transition-all duration-150 delay-100 ${isTyping ? 'h-3.5 animate-bounce' : 'h-2 opacity-40'}`} />
               </div>
 
               <span className="mt-1 text-xs font-mono font-black text-purple-300">TUTORA DE IA</span>
-              <span className="text-[10px] font-mono text-zinc-500">Mentora Socrática</span>
+              <span className="text-xs font-mono text-zinc-500">Mentora Socrática</span>
             </div>
 
             {/* Diálogo Socrático & Balão Retrô de Luxo */}
             <div className="flex-1 w-full text-left">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="font-heading font-black text-white text-base sm:text-lg tracking-tight">
+                  <span className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
                     Mentoria Socrática em Tempo Real
                   </span>
-                  <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-500/30">
+                  <span className="text-xs font-mono text-purple-300 bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-500/30">
                     Zero Resposta Pronta • 100% Reflexão
                   </span>
                 </div>
-                <span className="text-xs font-mono text-[#00E5FF] font-semibold">{currentItem.insight}</span>
+                <span className="text-xs font-mono text-brand-cyan-neon font-semibold">{currentItem.insight}</span>
               </div>
 
               {/* Caixa de Texto com Acabamento de Luxo */}
-              <div className="relative min-h-[96px] p-5 rounded-2xl bg-[#030612]/90 border border-white/[0.08] text-zinc-200 text-sm sm:text-base font-sans leading-relaxed shadow-inner">
+              <div className="relative min-h-[96px] p-5 rounded-2xl bg-background/90 border border-border-1 text-zinc-200 text-sm sm:text-base font-sans leading-relaxed shadow-inner">
                 <p className="text-zinc-100 font-medium">
                   {displayedText}
-                  <span className="inline-block w-2 h-4 ml-1 bg-[#00E5FF] animate-pulse align-middle" />
+                  <span className="inline-block w-2 h-4 ml-1 bg-brand-cyan-neon animate-pulse align-middle" />
                 </p>
               </div>
 
               {/* Pílulas Interativas de Perguntas */}
-              <div className="mt-4 pt-3 border-t border-white/[0.06]">
+              <div className="mt-4 pt-3 border-t border-border-1">
                 <span className="text-xs font-mono text-zinc-400 block mb-2 font-medium">
                   Clique para testar o método socrático:
                 </span>
@@ -170,11 +172,11 @@ export const LumiMascotHero: React.FC = () => {
                       onClick={() => handleSelectQuestion(idx)}
                       className={`text-xs font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
                         activeIndex === idx
-                          ? 'border-[#00E5FF] bg-cyan-950/60 text-[#00E5FF] shadow-[0_0_20px_rgba(0,229,255,0.25)] font-bold scale-[1.02]'
-                          : 'border-white/[0.08] bg-white/[0.02] text-zinc-400 hover:text-white hover:border-white/20'
+                          ? 'border-brand-cyan-neon bg-cyan-950/60 text-brand-cyan-neon shadow-[0_0_20px_rgba(0,229,255,0.25)] font-bold scale-[1.02]'
+                          : 'border-border-1 bg-surface-1 text-zinc-400 hover:text-ink-heading hover:border-border-2'
                       }`}
                     >
-                      💬 {item.question}
+                      <span className="inline-flex items-center gap-2"><IconChat className="w-4 h-4" /> {item.question}</span>
                     </button>
                   ))}
                 </div>

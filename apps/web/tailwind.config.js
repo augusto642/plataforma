@@ -59,6 +59,17 @@ module.exports = {
           warning: '#EF6220',
           rose: '#F43F5E',
         },
+        // Paleta de syntax highlighting dos snippets da landing (antes eram
+        // hex soltos repetidos dentro das strings de código): tema do editor
+        // como token, para a busca de hex-fora-de-tokens continuar zerada.
+        syntax: {
+          keyword: '#C084FC',
+          fn: '#38BDF8',
+          base: '#E2E8F0',
+          type: '#FBBF24',
+          string: '#86EFAC',
+          number: '#FB923C',
+        },
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],

@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
+// D1 — cores de runtime vêm do espelho de tokens, nunca hex solto
+import { TOKEN_COLORS } from '../../lib/tokens';
 
 interface BattleState {
   playerHp: number;
@@ -67,7 +69,14 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
   };
 
   const spawnSparks = () => {
-    const colors = ['#00E5FF', '#04D361', '#FFA116', '#FF5F56', '#FFFFFF', '#A855F7'];
+    const colors = [
+      TOKEN_COLORS.brandCyanNeon,
+      TOKEN_COLORS.brandGreenNeon,
+      TOKEN_COLORS.brandAmber,
+      TOKEN_COLORS.brandRose,
+      TOKEN_COLORS.inkHeading,
+      TOKEN_COLORS.brandPurple,
+    ];
     const newSparks: SparkParticle[] = [];
     for (let i = 0; i < 16; i++) {
       const angle = (Math.PI * 2 * i) / 16 + (Math.random() * 0.4 - 0.2);
@@ -183,26 +192,26 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
       <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-emerald-500/20 rounded-[32px] blur-2xl opacity-70 group-hover:opacity-100 transition duration-1000 -z-10" />
 
       {/* Moldura Premium de Vidro Obsidian (1px Specular Border) */}
-      <div className="relative rounded-[28px] border border-white/[0.12] bg-[#050814]/90 shadow-[0_25px_70px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden">
+      <div className="relative rounded-[28px] border border-border-2 bg-background/90 shadow-[0_25px_70px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden">
         {/* Barra Superior da Janela (Hardware Console) */}
-        <div className="px-5 py-3.5 bg-gradient-to-r from-[#0B1021] via-[#070A18] to-[#0B1021] border-b border-white/[0.08] flex items-center justify-between">
+        <div className="px-5 py-3.5 bg-gradient-to-r from-surface-1 via-surface-1 to-surface-1 border-b border-border-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-[#FF5F56]/90 border border-[#E0443E]/50 shadow-sm inline-block" />
-              <span className="w-3 h-3 rounded-full bg-[#FFBD2E]/90 border border-[#DEA123]/50 shadow-sm inline-block" />
-              <span className="w-3 h-3 rounded-full bg-[#27C93F]/90 border border-[#1AAB29]/50 shadow-sm inline-block" />
+              <span className="w-3 h-3 rounded-full bg-brand-rose/90 border border-brand-rose/50 shadow-sm inline-block" />
+              <span className="w-3 h-3 rounded-full bg-brand-amber/90 border border-brand-amber/50 shadow-sm inline-block" />
+              <span className="w-3 h-3 rounded-full bg-brand-green-neon/90 border border-brand-green/50 shadow-sm inline-block" />
             </div>
             <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
             <div className="flex items-center gap-2 text-xs font-mono text-zinc-300">
-              <span className="text-[#00E5FF]">nexus-arena</span>
+              <span className="text-brand-cyan-neon">nexus-arena</span>
               <span className="text-zinc-600">/</span>
               <span className="text-zinc-400">dungeon-concurrency</span>
               <span className="text-zinc-600">/</span>
-              <span className="text-white font-semibold">battle_01.rs</span>
+              <span className="text-ink-heading font-semibold">battle_01.rs</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 font-mono text-[11px]">
+          <div className="flex items-center gap-2 font-mono text-xs">
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               CGROUPS-V2 ISOLATED
@@ -214,7 +223,7 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
         </div>
 
         {/* HUD de Batalha: Jogador vs Inimigo com Visual de Luxo */}
-        <div className="p-5 sm:p-6 border-b border-white/[0.06] bg-gradient-to-b from-[#0B1021]/80 to-transparent relative">
+        <div className="p-5 sm:p-6 border-b border-border-1 bg-gradient-to-b from-surface-1/80 to-transparent relative">
           {/* Keyframes de animação de dano e faíscas */}
           <style>{`
             @keyframes damageFloatAnim {
@@ -266,37 +275,37 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
               <div className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-950 to-blue-950 border border-cyan-500/40 p-0.5 flex items-center justify-center shadow-[0_0_20px_rgba(0,229,255,0.25)] shrink-0 transition-transform ${
                 state.isPlayerHit ? 'animate-hit-shake border-red-500' : ''
               }`}>
-                <div className="w-full h-full bg-[#050814] rounded-xl flex items-center justify-center text-3xl select-none">
+                <div className="w-full h-full bg-background rounded-xl flex items-center justify-center text-3xl select-none">
                   🧙‍♂️
                 </div>
-                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#04D361] text-[9px] font-mono font-black text-black shadow">
+                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-brand-green-neon text-xs font-mono font-black text-black shadow">
                   LVL 14
                 </span>
               </div>
               <div className="flex-1 sm:flex-initial">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-black text-white tracking-wide">DEV_OPERATOR</span>
-                  <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/70 px-2 py-0.5 rounded border border-cyan-500/30">
+                  <span className="text-xs font-mono font-black text-ink-heading tracking-wide">DEV_OPERATOR</span>
+                  <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/70 px-2 py-0.5 rounded border border-cyan-500/30">
                     SYSTEMS PALADIN
                   </span>
                 </div>
                 <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[11px] font-mono text-zinc-400">HP</span>
-                  <div className="w-32 sm:w-44 h-2.5 rounded-full bg-[#0E1528] border border-cyan-900/40 p-0.5 overflow-hidden">
+                  <span className="text-xs font-mono text-zinc-400">HP</span>
+                  <div className="w-32 sm:w-44 h-2.5 rounded-full bg-surface-2 border border-cyan-900/40 p-0.5 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#04D361] via-[#00E58F] to-[#00E5FF] transition-all duration-500 shadow-[0_0_10px_rgba(4,211,97,0.5)]"
+                      className="h-full rounded-full bg-gradient-to-r from-brand-green-neon via-brand-green to-brand-cyan-neon transition-all duration-500 shadow-[0_0_10px_rgba(4,211,97,0.5)]"
                       style={{ width: `${state.playerHp}%` }}
                     />
                   </div>
-                  <span className="text-[11px] font-mono font-bold text-emerald-400">{state.playerHp}/100</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400">{state.playerHp}/100</span>
                 </div>
               </div>
             </div>
 
             {/* Marcador Central de Turno */}
-            <div className="hidden lg:flex flex-col items-center justify-center px-4 py-1.5 rounded-xl bg-black/40 border border-white/[0.08]">
-              <span className="text-[10px] font-mono font-black text-zinc-400 tracking-wider">RODADA {state.turnCount}</span>
-              <span className="text-xs font-heading font-black text-[#00E5FF]">DUELO DE CÓDIGO</span>
+            <div className="hidden lg:flex flex-col items-center justify-center px-4 py-1.5 rounded-xl bg-black/40 border border-border-1">
+              <span className="text-xs font-mono font-black text-zinc-400 tracking-wider">RODADA {state.turnCount}</span>
+              <span className="text-xs font-heading font-black text-brand-cyan-neon">DUELO DE CÓDIGO</span>
             </div>
 
             {/* Bloco do Boss */}
@@ -315,20 +324,20 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
 
               <div className="flex-1 sm:flex-initial">
                 <div className="flex items-center justify-end gap-2">
-                  <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/70 px-2 py-0.5 rounded border border-rose-500/30">
+                  <span className="text-xs font-mono font-bold text-rose-400 bg-rose-950/70 px-2 py-0.5 rounded border border-rose-500/30">
                     BOSS DA DUNGEON
                   </span>
-                  <span className="text-xs font-mono font-black text-white tracking-wide">DEADLOCK_CHIMERA</span>
+                  <span className="text-xs font-mono font-black text-ink-heading tracking-wide">DEADLOCK_CHIMERA</span>
                 </div>
                 <div className="flex items-center justify-end gap-3 mt-1.5">
-                  <span className="text-[11px] font-mono font-bold text-rose-400">{state.enemyHp}/100</span>
-                  <div className="w-32 sm:w-44 h-2.5 rounded-full bg-[#0E1528] border border-rose-900/40 p-0.5 overflow-hidden">
+                  <span className="text-xs font-mono font-bold text-rose-400">{state.enemyHp}/100</span>
+                  <div className="w-32 sm:w-44 h-2.5 rounded-full bg-surface-2 border border-rose-900/40 p-0.5 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-rose-500 to-red-600 transition-all duration-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"
                       style={{ width: `${state.enemyHp}%` }}
                     />
                   </div>
-                  <span className="text-[11px] font-mono text-zinc-400">HP</span>
+                  <span className="text-xs font-mono text-zinc-400">HP</span>
                 </div>
               </div>
 
@@ -357,7 +366,7 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
                   />
                 ))}
 
-                <div className="w-full h-full bg-[#050814] rounded-xl flex items-center justify-center text-3xl select-none">
+                <div className="w-full h-full bg-background rounded-xl flex items-center justify-center text-3xl select-none">
                   {state.hasWon ? '💀' : '👾'}
                 </div>
               </div>
@@ -366,17 +375,17 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
         </div>
 
         {/* Corpo do Terminal: Split Editor & Output Log */}
-        <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 bg-[#030712]">
+        <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 bg-background">
           {/* Editor com Visual Monaco Premium */}
-          <div className="lg:col-span-7 rounded-2xl border border-white/[0.08] bg-[#070A18] p-4 flex flex-col justify-between shadow-inner">
+          <div className="lg:col-span-7 rounded-2xl border border-border-1 bg-surface-1 p-4 flex flex-col justify-between shadow-inner">
             <div>
-              <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-white/[0.06] text-[11px] font-mono text-zinc-400">
+              <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-border-1 text-xs font-mono text-zinc-400">
                 <div className="flex items-center gap-2">
                   <span className="text-zinc-500">SRC //</span>
                   <span className="text-zinc-200 font-semibold">fix_concurrency.rs</span>
                 </div>
-                <span className="text-[#04D361] flex items-center gap-1.5 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#04D361] animate-ping" />
+                <span className="text-brand-green-neon flex items-center gap-1.5 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-green-neon animate-ping" />
                   RUST 1.78 LIVE
                 </span>
               </div>
@@ -398,33 +407,33 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   disabled={state.isAttacking || state.hasWon}
-                  className="w-full h-40 bg-transparent text-[#00E5FF] font-mono text-xs sm:text-[13px] leading-relaxed resize-none outline-none selection:bg-cyan-900/60"
+                  className="w-full h-40 bg-transparent text-brand-cyan-neon font-mono text-xs sm:text-[13px] leading-relaxed resize-none outline-none selection:bg-cyan-900/60"
                   spellCheck={false}
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-zinc-500">
+            <div className="pt-3 border-t border-border-1 flex items-center justify-between text-xs font-mono text-zinc-500">
               <span>Instrução: Retorne `true` e clique em Atacar</span>
               <span className="text-zinc-400">Zero-Config Sandbox</span>
             </div>
           </div>
 
           {/* Output & Ação de Ataque */}
-          <div className="lg:col-span-5 rounded-2xl border border-white/[0.08] bg-[#070A18] p-4 flex flex-col justify-between shadow-inner">
+          <div className="lg:col-span-5 rounded-2xl border border-border-1 bg-surface-1 p-4 flex flex-col justify-between shadow-inner">
             <div>
-              <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-white/[0.06] text-[11px] font-mono text-zinc-400">
+              <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-border-1 text-xs font-mono text-zinc-400">
                 <span>TELEMETRIA & COMBAT OUTPUT</span>
-                <span className="text-[#00E5FF] font-bold">SUB-20MS</span>
+                <span className="text-brand-cyan-neon font-bold">SUB-20MS</span>
               </div>
 
               <div
                 className={`p-4 rounded-xl border text-xs sm:text-[13px] font-mono leading-relaxed transition-all duration-300 ${
                   state.hasWon
-                    ? 'bg-emerald-950/40 border-[#04D361]/60 text-emerald-300 shadow-[0_0_20px_rgba(4,211,97,0.2)]'
+                    ? 'bg-emerald-950/40 border-brand-green-neon/60 text-emerald-300 shadow-[0_0_20px_rgba(4,211,97,0.2)]'
                     : state.isAttacking
-                    ? 'bg-cyan-950/40 border-[#00E5FF]/60 text-cyan-300'
-                    : 'bg-[#0B1021]/80 border-white/[0.06] text-zinc-300'
+                    ? 'bg-cyan-950/40 border-brand-cyan-neon/60 text-cyan-300'
+                    : 'bg-surface-1/80 border-border-1 text-zinc-300'
                 }`}
               >
                 {state.statusText}
@@ -434,20 +443,20 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
                 <div className="mt-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border border-amber-500/40 text-amber-300 text-xs font-mono flex items-center gap-3 animate-fadeIn">
                   <span className="text-2xl">🏆</span>
                   <div>
-                    <div className="font-bold text-white">+150 XP • Conquista Desbloqueada!</div>
-                    <div className="text-[10px] text-zinc-400">Card TCG 'Paladino Ferrox' liberado no inventário.</div>
+                    <div className="font-bold text-ink-heading">+150 XP • Conquista Desbloqueada!</div>
+                    <div className="text-xs text-zinc-400">Card TCG 'Paladino Ferrox' liberado no inventário.</div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="pt-4 mt-4 border-t border-white/[0.06]">
+            <div className="pt-4 mt-4 border-t border-border-1">
               {!state.hasWon ? (
                 <button
                   type="button"
                   onClick={handleAttack}
                   disabled={state.isAttacking}
-                  className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-[#00E5FF] via-[#04D361] to-[#00E58F] text-black font-heading font-black text-xs sm:text-sm uppercase tracking-wider hover:opacity-95 active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,229,255,0.35)] cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-brand-cyan-neon via-brand-green-neon to-brand-green text-black font-heading font-black text-xs sm:text-sm uppercase tracking-wider hover:opacity-95 active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(0,229,255,0.35)] cursor-pointer flex items-center justify-center gap-2"
                 >
                   <span>⚔️</span>
                   <span>{state.isAttacking ? 'Compilando e Atacando...' : 'Executar Código & Desferir Ataque'}</span>
@@ -456,7 +465,7 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <Link
                     href="/onboarding"
-                    className="flex-1 py-3.5 px-5 rounded-xl bg-gradient-to-r from-[#04D361] to-[#00E58F] hover:from-[#00E58F] hover:to-[#04D361] text-black font-heading font-black text-xs sm:text-sm uppercase tracking-wider text-center active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(4,211,97,0.4)] flex items-center justify-center gap-2"
+                    className="flex-1 py-3.5 px-5 rounded-xl bg-gradient-to-r from-brand-green-neon to-brand-green hover:from-brand-green hover:to-brand-green-neon text-black font-heading font-black text-xs sm:text-sm uppercase tracking-wider text-center active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(4,211,97,0.4)] flex items-center justify-center gap-2"
                   >
                     <span>🎉 Salvar Progresso & Criar Personagem</span>
                     <span>→</span>
@@ -464,7 +473,7 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="py-3 px-3.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] text-zinc-300 font-mono text-xs transition-colors"
+                    className="py-3 px-3.5 rounded-xl bg-surface-2 hover:bg-white/[0.1] border border-white/[0.1] text-zinc-300 font-mono text-xs transition-colors"
                     title="Testar Novamente"
                   >
                     ↺ Rejogar
