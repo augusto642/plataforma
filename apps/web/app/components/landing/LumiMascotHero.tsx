@@ -115,27 +115,23 @@ export const LumiMascotHero: React.FC = () => {
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-brand-purple/15 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col md:flex-row items-center md:items-start gap-7">
-            {/* Avatar Pixel Art Lumi com Aura Mística & Expressões */}
+            {/* Arte da tutora em ESCALA EDITORIAL — Sprint 9 (item 1 do
+                Designer): a ilustração saiu do avatar de 96px e virou
+                protagonista da seção, ao lado do diálogo */}
             <div className="relative shrink-0 flex flex-col items-center">
-              {/* Aura Radiante Expansiva quando a tutora está Raciocinando/Digitando —
-                  Sprint 7 (D4): os loops existem SÓ neste estado (digitação em curso);
-                  com prefers-reduced-motion, isTyping nunca liga e a seção fica estática */}
-              {isTyping && (
-                <>
-                  <div className="absolute -inset-3 rounded-3xl bg-gradient-to-r from-brand-purple/40 via-brand-cyan-neon/30 to-brand-green/40 blur-xl animate-pulse -z-10" />
-                  <div className="absolute -inset-1.5 rounded-2xl border border-brand-cyan-neon/50 animate-ping opacity-40 pointer-events-none -z-10" />
-                </>
-              )}
-
-              <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-glow-purple transition-all duration-300 ${
-                isTyping ? 'scale-105 shadow-glow-cyan-strong' : 'hover:scale-102'
-              }`}>
-                <div className="w-full h-full bg-background rounded-[14px] overflow-hidden select-none">
+              {/* Sprint 9 (item 5) — o cluster de animação da digitação
+                  foi enxutado: aura pulsante + ping + badge pulsante
+                  saíram. Durante o isTyping, os únicos elementos
+                  animados são o cursor e o equalizador (os dois que
+                  comunicam "está falando"); com prefers-reduced-motion,
+                  isTyping nunca liga e a seção fica estática */}
+              <div className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-3xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-glow-purple">
+                <div className="w-full h-full bg-background rounded-[22px] overflow-hidden select-none">
                   <Image
                     src={getEmotionImage().src}
                     alt={getEmotionImage().alt}
-                    width={96}
-                    height={96}
+                    width={208}
+                    height={208}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -143,10 +139,11 @@ export const LumiMascotHero: React.FC = () => {
                 {/* Badge de Status da tutora — Sprint 7 (honestidade):
                     o rótulo antigo era claim de status ao vivo sem fonte;
                     o badge agora descreve o estado do DIÁLOGO (refletindo /
-                    resposta pronta), que é o que ele de fato mostra */}
-                <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-xs font-mono font-black border border-black shadow transition-all ${
+                    resposta pronta), que é o que ele de fato mostra.
+                    Sprint 9: estático também durante a digitação (item 5) */}
+                <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-xs font-mono font-black border border-black shadow ${
                   isTyping
-                    ? 'bg-brand-cyan-neon text-black animate-pulse'
+                    ? 'bg-brand-cyan-neon text-black'
                     : 'bg-brand-green-neon text-black'
                 }`}>
                   {isTyping ? 'REFLETINDO' : 'PRONTA'}
