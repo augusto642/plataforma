@@ -16,7 +16,11 @@ import {
 // Espelhado no cliente web (apps/web/app/lib/analytics.ts): nomes fora
 // desta lista são rejeitados na borda (ValidationPipe), para o funil não
 // virar um balde de strings livres impossível de analisar.
+// Sprint 5 — o catálogo ganha o topo e o fundo do funil: pageview (com
+// visitorId persistente), o quiz diagnóstico (started/completed) e a
+// primeira atividade concluída na IDE, para a leitura do funil fechar.
 export const FUNNEL_EVENTS = [
+  'pageview',
   'hero_cta',
   'quiz_cta',
   'pricing_cta',
@@ -24,8 +28,11 @@ export const FUNNEL_EVENTS = [
   'sandbox_cta',
   'nav_cta',
   'final_cta',
+  'diagnostic_started',
+  'diagnostic_completed',
   'signup_submit',
   'signup_success',
+  'first_activity_completed',
 ] as const;
 
 export type FunnelEventName = (typeof FUNNEL_EVENTS)[number];
@@ -43,6 +50,14 @@ export class AnalyticsEventDto {
   @IsString()
   @MaxLength(64)
   sessionId?: string;
+
+  // Sprint 5 — identificador persistente do visitante (localStorage no
+  // cliente): sobrevive às sessões e permite contar visitantes únicos no
+  // pageview e costurar a jornada anônima até o cadastro.
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  visitorId?: string;
 
   @IsOptional()
   @IsString()

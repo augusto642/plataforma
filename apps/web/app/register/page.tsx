@@ -15,12 +15,15 @@ import { useAuth } from '../context/AuthContext';
 // de cadastro lê daí, para nenhuma porta perder o contexto do funil.
 import {
   captureUtmFromUrl,
+  readAttributionProps,
+  readPlanIntentProps,
   readStoredUtm,
   readStoredDiagnosticToken,
   clearStoredDiagnosticToken,
 } from '../lib/attribution';
 // B08 — eventos do funil (signup_submit / signup_success)
-import { track } from '../lib/analytics';
+// Sprint 5 — + pageview e contexto (intenção de plano + campanha) nos signups
+import { track, trackPageview } from '../lib/analytics';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -30,6 +33,7 @@ export default function RegisterPage() {
   // B07 — captura as UTMs da URL de chegada uma única vez, na montagem
   useEffect(() => {
     captureUtmFromUrl();
+    trackPageview();
   }, []);
 
   // Form State (Step 1)
@@ -75,8 +79,11 @@ export default function RegisterPage() {
   const handleStep3Next = useCallback(async () => {
     setIsRegistering(true);
     setRegisterError(null);
-    // B08 — o funil mede a tentativa e a conversão do cadastro
-    track('signup_submit', 'register_submit');
+    // B08 — o funil mede a tentativa e a conversão do cadastro.
+    // Sprint 5 — a intenção de plano (escolha nos preços) e a campanha
+    // acompanham o cadastro nas props, para a leitura do funil fechar.
+    const signupProps = { ...readPlanIntentProps(), ...readAttributionProps() };
+    track('signup_submit', 'register_submit', signupProps);
 
     try {
       const result = await authRegister({
@@ -97,7 +104,7 @@ export default function RegisterPage() {
         return;
       }
 
-      track('signup_success', 'register_submit');
+      track('signup_success', 'register_submit', signupProps);
 
       // B09 — resultado vinculado à conta: o token não é mais necessário
       clearStoredDiagnosticToken();

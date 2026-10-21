@@ -14,7 +14,10 @@ import { API_BASE } from './apiClient';
 // Catálogo fechado de eventos do funil (espelhado no DTO da API —
 // apps/api/src/analytics/dto/track-events.dto.ts). Não invente nomes fora
 // daqui: a API rejeita eventos fora do catálogo.
+// Sprint 5 — topo e fundo do funil: pageview (com visitorId persistente),
+// diagnóstico (started/completed) e primeira atividade concluída.
 export type FunnelEvent =
+  | 'pageview'
   | 'hero_cta'
   | 'quiz_cta'
   | 'pricing_cta'
@@ -22,8 +25,11 @@ export type FunnelEvent =
   | 'sandbox_cta'
   | 'nav_cta'
   | 'final_cta'
+  | 'diagnostic_started'
+  | 'diagnostic_completed'
   | 'signup_submit'
-  | 'signup_success';
+  | 'signup_success'
+  | 'first_activity_completed';
 
 export interface TrackProps {
   [key: string]: string | number | boolean;
@@ -33,28 +39,49 @@ interface QueuedEvent {
   event: FunnelEvent;
   ctaId?: string;
   sessionId: string;
+  visitorId: string;
   path: string;
   props?: TrackProps;
   ts: string;
 }
 
 const SESSION_KEY = 'nexus_analytics_session';
+const VISITOR_KEY = 'nexus_analytics_visitor';
 const FLUSH_DELAY_MS = 800;
 const MAX_QUEUE = 50;
 
 let queue: QueuedEvent[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let listenersInstalled = false;
+let lastPageview: { path: string; at: number } | null = null;
+
+function newId(prefix: string): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function getSessionId(): string {
   try {
     let id = sessionStorage.getItem(SESSION_KEY);
     if (!id) {
-      id =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `sess-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      id = newId('sess');
       sessionStorage.setItem(SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    return 'no-storage';
+  }
+}
+
+// Visitor id PERSISTENTE (localStorage): sobrevive às sessões do navegador
+// e permite contar visitantes únicos e costurar visita → clique → cadastro.
+export function getVisitorId(): string {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = newId('visitor');
+      localStorage.setItem(VISITOR_KEY, id);
     }
     return id;
   } catch {
@@ -115,6 +142,7 @@ export function track(event: FunnelEvent, ctaId?: string, props?: TrackProps): v
       event,
       ctaId,
       sessionId: getSessionId(),
+      visitorId: getVisitorId(),
       path: window.location.pathname,
       props,
       ts: new Date().toISOString(),
@@ -130,4 +158,21 @@ export function track(event: FunnelEvent, ctaId?: string, props?: TrackProps): v
   } catch {
     // analytics nunca pode quebrar a experiência do visitante
   }
+}
+
+/**
+ * Pageview do funil (Sprint 5): chamado na montagem das páginas do funil
+ * (landing, diagnóstico, onboarding, cadastro). A guarda absorve a
+ * montagem dupla do StrictMode em dev — o mesmo path dentro de 1,5s
+ * conta uma vez só.
+ */
+export function trackPageview(): void {
+  if (typeof window === 'undefined') return;
+  const path = window.location.pathname;
+  const now = Date.now();
+  if (lastPageview && lastPageview.path === path && now - lastPageview.at < 1500) {
+    return;
+  }
+  lastPageview = { path, at: now };
+  track('pageview');
 }

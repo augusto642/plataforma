@@ -85,3 +85,59 @@ export function clearStoredDiagnosticToken(): void {
     // sessionStorage indisponível: nada a limpar, nunca bloqueia o cadastro
   }
 }
+
+/**
+ * UTMs guardadas no formato de props de analytics (B08/Sprint 5): os eventos
+ * signup_submit/signup_success carregam a campanha nas props para a leitura
+ * do funil agregar cadastros por campanha (GET /analytics/funnel).
+ */
+export function readAttributionProps(): Record<string, string> {
+  const utm = readStoredUtm();
+  const props: Record<string, string> = {};
+  if (utm.utmSource) props.utmSource = utm.utmSource;
+  if (utm.utmMedium) props.utmMedium = utm.utmMedium;
+  if (utm.utmCampaign) props.utmCampaign = utm.utmCampaign;
+  return props;
+}
+
+// Sprint 5 — intenção de plano: a escolha feita na seção de preços (clique
+// no pricing_cta) persiste na sessão e acompanha o cadastro, entrando nas
+// props de signup_submit/signup_success. Sem isso, a intenção morria no
+// clique e o cadastro chegava "genérico" ao funil.
+export const PLAN_INTENT_KEY = 'nexus_plan_intent';
+
+export type PlanIntent = {
+  plan: string;
+  billingCycle?: string;
+  intent?: string;
+};
+
+export function savePlanIntent(intent: PlanIntent): void {
+  try {
+    sessionStorage.setItem(PLAN_INTENT_KEY, JSON.stringify(intent));
+  } catch {
+    // sessionStorage indisponível: a intenção é opcional, nunca bloqueia
+  }
+}
+
+/** Lê a intenção de plano guardada (null se o visitante não passou pelos preços). */
+export function readPlanIntent(): PlanIntent | null {
+  try {
+    const raw = sessionStorage.getItem(PLAN_INTENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PlanIntent;
+    return parsed && typeof parsed.plan === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Intenção de plano no formato de props de analytics ({} se não houver). */
+export function readPlanIntentProps(): Record<string, string> {
+  const intent = readPlanIntent();
+  if (!intent) return {};
+  const props: Record<string, string> = { plan: intent.plan };
+  if (intent.billingCycle) props.billingCycle = intent.billingCycle;
+  if (intent.intent) props.intent = intent.intent;
+  return props;
+}

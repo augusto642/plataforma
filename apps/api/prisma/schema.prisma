@@ -308,10 +308,12 @@ model AnalyticsEvent {
   event     String   @db.VarChar(32)
   ctaId     String?  @map("cta_id") @db.VarChar(64)
   sessionId String?  @map("session_id") @db.VarChar(64)
+  visitorId String?  @map("visitor_id") @db.VarChar(64)
   path      String?  @db.VarChar(512)
   props     Json?
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([event, createdAt])
+  @@index([visitorId])
   @@map("analytics_events")
 }
