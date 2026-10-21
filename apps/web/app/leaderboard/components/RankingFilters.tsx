@@ -3,7 +3,7 @@
 import React from 'react';
 import { LeaderboardFilter } from '../types';
 
-interface LeagueFiltersProps {
+interface RankingFiltersProps {
   currentFilter: LeaderboardFilter;
   onFilterChange: (filter: LeaderboardFilter) => void;
   searchQuery: string;
@@ -11,7 +11,7 @@ interface LeagueFiltersProps {
   totalParticipants: number;
 }
 
-export const LeagueFilters: React.FC<LeagueFiltersProps> = ({
+export const RankingFilters: React.FC<RankingFiltersProps> = ({
   currentFilter,
   onFilterChange,
   searchQuery,
@@ -31,7 +31,7 @@ export const LeagueFilters: React.FC<LeagueFiltersProps> = ({
               : 'text-zinc-400 hover:text-white'
           }`}
         >
-          💎 Liga Atual ({totalParticipants})
+          🏆 Ranking Atual ({totalParticipants})
         </button>
 
         <button
@@ -43,7 +43,7 @@ export const LeagueFilters: React.FC<LeagueFiltersProps> = ({
               : 'text-zinc-400 hover:text-white'
           }`}
         >
-          🌍 Liga Global (Hall da Fama)
+          🌍 Ranking Global
         </button>
 
         <button

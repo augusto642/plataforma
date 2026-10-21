@@ -1,4 +1,11 @@
-export type LeagueTier =
+// B38b (Sprint 11) — NÃO existe sistema de ligas no backend da Nexus Code.
+// A mecânica real (GET /courses/:id/leaderboard, em courses.service) é um
+// ranking por curso ordenado pelo XP total acumulado do usuário (desempate:
+// atividades concluídas distintas no curso). As "faixas" abaixo são apenas
+// agrupamentos de exibição derivados do XP total — sem temporada, rodada
+// semanal, promoção ou rebaixamento.
+
+export type XpBand =
   | 'bronze'
   | 'silver'
   | 'gold'
@@ -7,13 +14,15 @@ export type LeagueTier =
   | 'master'
   | 'challenger';
 
-export interface LeagueTierInfo {
-  tier: LeagueTier;
+export interface XpBandInfo {
+  band: XpBand;
   name: string;
-  division: string;
+  /** Intervalo de XP total que define a faixa (apenas exibição). */
+  rangeLabel: string;
   icon: string;
   color: string;
   accentBorder: string;
+  /** XP total mínimo para entrar na faixa. */
   minXp: number;
   description: string;
 }
@@ -27,26 +36,12 @@ export interface LeaderboardUser {
   handle: string;
   avatarUrl?: string;
   avatarInitials: string;
-  weeklyXp: number;
+  /** XP total acumulado (a mesma grandeza que ordena o ranking real). */
+  xp: number;
   streakDays: number;
   gitSolvedCount: number;
   currentTrack: string;
-  tier: LeagueTier;
   isCurrentUser?: boolean;
-  zone: 'promotion' | 'neutral' | 'relegation';
   movement: 'up' | 'down' | 'same' | 'new';
   movementPlaces?: number;
-}
-
-export interface WeeklyRoundInfo {
-  roundNumber: number;
-  endsAt: string; // ISO string
-  totalParticipants: number;
-  promotionThreshold: number; // Top N promote
-  relegationThreshold: number; // Bottom N demote
-  currentPrizePool: {
-    firstPlaceXp: number;
-    firstPlaceBadge: string;
-    promotionXpBonus: number;
-  };
 }

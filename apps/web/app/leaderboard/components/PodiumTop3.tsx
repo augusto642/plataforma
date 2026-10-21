@@ -20,10 +20,10 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
       <div className="text-center mb-6">
         <h3 className="text-xl sm:text-2xl font-black font-heading text-white tracking-tight flex items-center justify-center gap-2">
           <span>👑</span>
-          <span>Pódio dos Campeões da Semana</span>
+          <span>Pódio do Ranking</span>
         </h3>
         <p className="text-xs text-zinc-400 mt-1">
-          Os 3 desenvolvedores com maior rendimento e commits auditados no sandbox isolado.
+          Os 3 desenvolvedores com maior XP acumulado neste ranking.
         </p>
       </div>
 
@@ -60,7 +60,7 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
           <div className="w-full bg-gradient-to-t from-[#121217] to-[#181820] border-t-4 border-t-[#E2E8F0] border-x border-b border-[#27272A] rounded-t-2xl p-4 text-center h-36 flex flex-col justify-between shadow-[0_-5px_20px_rgba(226,232,240,0.08)]">
             <div>
               <div className="text-base font-black font-mono text-[#E2E8F0]">
-                {second.weeklyXp.toLocaleString('pt-BR')} XP
+                {second.xp.toLocaleString('pt-BR')} XP
               </div>
               <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
                 🔥 {second.streakDays} dias • {second.gitSolvedCount} labs
@@ -106,14 +106,14 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
           <div className="w-full bg-gradient-to-t from-[#16120E] to-[#241B12] border-t-4 border-t-[#FFA116] border-x border-b border-amber-500/30 rounded-t-2xl p-4 text-center h-48 flex flex-col justify-between shadow-[0_-8px_25px_rgba(255,161,22,0.15)]">
             <div>
               <div className="text-xl font-black font-mono text-[#FFA116]">
-                {first.weeklyXp.toLocaleString('pt-BR')} XP
+                {first.xp.toLocaleString('pt-BR')} XP
               </div>
               <div className="text-xs font-mono text-zinc-300 mt-0.5">
                 🔥 {first.streakDays} dias streak • {first.gitSolvedCount} labs Git
               </div>
             </div>
             <div className="text-xs font-mono text-[#FFA116] bg-[#FFA116]/15 border border-[#FFA116]/40 py-1.5 rounded-lg font-black">
-              🏆 +2.500 XP Bônus &amp; Badge
+              🏆 1º lugar do ranking
             </div>
           </div>
         </div>
@@ -150,7 +150,7 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
           <div className="w-full bg-gradient-to-t from-[#121217] to-[#181820] border-t-4 border-t-[#CD7F32] border-x border-b border-[#27272A] rounded-t-2xl p-4 text-center h-32 flex flex-col justify-between shadow-[0_-5px_20px_rgba(205,127,50,0.08)]">
             <div>
               <div className="text-base font-black font-mono text-[#CD7F32]">
-                {third.weeklyXp.toLocaleString('pt-BR')} XP
+                {third.xp.toLocaleString('pt-BR')} XP
               </div>
               <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
                 🔥 {third.streakDays} dias • {third.gitSolvedCount} labs
