@@ -398,7 +398,7 @@ export const StarterEvolutionPreview: React.FC<StarterEvolutionPreviewProps> = (
         <button
           type="button"
           onClick={handleConfirm}
-          className="w-full md:w-auto flex items-center justify-center gap-2 rounded-xl border border-[#04D361] bg-[#04D361] hover:bg-emerald-400 px-8 py-3.5 font-heading font-black text-xs text-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-950/50 active:scale-95 cursor-pointer"
+          className="w-full md:w-auto flex items-center justify-center gap-2 rounded-xl border border-brand-purple bg-brand-purple hover:bg-brand-purple-dark px-8 py-3.5 font-heading font-black text-xs text-white uppercase tracking-wider transition-all shadow-lg shadow-brand-purple/30 active:scale-95 cursor-pointer"
         >
           <span>ADOTAR {activeStarter.name.toUpperCase()} & INICIAR AVENTURA →</span>
         </button>

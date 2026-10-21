@@ -324,7 +324,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
               const current = startersCatalog.find((s) => s.id === activeStarterId) || startersCatalog[0];
               onConfirmStarter(current);
             }}
-            className="rounded-2xl border-2 border-[#04D361] bg-[#04D361] px-10 py-4 font-mono text-sm font-black text-black shadow-2xl shadow-emerald-950/60 transition hover:bg-emerald-400 active:scale-95"
+            className="rounded-2xl border-2 border-brand-purple bg-brand-purple px-10 py-4 font-mono text-sm font-black text-white shadow-2xl shadow-brand-purple/30 transition hover:bg-brand-purple-dark active:scale-95"
           >
             INICIALIZAR JORNADA NO NEXUS CODE →
           </button>
