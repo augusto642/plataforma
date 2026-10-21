@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Logo from './components/Logo';
-import { HeroBattlePreview } from './components/landing/HeroBattlePreview';
+import { HeroEvolution } from './components/landing/HeroEvolution';
 import { LumiMascotHero } from './components/landing/LumiMascotHero';
 import { TcgCardsShowcase } from './components/landing/TcgCardsShowcase';
 import { NexusPillarsGrid } from './components/landing/NexusPillarsGrid';
@@ -227,10 +227,6 @@ export default function HomePage() {
           {/* Logo Oficial na Esquerda com tema Dark */}
           <div className="flex items-center gap-4 shrink-0">
             <Logo size="lg" theme="dark" href="/" />
-            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/50 border border-emerald-500/30 text-[10px] font-mono font-bold text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#04D361] animate-pulse"></span>
-              1.480 ONLINE
-            </span>
           </div>
 
           {/* Navegação Central com maior espaçamento */}
@@ -390,102 +386,105 @@ export default function HomePage() {
 
       {/* MAIN CONTAINER */}
       <div id="main-content">
-{/* 2. HERO SECTION: ASYMMETRIC DUAL-REALITY COCKPIT */}
+{/* 2. HERO SECTION: O ARCO DE EVOLUÇÃO — DO JOGO AO MERCADO */}
   <section id="hero" className="relative z-10 pt-10 sm:pt-14 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    {/* Animação de entrada única e orquestrada do bloco (escalonada via animation-delay inline) */}
+    <style>{`
+      @keyframes heroRise {
+        from { opacity: 0; transform: translateY(18px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .hero-rise {
+        opacity: 0;
+        animation: heroRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hero-rise { opacity: 1; animation: none; }
+      }
+    `}</style>
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-      
-      {/* COLUNA ESQUERDA: NARRATIVA & AÇÃO (6 COLS) */}
-      <div className="lg:col-span-6 text-left">
-        {/* EYEBROW TAG */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0B1021]/90 border border-[#00E5FF]/40 text-[#00E5FF] text-[11px] font-mono font-bold mb-6 shadow-[0_0_20px_rgba(0,229,255,0.2)] backdrop-blur-md">
-          <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse"></span>
-          <span>⚔️ O PRIMEIRO RPG TÁTICO DE ENGENHARIA DE SOFTWARE</span>
-          <span className="text-zinc-600 hidden sm:inline">•</span>
-          <span className="text-purple-300 hidden sm:inline">DO ZERO A STAFF ARCHITECT</span>
+
+      {/* COLUNA ESQUERDA: NARRATIVA & AÇÃO (5 COLS) */}
+      <div className="lg:col-span-5 text-left">
+        {/* EYEBROW: UMA MENSAGEM SÓ, NOMEANDO O PÚBLICO */}
+        <div className="hero-rise inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-[11px] font-mono font-bold mb-6" style={{ animationDelay: '0ms' }}>
+          <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
+          <span>PARA QUEM NUNCA ESCREVEU UMA LINHA DE CÓDIGO</span>
         </div>
 
-        {/* HEADLINE H1 ESCULPIDA DE ALTO IMPACTO */}
-        <h1 className="font-heading text-4xl sm:text-5xl xl:text-6xl font-black tracking-tight text-white leading-[1.08] mb-6">
-          Domine Engenharia de Software
-          <span className="bg-gradient-to-r from-white via-[#00E5FF] to-[#04D361] bg-clip-text text-transparent block mt-1.5">
-            Jogando um RPG de Verdade.
-          </span>
+        {/* HEADLINE H1: OS TRÊS TEMPOS — COMEÇA JOGANDO, EVOLUI COM VOCÊ, CHEGA AO MERCADO */}
+        <h1 className="hero-rise font-heading text-5xl sm:text-6xl xl:text-7xl font-black tracking-tight text-ink-heading leading-[1.05] mb-6" style={{ animationDelay: '90ms' }}>
+          Aprenda programação <span className="text-brand-purple">jogando</span>.
+          Evolua até o <span className="text-brand-purple">mercado de tecnologia</span>.
         </h1>
 
-        {/* SUBHEADLINE NARRATIVA (CRO & PRODUCT POSITIONING) */}
-        <p className="font-sans text-base sm:text-lg text-zinc-300 leading-relaxed mb-8 max-w-xl">
-          Esqueça centenas de horas de videoaulas passivas para travar no primeiro terminal em branco.
-          Na <strong className="text-white">NEXUS CODE</strong>, você aprende construindo: explore masmorras em Pixel Art,
-          vença bugs de concorrência e memória em <strong className="text-[#00E5FF]">duelos de código real</strong> guiado pela mentora socrática <strong className="text-[#A78BFA]">Lumi</strong>,
-          colecione cards holográficos 3D e gere um <strong className="text-[#04D361]">portfólio no Git com hash SHA-256</strong>.
+        {/* SUBHEADLINE: O ARCO INTEIRO, EM FRASES VERIFICÁVEIS */}
+        <p className="hero-rise font-sans text-base sm:text-lg text-ink-body leading-relaxed mb-4 max-w-xl" style={{ animationDelay: '180ms' }}>
+          Você começa em missões em formato de jogo, escrevendo código de verdade — até em <strong className="text-ink-heading">Portugol</strong>, sem instalar nada.
+          A plataforma <strong className="text-ink-heading">evolui com você</strong>: projetos guiados, a IDE completa e, no fim, um portfólio que o mercado pode verificar.
         </p>
 
-        {/* ACTION CLUSTER DE ALTA CONVERSÃO */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-7">
+        {/* A GUIA PRESENTE EM TODOS OS ESTÁGIOS */}
+        <p className="hero-rise text-sm text-ink-span font-sans mb-8" style={{ animationDelay: '240ms' }}>
+          A <strong className="text-brand-purple-light">Lumi</strong> guia cada etapa — do primeiro comando ao portfólio, com perguntas e dicas. A resposta pronta, nunca.
+        </p>
+
+        {/* AÇÃO: UM CTA PRIMÁRIO (ROXO SÓLIDO) + O QUIZ COMO CAMINHO DE BAIXO COMPROMISSO */}
+        <div className="hero-rise flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 mb-4" style={{ animationDelay: '300ms' }}>
           <Link
             href="/onboarding"
-            className="group inline-flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-gradient-to-r from-[#04D361] to-[#00E58F] hover:from-[#00E58F] hover:to-[#04D361] text-black text-sm sm:text-base font-heading font-black tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-[0_10px_35px_-5px_rgba(4,211,97,0.45)] cursor-pointer"
+            className="group inline-flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-brand-purple hover:bg-brand-purple-dark text-white text-sm sm:text-base font-heading font-black tracking-tight transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-brand-purple/30 cursor-pointer"
           >
-            <span>⚡ Criar Personagem & Começar Grátis</span>
+            <span>Começar grátis agora</span>
             <span className="group-hover:translate-x-1.5 transition-transform duration-200 font-bold">→</span>
           </Link>
 
-          <a
-            href="#batalha-demo"
-            className="group inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-[#00E5FF]/60 text-white font-heading font-bold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          <Link
+            href="/diagnostico"
+            className="group inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-transparent hover:bg-surface-2 border border-border-2 hover:border-border-brand text-ink-heading font-heading font-bold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
-            <span>🎮 Testar Duelo ao Vivo</span>
-          </a>
+            <span>Descubra seu nível em 3 min</span>
+          </Link>
         </div>
 
-        {/* MICRO-GATILHOS DE ALTA CONVERSÃO EM GRID */}
-        <div className="grid grid-cols-2 gap-y-2.5 gap-x-4 text-xs font-mono text-zinc-300 mb-8 max-w-lg">
-          <div className="flex items-center gap-2">
-            <span className="text-[#04D361] font-black">✔</span>
-            <span>100% no navegador (zero setup)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[#04D361] font-black">✔</span>
-            <span>Duelos com compilador real</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[#04D361] font-black">✔</span>
-            <span>Sem cartão de crédito</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[#04D361] font-black">✔</span>
-            <span>Portfólio verificado no Git</span>
-          </div>
-        </div>
+        {/* MICROCOPY DO LOTE FUNDADOR (HONESTA, SEM URGÊNCIA INVENTADA) */}
+        <p className="hero-rise text-xs font-mono text-ink-span mb-8" style={{ animationDelay: '380ms' }}>
+          Lote fundador aberto · Pro por R$ 39,90/mês · grátis para começar, sem cartão
+        </p>
 
-        {/* PROVA SOCIAL AO VIVO NA ESQUERDA */}
-        <div className="inline-flex items-center gap-3.5 px-4 py-2.5 rounded-2xl bg-[#0E0E12]/90 border border-white/[0.08] shadow-2xl backdrop-blur-md">
-          <div className="flex -space-x-2 overflow-hidden">
-            <div className="inline-flex items-center justify-center h-7 w-7 rounded-full ring-2 ring-zinc-900 bg-[#8257E5] text-[9px] font-bold font-mono text-white">RS</div>
-            <div className="inline-flex items-center justify-center h-7 w-7 rounded-full ring-2 ring-zinc-900 bg-[#00E5FF] text-[9px] font-black font-mono text-black">GO</div>
-            <div className="inline-flex items-center justify-center h-7 w-7 rounded-full ring-2 ring-zinc-900 bg-[#04D361] text-[9px] font-black font-mono text-black">TS</div>
-            <div className="inline-flex items-center justify-center h-7 w-7 rounded-full ring-2 ring-zinc-900 bg-[#FFA116] text-[9px] font-black font-mono text-black">PY</div>
-          </div>
-          <div className="text-left font-mono">
-            <div className="text-xs font-bold text-white flex items-center gap-1.5">
-              <span>+14.800 desenvolvedores na arena</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#04D361] animate-pulse"></span>
+        {/* PROVAS DE MECANISMO (SUBSTITUEM AS MÉTRICAS FABRICADAS) */}
+        <div className="hero-rise rounded-2xl bg-surface-1 border border-border-1 p-4 max-w-lg" style={{ animationDelay: '440ms' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-4 text-sm font-sans text-ink-body">
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              <span>Correção por testes reais, no servidor</span>
             </div>
-            <div className="text-[10px] text-zinc-400">142k+ bugs expurgados em produção • 99.98% uptime</div>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              <span>Sem instalar nada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              <span>Português, até em Portugol</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              <span>Grátis para começar</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* COLUNA DIREITA: O SIMULADOR INTERATIVO NO PRIMEIRO FOLD (6 COLS) */}
-      <div id="batalha-demo" className="lg:col-span-6 w-full">
+      {/* COLUNA DIREITA: O ARCO DE EVOLUÇÃO DO ALUNO (6 COLS) */}
+      <div className="lg:col-span-6 w-full">
         <div className="mb-3 flex items-center justify-between px-1">
-          <span className="text-[11px] font-mono text-[#00E5FF] uppercase tracking-widest font-black flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-ping" />
-            DUELO TÁTICO LIVE // TESTE EM 1 CLIQUE
+          <span className="text-[11px] font-mono text-brand-purple-light uppercase tracking-widest font-black flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-brand-purple" />
+            A JORNADA · 4 ESTÁGIOS
           </span>
-          <span className="text-[10px] font-mono text-zinc-400 font-semibold">ZERO CADASTRO NECESSÁRIO</span>
+          <span className="text-[10px] font-mono text-ink-span font-semibold">DO JOGO AO MERCADO</span>
         </div>
-        <HeroBattlePreview />
+        <HeroEvolution />
       </div>
 
     </div>
@@ -1211,7 +1210,7 @@ export default function HomePage() {
         >
           <span>Anual</span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#996DFF]/20 text-[#996DFF] font-bold">
-            ECONOMIZE 27%
+            ECONOMIZE 25%
           </span>
         </button>
       </div>
@@ -1257,11 +1256,17 @@ export default function HomePage() {
           </p>
           <div className="mb-6">
             <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-white">
-              {billingCycle === 'annual' ? 'R$ 65' : 'R$ 89'}
+              {billingCycle === 'annual' ? 'R$ 29,90' : 'R$ 39,90'}
             </span>
             <span id="cycle-pro" className="text-xs font-mono text-zinc-400 ml-1">
-              {billingCycle === 'annual' ? '/ mês (R$ 790/ano)' : '/ mês'}
+              {billingCycle === 'annual' ? '/ mês (R$ 358,80/ano)' : '/ mês'}
             </span>
+            <div className="mt-3">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-[10px] font-mono font-bold uppercase tracking-wider">
+                <span>🚀</span>
+                <span>Preço de lançamento · Lote fundador</span>
+              </span>
+            </div>
           </div>
           <ul className="space-y-3 text-xs font-mono text-zinc-200 mb-8">
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Acesso total a todas as 4 Trilhas Master</li>
@@ -1271,9 +1276,9 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Destaque nas Ligas Semanais</li>
           </ul>
         </div>
-        <a href="#sandbox" className="w-full py-3.5 rounded-xl bg-[#8257E5] hover:bg-[#7146D4] text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-[#8257E5]/30 hover:shadow-xl hover:shadow-[#8257E5]/40 transition-all active:scale-95 border border-white/20">
+        <Link href="/register" className="w-full py-3.5 rounded-xl bg-[#8257E5] hover:bg-[#7146D4] text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-[#8257E5]/30 hover:shadow-xl hover:shadow-[#8257E5]/40 transition-all active:scale-95 border border-white/20">
           Começar Agora ⚡
-        </a>
+        </Link>
       </div>
 
       {/* Card Staff / Enterprise */}
@@ -1286,10 +1291,10 @@ export default function HomePage() {
           </p>
           <div className="mb-6">
             <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-white">
-              {billingCycle === 'annual' ? 'R$ 115' : 'R$ 149'}
+              {billingCycle === 'annual' ? 'R$ 59,90' : 'R$ 79,90'}
             </span>
             <span id="cycle-staff" className="text-xs font-mono text-zinc-400 ml-1">
-              {billingCycle === 'annual' ? '/ mês (R$ 1.390/ano)' : '/ mês'}
+              {billingCycle === 'annual' ? '/ mês (R$ 718,80/ano)' : '/ mês'}
             </span>
           </div>
           <ul className="space-y-3 text-xs font-mono text-zinc-300 mb-8">
