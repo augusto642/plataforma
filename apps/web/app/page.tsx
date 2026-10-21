@@ -9,9 +9,10 @@ import { TcgCardsShowcase } from './components/landing/TcgCardsShowcase';
 import { NexusPillarsGrid } from './components/landing/NexusPillarsGrid';
 import { ComparisonVersus } from './components/landing/ComparisonVersus';
 // B11 — captura de atribuição na chegada (a porta de cadastro lê da lib)
-import { captureUtmFromUrl } from './lib/attribution';
-// B08 — eventos do funil da landing
-import { track } from './lib/analytics';
+// Sprint 5 — + intenção de plano: o clique nos preços persiste a escolha
+import { captureUtmFromUrl, savePlanIntent } from './lib/attribution';
+// B08 — eventos do funil da landing (+ pageview na Sprint 5)
+import { track, trackPageview } from './lib/analytics';
 // Frente 3 — ícones SVG únicos da landing (fim do emoji como sistema)
 import {
   IconBolt, IconCard, IconChart, IconCode, IconCpu, IconGamepad, IconGear,
@@ -158,8 +159,10 @@ export default function HomePage() {
   // B11 — a atribuição nasce na chegada: UTMs da URL da landing são
   // persistidos aqui, para qualquer porta de cadastro (register ou
   // onboarding) herdá-los depois, mesmo sem UTM na URL final.
+  // Sprint 5 — a landing também emite o pageview do funil (topo do funil).
   useEffect(() => {
     captureUtmFromUrl();
+    trackPageview();
   }, []);
 
   // Global Command Palette Shortcut (⌘K / Ctrl+K)
@@ -277,13 +280,15 @@ export default function HomePage() {
               Entrar
             </Link>
 
+            {/* Sprint 5 — primário unificado: roxo sólido + rótulo único (o
+                gradiente verde com glow foi aposentado dos CTAs de conta) */}
             <Link
               href="/onboarding"
               data-cta-id="nav_primary"
               onClick={() => track('nav_cta', 'nav_primary')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-green-neon to-brand-green text-black text-xs sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-[0_0_25px_rgba(4,211,97,0.35)] hover:shadow-[0_0_35px_rgba(4,211,97,0.5)] group"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
             >
-              <span>Começar Grátis</span>
+              <span>Começar grátis agora</span>
               <span className="group-hover:translate-x-1 transition-transform font-bold">→</span>
             </Link>
 
@@ -330,7 +335,7 @@ export default function HomePage() {
                 Entrar
               </Link>
               <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="px-4 py-2 rounded-xl bg-brand-purple text-white text-xs font-bold shadow-md">
-                Criar Conta Grátis
+                Começar grátis agora
               </Link>
             </div>
           </div>
@@ -698,8 +703,8 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-amber-400"></span>
               <span className="text-xs font-mono text-zinc-400">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-2 hover:bg-amber-500 hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-border-2 hover:border-amber-400">
-              <span>Começar →</span>
+            <Link href="/register" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+              <span>Começar grátis agora</span>
             </Link>
           </div>
         </article>
@@ -759,8 +764,8 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-brand-cyan-neon"></span>
               <span className="text-xs font-mono text-zinc-400">Intermediário</span>
             </div>
-            <Link href="/register" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-2 hover:bg-brand-cyan-neon hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-border-2 hover:border-brand-cyan-neon">
-              <span>Começar →</span>
+            <Link href="/register" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+              <span>Começar grátis agora</span>
             </Link>
           </div>
         </article>
@@ -817,8 +822,8 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span className="text-xs font-mono text-zinc-400">Do Zero ao Deploy</span>
             </div>
-            <Link href="/register" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-2 hover:bg-emerald-500 hover:text-black text-zinc-200 text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-border-2 hover:border-emerald-400">
-              <span>Começar →</span>
+            <Link href="/register" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+              <span>Começar grátis agora</span>
             </Link>
           </div>
         </article>
@@ -883,8 +888,8 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
               <span className="text-xs font-mono text-zinc-400">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-border-2 hover:bg-brand-purple text-white text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm">
-              <span>Começar →</span>
+            <Link href="/register" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-bold transition-all duration-200 active:scale-95 shadow-md shadow-brand-purple/25">
+              <span>Começar grátis agora</span>
             </Link>
           </div>
         </article>
@@ -1056,15 +1061,17 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Botão de Execução em Verde Neon */}
+        {/* Botão de Execução da demonstração — Sprint 5: ação secundária
+            (não é cadastro nem jogo); o gradiente verde com glow saiu de
+            todos os botões da landing */}
         <button
           type="button"
           onClick={handleRun}
           disabled={isExecuting}
-          className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-green-neon to-brand-green hover:from-brand-green hover:to-brand-green-neon text-black font-heading font-extrabold text-xs shadow-lg shadow-brand-green-neon/30 transition-all active:scale-95 border border-border-2 disabled:opacity-50"
+          className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading font-heading font-extrabold text-xs transition-all active:scale-95 border border-border-2 disabled:opacity-50"
         >
           {isExecuting ? (
-            <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+            <span className="w-3.5 h-3.5 border-2 border-ink-heading border-t-transparent rounded-full animate-spin" />
           ) : (
             <IconPlay className="w-3.5 h-3.5" />
           )}
@@ -1149,8 +1156,8 @@ export default function HomePage() {
           </p>
         </div>
       </div>
-      <Link href="/register" data-cta-id="sandbox_banner" onClick={() => track('sandbox_cta', 'sandbox_banner')} className="whitespace-nowrap inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-green-neon hover:bg-brand-green text-black font-heading font-extrabold text-xs sm:text-sm shadow-lg shadow-brand-green-neon/30 active:scale-95 transition-all">
-        <span>Criar Conta Grátis & Salvar</span>
+      <Link href="/register" data-cta-id="sandbox_banner" onClick={() => track('sandbox_cta', 'sandbox_banner')} className="whitespace-nowrap inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white font-heading font-extrabold text-xs sm:text-sm shadow-lg shadow-brand-purple/30 active:scale-95 transition-all">
+        <span>Começar grátis agora</span>
         <span>→</span>
       </Link>
     </div>
@@ -1224,8 +1231,8 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
         </div>
-        <Link href="/register" data-cta-id="pricing_explorer" onClick={() => track('pricing_cta', 'pricing_explorer', { plan: 'explorer' })} className="w-full py-3 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading text-xs font-mono font-bold text-center border border-border-2 transition-colors">
-          Criar Conta Grátis
+        <Link href="/register" data-cta-id="pricing_explorer" onClick={() => { track('pricing_cta', 'pricing_explorer', { plan: 'explorer', cycle: billingCycle }); savePlanIntent({ plan: 'explorer', billingCycle }); }} className="w-full py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-mono font-bold text-center shadow-md shadow-brand-purple/25 transition-all active:scale-95">
+          Começar grátis agora
         </Link>
       </div>
 
@@ -1262,8 +1269,8 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Destaque nas Ligas Semanais</li>
           </ul>
         </div>
-        <Link href="/register" data-cta-id="pricing_pro" onClick={() => track('pricing_cta', 'pricing_pro', { plan: 'pro' })} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
-          <span className="inline-flex items-center gap-2">Começar Agora <IconBolt className="w-4 h-4" /></span>
+        <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
+          <span className="inline-flex items-center gap-2">Começar grátis agora <IconBolt className="w-4 h-4" /></span>
         </Link>
       </div>
 
@@ -1290,7 +1297,10 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Relatórios de Performance de Engenharia</li>
           </ul>
         </div>
-        <Link href="/register" data-cta-id="pricing_staff" onClick={() => track('pricing_cta', 'pricing_staff', { plan: 'staff' })} className="w-full py-3 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading text-xs font-mono font-bold text-center border border-border-2 transition-colors">
+        {/* Staff é contato comercial (ação genuinamente outra): cta_id e
+            intenção próprios, tratamento secundário em roxo — não divide o
+            funil de cadastro genérico (Sprint 5) */}
+        <Link href="/register" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-xs font-mono font-bold text-center border border-brand-purple/60 transition-colors">
           Falar com Engenharia
         </Link>
       </div>
@@ -1481,7 +1491,7 @@ export default function HomePage() {
         </div>
       </div>
       <a href="/onboarding" data-cta-id="faq_banner" onClick={() => track('final_cta', 'faq_banner')} className="shrink-0 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-light text-white font-mono font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95 shadow-lg shadow-brand-purple/25 border border-brand-purple-light/50">
-        Começar Agora Gratuitamente →
+        Começar grátis agora →
       </a>
     </div>
   </section>
@@ -1556,9 +1566,9 @@ export default function HomePage() {
               href="/onboarding"
               data-cta-id="final_primary"
               onClick={() => track('final_cta', 'final_primary')}
-              className="w-full inline-flex items-center justify-center gap-3 px-8 py-4.5 rounded-2xl bg-gradient-to-r from-brand-green-neon via-brand-green to-brand-green-neon hover:from-brand-green hover:to-brand-green-neon text-background font-heading font-black text-base transition-all duration-200 cursor-pointer active:scale-95 shadow-[0_0_35px_rgba(4,211,97,0.45)] group"
+              className="w-full inline-flex items-center justify-center gap-3 px-8 py-4.5 rounded-2xl bg-brand-purple hover:bg-brand-purple-dark text-white font-heading font-black text-base transition-all duration-200 cursor-pointer active:scale-95 shadow-xl shadow-brand-purple/40 group"
             >
-              <span>Começar Grátis Agora</span>
+              <span>Começar grátis agora</span>
               <span className="group-hover:translate-x-1.5 transition-transform duration-200 text-lg font-black">→</span>
             </Link>
 
@@ -1701,7 +1711,7 @@ export default function HomePage() {
             <ul className="space-y-3 text-sm font-sans">
               <li>
                 <a href="/register" data-cta-id="footer_register" onClick={() => track('nav_cta', 'footer_register')} className="text-zinc-400 hover:text-ink-heading transition-colors">
-                  Começar Grátis
+                  Começar grátis agora
                 </a>
               </li>
               <li>

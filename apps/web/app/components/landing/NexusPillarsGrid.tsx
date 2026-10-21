@@ -165,14 +165,16 @@ export const NexusPillarsGrid: React.FC = () => {
           <span>Explorar o Overworld 2D no Navegador</span>
           <span>→</span>
         </Link>
+        {/* Sprint 5 — primário unificado (roxo sólido + rótulo único);
+            a ação de jogo (Overworld, acima) segue secundária e distinta */}
         <Link
           href="/onboarding"
           data-cta-id="pillars_onboarding"
           onClick={() => track('nav_cta', 'pillars_onboarding')}
-          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-brand-green-neon hover:bg-brand-green text-black font-heading font-black text-sm uppercase tracking-wider transition-all shadow-[0_0_30px_rgba(4,211,97,0.35)] active:scale-95"
+          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-brand-purple hover:bg-brand-purple-dark text-white font-heading font-black text-sm tracking-tight transition-all shadow-lg shadow-brand-purple/30 active:scale-95"
         >
           <IconBolt className="w-5 h-5" />
-          <span>Criar Meu Personagem Grátis</span>
+          <span>Começar grátis agora</span>
           <span>→</span>
         </Link>
       </div>

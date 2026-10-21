@@ -408,11 +408,13 @@ export const TcgCardsShowcase: React.FC = () => {
 
                 {/* Ação de Seleção de Starter */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-border-1">
+                  {/* Sprint 5 — ação de JOGO (escolha de starter, dentro do
+                      prólogo): secundária distinta, sem gradiente de conversão */}
                   <Link
                     href={`/onboarding?starter=${inspectedCard.id}`}
                     data-cta-id="tcg_starter"
                     onClick={() => track('nav_cta', 'tcg_starter', { starter: inspectedCard.id })}
-                    className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-brand-cyan-neon to-brand-green-neon hover:from-brand-green-neon hover:to-brand-cyan-neon text-black font-heading font-black text-xs uppercase tracking-wider text-center transition-all shadow-[0_0_25px_rgba(0,229,255,0.4)] flex items-center justify-center gap-2"
+                    className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-xs tracking-tight text-center transition-all flex items-center justify-center gap-2"
                   >
                     <IconBolt className="w-4 h-4" />
                     <span>Escolher Como Meu Starter</span>

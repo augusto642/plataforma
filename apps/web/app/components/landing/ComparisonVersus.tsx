@@ -116,9 +116,11 @@ export const ComparisonVersus: React.FC = () => {
         <p className="text-xs text-zinc-400 font-sans mb-5">
           Experimente sem risco: as primeiras 3 masmorras de código estão 100% abertas sem cartão ou cadastro.
         </p>
+        {/* Sprint 5 — ação de JOGO (não é cadastro): tratamento secundário
+            distinto, sem o gradiente verde de conversão */}
         <Link
           href="/game"
-          className="inline-flex items-center gap-2.5 px-9 py-4.5 rounded-2xl bg-gradient-to-r from-brand-cyan-neon via-brand-green-neon to-brand-green text-black font-heading font-black text-sm uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_35px_rgba(4,211,97,0.4)]"
+          className="inline-flex items-center gap-2.5 px-9 py-4.5 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-sm tracking-tight hover:scale-[1.02] active:scale-[0.98] transition-all"
         >
           <IconSwords className="w-5 h-5" />
           <span>Iniciar Primeira Batalha no RPG Agora</span>
