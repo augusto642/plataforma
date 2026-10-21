@@ -948,6 +948,41 @@ export default function HomePage() {
       </div>
     </div>
 
+    {/* TELAS REAIS DO PRODUTO — Sprint 7 trouxe a primeira (Missão 1);
+        Sprint 9 (item 1 do Designer: proeminência) o par de telas reais
+        abre a seção, ANTES da demonstração ilustrativa, em escala
+        protagonista. As duas capturadas com Playwright do app rodando
+        local, rotuladas como o que são: telas de verdade */}
+    <div className="flex flex-col gap-6 mb-6">
+      <figure className="rounded-2xl bg-surface-1 border border-border-2 overflow-hidden">
+        <Image
+          src="/landing/produto-missao-1.webp"
+          alt="Tela real da Nexus Code: batalha da Missão 1 contra o SyntaxBug número 404, com o starter Pythox, barras de HP, registro da batalha e os botões de habilidade que pedem código"
+          width={768}
+          height={500}
+          className="w-full h-auto"
+          loading="lazy"
+        />
+        <figcaption className="px-5 py-3.5 border-t border-border-2 text-body-sm font-mono text-ink-span">
+          Tela real da plataforma: a Missão 1 do prólogo — você batalha escrevendo código, antes mesmo de criar a conta.
+        </figcaption>
+      </figure>
+
+      <figure className="rounded-2xl bg-surface-1 border border-border-2 overflow-hidden">
+        <Image
+          src="/landing/produto-ide.webp"
+          alt="Tela real da Nexus Code: a IDE com a primeira atividade do curso de Python aberta, com o enunciado, as dicas, o editor de código com a função inicial e o terminal do sandbox"
+          width={1600}
+          height={1000}
+          className="w-full h-auto"
+          loading="lazy"
+        />
+        <figcaption className="px-5 py-3.5 border-t border-border-2 text-body-sm font-mono text-ink-span">
+          Tela real da plataforma: a IDE onde o estudo acontece — enunciado, editor e terminal, direto no navegador.
+        </figcaption>
+      </figure>
+    </div>
+
     {/* MOCKUP DO SANDBOX */}
     <div className="rounded-2xl bg-surface-1 border border-border-2 shadow-2xl overflow-hidden">
       {/* Top Bar do Terminal */}
@@ -1076,25 +1111,6 @@ export default function HomePage() {
         </div>
       </div>
     </div>
-
-    {/* TELA REAL DO PRODUTO — Sprint 7 (item do Designer: screenshot
-        real = 0 na 4ª rodada). Capturada com Playwright do app rodando
-        local: a batalha da Missão 1 no /onboarding, com a engine real.
-        Fica ao lado da demonstração ilustrativa acima, rotulada como o
-        que é: a tela de verdade, não um mockup */}
-    <figure className="mt-6 rounded-2xl bg-surface-1 border border-border-2 overflow-hidden">
-      <Image
-        src="/landing/produto-missao-1.webp"
-        alt="Tela real da Nexus Code: batalha da Missão 1 contra o SyntaxBug número 404, com o starter Pythox, barras de HP, registro da batalha e os botões de habilidade que pedem código"
-        width={768}
-        height={500}
-        className="w-full h-auto"
-        loading="lazy"
-      />
-      <figcaption className="px-5 py-3.5 border-t border-border-2 text-body-sm font-mono text-ink-span">
-        Tela real da plataforma: a Missão 1 do prólogo — você batalha escrevendo código, antes mesmo de criar a conta.
-      </figcaption>
-    </figure>
 
     {/* BANNER DE ALTA CONVERSÃO PÓS-TERMINAL */}
     <div className="mt-6 p-5 rounded-2xl bg-surface-1 border border-brand-green-neon/35 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl shadow-brand-green-neon/5">
