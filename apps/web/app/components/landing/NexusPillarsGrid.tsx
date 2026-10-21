@@ -78,7 +78,7 @@ export const NexusPillarsGrid: React.FC = () => {
       {/* Título de Seção Assimétrico (Esquerda + Direita) */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
         <div className="max-w-2xl text-left">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-cyan-neon text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-cyan-neon text-xs font-mono font-bold mb-4 shadow-elev-xs">
             <IconBolt className="w-5 h-5" />
             <span>POR DENTRO DA PLATAFORMA // 4 PILARES</span>
           </div>
@@ -97,7 +97,7 @@ export const NexusPillarsGrid: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
             <span>INFRA: DOCKER + LINUX CGROUPS</span>
           </div>
-          <span className="text-[13px] text-ink-span">ISOLAMENTO TOTAL POR DESAFIO</span>
+          <span className="text-body-sm text-ink-span">ISOLAMENTO TOTAL POR DESAFIO</span>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ export const NexusPillarsGrid: React.FC = () => {
           return (
             <div
               key={pillar.number}
-              className={`relative ${colSpan} rounded-[28px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent group transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.8)]`}
+              className={`relative ${colSpan} rounded-[28px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent group transition-all duration-300 hover:shadow-elev-lg`}
             >
 
             <div className="relative rounded-[27px] bg-gradient-to-br from-surface-1/95 via-surface-1/95 to-surface-1/90 p-8 h-full flex flex-col justify-between overflow-hidden">
@@ -141,7 +141,7 @@ export const NexusPillarsGrid: React.FC = () => {
               </div>
 
               <div className="pt-4 border-t border-border-1 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[13px] font-mono text-ink-span flex items-center gap-2">
+                <span className="text-body-sm font-mono text-ink-span flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-green-neon" />
                   {pillar.techHighlight}
                 </span>
@@ -159,7 +159,7 @@ export const NexusPillarsGrid: React.FC = () => {
       <div className="mt-14 flex flex-col sm:flex-row items-center justify-center gap-4">
         <Link
           href="/game"
-          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-sm transition-all shadow-[0_0_20px_rgba(0,229,255,0.15)] active:scale-95"
+          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-sm transition-all shadow-glow-cyan-soft active:scale-95"
         >
           <IconGamepad className="w-5 h-5" />
           <span>Explorar o Overworld 2D no Navegador</span>

@@ -107,8 +107,9 @@ export const LumiMascotHero: React.FC = () => {
 
   return (
     <section className="relative my-20 max-w-5xl mx-auto px-4">
-      {/* Moldura com 1px Specular Border */}
-      <div className="relative rounded-[28px] p-[1px] bg-gradient-to-r from-brand-purple/30 via-brand-cyan-neon/20 to-brand-purple/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+      {/* Sprint 9 — a moldura especular (anel em gradiente roxo→ciano)
+          foi aposentada: borda sólida de token + sombra da escala */}
+      <div className="relative rounded-[28px] border border-border-2 bg-surface-1 shadow-elev-md">
         <div className="relative rounded-[27px] bg-gradient-to-br from-surface-1/95 via-background/95 to-surface-1/95 p-6 sm:p-9 backdrop-blur-2xl">
           {/* Ambient Top Glow */}
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-brand-purple/15 rounded-full blur-3xl pointer-events-none" />
@@ -126,8 +127,8 @@ export const LumiMascotHero: React.FC = () => {
                 </>
               )}
 
-              <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-[0_0_35px_rgba(130,87,229,0.35)] transition-all duration-300 ${
-                isTyping ? 'scale-105 shadow-[0_0_45px_rgba(0,229,255,0.45)]' : 'hover:scale-102'
+              <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-glow-purple transition-all duration-300 ${
+                isTyping ? 'scale-105 shadow-glow-cyan-strong' : 'hover:scale-102'
               }`}>
                 <div className="w-full h-full bg-background rounded-[14px] overflow-hidden select-none">
                   <Image
@@ -161,7 +162,7 @@ export const LumiMascotHero: React.FC = () => {
               </div>
 
               <span className="mt-1 text-xs font-mono font-black text-brand-purple-light">TUTORA DE IA</span>
-              <span className="text-[13px] font-mono text-ink-span">Mentora Socrática</span>
+              <span className="text-body-sm font-mono text-ink-span">Mentora Socrática</span>
             </div>
 
             {/* Diálogo Socrático & Balão Retrô de Luxo */}
@@ -201,9 +202,9 @@ export const LumiMascotHero: React.FC = () => {
                       key={idx}
                       type="button"
                       onClick={() => handleSelectQuestion(idx)}
-                      className={`text-[13px] font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                      className={`text-body-sm font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
                         activeIndex === idx
-                          ? 'border-brand-cyan-neon bg-brand-cyan/15 text-brand-cyan-neon shadow-[0_0_20px_rgba(0,229,255,0.25)] font-bold scale-[1.02]'
+                          ? 'border-brand-cyan-neon bg-brand-cyan/15 text-brand-cyan-neon shadow-glow-cyan font-bold scale-[1.02]'
                           : 'border-border-1 bg-surface-1 text-ink-span hover:text-ink-heading hover:border-border-2'
                       }`}
                     >

@@ -76,6 +76,42 @@ module.exports = {
         mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
         heading: ['var(--font-space)', 'Space Grotesk', 'sans-serif'],
       },
+      fontSize: {
+        // Sprint 9 (item 4 do Designer) — o degrau de 13px eleito na
+        // escala: corpo pequeno da landing (rótulos mono, metadados,
+        // texto miúdo de card). Substitui o text-[13px] arbitrário que
+        // estava espalhado pelo conjunto renderizado.
+        'body-sm': '13px',
+      },
+      boxShadow: {
+        // Sprint 9 (item 2 do Designer) — escala única de sombras,
+        // derivada dos rgba que estavam espalhados como shadow-[...]
+        // arbitrários pela landing. Elevação = sombras pretas de
+        // profundidade; glow = halos da marca; accent = sombra tingida
+        // pela cor do card (trilhas/FAQ).
+        'elev-xs': '0 4px 20px rgba(0, 0, 0, 0.5)',
+        'elev-sm': '0 8px 32px rgba(0, 0, 0, 0.5)',
+        'elev-md': '0 20px 50px rgba(0, 0, 0, 0.6)',
+        'elev-lg': '0 20px 50px rgba(0, 0, 0, 0.8)',
+        'elev-xl': '0 20px 60px rgba(0, 0, 0, 0.8)',
+        'elev-2xl': '0 25px 60px rgba(0, 0, 0, 0.85)',
+        'elev-3xl': '0 25px 70px rgba(0, 0, 0, 0.55)',
+        'glow-purple': '0 0 35px rgba(130, 87, 229, 0.35)',
+        'glow-cyan': '0 0 20px rgba(0, 229, 255, 0.25)',
+        'glow-cyan-soft': '0 0 20px rgba(0, 229, 255, 0.15)',
+        'glow-cyan-strong': '0 0 45px rgba(0, 229, 255, 0.45)',
+        'glow-cyan-lg': '0 0 80px rgba(0, 229, 255, 0.25)',
+        'accent-amber': '0 16px 36px -12px rgba(245, 158, 11, 0.25)',
+        'accent-cyan': '0 16px 36px -12px rgba(0, 229, 255, 0.25)',
+        'accent-green': '0 16px 36px -12px rgba(4, 211, 97, 0.25)',
+        'accent-purple': '0 16px 36px -12px rgba(130, 87, 229, 0.25)',
+        'accent-sm-amber': '0 12px 32px -10px rgba(245, 158, 11, 0.2)',
+        'accent-sm-cyan': '0 12px 32px -10px rgba(0, 229, 255, 0.2)',
+        'accent-sm-green': '0 12px 32px -10px rgba(4, 211, 97, 0.2)',
+        'accent-sm-purple': '0 12px 32px -10px rgba(130, 87, 229, 0.2)',
+        'accent-sm-pink': '0 12px 32px -10px rgba(236, 72, 153, 0.2)',
+        'accent-sm-emerald': '0 12px 32px -10px rgba(16, 185, 129, 0.2)',
+      },
     },
   },
   plugins: [],

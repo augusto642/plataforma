@@ -234,17 +234,13 @@ export default function HomePage() {
           }}
         />
 
-        {/* Ambient Top Light Beam */}
-        <div
-          className="pointer-events-none fixed top-0 inset-x-0 h-96 opacity-40"
-          style={{
-            background: 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 229, 255, 0.2), transparent 70%)',
-          }}
-        />
+        {/* Sprint 9 — o wash ciano radial do topo (estilo inline) foi
+            aposentado: era o último "ambiente" fora da cor da marca
+            competindo com o conteúdo (referência: ambiente zero). */}
       </div>
 
       {/* 1. NAVBAR DARK OBSIDIAN LUXURY GLASS */}
-      <header className="sticky top-0 z-50 w-full backdrop-blur-2xl bg-background/80 border-b border-border-1 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+      <header className="sticky top-0 z-50 w-full backdrop-blur-2xl bg-background/80 border-b border-border-1 shadow-elev-sm">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand-cyan-neon/30 to-transparent pointer-events-none"></div>
 
         <div className="w-full px-6 sm:px-10 lg:px-16 h-20 flex items-center justify-between">
@@ -263,7 +259,7 @@ export default function HomePage() {
             <a href="#trilhas" className="hover:text-ink-heading transition-colors">Trilhas</a>
             <a href="#sandbox" className="hover:text-ink-heading transition-colors flex items-center gap-2">
               <span>Terminal Prático</span>
-              <span className="inline-flex items-center gap-1.5 text-[13px] font-mono px-2 py-0.5 rounded-md bg-surface-2 text-brand-cyan-neon border border-border-1 font-bold">
+              <span className="inline-flex items-center gap-1.5 text-body-sm font-mono px-2 py-0.5 rounded-md bg-surface-2 text-brand-cyan-neon border border-border-1 font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-green-neon"></span>
                 IDE
               </span>
@@ -293,7 +289,7 @@ export default function HomePage() {
               href="/onboarding"
               data-cta-id="nav_primary"
               onClick={() => track('nav_cta', 'nav_primary')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
             >
               <span>Começar grátis agora</span>
               <span className="group-hover:translate-x-1 transition-transform font-bold">→</span>
@@ -328,7 +324,7 @@ export default function HomePage() {
             </a>
             <a href="#sandbox" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2 flex items-center justify-between">
               <span>Terminal Interativo</span>
-              <span className="text-[13px] font-mono px-2 py-0.5 rounded bg-brand-purple/15 text-brand-purple-light border border-brand-purple/30">IDE</span>
+              <span className="text-body-sm font-mono px-2 py-0.5 rounded bg-brand-purple/15 text-brand-purple-light border border-brand-purple/30">IDE</span>
             </a>
             <a href="#precos" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
               Planos & Preços
@@ -346,10 +342,10 @@ export default function HomePage() {
               Cards TCG
             </a>
             <div className="pt-3 border-t border-border-1 flex items-center justify-between gap-3">
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-[13px] font-semibold text-ink-body hover:text-ink-heading py-2">
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-body-sm font-semibold text-ink-body hover:text-ink-heading py-2">
                 Entrar
               </Link>
-              <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="px-4 py-2 rounded-xl bg-brand-purple text-white text-[13px] font-bold shadow-md">
+              <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="px-4 py-2 rounded-xl bg-brand-purple text-white text-body-sm font-bold shadow-md">
                 Começar grátis agora
               </Link>
             </div>
@@ -382,7 +378,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setIsCommandPaletteOpen(false)}
-                className="text-[13px] text-ink-span hover:text-ink-heading font-mono px-2 py-1 rounded bg-surface-3/80 cursor-pointer"
+                className="text-body-sm text-ink-span hover:text-ink-heading font-mono px-2 py-1 rounded bg-surface-3/80 cursor-pointer"
               >
                 ESC
               </button>
@@ -390,7 +386,7 @@ export default function HomePage() {
 
             <div className="max-h-80 overflow-y-auto p-2 divide-y divide-border-1/60">
               {filteredCommands.length === 0 ? (
-                <div className="p-6 text-center text-[13px] text-ink-span">
+                <div className="p-6 text-center text-body-sm text-ink-span">
                   Nenhum resultado encontrado para "{commandSearchQuery}".
                 </div>
               ) : (
@@ -403,16 +399,16 @@ export default function HomePage() {
                       if (cmd.href === '/register') track('nav_cta', 'palette_register');
                       setIsCommandPaletteOpen(false);
                     }}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-2 text-[13px] text-ink-body transition-colors group cursor-pointer"
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-2 text-body-sm text-ink-body transition-colors group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-brand-purple-light flex items-center shrink-0">{cmd.icon}</span>
                       <div>
                         <div className="font-semibold text-ink-heading group-hover:text-brand-purple-light transition-colors">{cmd.label}</div>
-                        <div className="text-[13px] text-ink-span font-mono">{cmd.category}</div>
+                        <div className="text-body-sm text-ink-span font-mono">{cmd.category}</div>
                       </div>
                     </div>
-                    <span className="text-ink-span group-hover:text-brand-green-neon font-mono text-[13px]">
+                    <span className="text-ink-span group-hover:text-brand-green-neon font-mono text-body-sm">
                       Ir →
                     </span>
                   </Link>
@@ -420,7 +416,7 @@ export default function HomePage() {
               )}
             </div>
 
-            <div className="p-3 bg-background border-t border-border-1 text-[13px] text-ink-span flex items-center justify-between font-mono">
+            <div className="p-3 bg-background border-t border-border-1 text-body-sm text-ink-span flex items-center justify-between font-mono">
               <span>Navegue com ↑ ↓ e pressione Enter</span>
               <span className="text-ink-span">NEXUS CODE v2.4</span>
             </div>
@@ -560,7 +556,7 @@ export default function HomePage() {
           <IconTarget className="w-4 h-4" />
           <span>TAXONOMIA DE BLOOM: NÍVEIS 1 A 5</span>
         </div>
-        <span className="text-[13px] text-ink-span">RETENÇÃO BASEADA EM FEEDBACK IMEDIATO</span>
+        <span className="text-body-sm text-ink-span">RETENÇÃO BASEADA EM FEEDBACK IMEDIATO</span>
       </div>
     </div>
 
@@ -575,11 +571,11 @@ export default function HomePage() {
             01
           </div>
           <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Desafios Práticos do Mundo Real</h3>
-          <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+          <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
             Você recebe objetivos práticos com explicações simples e claras, entendendo exatamente o que precisa construir e o porquê de cada linha de código.
           </p>
         </div>
-        <div className="mt-5 pt-3 border-t border-border-2 text-[13px] font-mono text-brand-purple-light">
+        <div className="mt-5 pt-3 border-t border-border-2 text-body-sm font-mono text-brand-purple-light">
           ✔ Aprendizado com propósito
         </div>
       </div>
@@ -592,11 +588,11 @@ export default function HomePage() {
             02
           </div>
           <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Código Direto no Navegador</h3>
-          <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+          <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
             Nada de perder horas configurando ferramentas complexas no seu computador. Escreva, teste e execute seu código direto pelo navegador, sem travar.
           </p>
         </div>
-        <div className="mt-5 pt-3 border-t border-border-2 text-[13px] font-mono text-brand-cyan-neon">
+        <div className="mt-5 pt-3 border-t border-border-2 text-body-sm font-mono text-brand-cyan-neon">
           ✔ Zero instalação ou dores de cabeça
         </div>
       </div>
@@ -609,11 +605,11 @@ export default function HomePage() {
             03
           </div>
           <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Correção na Hora & Dicas Amigáveis</h3>
-          <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+          <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
             Seu código é corrigido imediatamente. Se você travar ou esquecer um comando, nosso tutor inteligente te dá dicas amigáveis passo a passo para achar a solução.
           </p>
         </div>
-        <div className="mt-5 pt-3 border-t border-border-2 text-[13px] font-mono text-brand-green-neon">
+        <div className="mt-5 pt-3 border-t border-border-2 text-body-sm font-mono text-brand-green-neon">
           ✔ Evolução sem frustração
         </div>
       </div>
@@ -642,7 +638,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="hidden lg:flex items-center gap-2.5 px-4 py-2 rounded-xl bg-surface-2 border border-border-1 text-[13px] font-mono text-ink-body">
+      <div className="hidden lg:flex items-center gap-2.5 px-4 py-2 rounded-xl bg-surface-2 border border-border-1 text-body-sm font-mono text-ink-body">
         <span>Arraste para explorar as 4 trilhas</span>
         <span className="text-brand-cyan-neon font-bold">→</span>
       </div>
@@ -663,7 +659,7 @@ export default function HomePage() {
 
         {/* TRILHA 1: Rust — Lógica & Alta Performance */}
         <article
-          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-amber/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(245,158,11,0.25)] shrink-0 w-[338px]"
+          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-amber/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-amber shrink-0 w-[338px]"
           style={{ scrollSnapAlign: 'start' }}
         >
           <div>
@@ -680,25 +676,25 @@ export default function HomePage() {
             <h3 className="text-base font-heading font-bold text-ink-heading tracking-tight group-hover:text-brand-amber transition-colors mb-1">
               Programação do Zero com Rust
             </h3>
-            <p className="text-[13px] text-brand-amber/80 font-mono mb-2">Lógica • Algoritmos • Alta Performance</p>
+            <p className="text-body-sm text-brand-amber/80 font-mono mb-2">Lógica • Algoritmos • Alta Performance</p>
 
             {/* Resumo do Curso */}
-            <p className="text-[13px] text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
+            <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
               Do primeiro <code className="text-brand-amber bg-brand-amber/10 px-1 rounded">println!</code> à resolução de problemas reais. Aprenda a pensar como programador e a escrever códigos rápidos e sem erros de memória.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
             <div className="flex flex-wrap gap-1.5 mb-4">
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">Lógica do Zero</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">Algoritmos</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">Rust 2024</span>
-              <span className="bg-brand-amber/10 border border-brand-amber/30 text-brand-amber text-[13px] font-mono px-2 py-0.5 rounded-md">Memory Safety</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">Lógica do Zero</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">Algoritmos</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">Rust 2024</span>
+              <span className="bg-brand-amber/10 border border-brand-amber/30 text-brand-amber text-body-sm font-mono px-2 py-0.5 rounded-md">Memory Safety</span>
             </div>
 
             {/* Sprint 6 — números da ementa oficial do produto
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 1).
                 Carga horária não entra: a ementa não a declara. */}
-            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
+            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-body-sm text-ink-span">
               <div>4 módulos · 7 desafios práticos</div>
               {/* Sprint 7 — capstone em linguagem de resultado: o destaque
                   é o que o aluno constrói; o nome técnico vira subtítulo */}
@@ -713,7 +709,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-brand-amber"></span>
               <span className="text-xs font-mono text-ink-span">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register?track=rust" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=rust" data-cta-id="trilha_rust" onClick={() => track('trilha_cta', 'trilha_rust', { track: 'rust' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -721,7 +717,7 @@ export default function HomePage() {
 
         {/* TRILHA 2: Go — APIs & Backend Moderno */}
         <article
-          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(0,229,255,0.25)] shrink-0 w-[338px]"
+          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-cyan shrink-0 w-[338px]"
           style={{ scrollSnapAlign: 'start' }}
         >
           <div>
@@ -738,24 +734,24 @@ export default function HomePage() {
             <h3 className="text-base font-heading font-bold text-ink-heading tracking-tight group-hover:text-brand-cyan-neon transition-colors mb-1">
               APIs & Servidores Web com Go
             </h3>
-            <p className="text-[13px] text-brand-cyan-neon/80 font-mono mb-2">REST • Banco de Dados • Microsserviços</p>
+            <p className="text-body-sm text-brand-cyan-neon/80 font-mono mb-2">REST • Banco de Dados • Microsserviços</p>
 
             {/* Resumo do Curso */}
-            <p className="text-[13px] text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
+            <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
               Construa o backend que move gigantes da tecnologia. Crie rotas HTTP ultra rápidas, conecte bancos de dados PostgreSQL e faça deploys reais de microsserviços.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
             <div className="flex flex-wrap gap-1.5 mb-4">
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">REST APIs</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">PostgreSQL</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">Docker</span>
-              <span className="bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon text-[13px] font-mono px-2 py-0.5 rounded-md">Go 1.22</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">REST APIs</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">PostgreSQL</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">Docker</span>
+              <span className="bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon text-body-sm font-mono px-2 py-0.5 rounded-md">Go 1.22</span>
             </div>
 
             {/* Sprint 6 — números da ementa oficial do produto
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 2) */}
-            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
+            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-body-sm text-ink-span">
               <div>4 módulos · 4 desafios práticos</div>
               <div>Projeto final: <span className="font-bold text-ink-heading">Motor de pagamentos de alta vazão</span></div>
               <div>High-Throughput Payment Engine</div>
@@ -768,7 +764,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-brand-cyan-neon"></span>
               <span className="text-xs font-mono text-ink-span">Intermediário</span>
             </div>
-            <Link href="/register?track=go" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=go" data-cta-id="trilha_go" onClick={() => track('trilha_cta', 'trilha_go', { track: 'go' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -776,7 +772,7 @@ export default function HomePage() {
 
         {/* TRILHA 3: React & Next.js — Desenvolvimento Web */}
         <article
-          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-green/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(4,211,97,0.25)] shrink-0 w-[338px]"
+          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-green/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-green shrink-0 w-[338px]"
           style={{ scrollSnapAlign: 'start' }}
         >
           <div>
@@ -793,24 +789,24 @@ export default function HomePage() {
             <h3 className="text-base font-heading font-bold text-ink-heading tracking-tight group-hover:text-brand-green-neon transition-colors mb-1">
               Desenvolvimento Web com React & Next.js
             </h3>
-            <p className="text-[13px] text-brand-green-neon/80 font-mono mb-2">Frontend • TypeScript • Interfaces Modernas</p>
+            <p className="text-body-sm text-brand-green-neon/80 font-mono mb-2">Frontend • TypeScript • Interfaces Modernas</p>
 
             {/* Resumo do Curso */}
-            <p className="text-[13px] text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
+            <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
               Crie sites modernos, interativos e rápidos com as ferramentas usadas por startups unicórnio. Aprenda TypeScript, Tailwind e Next.js criando produtos reais.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
             <div className="flex flex-wrap gap-1.5 mb-4">
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">React 18</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">Next.js 14</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">TypeScript</span>
-              <span className="bg-brand-green/10 border border-brand-green/30 text-brand-green-neon text-[13px] font-mono px-2 py-0.5 rounded-md">Tailwind CSS</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">React 18</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">Next.js 14</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">TypeScript</span>
+              <span className="bg-brand-green/10 border border-brand-green/30 text-brand-green-neon text-body-sm font-mono px-2 py-0.5 rounded-md">Tailwind CSS</span>
             </div>
 
             {/* Sprint 6 — números da ementa oficial do produto
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 3) */}
-            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
+            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-body-sm text-ink-span">
               <div>3 módulos · 3 desafios práticos</div>
               <div>Projeto final: <span className="font-bold text-ink-heading">IDE web colaborativa em tempo real</span></div>
               <div>Web IDE Colaborativa em Tempo Real</div>
@@ -823,7 +819,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-brand-green-neon"></span>
               <span className="text-xs font-mono text-ink-span">Do Zero ao Deploy</span>
             </div>
-            <Link href="/register?track=web" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=web" data-cta-id="trilha_web" onClick={() => track('trilha_cta', 'trilha_web', { track: 'web' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -831,7 +827,7 @@ export default function HomePage() {
 
         {/* TRILHA 4: Python & Inteligência Artificial */}
         <article
-          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-purple/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(130,87,229,0.25)] shrink-0 w-[338px]"
+          className="group relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-purple/60 rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-purple shrink-0 w-[338px]"
           style={{ scrollSnapAlign: 'start' }}
         >
           <div>
@@ -848,24 +844,24 @@ export default function HomePage() {
             <h3 className="text-base font-heading font-bold text-ink-heading tracking-tight group-hover:text-brand-purple-light transition-colors mb-1">
               Python & IA — Do Zero ao Agente Inteligente
             </h3>
-            <p className="text-[13px] text-brand-purple-light/80 font-mono mb-2">Python • Machine Learning • Automações</p>
+            <p className="text-body-sm text-brand-purple-light/80 font-mono mb-2">Python • Machine Learning • Automações</p>
 
             {/* Resumo do Curso */}
-            <p className="text-[13px] text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
+            <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
               Comece com scripts básicos em Python e avance até criar agentes autônomos com LLMs que leem arquivos, resolvem tarefas e integram APIs inteligentes.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
             <div className="flex flex-wrap gap-1.5 mb-4">
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">Python 3.12</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">OpenAI API</span>
-              <span className="bg-surface-2 border border-border-1 text-ink-body text-[13px] font-mono px-2 py-0.5 rounded-md">LangChain</span>
-              <span className="bg-brand-purple/10 border border-brand-purple/30 text-brand-purple-light text-[13px] font-mono px-2 py-0.5 rounded-md">Automações</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">Python 3.12</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">OpenAI API</span>
+              <span className="bg-surface-2 border border-border-1 text-ink-body text-body-sm font-mono px-2 py-0.5 rounded-md">LangChain</span>
+              <span className="bg-brand-purple/10 border border-brand-purple/30 text-brand-purple-light text-body-sm font-mono px-2 py-0.5 rounded-md">Automações</span>
             </div>
 
             {/* Sprint 6 — números da ementa oficial do produto
                 (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 4) */}
-            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-[13px] text-ink-span">
+            <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-body-sm text-ink-span">
               <div>3 módulos · 3 desafios práticos</div>
               <div>Projeto final: <span className="font-bold text-ink-heading">Revisor de código autônomo com IA</span></div>
               <div>Autonomous Socratic Code Reviewer</div>
@@ -878,7 +874,7 @@ export default function HomePage() {
               <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
               <span className="text-xs font-mono text-ink-span">Do Zero ao Avançado</span>
             </div>
-            <Link href="/register?track=python" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] font-bold transition-all duration-200 active:scale-95 shadow-md shadow-brand-purple/25">
+            <Link href="/register?track=python" data-cta-id="trilha_python" onClick={() => track('trilha_cta', 'trilha_python', { track: 'python' })} className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-bold transition-all duration-200 active:scale-95 shadow-md shadow-brand-purple/25">
               <span>Começar grátis agora</span>
             </Link>
           </div>
@@ -925,8 +921,8 @@ export default function HomePage() {
           <div className="w-3 h-3 rounded-full bg-brand-rose/80" />
           <div className="w-3 h-3 rounded-full bg-brand-amber/80" />
           <div className="w-3 h-3 rounded-full bg-brand-green-neon" />
-          <span className="ml-3 text-[13px] font-mono text-ink-span font-semibold">demonstração do sandbox da plataforma</span>
-          <span className="text-[13px] font-mono font-bold px-2 py-0.5 rounded bg-brand-purple/15 text-brand-purple-light border border-brand-purple/30">ILUSTRATIVO</span>
+          <span className="ml-3 text-body-sm font-mono text-ink-span font-semibold">demonstração do sandbox da plataforma</span>
+          <span className="text-body-sm font-mono font-bold px-2 py-0.5 rounded bg-brand-purple/15 text-brand-purple-light border border-brand-purple/30">ILUSTRATIVO</span>
         </div>
 
         {/* Seletor de Linguagens com as cores da plataforma */}
@@ -934,7 +930,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleSelectLang('rust')}
-            className={`px-3.5 py-1.5 rounded-lg text-[13px] font-mono font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-body-sm font-mono font-bold transition-all ${
               activeLang === 'rust'
                 ? 'bg-brand-amber-solar text-black shadow-sm'
                 : 'text-ink-span hover:text-ink-heading'
@@ -945,7 +941,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleSelectLang('go')}
-            className={`px-3.5 py-1.5 rounded-lg text-[13px] font-mono font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-body-sm font-mono font-bold transition-all ${
               activeLang === 'go'
                 ? 'bg-brand-cyan-neon text-black shadow-sm'
                 : 'text-ink-span hover:text-ink-heading'
@@ -956,7 +952,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleSelectLang('python')}
-            className={`px-3.5 py-1.5 rounded-lg text-[13px] font-mono font-bold transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-body-sm font-mono font-bold transition-all ${
               activeLang === 'python'
                 ? 'bg-brand-purple text-white shadow-sm'
                 : 'text-ink-span hover:text-ink-heading'
@@ -973,7 +969,7 @@ export default function HomePage() {
           type="button"
           onClick={handleRun}
           disabled={isExecuting}
-          className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading font-heading font-extrabold text-[13px] transition-all active:scale-95 border border-border-2 disabled:opacity-50"
+          className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading font-heading font-extrabold text-body-sm transition-all active:scale-95 border border-border-2 disabled:opacity-50"
         >
           {isExecuting ? (
             <span className="w-3.5 h-3.5 border-2 border-ink-heading border-t-transparent rounded-full animate-spin" />
@@ -987,7 +983,7 @@ export default function HomePage() {
       {/* Editor & Console de Saída */}
       <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[380px]">
                 {/* Painel do Código com Sintaxe Colorida Estilo IDE & Numeração de Linhas */}
-        <div className="lg:col-span-7 p-5 sm:p-6 font-mono text-[13px] sm:text-sm bg-background overflow-x-auto border-b lg:border-b-0 lg:border-r border-border-2/80">
+        <div className="lg:col-span-7 p-5 sm:p-6 font-mono text-body-sm sm:text-sm bg-background overflow-x-auto border-b lg:border-b-0 lg:border-r border-border-2/80">
           <div className="flex items-center justify-between text-xs text-ink-span mb-3.5 pb-2.5 border-b border-border-1/70 select-none">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
@@ -1004,7 +1000,7 @@ export default function HomePage() {
             {/* Gutter / Numeração de Linhas */}
             <div className="select-none text-right pr-3.5 sm:pr-4 text-ink-span border-r border-border-1/80 space-y-0.5 shrink-0">
               {CODE_SNIPPETS[activeLang].lines.map((_, i) => (
-                <div key={i} className="text-[13px] sm:text-sm leading-relaxed">
+                <div key={i} className="text-body-sm sm:text-sm leading-relaxed">
                   {i + 1}
                 </div>
               ))}
@@ -1015,7 +1011,7 @@ export default function HomePage() {
               {CODE_SNIPPETS[activeLang].lines.map((lineHtml, i) => (
                 <div
                   key={i}
-                  className="text-[13px] sm:text-sm leading-relaxed hover:bg-surface-3/30 px-1.5 -mx-1.5 rounded transition-colors"
+                  className="text-body-sm sm:text-sm leading-relaxed hover:bg-surface-3/30 px-1.5 -mx-1.5 rounded transition-colors"
                   dangerouslySetInnerHTML={{ __html: lineHtml || '&nbsp;' }}
                 />
               ))}
@@ -1024,21 +1020,21 @@ export default function HomePage() {
         </div>
 
         {/* Painel da Telemetria */}
-        <div className="lg:col-span-5 p-6 bg-surface-1 flex flex-col justify-between font-mono text-[13px]">
+        <div className="lg:col-span-5 p-6 bg-surface-1 flex flex-col justify-between font-mono text-body-sm">
           <div>
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-border-2 text-ink-span">
               <span className="flex items-center gap-2 font-bold text-ink-heading">
                 <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
                 SAÍDA DA DEMONSTRAÇÃO
               </span>
-              <span className="text-[13px] bg-surface-3/80 px-2 py-0.5 rounded text-ink-body">EXEMPLO ILUSTRATIVO</span>
+              <span className="text-body-sm bg-surface-3/80 px-2 py-0.5 rounded text-ink-body">EXEMPLO ILUSTRATIVO</span>
             </div>
             <pre className="text-brand-green-neon whitespace-pre-wrap leading-relaxed font-mono">
               <code>{terminalOutput}</code>
             </pre>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-border-2 text-[13px] text-ink-span flex items-center justify-between">
+          <div className="mt-6 pt-4 border-t border-border-2 text-body-sm text-ink-span flex items-center justify-between">
             <span>Ambiente real: containers Linux isolados (Piston)</span>
             <span className="text-brand-green-neon font-semibold">Correção por testes reais</span>
           </div>
@@ -1060,7 +1056,7 @@ export default function HomePage() {
         className="w-full h-auto"
         loading="lazy"
       />
-      <figcaption className="px-5 py-3.5 border-t border-border-2 text-[13px] font-mono text-ink-span">
+      <figcaption className="px-5 py-3.5 border-t border-border-2 text-body-sm font-mono text-ink-span">
         Tela real da plataforma: a Missão 1 do prólogo — você batalha escrevendo código, antes mesmo de criar a conta.
       </figcaption>
     </figure>
@@ -1075,7 +1071,7 @@ export default function HomePage() {
           <div className="text-sm sm:text-base font-heading font-bold text-ink-heading flex items-center gap-2">
             <span>Isto é só uma amostra do ambiente real</span>
           </div>
-          <p className="text-[13px] text-ink-body font-sans mt-0.5">
+          <p className="text-body-sm text-ink-body font-sans mt-0.5">
             Cadastre-se gratuitamente para executar código de verdade no terminal, salvar seu histórico, acumular XP e liberar os desafios reais da plataforma.
           </p>
         </div>
@@ -1105,7 +1101,7 @@ export default function HomePage() {
           <h3 className="text-2xl sm:text-3xl font-heading font-black text-ink-heading tracking-tight mb-3">
             As tecnologias que o mercado usa
           </h3>
-          <p className="text-[13px] sm:text-sm font-sans text-ink-span leading-relaxed">
+          <p className="text-body-sm sm:text-sm font-sans text-ink-span leading-relaxed">
             Sem simulações simplórias. Você constrói soluções nas mesmas linguagens compiladas e runtimes isolados que sustentam a infraestrutura moderna de Big Techs.
           </p>
         </div>
@@ -1115,48 +1111,48 @@ export default function HomePage() {
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-amber/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconGear className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-[13px] font-bold text-ink-heading">Rust 1.78</div>
-              <div className="text-[13px] text-ink-span">Zero-Cost Memory</div>
+              <div className="text-body-sm font-bold text-ink-heading">Rust 1.78</div>
+              <div className="text-body-sm text-ink-span">Zero-Cost Memory</div>
             </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-cyan-neon/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-cyan-neon group-hover:scale-110 transition-transform"><IconNodes className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-[13px] font-bold text-ink-heading">Go 1.22</div>
-              <div className="text-[13px] text-ink-span">Goroutines & Canais</div>
+              <div className="text-body-sm font-bold text-ink-heading">Go 1.22</div>
+              <div className="text-body-sm text-ink-span">Goroutines & Canais</div>
             </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-cyan/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-cyan group-hover:scale-110 transition-transform"><IconBolt className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-[13px] font-bold text-ink-heading">TypeScript 5.4</div>
-              <div className="text-[13px] text-ink-span">Type Soundness</div>
+              <div className="text-body-sm font-bold text-ink-heading">TypeScript 5.4</div>
+              <div className="text-body-sm text-ink-span">Type Soundness</div>
             </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-amber-solar/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconCode className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-[13px] font-bold text-ink-heading">Python 3.12</div>
-              <div className="text-[13px] text-ink-span">IA & RAG Pipelines</div>
+              <div className="text-body-sm font-bold text-ink-heading">Python 3.12</div>
+              <div className="text-body-sm text-ink-span">IA & RAG Pipelines</div>
             </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-rose/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-rose group-hover:scale-110 transition-transform"><IconTerminal className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-[13px] font-bold text-ink-heading">Linux cgroups-v2</div>
-              <div className="text-[13px] text-ink-span">Containers Isolados</div>
+              <div className="text-body-sm font-bold text-ink-heading">Linux cgroups-v2</div>
+              <div className="text-body-sm text-ink-span">Containers Isolados</div>
             </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-green/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-green-neon group-hover:scale-110 transition-transform"><IconGitBranch className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-[13px] font-bold text-ink-heading">Gitea Git Real</div>
-              <div className="text-[13px] text-ink-span">Hash SHA-256</div>
+              <div className="text-body-sm font-bold text-ink-heading">Gitea Git Real</div>
+              <div className="text-body-sm text-ink-span">Hash SHA-256</div>
             </div>
           </div>
         </div>
@@ -1184,7 +1180,7 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => setBillingCycle('monthly')}
-          className={`px-6 py-2 rounded-full text-[13px] sm:text-sm transition-all cursor-pointer ${
+          className={`px-6 py-2 rounded-full text-body-sm sm:text-sm transition-all cursor-pointer ${
             billingCycle === 'monthly'
               ? 'font-bold bg-brand-purple text-white shadow-md'
               : 'font-medium text-ink-span hover:text-ink-heading'
@@ -1195,7 +1191,7 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => setBillingCycle('annual')}
-          className={`px-6 py-2 rounded-full text-[13px] sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-6 py-2 rounded-full text-body-sm sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
             billingCycle === 'annual'
               ? 'font-bold bg-brand-purple text-white shadow-md'
               : 'font-medium text-ink-span hover:text-ink-heading'
@@ -1216,14 +1212,14 @@ export default function HomePage() {
         <div>
           <div className="text-xs font-mono font-bold text-ink-span uppercase tracking-wider mb-2">Explorer</div>
           <h3 className="text-xl font-heading font-bold text-ink-heading mb-2">Comunitário</h3>
-          <p className="text-[13px] text-ink-span leading-relaxed mb-6 font-sans">
+          <p className="text-body-sm text-ink-span leading-relaxed mb-6 font-sans">
             Para experimentar os primeiros módulos e o terminal interativo.
           </p>
           <div className="mb-6">
             <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">R$ 0</span>
-            <span className="text-[13px] font-mono text-ink-span ml-1">/ para sempre</span>
+            <span className="text-body-sm font-mono text-ink-span ml-1">/ para sempre</span>
           </div>
-          <ul className="space-y-3 text-[13px] font-mono text-ink-body mb-8">
+          <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Sandbox Linux Piston</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso à Liga Bronze</li>
@@ -1231,7 +1227,7 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
         </div>
-        <Link href="/register" data-cta-id="pricing_explorer" onClick={() => { track('pricing_cta', 'pricing_explorer', { plan: 'explorer', cycle: billingCycle }); savePlanIntent({ plan: 'explorer', billingCycle }); }} className="w-full py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] font-mono font-bold text-center shadow-md shadow-brand-purple/25 transition-all active:scale-95">
+        <Link href="/register" data-cta-id="pricing_explorer" onClick={() => { track('pricing_cta', 'pricing_explorer', { plan: 'explorer', cycle: billingCycle }); savePlanIntent({ plan: 'explorer', billingCycle }); }} className="w-full py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold text-center shadow-md shadow-brand-purple/25 transition-all active:scale-95">
           Começar grátis agora
         </Link>
       </div>
@@ -1244,14 +1240,14 @@ export default function HomePage() {
         <div>
           <div className="text-xs font-mono font-bold text-brand-purple uppercase tracking-wider mb-2">PRO ENGINEER</div>
           <h3 className="text-2xl font-heading font-bold text-ink-heading mb-2">Plano Pro</h3>
-          <p className="text-[13px] text-ink-body leading-relaxed mb-6 font-sans">
+          <p className="text-body-sm text-ink-body leading-relaxed mb-6 font-sans">
             Para quem busca autonomia técnica e preparação para vagas de alto nível.
           </p>
           <div className="mb-6">
             <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-ink-heading">
               {billingCycle === 'annual' ? 'R$ 29,90' : 'R$ 39,90'}
             </span>
-            <span id="cycle-pro" className="text-[13px] font-mono text-ink-span ml-1">
+            <span id="cycle-pro" className="text-body-sm font-mono text-ink-span ml-1">
               {billingCycle === 'annual' ? '/ mês (R$ 358,80/ano)' : '/ mês'}
             </span>
             <div className="mt-3">
@@ -1261,7 +1257,7 @@ export default function HomePage() {
               </span>
             </div>
           </div>
-          <ul className="space-y-3 text-[13px] font-mono text-ink-heading mb-8">
+          <ul className="space-y-3 text-body-sm font-mono text-ink-heading mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as 4 Trilhas Master</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutor IA Socrático Ilimitado 24/7</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
@@ -1269,7 +1265,7 @@ export default function HomePage() {
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Destaque nas Ligas Semanais</li>
           </ul>
         </div>
-        <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-[13px] font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
+        <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
           <span className="inline-flex items-center gap-2">Começar grátis agora <IconBolt className="w-4 h-4" /></span>
         </Link>
       </div>
@@ -1279,18 +1275,18 @@ export default function HomePage() {
         <div>
           <div className="text-xs font-mono font-bold text-brand-purple-light uppercase tracking-wider mb-2">ENTERPRISE & TIMES</div>
           <h3 className="text-xl font-heading font-bold text-ink-heading mb-2">Plano Staff</h3>
-          <p className="text-[13px] text-ink-span leading-relaxed mb-6 font-sans">
+          <p className="text-body-sm text-ink-span leading-relaxed mb-6 font-sans">
             Para times de engenharia, tech academies e posições seniores.
           </p>
           <div className="mb-6">
             <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">
               {billingCycle === 'annual' ? 'R$ 59,90' : 'R$ 79,90'}
             </span>
-            <span id="cycle-staff" className="text-[13px] font-mono text-ink-span ml-1">
+            <span id="cycle-staff" className="text-body-sm font-mono text-ink-span ml-1">
               {billingCycle === 'annual' ? '/ mês (R$ 718,80/ano)' : '/ mês'}
             </span>
           </div>
-          <ul className="space-y-3 text-[13px] font-mono text-ink-body mb-8">
+          <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Painel de Gestão de Equipes</li>
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Desafios Customizados de Empresa</li>
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> SSO / SAML & Segurança SOC-2</li>
@@ -1303,7 +1299,7 @@ export default function HomePage() {
             Sprint 6 — o rótulo agora tem destino REAL: a página /contato
             (formulário próprio com endpoint na API), não mais o /register
             disfarçado de contato. */}
-        <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-[13px] font-mono font-bold text-center border border-brand-purple/60 transition-colors">
+        <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-body-sm font-mono font-bold text-center border border-brand-purple/60 transition-colors">
           Falar com Engenharia
         </Link>
       </div>
@@ -1338,115 +1334,115 @@ export default function HomePage() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
       
       {/* 1. Ciano: Zero Instalação */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_32px_-10px_rgba(0,229,255,0.2)]">
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-cyan">
         <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-cyan-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div className="flex items-center justify-between mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconMonitor className="w-5 h-5" />
           </div>
-          <span className="text-[13px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon">
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon">
             ZERO INSTALAÇÃO
           </span>
         </div>
         <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-cyan-neon transition-colors">
           Preciso instalar algo na minha máquina para começar?
         </h3>
-        <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
           Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes de estresse em Python, Go e Rust.
         </p>
       </div>
 
       {/* 2. Rosa: Metodologia vs Cursos em Vídeo */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-rose/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_32px_-10px_rgba(236,72,153,0.2)]">
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-rose/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-pink">
         <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-rose/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div className="flex items-center justify-between mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-rose/10 border border-brand-rose/30 text-brand-rose flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconBolt className="w-5 h-5" />
           </div>
-          <span className="text-[13px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-rose/40 bg-brand-rose/10 text-brand-rose">
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-rose/40 bg-brand-rose/10 text-brand-rose">
             METODOLOGIA ATIVA
           </span>
         </div>
         <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-rose transition-colors">
           Qual a diferença entre a NEXUS CODE e cursos em vídeo?
         </h3>
-        <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
           Nas plataformas tradicionais você passa a maior parte do tempo assistindo passivamente a vídeos longos. Na NEXUS CODE você passa <span className="text-ink-heading font-medium">a maior parte do tempo escrevendo código e corrigindo testes</span>, exatamente o que molda o programador contratado pelo mercado.
         </p>
       </div>
 
       {/* 3. Verde: Iniciantes Absolutos */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_32px_-10px_rgba(4,211,97,0.2)]">
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-green">
         <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-green-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div className="flex items-center justify-between mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-green-neon/10 border border-brand-green-neon/30 text-brand-green-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconSun className="w-5 h-5" />
           </div>
-          <span className="text-[13px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon">
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon">
             DO ZERO AO CÓDIGO
           </span>
         </div>
         <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-green-neon transition-colors">
           Sou iniciante absoluto. Vou conseguir acompanhar?
         </h3>
-        <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
           Sim, com certeza! A plataforma foi desenhada para quem nunca escreveu uma linha de código. Você começa aprendendo <span className="text-ink-heading font-medium">lógica básica e sintaxe elementar</span>, com feedback passo a passo até construir projetos completos.
         </p>
       </div>
 
       {/* 4. Âmbar: Pré-requisitos & Faculdade */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-amber/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_32px_-10px_rgba(245,158,11,0.2)]">
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-amber/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-amber">
         <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-amber/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div className="flex items-center justify-between mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-amber/10 border border-brand-amber/30 text-brand-amber flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconBox className="w-5 h-5" />
           </div>
-          <span className="text-[13px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-amber/40 bg-brand-amber/10 text-brand-amber">
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-amber/40 bg-brand-amber/10 text-brand-amber">
             SEM PRÉ-REQUISITOS
           </span>
         </div>
         <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-amber transition-colors">
           Preciso ter faculdade ou saber matemática avançada?
         </h3>
-        <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
           Não! Você não precisa de diploma na área nem de fórmulas complexas. O raciocínio lógico é construído de forma <span className="text-ink-heading font-medium">prática, visual e gradual</span>, resolvendo problemas reais no terminal desde o primeiro dia.
         </p>
       </div>
 
       {/* 5. Roxo: Tutor Socrático & Feedback */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-purple/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_32px_-10px_rgba(130,87,229,0.2)]">
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-purple/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-purple">
         <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-purple/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div className="flex items-center justify-between mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-brand-purple-light flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconSpeech className="w-5 h-5" />
           </div>
-          <span className="text-[13px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-purple/40 bg-brand-purple/10 text-brand-purple-light">
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-purple/40 bg-brand-purple/10 text-brand-purple-light">
             TUTOR SOCRÁTICO
           </span>
         </div>
         <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-purple-light transition-colors">
           Como funciona o feedback quando meu código dá erro?
         </h3>
-        <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
           Nossa tutoria socrática analisa a <span className="text-ink-heading font-medium">Árvore Sintática Abstrata (AST)</span> da sua solução e aponta pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.
         </p>
       </div>
 
       {/* 6. Esmeralda: Certificados & Mercado */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_32px_-10px_rgba(16,185,129,0.2)]">
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-emerald">
         <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-green-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div className="flex items-center justify-between mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-green/10 border border-brand-green/30 text-brand-green-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
             <IconShieldCheck className="w-5 h-5" />
           </div>
-          <span className="text-[13px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green/40 bg-brand-green/10 text-brand-green-neon">
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green/40 bg-brand-green/10 text-brand-green-neon">
             COMPROVAÇÃO REAL
           </span>
         </div>
         <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-green-neon transition-colors">
           Como os projetos e certificados me ajudam a conseguir vagas?
         </h3>
-        <p className="text-[13px] sm:text-sm text-ink-body leading-relaxed font-sans">
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
           Cada projeto gera repositórios Git reais com commits assinados e certificados com <span className="text-ink-heading font-medium">verificação criptográfica SHA-256</span>. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.
         </p>
       </div>
@@ -1461,17 +1457,17 @@ export default function HomePage() {
         </div>
         <div>
           <h4 className="font-heading font-bold text-ink-heading text-base sm:text-lg">Ainda tem alguma dúvida sobre a plataforma?</h4>
-          <p className="text-[13px] sm:text-sm text-ink-span font-sans">Nossa comunidade e time de engenharia apoiam você em cada etapa.</p>
+          <p className="text-body-sm sm:text-sm text-ink-span font-sans">Nossa comunidade e time de engenharia apoiam você em cada etapa.</p>
         </div>
       </div>
-      <a href="/onboarding" data-cta-id="faq_banner" onClick={() => track('final_cta', 'faq_banner')} className="shrink-0 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-light text-white font-mono font-bold text-[13px] sm:text-sm transition-all duration-200 active:scale-95 shadow-lg shadow-brand-purple/25 border border-brand-purple-light/50">
+      <a href="/onboarding" data-cta-id="faq_banner" onClick={() => track('final_cta', 'faq_banner')} className="shrink-0 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-light text-white font-mono font-bold text-body-sm sm:text-sm transition-all duration-200 active:scale-95 shadow-lg shadow-brand-purple/25 border border-brand-purple-light/50">
         Começar grátis agora →
       </a>
     </div>
   </section>
   {/* 12. CTA FINAL EM SPLIT ASSIMÉTRICO */}
   <section className="relative z-10 py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-    <div className="relative rounded-3xl bg-gradient-to-br from-surface-2 via-surface-1 to-background border border-white/[0.1] p-8 sm:p-14 overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.8)]">
+    <div className="relative rounded-3xl bg-gradient-to-br from-surface-2 via-surface-1 to-background border border-white/[0.1] p-8 sm:p-14 overflow-hidden shadow-elev-2xl">
       {/* Laser beam na ordem exata da marca: Roxo -> Ciano -> Verde */}
       <div className="top-laser-beam bg-gradient-to-r from-brand-purple via-brand-cyan-neon to-brand-green-neon" style={{ left: '2%', right: '2%' }}></div>
 
@@ -1494,7 +1490,7 @@ export default function HomePage() {
             Crie sua conta gratuita e envie seu primeiro commit hoje mesmo. O mercado não contrata certificados de vídeo — ele contrata quem resolve problemas no código.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[13px] sm:text-sm font-mono text-ink-body">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-body-sm sm:text-sm font-mono text-ink-body">
             <div className="flex items-center gap-2.5">
               <span className="text-brand-green-neon font-black text-base">✔</span>
               <span>Acesso imediato ao terminal</span>
@@ -1529,7 +1525,7 @@ export default function HomePage() {
             <div>
               <div className="text-xs font-mono text-ink-span mb-1">PASSO INICIAL:</div>
               <div className="text-lg font-heading font-black text-ink-heading">Escolha seu Companion Inicial</div>
-              <div className="text-[13px] text-ink-span font-sans mt-1">
+              <div className="text-body-sm text-ink-span font-sans mt-1">
                 Pythox (Python), Scripty (TypeScript), Gopherus (Go) ou Rustor (Rust).
               </div>
             </div>
@@ -1546,7 +1542,7 @@ export default function HomePage() {
 
             <Link
               href="/game"
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/40 text-[13px] font-mono text-ink-body hover:text-ink-heading transition-all"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/40 text-body-sm font-mono text-ink-body hover:text-ink-heading transition-all"
             >
               <IconGamepad className="w-4 h-4" />
               <span>Ou jogue o Overworld 2D no navegador</span>
@@ -1604,7 +1600,7 @@ export default function HomePage() {
           
           {/* Trilhas */}
           <div>
-            <h4 className="text-[13px] font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
+            <h4 className="text-body-sm font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
               Trilhas
             </h4>
             <ul className="space-y-3 text-sm font-sans">
@@ -1633,7 +1629,7 @@ export default function HomePage() {
 
           {/* Plataforma */}
           <div>
-            <h4 className="text-[13px] font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
+            <h4 className="text-body-sm font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
               Plataforma
             </h4>
             <ul className="space-y-3 text-sm font-sans">
@@ -1662,7 +1658,7 @@ export default function HomePage() {
 
           {/* Acesso */}
           <div>
-            <h4 className="text-[13px] font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
+            <h4 className="text-body-sm font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
               Acesso
             </h4>
             <ul className="space-y-3 text-sm font-sans">

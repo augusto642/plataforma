@@ -433,7 +433,7 @@ export const HeroEvolution: React.FC = () => {
         }
       `}</style>
 
-      <div className="relative rounded-[28px] border border-border-2 bg-surface-1 shadow-[0_25px_70px_rgba(0,0,0,0.55)] overflow-hidden">
+      <div className="relative rounded-[28px] border border-border-2 bg-surface-1 shadow-elev-3xl overflow-hidden">
         {/* Barra de progresso do arco */}
         <div className="px-5 sm:px-6 pt-5">
           <div className="flex items-center justify-between gap-3 mb-2.5">

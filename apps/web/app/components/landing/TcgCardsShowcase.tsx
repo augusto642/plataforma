@@ -191,13 +191,14 @@ export const TcgCardsShowcase: React.FC = () => {
 
   return (
     <section id="colecionaveis" className="relative py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-      {/* Ambient Glows */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-r from-brand-purple/10 via-brand-cyan-neon/10 to-brand-amber/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+      {/* Sprint 9 — a faixa ambiente tricolor atrás da seção foi
+          aposentada (dialeto ambiente fora da referência da casa);
+          o foil holográfico dos cards segue, ele é o conteúdo */}
 
       {/* Título de Seção Assimétrico (Esquerda + Direita) */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
         <div className="max-w-2xl text-left">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-purple-light text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-purple-light text-xs font-mono font-bold mb-4 shadow-elev-xs">
             <IconCards className="w-5 h-5" />
             <span>SÉRIE 01 // CARTAS COLECIONÁVEIS HOLOGRÁFICAS</span>
           </div>
@@ -217,7 +218,7 @@ export const TcgCardsShowcase: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-brand-purple-light" />
             <span>DECK: 4 CLASSES ELEMENTAIS DISPONÍVEIS</span>
           </div>
-          <span className="text-[13px] text-ink-span">PROPORÇÃO 2.5:3.5 // FOIL METÁLICO SHADERS</span>
+          <span className="text-body-sm text-ink-span">PROPORÇÃO 2.5:3.5 // FOIL METÁLICO SHADERS</span>
         </div>
       </div>
 
@@ -243,7 +244,7 @@ export const TcgCardsShowcase: React.FC = () => {
               onMouseMove={(e) => handleMouseMove(e, card.id)}
               onMouseLeave={handleMouseLeave}
               style={transformStyle}
-              className="relative rounded-[26px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent cursor-pointer select-none group transition-all duration-300 hover:shadow-[0_25px_60px_rgba(0,0,0,0.85)]"
+              className="relative rounded-[26px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent cursor-pointer select-none group transition-all duration-300 hover:shadow-elev-2xl"
             >
               <div className="relative rounded-[25px] bg-gradient-to-b from-surface-2 via-surface-1 to-background p-5 h-full flex flex-col justify-between overflow-hidden">
                 {/* Efeito Holográfico Reforçado com Prisma e Luz Arco-Íris */}
@@ -287,7 +288,7 @@ export const TcgCardsShowcase: React.FC = () => {
                       <div className="text-sm font-mono font-black text-ink-heading tracking-wider text-center">
                         {card.name}
                       </div>
-                      <div className="text-[13px] font-sans text-ink-body text-center">
+                      <div className="text-body-sm font-sans text-ink-body text-center">
                         {card.classTitle}
                       </div>
                     </div>
@@ -315,7 +316,7 @@ export const TcgCardsShowcase: React.FC = () => {
                   <div className="space-y-2 mb-4">
                     {card.stats.map((stat, i) => (
                       <div key={i}>
-                        <div className="flex justify-between text-[13px] font-mono text-ink-body mb-0.5">
+                        <div className="flex justify-between text-body-sm font-mono text-ink-body mb-0.5">
                           <span>{stat.label}</span>
                           <span className="font-bold text-brand-cyan-neon">{stat.value}%</span>
                         </div>
@@ -332,11 +333,11 @@ export const TcgCardsShowcase: React.FC = () => {
 
                 {/* Habilidade Especial & Citação */}
                 <div className="pt-3 border-t border-border-1">
-                  <div className="text-[13px] font-mono font-bold text-ink-heading flex items-center gap-1.5 mb-1">
+                  <div className="text-body-sm font-mono font-bold text-ink-heading flex items-center gap-1.5 mb-1">
                     <IconSwords className="w-4 h-4" />
                     <span>{card.signatureSpell}</span>
                   </div>
-                  <p className="text-[13px] text-ink-span italic font-sans leading-relaxed">
+                  <p className="text-body-sm text-ink-span italic font-sans leading-relaxed">
                     "{card.quote}"
                   </p>
                 </div>
@@ -352,7 +353,7 @@ export const TcgCardsShowcase: React.FC = () => {
           href="/onboarding"
           data-cta-id="tcg_onboarding"
           onClick={() => track('nav_cta', 'tcg_onboarding')}
-          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-surface-2 hover:bg-surface-3 border border-border-1 text-[13px] font-mono text-brand-cyan-neon hover:text-ink-heading transition-all group"
+          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-surface-2 hover:bg-surface-3 border border-border-1 text-body-sm font-mono text-brand-cyan-neon hover:text-ink-heading transition-all group"
         >
           <span>Escolha seu primeiro Card Starter no Onboarding</span>
           <span className="group-hover:translate-x-1 transition-transform">→</span>
@@ -366,7 +367,7 @@ export const TcgCardsShowcase: React.FC = () => {
           onClick={() => setInspectedCard(null)}
         >
           <div
-            className="relative w-full max-w-2xl rounded-3xl border border-border-2 bg-gradient-to-br from-surface-2 via-surface-1 to-background p-6 sm:p-8 shadow-[0_0_80px_rgba(0,229,255,0.25)] text-left"
+            className="relative w-full max-w-2xl rounded-3xl border border-border-2 bg-gradient-to-br from-surface-2 via-surface-1 to-background p-6 sm:p-8 shadow-glow-cyan-lg text-left"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Botão Fechar */}
@@ -395,7 +396,7 @@ export const TcgCardsShowcase: React.FC = () => {
                     />
                   </div>
                   <div className="text-sm font-mono font-black text-ink-heading">{inspectedCard.name}</div>
-                  <div className="text-[13px] text-ink-span font-sans mt-0.5">{inspectedCard.classTitle}</div>
+                  <div className="text-body-sm text-ink-span font-sans mt-0.5">{inspectedCard.classTitle}</div>
                   <div className="mt-3 px-2 py-1 rounded-md bg-brand-green/15 border border-brand-green/30 text-brand-green-neon font-mono text-xs font-bold">
                     HP {inspectedCard.hp} • {inspectedCard.lang}
                   </div>
@@ -410,24 +411,24 @@ export const TcgCardsShowcase: React.FC = () => {
                   <span className="text-xs font-mono text-ink-span">{inspectedCard.edition}</span>
                 </div>
                 <h3 className="text-2xl font-heading font-black text-ink-heading mb-1">{inspectedCard.name}</h3>
-                <p className="text-[13px] text-ink-span font-sans mb-4">{inspectedCard.lore}</p>
+                <p className="text-body-sm text-ink-span font-sans mb-4">{inspectedCard.lore}</p>
 
                 {/* Habilidades */}
                 <div className="space-y-2 mb-5">
                   <div className="p-2.5 rounded-xl bg-surface-2 border border-border-1">
-                    <div className="text-[13px] font-mono font-bold text-brand-cyan-neon flex items-center gap-1.5 mb-0.5">
+                    <div className="text-body-sm font-mono font-bold text-brand-cyan-neon flex items-center gap-1.5 mb-0.5">
                       <span className="inline-flex items-center gap-1"><IconSwords className="w-3.5 h-3.5" /> Habilidade Suprema:</span>
                       <span className="text-ink-heading">{inspectedCard.signatureSpell}</span>
                     </div>
-                    <div className="text-[13px] text-ink-span">Desfere dano crítico imediato e valida todas as asserções unitárias.</div>
+                    <div className="text-body-sm text-ink-span">Desfere dano crítico imediato e valida todas as asserções unitárias.</div>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-surface-2 border border-border-1">
-                    <div className="text-[13px] font-mono font-bold text-brand-purple-light flex items-center gap-1.5 mb-0.5">
+                    <div className="text-body-sm font-mono font-bold text-brand-purple-light flex items-center gap-1.5 mb-0.5">
                       <span className="inline-flex items-center gap-1"><IconShield className="w-3.5 h-3.5" /> Passiva de Classe:</span>
                       <span className="text-ink-heading">{inspectedCard.passiveSkill}</span>
                     </div>
-                    <div className="text-[13px] text-ink-span">Bônus de telemetria contínua contra bugs de concorrência.</div>
+                    <div className="text-body-sm text-ink-span">Bônus de telemetria contínua contra bugs de concorrência.</div>
                   </div>
                 </div>
 
@@ -439,7 +440,7 @@ export const TcgCardsShowcase: React.FC = () => {
                     href={`/onboarding?starter=${inspectedCard.id}`}
                     data-cta-id="tcg_starter"
                     onClick={() => track('nav_cta', 'tcg_starter', { starter: inspectedCard.id })}
-                    className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-[13px] tracking-tight text-center transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-body-sm tracking-tight text-center transition-all flex items-center justify-center gap-2"
                   >
                     <IconBolt className="w-4 h-4" />
                     <span>Escolher Como Meu Starter</span>
@@ -448,7 +449,7 @@ export const TcgCardsShowcase: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setInspectedCard(null)}
-                    className="py-3 px-4 rounded-xl bg-surface-2 hover:bg-white/[0.1] text-ink-body text-[13px] font-mono transition-colors"
+                    className="py-3 px-4 rounded-xl bg-surface-2 hover:bg-white/[0.1] text-ink-body text-body-sm font-mono transition-colors"
                   >
                     Voltar
                   </button>
