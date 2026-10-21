@@ -8,22 +8,31 @@
  * - Fase 1: Mascote PC Retrô (Nexi) em tela CRT vintage com diálogo interativo
  * - Fase 2: Estúdio de Avatar Pixel Art com Canvas 2D e customizador
  * - Fase 3: Seleção de Starter em Cards TCG Holográficos com efeito 3D Tilt
- * - Fase 4: Inicialização de Operador e Transição Épica para /game
+ * - Fase 4: Estúdio de Avatar Pixel Art
+ * - Fase 5: Salvar a Conta (Sprint 5/B11 real) — cadastro via AuthContext
+ *   com o contexto do funil, ou "testar sem conta" explicitamente rotulado
+ * - Transição Épica para /game
  */
 
 import React, { useState, useEffect } from 'react';
 // B11 — esta porta também captura a atribuição na chegada (a lib é única)
 import { captureUtmFromUrl } from '../lib/attribution';
+// Sprint 5 — pageview do funil (B08 completo)
+import { trackPageview } from '../lib/analytics';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RetroCrtMascot } from './components/RetroCrtMascot';
 import { CareerTierSelector } from './components/CareerTierSelector';
 import { StarterEvolutionPreview } from './components/StarterEvolutionPreview';
 import { PixelAvatarStudio } from './components/PixelAvatarStudio';
+import { SaveAccountStep } from './components/SaveAccountStep';
 import { useGameStore, StarterCreature } from '../game/stores/useGameStore';
 import { AudioSynthesizer } from '../game/engine/AudioSynthesizer';
 
-type OnboardingStep = 'mascot' | 'tier' | 'starter' | 'avatar' | 'complete';
+// Sprint 5 — o prólogo ganha a etapa 'account' (salvar a conta) antes da
+// transição para /game: a porta quente da landing agora termina em
+// cadastro, não num beco sem conta.
+type OnboardingStep = 'mascot' | 'tier' | 'starter' | 'avatar' | 'account' | 'complete';
 
 export default function OnboardingPage(): JSX.Element {
   const router = useRouter();
@@ -32,6 +41,7 @@ export default function OnboardingPage(): JSX.Element {
   // não perde a atribuição; o cadastro lê da sessionStorage via lib)
   useEffect(() => {
     captureUtmFromUrl();
+    trackPageview();
   }, []);
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('mascot');
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
@@ -58,7 +68,15 @@ export default function OnboardingPage(): JSX.Element {
     void audio.playTone({ frequency: 800, duration: 0.1, type: 'square' });
   };
 
+  // Avatar pronto NÃO finaliza mais direto: antes de entrar no jogo, o
+  // prólogo oferece salvar a conta (SaveAccountStep). Só quem escolhe
+  // "testar sem conta" — ou quem já se cadastrou — chega à finalização.
   const handleAvatarDone = () => {
+    setCurrentStep('account');
+    void audio.playTone({ frequency: 880, duration: 0.1, type: 'square' });
+  };
+
+  const handleFinalize = () => {
     setIsFinalizing(true);
     void audio.playVictory();
 
@@ -150,6 +168,20 @@ export default function OnboardingPage(): JSX.Element {
               </span>
               <span>AVATAR STUDIO</span>
             </button>
+            <span className="text-slate-700">→</span>
+
+            <span
+              className={`flex items-center space-x-1.5 transition ${
+                currentStep === 'account'
+                  ? 'text-[#00E5FF] font-bold'
+                  : 'text-slate-500'
+              }`}
+            >
+              <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
+                5
+              </span>
+              <span>SALVAR CONTA</span>
+            </span>
           </div>
 
           {/* Mute & Link Rápido */}
@@ -161,11 +193,12 @@ export default function OnboardingPage(): JSX.Element {
             >
               {isMuted ? '🔇 ÁUDIO DESATIVADO' : '🔊 ÁUDIO 8-BIT ATIVO'}
             </button>
+            {/* Atalho de convidado: rótulo explícito de teste sem conta */}
             <Link
               href="/game"
               className="text-slate-400 hover:text-cyan-400 transition"
             >
-              Pular Onboarding →
+              Testar sem conta →
             </Link>
           </div>
         </div>
@@ -189,7 +222,11 @@ export default function OnboardingPage(): JSX.Element {
         )}
 
         {currentStep === 'avatar' && (
-          <PixelAvatarStudio onComplete={handleAvatarDone} submitLabel="FINALIZAR & ENTRAR NO JOGO →" />
+          <PixelAvatarStudio onComplete={handleAvatarDone} submitLabel="CONTINUAR PARA SALVAR →" />
+        )}
+
+        {currentStep === 'account' && (
+          <SaveAccountStep onSaved={handleFinalize} onSkip={handleFinalize} />
         )}
       </main>
 

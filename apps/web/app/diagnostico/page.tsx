@@ -3,6 +3,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Logo from '../components/Logo';
+// Sprint 5 — quem cai direto em /diagnostico com UTM (anúncio, link
+// compartilhado) também tem a atribuição capturada nesta rota, e o funil
+// mede pageview + início/conclusão do quiz (B08 completo).
+import { captureUtmFromUrl } from '../lib/attribution';
+import { track, trackPageview } from '../lib/analytics';
 
 // B09 — Quiz diagnóstico público (sem cadastro): a API devolve as questões,
 // pontua 6 eixos, sugere um arquétipo e uma trilha. O sessionToken permite
@@ -178,6 +183,8 @@ export default function DiagnosticoPage() {
   }, []);
 
   useEffect(() => {
+    captureUtmFromUrl();
+    trackPageview();
     loadQuiz();
     try {
       setHasStoredResult(!!sessionStorage.getItem(DIAGNOSTIC_STORAGE_KEY));
@@ -252,6 +259,11 @@ export default function DiagnosticoPage() {
         sessionTokenRef.current = data.sessionToken;
         setResult(data);
         setPhase('result');
+        // Sprint 5 — conclusão do quiz no funil (arquétipo/trilha como contexto)
+        track('diagnostic_completed', undefined, {
+          archetype: data.archetype.id,
+          track: data.recommendedTrack,
+        });
       } catch {
         setPhase('quiz');
         setSubmitError(
@@ -372,6 +384,8 @@ export default function DiagnosticoPage() {
             <button
               type="button"
               onClick={() => {
+                // Sprint 5 — início do quiz no funil
+                track('diagnostic_started');
                 setCurrent(0);
                 setPhase('quiz');
               }}
