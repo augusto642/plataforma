@@ -19,7 +19,8 @@ interface TcgCardData {
   rarityColor: string;
   badgeGlow: string;
   // Sprint 7 — o avatar da carta é ARTE (ilustração em public/landing/
-  // companions), não mais emoji: 🦀/🐹/🐍/⚡ saíram dos cards e do modal
+  // companions), não mais emoji: os emojis de avatar saíram dos cards
+  // e do modal
   avatarImage: string;
   avatarAlt: string;
   element: string;

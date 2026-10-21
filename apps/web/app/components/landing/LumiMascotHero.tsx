@@ -85,8 +85,8 @@ export const LumiMascotHero: React.FC = () => {
   }, [activeIndex, currentItem.response, prefersReducedMotion]);
 
   // Sprint 7 — a expressão da tutora agora é ARTE (ilustrações próprias
-  // em public/landing/tutora), não mais emoji: o emoji focal 🦊/🧐/💡
-  // saiu da seção. Cada estado do diálogo usa a sua expressão.
+  // em public/landing/tutora), não mais emoji: os emojis focais da
+  // seção foram substituídos. Cada estado do diálogo usa a sua expressão.
   const getEmotionImage = () => {
     switch (lumiEmotion) {
       case 'thinking':
@@ -140,8 +140,8 @@ export const LumiMascotHero: React.FC = () => {
                 </div>
 
                 {/* Badge de Status da tutora — Sprint 7 (honestidade):
-                    "IA ONLINE" era claim de status ao vivo sem fonte; o
-                    badge agora descreve o estado do DIÁLOGO (refletindo /
+                    o rótulo antigo era claim de status ao vivo sem fonte;
+                    o badge agora descreve o estado do DIÁLOGO (refletindo /
                     resposta pronta), que é o que ele de fato mostra */}
                 <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-xs font-mono font-black border border-black shadow transition-all ${
                   isTyping

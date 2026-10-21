@@ -1330,8 +1330,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Sprint 7 (honestidade, régua do PM) — o selo "COMMUNITY & ENG
-          TEAM ONLINE" saiu: era um claim de status ao vivo sem fonte */}
+      {/* Sprint 7 (honestidade, régua do PM) — o selo de status ao
+          vivo da comunidade saiu daqui: claim sem fonte */}
     </div>
 
     {/* Grid de Perguntas em 2 Colunas com Cores Semânticas */}
@@ -1522,8 +1522,8 @@ export default function HomePage() {
                 <span className="w-2.5 h-2.5 rounded-full bg-brand-green-neon"></span>
                 <span className="text-xs font-mono font-bold text-ink-heading uppercase">ARENA DE PRODUÇÃO</span>
               </div>
-              {/* Sprint 7 (honestidade) — o badge "ONLINE" saiu: claim de
-                  status ao vivo sem fonte, igual ao selo removido do FAQ */}
+              {/* Sprint 7 (honestidade) — o badge de status ao vivo
+                  saiu: claim sem fonte, igual ao selo removido do FAQ */}
             </div>
 
             <div>
