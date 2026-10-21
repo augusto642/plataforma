@@ -1222,7 +1222,7 @@ export default function HomePage() {
           Comece grátis. Pague só quando avançar.
         </h2>
         <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">
-          Investimento direto na sua independência técnica. Sem contratos amarrados, cancele a qualquer momento com 1 clique.
+          Investimento direto na sua independência técnica. O nível Iniciante é grátis para sempre — você só paga se decidir avançar de nível.
         </p>
       </div>
 
@@ -1273,7 +1273,7 @@ export default function HomePage() {
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Sandbox Linux Piston</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso à Liga Bronze</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Leaderboard público da comunidade</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
@@ -1310,10 +1310,10 @@ export default function HomePage() {
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-heading mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as 4 Trilhas Master</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutor IA Socrático Ilimitado 24/7</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Suporte a Concorrência & Stress Tests</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Destaque nas Ligas Semanais</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Capstones de concorrência e sistemas distribuídos</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Destaque no leaderboard da comunidade</li>
           </ul>
         </div>
         <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
@@ -1340,7 +1340,7 @@ export default function HomePage() {
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Painel de Gestão de Equipes</li>
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Desafios Customizados de Empresa</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> SSO / SAML & Segurança SOC-2</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Tudo do plano Pro incluído</li>
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Relatórios de Performance de Engenharia</li>
           </ul>
         </div>
@@ -1399,7 +1399,7 @@ export default function HomePage() {
           Preciso instalar algo na minha máquina para começar?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes de estresse em Python, Go e Rust.
+          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes em Python, Go e Rust.
         </p>
       </div>
 
@@ -1475,7 +1475,7 @@ export default function HomePage() {
           Como funciona o feedback quando meu código dá erro?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Nossa tutoria socrática analisa a <span className="text-ink-heading font-medium">Árvore Sintática Abstrata (AST)</span> da sua solução e aponta pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.
+          Nossa tutoria socrática lê a <span className="text-ink-heading font-medium">mensagem de erro e o seu código</span>, reconhece o padrão do problema e aponta pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.
         </p>
       </div>
 
@@ -1494,7 +1494,7 @@ export default function HomePage() {
           Como os projetos e certificados me ajudam a conseguir vagas?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Cada projeto gera repositórios Git reais com commits assinados e certificados com <span className="text-ink-heading font-medium">verificação criptográfica SHA-256</span>. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.
+          Cada projeto gera repositórios Git reais com histórico de commits e certificados com <span className="text-ink-heading font-medium">código de verificação SHA-256</span> que qualquer pessoa pode conferir. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.
         </p>
       </div>
 
@@ -1577,7 +1577,7 @@ export default function HomePage() {
               <div className="text-xs font-mono text-ink-span mb-1">PASSO INICIAL:</div>
               <div className="text-lg font-heading font-black text-ink-heading">Escolha seu Companion Inicial</div>
               <div className="text-body-sm text-ink-span font-sans mt-1">
-                Pythox (Python), Scripty (TypeScript), Gopherus (Go) ou Rustor (Rust).
+                Pythox (Python), Scripty (TypeScript) ou Javagon (Java).
               </div>
             </div>
 

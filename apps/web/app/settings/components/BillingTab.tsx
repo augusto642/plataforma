@@ -37,16 +37,16 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onNotify }) => {
 
           <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-white font-mono">R$ 89</span>
+              <span className="text-3xl font-black text-white font-mono">R$ 39,90</span>
               <span className="text-xs text-zinc-400 font-mono">/mês</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => onNotify('Modal de upgrade de plano anual (-20% OFF)!')}
+                onClick={() => onNotify('Modal de upgrade de plano anual (-25% OFF)!')}
                 className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs transition-all shadow-md shadow-[#8257E5]/25 cursor-pointer"
               >
-                Mudar para Anual (-20%)
+                Mudar para Anual (-25%)
               </button>
               <button
                 type="button"

@@ -35,10 +35,10 @@ const PILLARS: Pillar[] = [
     tag: 'IA PEDAGÓGICA AVANÇADA',
     title: 'Tutora de IA: Mentora que Ensina a Pensar',
     description:
-      'Ao invés de cuspir código pronto que destrói sua capacidade analítica, nossa tutora de IA inspeciona a Árvore Sintática (AST) do seu código e formula perguntas cirúrgicas para você desbloquear o raciocínio sozinho.',
+      'Ao invés de cuspir código pronto que destrói sua capacidade analítica, nossa tutora de IA lê a mensagem de erro e o seu código, reconhece o padrão do problema e formula perguntas cirúrgicas para você desbloquear o raciocínio sozinho.',
     badge: 'Taxonomia de Bloom',
     icon: 'chat',
-    techHighlight: 'Inspeção de AST • Análise de Causa Raiz • Dicas Graduais',
+    techHighlight: 'Leitura do Erro • Análise de Causa Raiz • Dicas Graduais',
     accentGradient: 'from-brand-purple/20 via-brand-rose/10 to-transparent',
   },
   {
@@ -57,7 +57,7 @@ const PILLARS: Pillar[] = [
     tag: 'ENGENHARIA DE MISSÃO CRÍTICA',
     title: 'Do Jogo ao Git Real & Mercado',
     description:
-      'A diversão é em 2D, mas o motor é infraestrutura real. Cada desafio resolvido gera commits automáticos em repositórios Git reais com testes de estresse em containers Linux isolados.',
+      'A diversão é em 2D, mas o motor é infraestrutura real. Cada desafio resolvido gera commits automáticos em repositórios Git reais com correção por testes em containers Linux isolados.',
     badge: 'Verificação SHA-256',
     icon: 'shield',
     techHighlight: 'Kernel Linux Piston • Commits no Git • Portfólio Auditável',
