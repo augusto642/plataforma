@@ -105,7 +105,7 @@ export default function SettingsPage() {
               <TutorPreferencesTab onSave={(msg) => showToast(msg)} />
             )}
 
-            {activeTab === 'billing' && <BillingTab onNotify={(msg) => showToast(msg)} />}
+            {activeTab === 'billing' && <BillingTab />}
 
             {activeTab === 'security' && (
               <SecurityTab onNotify={(msg, type) => showToast(msg, type)} />

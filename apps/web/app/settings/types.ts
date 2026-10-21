@@ -44,15 +44,6 @@ export interface TutorPreferences {
   strictBigOChecks: boolean;
 }
 
-export interface BillingInvoice {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  amount: string;
-  status: 'paid' | 'pending' | 'failed';
-  downloadUrl: string;
-}
-
 export interface SecuritySession {
   id: string;
   device: string;
