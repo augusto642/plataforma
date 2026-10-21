@@ -146,20 +146,14 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
     }
   }, [logs]);
 
-  const handleGoToDashboard = () => {
-    try {
-      const userObj = {
-        id: 'usr_' + Date.now(),
-        name: name || 'Desenvolvedor Nexus',
-        email: email || 'dev@nexuscode.dev',
-        role,
-        track: currentTrack.name,
-        level: EXP_LABELS[expLevel],
-      };
-      localStorage.setItem('user_session', JSON.stringify(userObj));
-    } catch {}
-
-    router.push('/dashboard');
+  // Sprint 6 — ponte pós-cadastro: o sucesso do /register leva à
+  // PRIMEIRA MISSÃO NA IDE, não a um painel genérico. A /ide abre já no
+  // primeiro curso e na primeira atividade (loadCourses/selectCourse em
+  // ide/page.tsx), então o destino É a missão, sem clique intermediário.
+  // (A sessão fabricada em localStorage que vivia aqui era código morto:
+  // nada lia 'user_session' — a sessão real é a do AuthContext.)
+  const handleGoToFirstMission = () => {
+    router.push('/ide');
   };
 
   return (
@@ -459,7 +453,7 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
 
           <button
             type="button"
-            onClick={handleGoToDashboard}
+            onClick={handleGoToFirstMission}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -484,7 +478,7 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            🚀 Acessar Meu Dashboard & IDE
+            🚀 Começar minha primeira missão na IDE
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="5" y1="12" x2="19" y2="12" />
               <polyline points="12 5 19 12 12 19" />

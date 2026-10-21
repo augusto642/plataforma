@@ -6,12 +6,15 @@
  * 
  * Jornada de Entrada do Jogador:
  * - Fase 1: Mascote PC Retrô (Nexi) em tela CRT vintage com diálogo interativo
- * - Fase 2: Estúdio de Avatar Pixel Art com Canvas 2D e customizador
+ * - Fase 2: Nível de Carreira — entrada real (Iniciante) + roteiro de progressão
  * - Fase 3: Seleção de Starter em Cards TCG Holográficos com efeito 3D Tilt
  * - Fase 4: Estúdio de Avatar Pixel Art
- * - Fase 5: Salvar a Conta (Sprint 5/B11 real) — cadastro via AuthContext
+ * - Fase 5: Missão 1 (Sprint 6) — a primeira batalha REAL do jogo, jogada
+ *   ANTES da conta: a vitória vem primeiro, o cadastro salva o progresso
+ * - Fase 6: Salvar a Conta (Sprint 5/B11 real) — cadastro via AuthContext
  *   com o contexto do funil, ou "testar sem conta" explicitamente rotulado
- * - Transição Épica para /game
+ * - Quem salvou a conta segue para a primeira missão na IDE; o convidado
+ *   segue para o /game
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,12 +22,18 @@ import React, { useState, useEffect } from 'react';
 import { captureUtmFromUrl } from '../lib/attribution';
 // Sprint 5 — pageview do funil (B08 completo)
 import { trackPageview } from '../lib/analytics';
+// Sprint 6 — escolhas do prólogo persistem entre sessões (D3)
+import {
+  readOnboardingChoices,
+  saveOnboardingChoices,
+} from '../lib/onboardingChoices';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RetroCrtMascot } from './components/RetroCrtMascot';
 import { CareerTierSelector } from './components/CareerTierSelector';
 import { StarterEvolutionPreview } from './components/StarterEvolutionPreview';
 import { PixelAvatarStudio } from './components/PixelAvatarStudio';
+import { FirstMissionStep } from './components/FirstMissionStep';
 import { SaveAccountStep } from './components/SaveAccountStep';
 import { useGameStore, StarterCreature } from '../game/stores/useGameStore';
 import { AudioSynthesizer } from '../game/engine/AudioSynthesizer';
@@ -32,7 +41,9 @@ import { AudioSynthesizer } from '../game/engine/AudioSynthesizer';
 // Sprint 5 — o prólogo ganha a etapa 'account' (salvar a conta) antes da
 // transição para /game: a porta quente da landing agora termina em
 // cadastro, não num beco sem conta.
-type OnboardingStep = 'mascot' | 'tier' | 'starter' | 'avatar' | 'account' | 'complete';
+// Sprint 6 — entre o avatar e a conta entra a etapa 'mission': a
+// primeira vitória acontece ANTES do formulário (Fase 1 do plano).
+type OnboardingStep = 'mascot' | 'tier' | 'starter' | 'avatar' | 'mission' | 'account' | 'complete';
 
 export default function OnboardingPage(): JSX.Element {
   const router = useRouter();
@@ -45,6 +56,37 @@ export default function OnboardingPage(): JSX.Element {
   }, []);
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('mascot');
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
+  // Sprint 6 — o destino da finalização depende de COMO o prólogo
+  // terminou: conta salva → primeira missão na IDE; convidado → /game.
+  const [finalizeTarget, setFinalizeTarget] = useState<'ide' | 'game'>('game');
+
+  // Sprint 6 (D3) — hidrata as escolhas persistidas na montagem: quem
+  // fechou a aba no meio do prólogo volta com codename, starter, nível
+  // e resultado da Missão 1 intactos.
+  useEffect(() => {
+    const saved = readOnboardingChoices();
+    if (!saved) return;
+    const store = useGameStore.getState();
+    if (saved.codename) store.setPlayerName(saved.codename);
+    if (saved.starterId) store.setStarter(saved.starterId);
+    if (saved.careerTier) store.setCareerTier(saved.careerTier);
+    if (saved.firstMission) store.setFirstMission(saved.firstMission);
+  }, []);
+
+  // Sprint 6 (D3) — espelha as escolhas do store no localStorage a cada
+  // mudança: a persistência acompanha o prólogo inteiro sem cada etapa
+  // precisar lembrar de salvar.
+  useEffect(() => {
+    const unsubscribe = useGameStore.subscribe((state) => {
+      saveOnboardingChoices({
+        codename: state.player.name,
+        starterId: state.selectedStarter.id,
+        careerTier: state.careerTier,
+        firstMission: state.firstMission,
+      });
+    });
+    return unsubscribe;
+  }, []);
 
   const player = useGameStore((s) => s.player);
   const selectedStarter = useGameStore((s) => s.selectedStarter);
@@ -68,20 +110,30 @@ export default function OnboardingPage(): JSX.Element {
     void audio.playTone({ frequency: 800, duration: 0.1, type: 'square' });
   };
 
-  // Avatar pronto NÃO finaliza mais direto: antes de entrar no jogo, o
-  // prólogo oferece salvar a conta (SaveAccountStep). Só quem escolhe
-  // "testar sem conta" — ou quem já se cadastrou — chega à finalização.
+  // Avatar pronto NÃO vai mais direto para a conta: antes do
+  // formulário, o visitante JOGA a Missão 1 (Sprint 6). A vitória vem
+  // primeiro; a conta, depois, é o que salva o progresso.
   const handleAvatarDone = () => {
-    setCurrentStep('account');
+    setCurrentStep('mission');
     void audio.playTone({ frequency: 880, duration: 0.1, type: 'square' });
   };
 
-  const handleFinalize = () => {
+  const handleMissionComplete = () => {
+    setCurrentStep('account');
+    void audio.playTone({ frequency: 920, duration: 0.1, type: 'square' });
+  };
+
+  // Sprint 6 — dois destinos, duas promessas distintas:
+  // - conta salva: a jornada continua na PRIMEIRA MISSÃO DA IDE (/ide já
+  //   abre no primeiro curso/atividade — ver loadCourses em ide/page.tsx);
+  // - convidado: segue para o /game, como sempre, sem conta.
+  const handleFinalize = (target: 'ide' | 'game') => {
+    setFinalizeTarget(target);
     setIsFinalizing(true);
     void audio.playVictory();
 
     setTimeout(() => {
-      router.push('/game');
+      router.push(target === 'ide' ? '/ide' : '/game');
     }, 1400);
   };
 
@@ -172,13 +224,27 @@ export default function OnboardingPage(): JSX.Element {
 
             <span
               className={`flex items-center space-x-1.5 transition ${
-                currentStep === 'account'
+                currentStep === 'mission'
                   ? 'text-[#00E5FF] font-bold'
                   : 'text-slate-500'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
                 5
+              </span>
+              <span>MISSÃO 1</span>
+            </span>
+            <span className="text-slate-700">→</span>
+
+            <span
+              className={`flex items-center space-x-1.5 transition ${
+                currentStep === 'account'
+                  ? 'text-[#00E5FF] font-bold'
+                  : 'text-slate-500'
+              }`}
+            >
+              <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
+                6
               </span>
               <span>SALVAR CONTA</span>
             </span>
@@ -222,11 +288,18 @@ export default function OnboardingPage(): JSX.Element {
         )}
 
         {currentStep === 'avatar' && (
-          <PixelAvatarStudio onComplete={handleAvatarDone} submitLabel="CONTINUAR PARA SALVAR →" />
+          <PixelAvatarStudio onComplete={handleAvatarDone} submitLabel="CONTINUAR PARA A MISSÃO 1 →" />
+        )}
+
+        {currentStep === 'mission' && (
+          <FirstMissionStep onComplete={handleMissionComplete} />
         )}
 
         {currentStep === 'account' && (
-          <SaveAccountStep onSaved={handleFinalize} onSkip={handleFinalize} />
+          <SaveAccountStep
+            onSaved={() => handleFinalize('ide')}
+            onSkip={() => handleFinalize('game')}
+          />
         )}
       </main>
 
@@ -238,17 +311,22 @@ export default function OnboardingPage(): JSX.Element {
               🚀
             </div>
             <h2 className="font-mono text-3xl font-black text-[#00E5FF] tracking-tight mb-2">
-              NEURAL SYNC COMPLETO!
+              {finalizeTarget === 'ide' ? 'CONTA SALVA!' : 'NEURAL SYNC COMPLETO!'}
             </h2>
             <p className="font-mono text-sm text-slate-300 mb-6">
               Operador <span className="text-[#04D361] font-bold">{player.name}</span> e{' '}
-              <span className="text-[#FFA116] font-bold">{selectedStarter.name}</span> inicializados no Circuit Valley...
+              <span className="text-[#FFA116] font-bold">{selectedStarter.name}</span>{' '}
+              {finalizeTarget === 'ide'
+                ? 'com o progresso salvo. Sua primeira missão na IDE já está aberta.'
+                : 'inicializados no Circuit Valley...'}
             </p>
             <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#00E5FF] via-[#04D361] to-[#8257E5] animate-pulse w-full" />
             </div>
             <div className="mt-4 font-mono text-xs text-slate-500">
-              ENTRANDO NA ARENA EM 60 FPS...
+              {finalizeTarget === 'ide'
+                ? 'ABRINDO SUA PRIMEIRA MISSÃO NA IDE...'
+                : 'ENTRANDO NA ARENA EM 60 FPS...'}
             </div>
           </div>
         </div>

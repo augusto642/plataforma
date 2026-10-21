@@ -24,10 +24,12 @@ import {
   readStoredUtm,
 } from '../../lib/attribution';
 import { track } from '../../lib/analytics';
+import { clearOnboardingChoices } from '../../lib/onboardingChoices';
 import { useGameStore } from '../../game/stores/useGameStore';
 
 interface SaveAccountStepProps {
-  /** Cadastro concluído (ou conta já existente): segue para o jogo com a conta salva. */
+  /** Cadastro concluído (ou conta já existente): a conta salvou o
+   *  progresso e a jornada continua na primeira missão da IDE. */
   onSaved: () => void;
   /** Convidado: segue para o jogo SEM conta (progresso não salvo). */
   onSkip: () => void;
@@ -46,6 +48,9 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
   const player = useGameStore((s) => s.player);
   const selectedStarter = useGameStore((s) => s.selectedStarter);
   const careerTier = useGameStore((s) => s.careerTier);
+  // Sprint 6 — a Missão 1 já foi JOGADA antes desta etapa: o resultado
+  // entra no resumo (é progresso real a salvar) e nas props do funil.
+  const firstMission = useGameStore((s) => s.firstMission);
 
   const [name, setName] = useState(player.name ?? '');
   const [email, setEmail] = useState('');
@@ -61,6 +66,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
     ...readAttributionProps(),
     starter: selectedStarter.id,
     tier: careerTier,
+    firstMission: firstMission?.completed ? 'completed' : 'not_completed',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,6 +114,9 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
       track('signup_success', 'onboarding_save', funnelProps());
       // B09 — resultado do diagnóstico vinculado: o token não é mais necessário
       clearStoredDiagnosticToken();
+      // Sprint 6 — a conta vira a fonte da verdade: as escolhas
+      // persistidas do prólogo (D3) não precisam mais do espelho local
+      clearOnboardingChoices();
       onSaved();
     } catch {
       setErrorMsg('Falha ao conectar com o servidor. Tente de novo em instantes.');
@@ -128,6 +137,14 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
         Operador <span className="font-bold text-[#04D361]">{player.name}</span> · Starter{' '}
         <span className="font-bold text-[#FFA116]">{selectedStarter.name}</span> · Nível{' '}
         <span className="font-bold text-slate-200">{TIER_LABELS[careerTier] ?? careerTier}</span>
+        {firstMission?.completed && (
+          <>
+            {' '}· Missão 1{' '}
+            <span className="font-bold text-[#04D361]">
+              concluída (+{firstMission.xpEarned} XP · +{firstMission.bitsEarned} Bits)
+            </span>
+          </>
+        )}
       </p>
 
       {user ? (
@@ -140,7 +157,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
             onClick={onSaved}
             className="mt-5 w-full rounded-xl bg-[#8257E5] px-6 py-3.5 font-mono text-sm font-black text-white transition hover:bg-[#6D28D9] active:scale-[0.98]"
           >
-            Salvar e entrar no jogo →
+            Salvar e ir para a primeira missão →
           </button>
         </div>
       ) : (

@@ -24,6 +24,9 @@ import {
 // B08 — eventos do funil (signup_submit / signup_success)
 // Sprint 5 — + pageview e contexto (intenção de plano + campanha) nos signups
 import { track, trackPageview } from '../lib/analytics';
+// Sprint 6 — cadastro concluído por esta porta também aposenta o
+// espelho local das escolhas do prólogo (a conta vira a fonte)
+import { clearOnboardingChoices } from '../lib/onboardingChoices';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -108,6 +111,8 @@ export default function RegisterPage() {
 
       // B09 — resultado vinculado à conta: o token não é mais necessário
       clearStoredDiagnosticToken();
+      // Sprint 6 — idem para as escolhas persistidas do prólogo (D3)
+      clearOnboardingChoices();
     } catch {
       // Fallback gracioso para modo demonstração offline
     } finally {
