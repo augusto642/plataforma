@@ -23,28 +23,28 @@ const STAGES: StageMeta[] = [
     level: 'NÍVEL 1',
     name: 'Iniciante',
     short: 'O jogo',
-    desc: 'Missões curtas, XP a cada acerto e código de verdade em português — desde o primeiro dia, direto no navegador.',
+    desc: 'Missões curtas em formato de jogo: você escreve código desde o primeiro exercício e avança por XP, sem instalar nada.',
   },
   {
     id: 'junior',
     level: 'NÍVEL 2',
     name: 'Júnior',
     short: 'A construção',
-    desc: 'A lógica vira construção: funções, listas e arquivos montando o seu primeiro sistema completo, com testes.',
+    desc: 'Os exercícios viram construção: funções, listas e arquivos montando o seu primeiro sistema completo, com testes.',
   },
   {
     id: 'pleno',
     level: 'NÍVEL 3',
     name: 'Pleno',
     short: 'O profissional',
-    desc: 'O treino vira trabalho: frameworks, testes reais e a IDE completa, no mesmo padrão das empresas.',
+    desc: 'O treino vira trabalho: frameworks, testes reais e a IDE completa, no mesmo padrão usado nas empresas.',
   },
   {
     id: 'mercado',
     level: 'DESTINO',
     name: 'Mercado',
     short: 'A prova',
-    desc: 'Tudo o que você fez vira prova: um portfólio público que qualquer empresa verifica — e a ponte direta para vagas.',
+    desc: 'Tudo o que você construiu vira um portfólio público de evidências — a prova que qualquer empresa pode verificar antes de te chamar.',
   },
 ];
 

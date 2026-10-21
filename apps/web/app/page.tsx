@@ -409,24 +409,25 @@ export default function HomePage() {
         {/* EYEBROW: UMA MENSAGEM SÓ, NOMEANDO O PÚBLICO */}
         <div className="hero-rise inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-[11px] font-mono font-bold mb-6" style={{ animationDelay: '0ms' }}>
           <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
-          <span>PARA QUEM NUNCA ESCREVEU UMA LINHA DE CÓDIGO</span>
+          <span>PARA QUEM ESTÁ COMEÇANDO DO ZERO</span>
         </div>
 
-        {/* HEADLINE H1: OS TRÊS TEMPOS — COMEÇA JOGANDO, EVOLUI COM VOCÊ, CHEGA AO MERCADO */}
-        <h1 className="hero-rise font-heading text-5xl sm:text-6xl xl:text-7xl font-black tracking-tight text-ink-heading leading-[1.05] mb-6" style={{ animationDelay: '90ms' }}>
-          Aprenda programação <span className="text-brand-purple">jogando</span>.
-          Suba de nível até o <span className="text-brand-purple">mercado de tecnologia</span>.
+        {/* HEADLINE H1: A PROMESSA — APRENDER DE VERDADE, DO PRIMEIRO EXERCÍCIO AO MERCADO */}
+        <h1 className="hero-rise font-heading text-4xl sm:text-5xl xl:text-6xl font-black tracking-tight text-ink-heading leading-[1.08] mb-6" style={{ animationDelay: '90ms' }}>
+          Aprenda a programar <span className="text-brand-purple">de verdade</span>.
+          Do primeiro exercício ao <span className="text-brand-purple">mercado de tecnologia</span>.
         </h1>
 
         {/* SUBHEADLINE: O ARCO INTEIRO, EM FRASES VERIFICÁVEIS */}
         <p className="hero-rise font-sans text-base sm:text-lg text-ink-body leading-relaxed mb-4 max-w-xl" style={{ animationDelay: '180ms' }}>
-          Você escreve código de verdade, em português, direto no navegador — sem instalar nada e sem videoaula infinita.
-          A plataforma <strong className="text-ink-heading">evolui com você</strong>: as missões viram projetos guiados, os projetos viram a IDE completa — e a jornada termina num portfólio que o mercado pode verificar.
+          Sem horas de vídeo que não viram prática: aqui, <strong className="text-ink-heading">cada conceito vira um exercício</strong> — código escrito por você e corrigido na hora.
+          Você começa em missões no formato de jogo e sobe de nível: projetos guiados, a IDE completa, até montar um portfólio que as empresas podem verificar.
+          O destino não é um certificado. É você, <strong className="text-ink-heading">dev completo, pronto para o mercado</strong>.
         </p>
 
         {/* A GUIA PRESENTE EM TODOS OS ESTÁGIOS */}
         <p className="hero-rise text-sm text-ink-span font-sans mb-8" style={{ animationDelay: '240ms' }}>
-          Nossa <strong className="text-brand-purple-light">tutora de IA</strong> acompanha cada etapa — do primeiro comando ao portfólio — com perguntas e dicas em 3 níveis. A resposta pronta, nunca.
+          Nossa <strong className="text-brand-purple-light">tutora de IA</strong> acompanha você em cada exercício: em vez de entregar a resposta, ela faz a pergunta certa e libera dicas em 3 níveis. A resposta pronta, nunca — quem resolve é você.
         </p>
 
         {/* AÇÃO: UM CTA PRIMÁRIO (ROXO SÓLIDO) + O QUIZ COMO CAMINHO DE BAIXO COMPROMISSO */}
@@ -457,19 +458,19 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-4 text-sm font-sans text-ink-body">
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Correção por testes reais, no servidor</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-brand-green-neon font-black">✔</span>
-              <span>Sem instalar nada</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-brand-green-neon font-black">✔</span>
               <span>100% em português</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Grátis para começar</span>
+              <span>Correção por testes reais, a cada exercício</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              <span>Roda no navegador — sem instalar nada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              <span>Portfólio de evidências que empresas verificam</span>
             </div>
           </div>
         </div>
