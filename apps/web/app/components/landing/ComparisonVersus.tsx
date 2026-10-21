@@ -12,18 +12,18 @@ interface ComparisonRow {
 const ROWS: ComparisonRow[] = [
   {
     aspect: 'Método Pedagógico',
-    traditional: '40 horas de videoaulas passivas onde você assiste outra pessoa programar.',
+    traditional: 'Horas de videoaulas passivas onde você assiste outra pessoa programar.',
     nexus: 'Batalhas de código ativas de 5 minutos onde você digita e vence desafios.',
   },
   {
-    aspect: 'Taxa de Retenção & Conclusão',
-    traditional: 'Abandono superior a 85% por fadiga, tédio e sensação de impotência.',
-    nexus: 'Retenção recorde de 84% impulsionada por progressão RPG e cartas TCG.',
+    aspect: 'Ritmo & Conclusão',
+    traditional: 'Abandono frequente por fadiga, tédio e sensação de impotência.',
+    nexus: 'Progressão RPG, cartas colecionáveis e feedback imediato que mantêm você avançando.',
   },
   {
     aspect: 'Resolução de Dúvidas',
     traditional: 'Fóruns lentos ou robôs que cospem código pronto sem ensinar a pensar.',
-    nexus: 'Tutora Lumi com método socrático: perguntas investigativas de causa raiz.',
+    nexus: 'Nossa tutora de IA com método socrático: perguntas investigativas de causa raiz.',
   },
   {
     aspect: 'Validação para o Mercado',
@@ -55,13 +55,13 @@ export const ComparisonVersus: React.FC = () => {
           </p>
         </div>
 
-        {/* Métrica de Retenção na Direita */}
+        {/* Contraste de método na Direita */}
         <div className="hidden lg:flex flex-col items-end gap-2 font-mono text-xs">
           <div className="px-4 py-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse" />
-            <span>RETENÇÃO DE 84% VS 15% EM VÍDEOS</span>
+            <span className="w-2 h-2 rounded-full bg-[#04D361]" />
+            <span>MÉTODO ATIVO VS AULA PASSIVA</span>
           </div>
-          <span className="text-[11px] text-zinc-500">MÉTODO ATIVO BASEADO EM DOPAMINA & XP</span>
+          <span className="text-[11px] text-zinc-500">PROGRESSÃO, XP E FEEDBACK IMEDIATO</span>
         </div>
       </div>
 

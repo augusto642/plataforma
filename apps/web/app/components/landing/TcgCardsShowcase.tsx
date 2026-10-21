@@ -87,7 +87,7 @@ const TCG_CARDS: TcgCardData[] = [
     ],
     signatureSpell: 'Transmutação Algorítmica',
     passiveSkill: 'Raciocínio Vetorial de Hiperdimensões',
-    lore: 'Molda vetores latentes e tensores matemáticos. Conecta a mentoria de Lumi com redes neurais profundas.',
+    lore: 'Molda vetores latentes e tensores matemáticos. Conecta a mentoria da tutora de IA com redes neurais profundas.',
     quote: 'Linhas elegantes que transformam caos em tensores e inteligência viva.',
   },
   {

@@ -131,7 +131,7 @@ export const LumiMascotHero: React.FC = () => {
                 <span className={`w-1 bg-[#00E5FF] rounded-full transition-all duration-150 delay-100 ${isTyping ? 'h-3.5 animate-bounce' : 'h-2 opacity-40'}`} />
               </div>
 
-              <span className="mt-1 text-xs font-mono font-black text-purple-300">LUMI v2.4</span>
+              <span className="mt-1 text-xs font-mono font-black text-purple-300">TUTORA DE IA</span>
               <span className="text-[10px] font-mono text-zinc-500">Mentora Socrática</span>
             </div>
 

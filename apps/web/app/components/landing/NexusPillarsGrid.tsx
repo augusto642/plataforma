@@ -29,9 +29,9 @@ const PILLARS: Pillar[] = [
   {
     number: '02',
     tag: 'IA PEDAGÓGICA AVANÇADA',
-    title: 'Lumi: Mentora que Ensina a Pensar',
+    title: 'Tutora de IA: Mentora que Ensina a Pensar',
     description:
-      'Ao invés de cuspir código pronto que destrói sua capacidade analítica, Lumi inspeciona a Árvore Sintática (AST) do seu código e formula perguntas cirúrgicas para você desbloquear o raciocínio sozinho.',
+      'Ao invés de cuspir código pronto que destrói sua capacidade analítica, nossa tutora de IA inspeciona a Árvore Sintática (AST) do seu código e formula perguntas cirúrgicas para você desbloquear o raciocínio sozinho.',
     badge: 'Taxonomia de Bloom',
     icon: '🦊',
     techHighlight: 'Inspeção de AST • Análise de Causa Raiz • Dicas Graduais',
@@ -86,7 +86,7 @@ export const NexusPillarsGrid: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse" />
             <span>INFRA: DOCKER + LINUX CGROUPS</span>
           </div>
-          <span className="text-[11px] text-zinc-500">ISOLAMENTO TOTAL // SUB-20MS P99</span>
+          <span className="text-[11px] text-zinc-500">ISOLAMENTO TOTAL POR DESAFIO</span>
         </div>
       </div>
 

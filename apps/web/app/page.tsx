@@ -162,7 +162,7 @@ export default function HomePage() {
 
   const handleRun = () => {
     setIsExecuting(true);
-    setTerminalOutput('⏳ Executando código em container Linux isolado...');
+    setTerminalOutput('Preparando a demonstração com a saída de exemplo...');
     setTimeout(() => {
       setTerminalOutput(CODE_SNIPPETS[activeLang].output);
       setIsExecuting(false);
@@ -537,7 +537,7 @@ export default function HomePage() {
             <span className="text-2xl group-hover:scale-110 transition-transform">🐹</span>
             <div className="text-left font-mono">
               <div className="text-xs font-bold text-white">Go 1.22</div>
-              <div className="text-[10px] text-zinc-500">Goroutines P99</div>
+              <div className="text-[10px] text-zinc-500">Goroutines & Canais</div>
             </div>
           </div>
 
@@ -561,7 +561,7 @@ export default function HomePage() {
             <span className="text-2xl group-hover:scale-110 transition-transform">🐧</span>
             <div className="text-left font-mono">
               <div className="text-xs font-bold text-white">Linux cgroups-v2</div>
-              <div className="text-[10px] text-zinc-500">Containers 512MB</div>
+              <div className="text-[10px] text-zinc-500">Containers Isolados</div>
             </div>
           </div>
 
@@ -649,17 +649,6 @@ export default function HomePage() {
             </h3>
             <p className="text-xs text-amber-400/80 font-mono mb-2">Lógica • Algoritmos • Alta Performance</p>
 
-            {/* Informações Relevantes (Horas, Desafios, Avaliação e Alunos) */}
-            <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-amber-400">★</span> 4.9</span>
-              <span>•</span>
-              <span>3.200 alunos</span>
-              <span>•</span>
-              <span>48h</span>
-              <span>•</span>
-              <span>32 desafios</span>
-            </div>
-
             {/* Resumo do Curso */}
             <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 mb-4 font-sans">
               Do primeiro <code className="text-amber-400 bg-amber-500/10 px-1 rounded">println!</code> à resolução de problemas reais. Aprenda a pensar como programador e a escrever códigos rápidos e sem erros de memória.
@@ -721,17 +710,6 @@ export default function HomePage() {
             </h3>
             <p className="text-xs text-[#00E5FF]/80 font-mono mb-2">REST • Banco de Dados • Microsserviços</p>
 
-            {/* Informações Relevantes */}
-            <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-[#00E5FF]">★</span> 4.8</span>
-              <span>•</span>
-              <span>2.800 alunos</span>
-              <span>•</span>
-              <span>42h</span>
-              <span>•</span>
-              <span>28 desafios</span>
-            </div>
-
             {/* Resumo do Curso */}
             <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 mb-4 font-sans">
               Construa o backend que move gigantes da tecnologia. Crie rotas HTTP ultra rápidas, conecte bancos de dados PostgreSQL e faça deploys reais de microsserviços.
@@ -789,17 +767,6 @@ export default function HomePage() {
               Desenvolvimento Web com React & Next.js
             </h3>
             <p className="text-xs text-emerald-400/80 font-mono mb-2">Frontend • TypeScript • Interfaces Modernas</p>
-
-            {/* Informações Relevantes */}
-            <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-emerald-400">★</span> 4.9</span>
-              <span>•</span>
-              <span>4.100 alunos</span>
-              <span>•</span>
-              <span>36h</span>
-              <span>•</span>
-              <span>24 desafios</span>
-            </div>
 
             {/* Resumo do Curso */}
             <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 mb-4 font-sans">
@@ -867,17 +834,6 @@ export default function HomePage() {
             </h3>
             <p className="text-xs text-[#996DFF]/80 font-mono mb-2">Python • Machine Learning • Automações</p>
 
-            {/* Informações Relevantes */}
-            <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-[#996DFF]">★</span> 4.8</span>
-              <span>•</span>
-              <span>3.600 alunos</span>
-              <span>•</span>
-              <span>40h</span>
-              <span>•</span>
-              <span>30 desafios</span>
-            </div>
-
             {/* Resumo do Curso */}
             <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 mb-4 font-sans">
               Comece com scripts básicos em Python e avance até criar agentes autônomos com LLMs que leem arquivos, resolvem tarefas e integram APIs inteligentes.
@@ -930,7 +886,7 @@ export default function HomePage() {
           Como Você Aprende de Verdade
         </h2>
         <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-sans">
-          O cérebro humano retém até 84% a mais quando é forçado a depurar código real em vez de assistir aulas passivas. Combinamos feedback determinístico de testes com tutoria socrática.
+          Quem aprende depurando código real fixa o conteúdo de um jeito que aula passiva não fixa. Combinamos feedback determinístico de testes com tutoria socrática: você escreve, o sistema corrige na hora e a tutora guia o seu raciocínio.
         </p>
       </div>
 
@@ -1005,20 +961,20 @@ export default function HomePage() {
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
       <div className="max-w-2xl text-left">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-[#00E5FF] text-xs font-mono font-bold mb-3">
-          <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-pulse"></span>
-          <span>PISTON LINUX ENGINE // ZERO SETUP</span>
+          <span className="w-2 h-2 rounded-full bg-[#00E5FF]"></span>
+          <span>DEMONSTRAÇÃO DO AMBIENTE REAL // ZERO SETUP</span>
         </div>
         <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-white tracking-tight mb-4">
-          Experimente no Terminal Real
+          Um Gostinho do Terminal Real
         </h2>
         <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-sans">
-          Escolha uma linguagem e execute o código abaixo. Zero simulações — containers Linux reais com telemetria instantânea e latência P99 sub-30ms.
+          Isto é uma demonstração ilustrativa do ambiente da plataforma, com exemplos de código e saídas de exemplo. A execução de verdade acontece dentro da Nexus Code, em containers Linux isolados via Piston, com correção por testes reais a cada desafio.
         </p>
       </div>
 
       <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs font-mono text-zinc-300 shrink-0">
-        <span className="w-2 h-2 rounded-full bg-[#04D361] animate-ping" />
-        <span>KERNEL ISOLATION // CGROUPS V2</span>
+        <span className="w-2 h-2 rounded-full bg-[#04D361]" />
+        <span>DEMONSTRAÇÃO ILUSTRATIVA</span>
       </div>
     </div>
 
@@ -1030,7 +986,8 @@ export default function HomePage() {
           <div className="w-3 h-3 rounded-full bg-rose-500/80" />
           <div className="w-3 h-3 rounded-full bg-amber-500/80" />
           <div className="w-3 h-3 rounded-full bg-[#04D361]" />
-          <span className="ml-3 text-xs font-mono text-zinc-400 font-semibold">sandbox-isolated-cgroups-v2</span>
+          <span className="ml-3 text-xs font-mono text-zinc-400 font-semibold">demonstração do sandbox da plataforma</span>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#8257E5]/15 text-[#996DFF] border border-[#8257E5]/30">ILUSTRATIVO</span>
         </div>
 
         {/* Seletor de Linguagens com as cores da plataforma */}
@@ -1082,7 +1039,7 @@ export default function HomePage() {
           ) : (
             <span>▶</span>
           )}
-          <span>{isExecuting ? 'Compilando...' : 'Executar no Sandbox'}</span>
+          <span>{isExecuting ? 'Preparando...' : 'Ver a Demonstração'}</span>
         </button>
       </div>
 
@@ -1130,10 +1087,10 @@ export default function HomePage() {
           <div>
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#27272A] text-zinc-400">
               <span className="flex items-center gap-2 font-bold text-white">
-                <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse" />
-                STDOUT / TELEMETRIA
+                <span className="w-2 h-2 rounded-full bg-[#04D361]" />
+                SAÍDA DA DEMONSTRAÇÃO
               </span>
-              <span className="text-[10px] bg-zinc-800/80 px-2 py-0.5 rounded text-zinc-300">P99: 14.8ms</span>
+              <span className="text-[10px] bg-zinc-800/80 px-2 py-0.5 rounded text-zinc-300">EXEMPLO ILUSTRATIVO</span>
             </div>
             <pre className="text-emerald-400 whitespace-pre-wrap leading-relaxed font-mono">
               <code>{terminalOutput}</code>
@@ -1141,8 +1098,8 @@ export default function HomePage() {
           </div>
 
           <div className="mt-6 pt-4 border-t border-[#27272A] text-[11px] text-zinc-400 flex items-center justify-between">
-            <span>Isolamento: 512MB RAM</span>
-            <span className="text-[#04D361] font-semibold">100% Determinístico</span>
+            <span>Ambiente real: containers Linux isolados (Piston)</span>
+            <span className="text-[#04D361] font-semibold">Correção por testes reais</span>
           </div>
         </div>
       </div>
@@ -1156,11 +1113,10 @@ export default function HomePage() {
         </div>
         <div>
           <div className="text-sm sm:text-base font-heading font-bold text-white flex items-center gap-2">
-            <span>Gostou da velocidade de resposta?</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#04D361]/20 text-[#04D361] font-bold">SUB-30MS</span>
+            <span>Isto é só uma amostra do ambiente real</span>
           </div>
           <p className="text-xs text-zinc-300 font-sans mt-0.5">
-            Cadastre-se gratuitamente para salvar seu histórico, acumular XP e liberar 30+ desafios reais no terminal.
+            Cadastre-se gratuitamente para executar código de verdade no terminal, salvar seu histórico, acumular XP e liberar os desafios reais da plataforma.
           </p>
         </div>
       </div>
@@ -1232,11 +1188,11 @@ export default function HomePage() {
             <span className="text-xs font-mono text-zinc-400 ml-1">/ para sempre</span>
           </div>
           <ul className="space-y-3 text-xs font-mono text-zinc-300 mb-8">
-            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> +30 Desafios Fundamentais</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Sandbox Linux Piston</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Acesso à Liga Bronze</li>
-            <li className="flex items-center gap-2 text-zinc-500">✕ Sem tutor dialético socrático</li>
-            <li className="flex items-center gap-2 text-zinc-500">✕ Portfólio SHA-256 Auditável</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
         </div>
         <Link href="/register" className="w-full py-3 rounded-xl bg-[#18181B] hover:bg-[#202024] text-white text-xs font-mono font-bold text-center border border-[#27272A] transition-colors">
@@ -1383,7 +1339,7 @@ export default function HomePage() {
           Qual a diferença entre a NEXUS CODE e cursos em vídeo?
         </h3>
         <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-          Nas plataformas tradicionais você passa 90% do tempo assistindo passivamente a vídeos longos. Na NEXUS CODE você passa <span className="text-white font-medium">90% do tempo escrevendo código e corrigindo testes</span>, exatamente o que molda o programador contratado pelo mercado.
+          Nas plataformas tradicionais você passa a maior parte do tempo assistindo passivamente a vídeos longos. Na NEXUS CODE você passa <span className="text-white font-medium">a maior parte do tempo escrevendo código e corrigindo testes</span>, exatamente o que molda o programador contratado pelo mercado.
         </p>
       </div>
 
@@ -1511,8 +1467,8 @@ export default function HomePage() {
         {/* Esquerda: 7 cols */}
         <div className="lg:col-span-7 text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#04D361]/10 border border-[#04D361]/30 text-[#04D361] text-xs font-mono font-bold mb-5">
-            <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse"></span>
-            <span>COMECE EM MENOS DE 60 SEGUNDOS</span>
+            <span className="w-2 h-2 rounded-full bg-[#04D361]"></span>
+            <span>COMECE GRÁTIS, SEM CARTÃO</span>
           </div>
 
           <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight mb-5 leading-[1.08]">
@@ -1523,7 +1479,7 @@ export default function HomePage() {
           </h2>
 
           <p className="font-sans text-sm sm:text-base text-zinc-300 leading-relaxed mb-8 max-w-xl">
-            Crie sua conta em menos de 30 segundos e envie seu primeiro commit hoje mesmo. O mercado não contrata certificados de vídeo — ele contrata quem resolve problemas no código.
+            Crie sua conta gratuita e envie seu primeiro commit hoje mesmo. O mercado não contrata certificados de vídeo — ele contrata quem resolve problemas no código.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm font-mono text-zinc-300">
@@ -1533,7 +1489,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2.5">
               <span className="text-[#04D361] font-black text-base">✔</span>
-              <span>30+ Desafios gratuitos</span>
+              <span>Desafios gratuitos do nível Iniciante</span>
             </div>
             <div className="flex items-center gap-2.5">
               <span className="text-[#04D361] font-black text-base">✔</span>
@@ -1619,8 +1575,8 @@ export default function HomePage() {
             </p>
 
             <div className="inline-flex items-center gap-2 text-xs font-mono text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse"></span>
-              <span>Sandbox Linux Online • 99.98% Uptime</span>
+              <span className="w-2 h-2 rounded-full bg-[#04D361]"></span>
+              <span>Sandbox Linux direto no navegador</span>
             </div>
           </div>
 
@@ -1745,8 +1701,8 @@ export default function HomePage() {
         </div>
 
         <div className="flex items-center gap-6">
-          <a href="#trilhas" className="hover:text-white transition-colors">Termos</a>
-          <a href="#faq" className="hover:text-white transition-colors">Privacidade</a>
+          <a href="/termos" className="hover:text-white transition-colors">Termos</a>
+          <a href="/privacidade" className="hover:text-white transition-colors">Privacidade</a>
           <a href="#hero" className="text-zinc-300 hover:text-white transition-colors flex items-center gap-1">
             Voltar ao topo ↑
           </a>
