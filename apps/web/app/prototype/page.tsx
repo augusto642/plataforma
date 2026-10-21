@@ -361,13 +361,13 @@ export default function PrototypePage() {
 
             {/* Informações Relevantes */}
             <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-amber-400">★</span> 4.9</span>
+              <span className="flex items-center gap-1">Fundamentos</span>
               <span>•</span>
-              <span>3.200 alunos</span>
+              <span>Guiado</span>
               <span>•</span>
-              <span>48h</span>
+              <span>Prática progressiva</span>
               <span>•</span>
-              <span>32 desafios</span>
+              <span>Projetos aplicados</span>
             </div>
 
             {/* Resumo do Curso */}
@@ -433,13 +433,13 @@ export default function PrototypePage() {
 
             {/* Informações Relevantes */}
             <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-[#00E5FF]">★</span> 4.8</span>
+              <span className="flex items-center gap-1">Backend</span>
               <span>•</span>
-              <span>2.800 alunos</span>
+              <span>APIs e servidores</span>
               <span>•</span>
-              <span>42h</span>
+              <span>Prática progressiva</span>
               <span>•</span>
-              <span>28 desafios</span>
+              <span>Projetos aplicados</span>
             </div>
 
             {/* Resumo do Curso */}
@@ -502,13 +502,13 @@ export default function PrototypePage() {
 
             {/* Informações Relevantes */}
             <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-emerald-400">★</span> 4.9</span>
+              <span className="flex items-center gap-1">Frontend</span>
               <span>•</span>
-              <span>4.100 alunos</span>
+              <span>Interfaces modernas</span>
               <span>•</span>
-              <span>36h</span>
+              <span>Prática progressiva</span>
               <span>•</span>
-              <span>24 desafios</span>
+              <span>Projetos aplicados</span>
             </div>
 
             {/* Resumo do Curso */}
@@ -579,13 +579,13 @@ export default function PrototypePage() {
 
             {/* Informações Relevantes */}
             <div className="flex items-center gap-2.5 text-[11px] font-mono text-zinc-400 mb-3">
-              <span className="flex items-center gap-1"><span className="text-[#996DFF]">★</span> 4.8</span>
+              <span className="flex items-center gap-1">IA aplicada</span>
               <span>•</span>
-              <span>3.600 alunos</span>
+              <span>Fundamentos</span>
               <span>•</span>
-              <span>40h</span>
+              <span>Prática progressiva</span>
               <span>•</span>
-              <span>30 desafios</span>
+              <span>Projetos aplicados</span>
             </div>
 
             {/* Resumo do Curso */}
