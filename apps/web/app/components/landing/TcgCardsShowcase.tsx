@@ -193,7 +193,7 @@ export const TcgCardsShowcase: React.FC = () => {
             <span>SÉRIE 01 // CARTAS COLECIONÁVEIS HOLOGRÁFICAS</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-            Colecione sua Maestria Técnica
+            Suas conquistas viram cards colecionáveis
           </h2>
           <p className="text-base sm:text-lg text-zinc-300 font-sans leading-relaxed">
             Cada trilha e chefão derrotado desbloqueia cards em 3D com efeito foil holográfico,

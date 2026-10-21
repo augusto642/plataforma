@@ -47,10 +47,10 @@ export const ComparisonVersus: React.FC = () => {
         <div className="max-w-2xl text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-rose-300 text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <IconSwords className="w-5 h-5" />
-            <span>O FIM DO TUTORIAL HELL // COMPARATIVO BRUTAL</span>
+            <span>COMPARATIVO DIRETO // SEM ENROLAÇÃO</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-            O Velho Mundo vs A Arena NEXUS
+            Assistir aula x aprender fazendo
           </h2>
           <p className="text-base sm:text-lg text-zinc-300 font-sans leading-relaxed">
             Veja por que engenheiros formados na prática superam desenvolvedores presos em cursos tradicionais de vídeo.
@@ -113,8 +113,15 @@ export const ComparisonVersus: React.FC = () => {
 
       {/* Micro-Gatilho de Conversão */}
       <div className="mt-12 text-center">
+        {/* Sprint 6 — microcopy alinhada ao funil real: o jogo abre como
+            convidado (sem cartão e sem cadastro, como promete), e a ponte
+            para salvar o progresso é explícita — a conta grátis é o que
+            guarda XP, starter e jornada. Sem contagem de "masmorras
+            abertas" que o produto não garante. */}
         <p className="text-xs text-zinc-400 font-sans mb-5">
-          Experimente sem risco: as primeiras 3 masmorras de código estão 100% abertas sem cartão ou cadastro.
+          Experimente sem risco: entre no jogo agora como convidado, sem cartão e sem cadastro.
+          Jogou e quer guardar seu XP, seu starter e seu progresso? Crie sua conta grátis — é ela
+          que salva a sua jornada.
         </p>
         {/* Sprint 5 — ação de JOGO (não é cadastro): tratamento secundário
             distinto, sem o gradiente verde de conversão */}

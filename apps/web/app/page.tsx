@@ -253,11 +253,14 @@ export default function HomePage() {
 
           {/* Navegação Central com maior espaçamento */}
           <nav className="hidden md:flex items-center justify-center gap-6 lg:gap-8 xl:gap-10 text-[15px] font-semibold text-zinc-300">
-            <Link href="/game" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5 text-brand-cyan-neon font-bold">
+            {/* Sprint 6 (D1 do QA) — "Modo RPG 2D" e "Criar Avatar" com o
+                MESMO tratamento dos demais links da navbar: nada de neon
+                nem negrito saturado só para os links do jogo */}
+            <Link href="/game" className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
               <IconGamepad className="w-5 h-5" />
               <span>Modo RPG 2D</span>
             </Link>
-            <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => track('nav_cta', 'nav_avatar')} className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-emerald-400 font-bold">
+            <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => track('nav_cta', 'nav_avatar')} className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
               <IconSparkle className="w-5 h-5" />
               <span>Criar Avatar</span>
             </Link>
@@ -528,91 +531,88 @@ export default function HomePage() {
     <LumiMascotHero />
 
   </section>
-
-
-  {/* SHOWCASE DOS CARDS TCG HOLOGRÁFICOS 3D */}
-  <TcgCardsShowcase />
-
-  {/* OS 4 PILARES DA NEXUS CODE (GRID BENTO) */}
-  <NexusPillarsGrid />
-
-  {/* O COMPARATIVO BRUTAL: VELHO MUNDO VS ARENA NEXUS */}
-  <ComparisonVersus />
-
-  {/* TRUST BANNER: INFRAESTRUTURA DE MISSÃO CRÍTICA & PILHAS BIG TECH (ASYMMETRIC SPLIT) */}
-  <section className="relative py-16 border-y border-border-1 bg-surface-1">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-        {/* Coluna Esquerda: Contexto de Engenharia */}
-        <div className="lg:col-span-4 text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-2 border border-border-1 text-cyan-400 text-xs font-mono mb-3">
-            <IconShield className="w-4 h-4" />
-            <span>STACK DE ENGENHARIA</span>
-          </div>
-          <h3 className="text-2xl sm:text-3xl font-heading font-black text-ink-heading tracking-tight mb-3">
-            Tecnologias de Missão Crítica
-          </h3>
-          <p className="text-xs sm:text-sm font-sans text-zinc-400 leading-relaxed">
-            Sem simulações simplórias. Você constrói soluções nas mesmas linguagens compiladas e runtimes isolados que sustentam a infraestrutura moderna de Big Techs.
-          </p>
+  {/* 3. METODOLOGIA COM LASER BEAMS NA ORDEM EXATA DA MARCA (ROXO, CIANO, VERDE) */}
+  <section id="metodologia" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
+    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
+      <div className="max-w-2xl text-left">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-purple-300 text-xs font-mono font-bold mb-3">
+          <IconCpu className="w-4 h-4" />
+          <span>CIÊNCIA COGNITIVA // APRENDIZADO ATIVO</span>
         </div>
+        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
+          Como Você Aprende de Verdade
+        </h2>
+        <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-sans">
+          Quem aprende depurando código real fixa o conteúdo de um jeito que aula passiva não fixa. Combinamos feedback determinístico de testes com tutoria socrática: você escreve, o sistema corrige na hora e a tutora guia o seu raciocínio.
+        </p>
+      </div>
 
-        {/* Coluna Direita: Grid de Tecnologias Distribuído */}
-        <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-3.5">
-          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-amber-500/50 flex items-center gap-3 transition-all group">
-            <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconGear className="w-7 h-7" /></span>
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-ink-heading">Rust 1.78</div>
-              <div className="text-xs text-zinc-500">Zero-Cost Memory</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-cyan-500/50 flex items-center gap-3 transition-all group">
-            <span className="text-brand-cyan-neon group-hover:scale-110 transition-transform"><IconNodes className="w-7 h-7" /></span>
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-ink-heading">Go 1.22</div>
-              <div className="text-xs text-zinc-500">Goroutines & Canais</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-blue-500/50 flex items-center gap-3 transition-all group">
-            <span className="text-brand-cyan group-hover:scale-110 transition-transform"><IconBolt className="w-7 h-7" /></span>
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-ink-heading">TypeScript 5.4</div>
-              <div className="text-xs text-zinc-500">Type Soundness</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-yellow-500/50 flex items-center gap-3 transition-all group">
-            <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconCode className="w-7 h-7" /></span>
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-ink-heading">Python 3.12</div>
-              <div className="text-xs text-zinc-500">IA & RAG Pipelines</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-rose-500/50 flex items-center gap-3 transition-all group">
-            <span className="text-brand-rose group-hover:scale-110 transition-transform"><IconTerminal className="w-7 h-7" /></span>
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-ink-heading">Linux cgroups-v2</div>
-              <div className="text-xs text-zinc-500">Containers Isolados</div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-emerald-500/50 flex items-center gap-3 transition-all group">
-            <span className="text-brand-green-neon group-hover:scale-110 transition-transform"><IconGitBranch className="w-7 h-7" /></span>
-            <div className="text-left font-mono">
-              <div className="text-xs font-bold text-ink-heading">Gitea Git Real</div>
-              <div className="text-xs text-zinc-500">Hash SHA-256</div>
-            </div>
-          </div>
+      <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end gap-2 text-xs font-mono">
+        <div className="px-4 py-2 rounded-xl bg-purple-950/30 border border-purple-500/30 text-purple-300 font-bold flex items-center gap-2">
+          <IconTarget className="w-4 h-4" />
+          <span>TAXONOMIA DE BLOOM: NÍVEIS 1 A 5</span>
         </div>
+        <span className="text-xs text-zinc-400">RETENÇÃO BASEADA EM FEEDBACK IMEDIATO</span>
       </div>
     </div>
+
+    {/* 3 ETAPAS DA JORNADA NAS CORES DA MARCA (ROXO -> CIANO -> VERDE) */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      {/* 01: Roxo */}
+      <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 relative flex flex-col justify-between">
+        <div className="top-laser-beam bg-brand-purple"></div>
+        <div>
+          <div className="w-12 h-12 rounded-xl bg-background border border-border-2 flex items-center justify-center font-mono font-bold text-lg text-brand-purple-light mb-5">
+            01
+          </div>
+          <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Desafios Práticos do Mundo Real</h3>
+          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
+            Você recebe objetivos práticos com explicações simples e claras, entendendo exatamente o que precisa construir e o porquê de cada linha de código.
+          </p>
+        </div>
+        <div className="mt-5 pt-3 border-t border-border-2 text-xs font-mono text-brand-purple-light">
+          ✔ Aprendizado com propósito
+        </div>
+      </div>
+
+      {/* 02: Ciano */}
+      <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 relative flex flex-col justify-between">
+        <div className="top-laser-beam bg-brand-cyan-neon"></div>
+        <div>
+          <div className="w-12 h-12 rounded-xl bg-background border border-border-2 flex items-center justify-center font-mono font-bold text-lg text-brand-cyan-neon mb-5">
+            02
+          </div>
+          <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Código Direto no Navegador</h3>
+          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
+            Nada de perder horas configurando ferramentas complexas no seu computador. Escreva, teste e execute seu código direto pelo navegador, sem travar.
+          </p>
+        </div>
+        <div className="mt-5 pt-3 border-t border-border-2 text-xs font-mono text-brand-cyan-neon">
+          ✔ Zero instalação ou dores de cabeça
+        </div>
+      </div>
+
+      {/* 03: Verde Neon */}
+      <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 relative flex flex-col justify-between">
+        <div className="top-laser-beam bg-brand-green-neon"></div>
+        <div>
+          <div className="w-12 h-12 rounded-xl bg-background border border-border-2 flex items-center justify-center font-mono font-bold text-lg text-brand-green-neon mb-5">
+            03
+          </div>
+          <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Correção na Hora & Dicas Amigáveis</h3>
+          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
+            Seu código é corrigido imediatamente. Se você travar ou esquecer um comando, nosso tutor inteligente te dá dicas amigáveis passo a passo para achar a solução.
+          </p>
+        </div>
+        <div className="mt-5 pt-3 border-t border-border-2 text-xs font-mono text-brand-green-neon">
+          ✔ Evolução sem frustração
+        </div>
+      </div>
+
+    </div>
   </section>
-
-
-  {/* 3. TRILHAS: DO ZERO AO AVANÇADO NA MESMA ORDEM DE CORES DE PAGE.TSX */}
+  {/* 4. TRILHAS: DO ZERO AO AVANÇADO NA MESMA ORDEM DE CORES DE PAGE.TSX */}
   {/* 1: Rust (Âmbar) | 2: Go (Ciano) | 3: Next.js (Esmeralda) | 4: Python/IA (Roxo) */}
   <section id="trilhas" className="relative z-10 py-24 border-t border-border-2/70">
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14 px-6 sm:px-10 lg:px-16 max-w-7xl mx-auto">
@@ -695,6 +695,14 @@ export default function HomePage() {
               <span className="bg-surface-2 border border-zinc-800 text-zinc-300 text-xs font-mono px-2 py-0.5 rounded-md">Rust 2024</span>
               <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono px-2 py-0.5 rounded-md">Memory Safety</span>
             </div>
+
+            {/* Sprint 6 — números da ementa oficial do produto
+                (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 1).
+                Carga horária não entra: a ementa não a declara. */}
+            <div className="mb-4 space-y-1 border-t border-zinc-800/60 pt-3 font-mono text-xs text-zinc-400">
+              <div>4 módulos · 7 desafios práticos</div>
+              <div>Projeto final: <span className="font-bold text-zinc-200">NexusDB Distribuído</span></div>
+            </div>
           </div>
 
           {/* Rodapé: Nível e CTA */}
@@ -756,6 +764,13 @@ export default function HomePage() {
               <span className="bg-surface-2 border border-zinc-800 text-zinc-300 text-xs font-mono px-2 py-0.5 rounded-md">Docker</span>
               <span className="bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon text-xs font-mono px-2 py-0.5 rounded-md">Go 1.22</span>
             </div>
+
+            {/* Sprint 6 — números da ementa oficial do produto
+                (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 2) */}
+            <div className="mb-4 space-y-1 border-t border-zinc-800/60 pt-3 font-mono text-xs text-zinc-400">
+              <div>4 módulos · 4 desafios práticos</div>
+              <div>Projeto final: <span className="font-bold text-zinc-200">High-Throughput Payment Engine</span></div>
+            </div>
           </div>
 
           {/* Rodapé: Nível e CTA */}
@@ -813,6 +828,13 @@ export default function HomePage() {
               <span className="bg-surface-2 border border-zinc-800 text-zinc-300 text-xs font-mono px-2 py-0.5 rounded-md">Next.js 14</span>
               <span className="bg-surface-2 border border-zinc-800 text-zinc-300 text-xs font-mono px-2 py-0.5 rounded-md">TypeScript</span>
               <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono px-2 py-0.5 rounded-md">Tailwind CSS</span>
+            </div>
+
+            {/* Sprint 6 — números da ementa oficial do produto
+                (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 3) */}
+            <div className="mb-4 space-y-1 border-t border-zinc-800/60 pt-3 font-mono text-xs text-zinc-400">
+              <div>3 módulos · 3 desafios práticos</div>
+              <div>Projeto final: <span className="font-bold text-zinc-200">Web IDE Colaborativa em Tempo Real</span></div>
             </div>
           </div>
 
@@ -880,6 +902,13 @@ export default function HomePage() {
               <span className="bg-surface-2 border border-zinc-800 text-zinc-300 text-xs font-mono px-2 py-0.5 rounded-md">LangChain</span>
               <span className="bg-brand-purple/10 border border-brand-purple/30 text-brand-purple-light text-xs font-mono px-2 py-0.5 rounded-md">Automações</span>
             </div>
+
+            {/* Sprint 6 — números da ementa oficial do produto
+                (CURRICULUM-AND-PEDAGOGY-SPEC.md, seção 3, Trilha 4) */}
+            <div className="mb-4 space-y-1 border-t border-zinc-800/60 pt-3 font-mono text-xs text-zinc-400">
+              <div>3 módulos · 3 desafios práticos</div>
+              <div>Projeto final: <span className="font-bold text-zinc-200">Autonomous Socratic Code Reviewer</span></div>
+            </div>
           </div>
 
           {/* Rodapé: Nível e CTA */}
@@ -905,91 +934,6 @@ export default function HomePage() {
       </div>
     </div>
   </section>
-
-
-
-  {/* 4. METODOLOGIA COM LASER BEAMS NA ORDEM EXATA DA MARCA (ROXO, CIANO, VERDE) */}
-  <section id="metodologia" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
-    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
-      <div className="max-w-2xl text-left">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-purple-300 text-xs font-mono font-bold mb-3">
-          <IconCpu className="w-4 h-4" />
-          <span>CIÊNCIA COGNITIVA // APRENDIZADO ATIVO</span>
-        </div>
-        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-          Como Você Aprende de Verdade
-        </h2>
-        <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-sans">
-          Quem aprende depurando código real fixa o conteúdo de um jeito que aula passiva não fixa. Combinamos feedback determinístico de testes com tutoria socrática: você escreve, o sistema corrige na hora e a tutora guia o seu raciocínio.
-        </p>
-      </div>
-
-      <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end gap-2 text-xs font-mono">
-        <div className="px-4 py-2 rounded-xl bg-purple-950/30 border border-purple-500/30 text-purple-300 font-bold flex items-center gap-2">
-          <IconTarget className="w-4 h-4" />
-          <span>TAXONOMIA DE BLOOM: NÍVEIS 1 A 5</span>
-        </div>
-        <span className="text-xs text-zinc-400">RETENÇÃO BASEADA EM FEEDBACK IMEDIATO</span>
-      </div>
-    </div>
-
-    {/* 3 ETAPAS DA JORNADA NAS CORES DA MARCA (ROXO -> CIANO -> VERDE) */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      {/* 01: Roxo */}
-      <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 relative flex flex-col justify-between">
-        <div className="top-laser-beam bg-brand-purple"></div>
-        <div>
-          <div className="w-12 h-12 rounded-xl bg-background border border-border-2 flex items-center justify-center font-mono font-bold text-lg text-brand-purple-light mb-5">
-            01
-          </div>
-          <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Desafios Práticos do Mundo Real</h3>
-          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-            Você recebe objetivos práticos com explicações simples e claras, entendendo exatamente o que precisa construir e o porquê de cada linha de código.
-          </p>
-        </div>
-        <div className="mt-5 pt-3 border-t border-border-2 text-xs font-mono text-brand-purple-light">
-          ✔ Aprendizado com propósito
-        </div>
-      </div>
-
-      {/* 02: Ciano */}
-      <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 relative flex flex-col justify-between">
-        <div className="top-laser-beam bg-brand-cyan-neon"></div>
-        <div>
-          <div className="w-12 h-12 rounded-xl bg-background border border-border-2 flex items-center justify-center font-mono font-bold text-lg text-brand-cyan-neon mb-5">
-            02
-          </div>
-          <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Código Direto no Navegador</h3>
-          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-            Nada de perder horas configurando ferramentas complexas no seu computador. Escreva, teste e execute seu código direto pelo navegador, sem travar.
-          </p>
-        </div>
-        <div className="mt-5 pt-3 border-t border-border-2 text-xs font-mono text-brand-cyan-neon">
-          ✔ Zero instalação ou dores de cabeça
-        </div>
-      </div>
-
-      {/* 03: Verde Neon */}
-      <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 relative flex flex-col justify-between">
-        <div className="top-laser-beam bg-brand-green-neon"></div>
-        <div>
-          <div className="w-12 h-12 rounded-xl bg-background border border-border-2 flex items-center justify-center font-mono font-bold text-lg text-brand-green-neon mb-5">
-            03
-          </div>
-          <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Correção na Hora & Dicas Amigáveis</h3>
-          <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
-            Seu código é corrigido imediatamente. Se você travar ou esquecer um comando, nosso tutor inteligente te dá dicas amigáveis passo a passo para achar a solução.
-          </p>
-        </div>
-        <div className="mt-5 pt-3 border-t border-border-2 text-xs font-mono text-brand-green-neon">
-          ✔ Evolução sem frustração
-        </div>
-      </div>
-
-    </div>
-  </section>
-
   {/* 5. TERMINAL INTERATIVO COM AS CORES DA PÁGINA PRINCIPAL */}
   <section id="sandbox" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
@@ -1162,8 +1106,84 @@ export default function HomePage() {
       </Link>
     </div>
 </section>
+  {/* OS 4 PILARES DA NEXUS CODE (GRID BENTO) */}
+  <NexusPillarsGrid />
+  {/* SHOWCASE DOS CARDS TCG HOLOGRÁFICOS 3D */}
+  <TcgCardsShowcase />
+  {/* O COMPARATIVO BRUTAL: VELHO MUNDO VS ARENA NEXUS */}
+  <ComparisonVersus />
+  {/* TRUST BANNER: INFRAESTRUTURA DE MISSÃO CRÍTICA & PILHAS BIG TECH (ASYMMETRIC SPLIT) */}
+  <section className="relative py-16 border-y border-border-1 bg-surface-1">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        {/* Coluna Esquerda: Contexto de Engenharia */}
+        <div className="lg:col-span-4 text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-2 border border-border-1 text-cyan-400 text-xs font-mono mb-3">
+            <IconShield className="w-4 h-4" />
+            <span>TECNOLOGIAS DO CURSO</span>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-heading font-black text-ink-heading tracking-tight mb-3">
+            As tecnologias que o mercado usa
+          </h3>
+          <p className="text-xs sm:text-sm font-sans text-zinc-400 leading-relaxed">
+            Sem simulações simplórias. Você constrói soluções nas mesmas linguagens compiladas e runtimes isolados que sustentam a infraestrutura moderna de Big Techs.
+          </p>
+        </div>
 
-  {/* 6. PLANOS E PREÇOS: DESTAQUE NO PLANO PRO EM ROXO */}
+        {/* Coluna Direita: Grid de Tecnologias Distribuído */}
+        <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-amber-500/50 flex items-center gap-3 transition-all group">
+            <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconGear className="w-7 h-7" /></span>
+            <div className="text-left font-mono">
+              <div className="text-xs font-bold text-ink-heading">Rust 1.78</div>
+              <div className="text-xs text-zinc-500">Zero-Cost Memory</div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-cyan-500/50 flex items-center gap-3 transition-all group">
+            <span className="text-brand-cyan-neon group-hover:scale-110 transition-transform"><IconNodes className="w-7 h-7" /></span>
+            <div className="text-left font-mono">
+              <div className="text-xs font-bold text-ink-heading">Go 1.22</div>
+              <div className="text-xs text-zinc-500">Goroutines & Canais</div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-blue-500/50 flex items-center gap-3 transition-all group">
+            <span className="text-brand-cyan group-hover:scale-110 transition-transform"><IconBolt className="w-7 h-7" /></span>
+            <div className="text-left font-mono">
+              <div className="text-xs font-bold text-ink-heading">TypeScript 5.4</div>
+              <div className="text-xs text-zinc-500">Type Soundness</div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-yellow-500/50 flex items-center gap-3 transition-all group">
+            <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconCode className="w-7 h-7" /></span>
+            <div className="text-left font-mono">
+              <div className="text-xs font-bold text-ink-heading">Python 3.12</div>
+              <div className="text-xs text-zinc-500">IA & RAG Pipelines</div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-rose-500/50 flex items-center gap-3 transition-all group">
+            <span className="text-brand-rose group-hover:scale-110 transition-transform"><IconTerminal className="w-7 h-7" /></span>
+            <div className="text-left font-mono">
+              <div className="text-xs font-bold text-ink-heading">Linux cgroups-v2</div>
+              <div className="text-xs text-zinc-500">Containers Isolados</div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-emerald-500/50 flex items-center gap-3 transition-all group">
+            <span className="text-brand-green-neon group-hover:scale-110 transition-transform"><IconGitBranch className="w-7 h-7" /></span>
+            <div className="text-left font-mono">
+              <div className="text-xs font-bold text-ink-heading">Gitea Git Real</div>
+              <div className="text-xs text-zinc-500">Hash SHA-256</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {/* 10. PLANOS E PREÇOS: DESTAQUE NO PLANO PRO EM ROXO */}
   <section id="precos" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
       <div className="max-w-2xl text-left">
@@ -1172,7 +1192,7 @@ export default function HomePage() {
           <span>PLANOS ACESSÍVEIS & TRANSPARENTES</span>
         </div>
         <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-          Acesso Total à Engenharia
+          Comece grátis. Pague só quando avançar.
         </h2>
         <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-sans">
           Investimento direto na sua independência técnica. Sem contratos amarrados, cancele a qualquer momento com 1 clique.
@@ -1299,16 +1319,18 @@ export default function HomePage() {
         </div>
         {/* Staff é contato comercial (ação genuinamente outra): cta_id e
             intenção próprios, tratamento secundário em roxo — não divide o
-            funil de cadastro genérico (Sprint 5) */}
-        <Link href="/register" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-xs font-mono font-bold text-center border border-brand-purple/60 transition-colors">
+            funil de cadastro genérico (Sprint 5).
+            Sprint 6 — o rótulo agora tem destino REAL: a página /contato
+            (formulário próprio com endpoint na API), não mais o /register
+            disfarçado de contato. */}
+        <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-xs font-mono font-bold text-center border border-brand-purple/60 transition-colors">
           Falar com Engenharia
         </Link>
       </div>
 
     </div>
   </section>
-
-    {/* 7. FAQ: PERGUNTAS FREQUENTES */}
+    {/* 11. FAQ: PERGUNTAS FREQUENTES */}
   <section id="faq" className="relative z-10 py-28 px-6 sm:px-8 max-w-6xl mx-auto border-t border-border-2/70 overflow-hidden">
     {/* Auras de iluminação colorida de fundo */}
     <div className="pointer-events-none absolute -top-32 left-10 w-96 h-96 bg-brand-purple/15 rounded-full blur-3xl"></div>
@@ -1495,8 +1517,7 @@ export default function HomePage() {
       </a>
     </div>
   </section>
-
-  {/* 8. CTA FINAL EM SPLIT ASSIMÉTRICO */}
+  {/* 12. CTA FINAL EM SPLIT ASSIMÉTRICO */}
   <section className="relative z-10 py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
     <div className="relative rounded-3xl bg-gradient-to-br from-surface-2 via-surface-1 to-background border border-white/[0.1] p-8 sm:p-14 overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.8)]">
       {/* Laser beam na ordem exata da marca: Roxo -> Ciano -> Verde */}
@@ -1584,7 +1605,6 @@ export default function HomePage() {
       </div>
     </div>
   </section>
-
       {/* FOOTER CLEAN, ESPAÇOSO E MINIMALISTA */}
   <footer className="relative z-10 border-t border-border-2 bg-background py-20 px-6 sm:px-12 overflow-hidden">
     {/* Linha laser superior minimalista */}
@@ -1710,7 +1730,11 @@ export default function HomePage() {
             </h4>
             <ul className="space-y-3 text-sm font-sans">
               <li>
-                <a href="/register" data-cta-id="footer_register" onClick={() => track('nav_cta', 'footer_register')} className="text-zinc-400 hover:text-ink-heading transition-colors">
+                {/* Sprint 6 (D2 do QA) — o cadastro do rodapé ganha o
+                    tratamento das demais superfícies de conta (botão com
+                    borda da marca, como o secundário do Staff), não um
+                    link de texto perdido entre os links comuns */}
+                <a href="/register" data-cta-id="footer_register" onClick={() => track('nav_cta', 'footer_register')} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 -ml-3.5 rounded-lg border border-brand-purple/50 text-brand-purple-light hover:bg-brand-purple hover:text-white font-semibold transition-colors">
                   Começar grátis agora
                 </a>
               </li>
@@ -1752,7 +1776,6 @@ export default function HomePage() {
       </div>
     </div>
   </footer>
-
 
       </div>
     </div>

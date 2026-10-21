@@ -80,10 +80,10 @@ export const NexusPillarsGrid: React.FC = () => {
         <div className="max-w-2xl text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-cyan-300 text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <IconBolt className="w-5 h-5" />
-            <span>ARQUITETURA DE PLATAFORMA // 4 PILARES</span>
+            <span>POR DENTRO DA PLATAFORMA // 4 PILARES</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-            A Engenharia por Trás do Jogo
+            Quatro apoios para você chegar ao mercado
           </h2>
           <p className="text-base sm:text-lg text-zinc-300 font-sans leading-relaxed">
             Unimos o melhor do design de jogos clássicos à arquitetura de software contemporânea
