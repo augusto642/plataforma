@@ -35,13 +35,25 @@ export class AnalyticsService {
   // Agregações por coluna usam groupBy; a quebra por campanha lê o JSON
   // de props dos signup_success (a campanha viaja nas props do evento,
   // espelhando as UTMs gravadas na conta).
+  // Sprint 8 — a leitura ganha o meio do funil: totais da Missão 1
+  // (started/completed/failed/skipped), visualizações por etapa do
+  // prólogo (props.step dos onboarding_step_viewed, via $queryRaw como
+  // a campanha) e cadastros por PORTA (ctaId do signup_success:
+  // register_submit × onboarding_save), para a página admin montar as
+  // taxas pageview → CTA → Missão 1 → vitória → cadastro → 1ª atividade.
   async getFunnelSummary(): Promise<{
     totalsByEvent: Record<string, number>;
     clicksByCta: Array<{ event: string; ctaId: string; count: number }>;
     signupsByCampaign: Array<{ campaign: string; count: number }>;
+    signupsByDoor: Array<{ door: string; count: number }>;
+    mission: { started: number; completed: number; failed: number; skipped: number };
+    onboarding: {
+      steps: Array<{ step: string; count: number }>;
+      resumed: number;
+    };
     uniqueVisitors: number;
   }> {
-    const [byEvent, byCta, campaignRows, visitorRows] = await Promise.all([
+    const [byEvent, byCta, campaignRows, visitorRows, stepRows] = await Promise.all([
       this.prisma.analyticsEvent.groupBy({
         by: ['event'],
         _count: { _all: true },
@@ -63,21 +75,49 @@ export class AnalyticsService {
         FROM analytics_events
         WHERE event = 'pageview' AND visitor_id IS NOT NULL
       `,
+      this.prisma.$queryRaw<Array<{ step: string | null; count: number }>>`
+        SELECT props ->> 'step' AS step, COUNT(*)::int AS count
+        FROM analytics_events
+        WHERE event = 'onboarding_step_viewed'
+        GROUP BY props ->> 'step'
+        ORDER BY count DESC
+      `,
     ]);
 
+    const totalsByEvent: Record<string, number> = Object.fromEntries(
+      byEvent.map((row) => [row.event, row._count._all]),
+    );
+    const clicksByCta = byCta.map((row) => ({
+      event: row.event,
+      ctaId: row.ctaId as string,
+      count: row._count._all,
+    }));
+
     return {
-      totalsByEvent: Object.fromEntries(
-        byEvent.map((row) => [row.event, row._count._all]),
-      ),
-      clicksByCta: byCta.map((row) => ({
-        event: row.event,
-        ctaId: row.ctaId as string,
-        count: row._count._all,
-      })),
+      totalsByEvent,
+      clicksByCta,
       signupsByCampaign: campaignRows.map((row) => ({
         campaign: row.campaign ?? '(sem campanha)',
         count: Number(row.count),
       })),
+      // Porta = ctaId do signup_success (o groupBy por evento+ctaId já
+      // traz essas linhas; aqui elas viram a quebra nomeada da leitura).
+      signupsByDoor: clicksByCta
+        .filter((row) => row.event === 'signup_success')
+        .map((row) => ({ door: row.ctaId, count: row.count })),
+      mission: {
+        started: totalsByEvent['mission_started'] ?? 0,
+        completed: totalsByEvent['mission_completed'] ?? 0,
+        failed: totalsByEvent['mission_failed'] ?? 0,
+        skipped: totalsByEvent['mission_skipped'] ?? 0,
+      },
+      onboarding: {
+        steps: stepRows.map((row) => ({
+          step: row.step ?? '(sem etapa)',
+          count: Number(row.count),
+        })),
+        resumed: totalsByEvent['onboarding_resumed'] ?? 0,
+      },
       uniqueVisitors: Number(visitorRows[0]?.count ?? 0),
     };
   }

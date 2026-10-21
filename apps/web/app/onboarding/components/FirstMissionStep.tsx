@@ -23,6 +23,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useGameStore, Skill } from '../../game/stores/useGameStore';
 import { CodeBattleModal } from '../../game/components/CodeBattleModal';
 import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
+// Sprint 8 — a Missão 1 sai da caixa-preta: os 4 desfechos viram eventos
+// do funil (started/completed/failed/skipped). São só hooks de medição
+// ao redor da engine — nenhuma regra de batalha muda por causa deles.
+import { track } from '../../lib/analytics';
 
 interface FirstMissionStepProps {
   /** Missão concluída (ou pulada): segue para a próxima etapa do
@@ -50,6 +54,11 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
   );
   const [activeCodeSkill, setActiveCodeSkill] = useState<Skill | null>(null);
   const skippingRef = useRef(false);
+  // Sprint 8 — contagem de tentativas e guarda de desfecho: cada batalha
+  // iniciada emite UM started; o desfecho (completed/failed) é contado
+  // uma vez por tentativa, mesmo se o efeito re-renderizar.
+  const attemptRef = useRef(0);
+  const outcomeCountedRef = useRef(false);
 
   const audio = AudioSynthesizer.getInstance();
 
@@ -65,8 +74,26 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
         bitsEarned: currentBattle.enemy.bitsReward,
       });
       setPhase('won');
+      if (!outcomeCountedRef.current) {
+        outcomeCountedRef.current = true;
+        track('mission_completed', undefined, {
+          source: 'onboarding',
+          starter: useGameStore.getState().selectedStarter.id,
+          attempt: attemptRef.current,
+          result: 'won',
+        });
+      }
     } else if (currentBattle.winner === 'enemy') {
       setPhase('lost');
+      if (!outcomeCountedRef.current) {
+        outcomeCountedRef.current = true;
+        track('mission_failed', undefined, {
+          source: 'onboarding',
+          starter: useGameStore.getState().selectedStarter.id,
+          attempt: attemptRef.current,
+          result: 'lost',
+        });
+      }
     }
   }, [currentBattle, setFirstMission]);
 
@@ -94,14 +121,49 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
     restoreHpFull();
     startBattle();
     setPhase('battle');
+    // Sprint 8 — início da batalha (cada tentativa conta, com o número
+    // dela nas props: retry não se disfarça de primeira tentativa).
+    attemptRef.current += 1;
+    outcomeCountedRef.current = false;
+    track('mission_started', undefined, {
+      source: 'onboarding',
+      starter: useGameStore.getState().selectedStarter.id,
+      attempt: attemptRef.current,
+    });
     void audio.playTone({ frequency: 520, duration: 0.1, type: 'square' });
+  };
+
+  // Sprint 8 — pular NÃO é um evento só: a props `attempted` separa
+  // quem pulou ANTES de tentar (intro) de quem abandonou DEPOIS de
+  // tentar (batalha em curso ou derrota) — são fricções diferentes.
+  const handleSkipIntro = () => {
+    track('mission_skipped', undefined, {
+      source: 'onboarding',
+      attempted: false,
+      phase: 'intro',
+    });
+    onComplete();
   };
 
   const handleSkip = () => {
     skippingRef.current = true;
+    track('mission_skipped', undefined, {
+      source: 'onboarding',
+      attempted: true,
+      phase: 'battle',
+    });
     if (currentBattle && !currentBattle.isFinished) {
       fleeBattle();
     }
+    onComplete();
+  };
+
+  const handleContinueAfterLoss = () => {
+    track('mission_skipped', undefined, {
+      source: 'onboarding',
+      attempted: true,
+      phase: 'lost',
+    });
     onComplete();
   };
 
@@ -141,7 +203,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
           <div className="mt-5 text-center">
             <button
               type="button"
-              onClick={onComplete}
+              onClick={handleSkipIntro}
               className="font-mono text-xs font-bold text-slate-400 underline-offset-4 transition hover:text-slate-200 hover:underline"
             >
               Pular por agora →
@@ -305,7 +367,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             </button>
             <button
               type="button"
-              onClick={onComplete}
+              onClick={handleContinueAfterLoss}
               className="font-mono text-xs font-bold text-slate-400 underline-offset-4 transition hover:text-slate-200 hover:underline"
             >
               Continuar sem concluir →
@@ -330,6 +392,18 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             if (currentHp - damageReceived <= 0) {
               fleeBattle();
               setPhase('lost');
+              // Sprint 8 — esta derrota NÃO passa pelo efeito de
+              // desfecho (a batalha é abandonada, não finalizada):
+              // o evento de falha é emitido aqui, uma vez por tentativa.
+              if (!outcomeCountedRef.current) {
+                outcomeCountedRef.current = true;
+                track('mission_failed', undefined, {
+                  source: 'onboarding',
+                  starter: useGameStore.getState().selectedStarter.id,
+                  attempt: attemptRef.current,
+                  result: 'lost',
+                });
+              }
             }
           }}
           onClose={() => setActiveCodeSkill(null)}

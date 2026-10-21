@@ -16,6 +16,9 @@ import { API_BASE } from './apiClient';
 // daqui: a API rejeita eventos fora do catálogo.
 // Sprint 5 — topo e fundo do funil: pageview (com visitorId persistente),
 // diagnóstico (started/completed) e primeira atividade concluída.
+// Sprint 8 — o meio do funil: os 4 desfechos da Missão 1 do prólogo e a
+// leitura por etapa (step_viewed/resumed), emitidos por
+// onboarding/page.tsx e onboarding/components/FirstMissionStep.tsx.
 export type FunnelEvent =
   | 'pageview'
   | 'hero_cta'
@@ -27,6 +30,12 @@ export type FunnelEvent =
   | 'final_cta'
   | 'diagnostic_started'
   | 'diagnostic_completed'
+  | 'mission_started'
+  | 'mission_completed'
+  | 'mission_failed'
+  | 'mission_skipped'
+  | 'onboarding_step_viewed'
+  | 'onboarding_resumed'
   | 'signup_submit'
   | 'signup_success'
   | 'first_activity_completed';

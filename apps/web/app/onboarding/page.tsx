@@ -24,7 +24,9 @@ import React, { useState, useEffect, useRef } from 'react';
 // B11 — esta porta também captura a atribuição na chegada (a lib é única)
 import { captureUtmFromUrl } from '../lib/attribution';
 // Sprint 5 — pageview do funil (B08 completo)
-import { trackPageview } from '../lib/analytics';
+// Sprint 8 — + leitura por etapa (onboarding_step_viewed) e retomada
+// (onboarding_resumed): o prólogo deixa de ser caixa-preta no funil
+import { track, trackPageview } from '../lib/analytics';
 // Sprint 6 — escolhas do prólogo persistem entre sessões (D3)
 // Sprint 7 — a etapa atual entra no mesmo espelho (retomada)
 import {
@@ -68,21 +70,49 @@ export default function OnboardingPage(): JSX.Element {
   // terminou: conta salva → primeira missão na IDE; convidado → /game.
   const [finalizeTarget, setFinalizeTarget] = useState<'ide' | 'game'>('game');
 
+  // Sprint 8 — refs da mensuração por etapa: a hidratação marca a
+  // etapa restaurada para o efeito de step_viewed não contar a render
+  // pré-hidratação ('mascot') como visualização de quem retomou.
+  const restoredStepRef = useRef<OnboardingStepName | null>(null);
+  const hydratedRef = useRef(false);
+  const viewedStepRef = useRef<string | null>(null);
+
   // Sprint 6 (D3) — hidrata as escolhas persistidas na montagem: quem
   // fechou a aba no meio do prólogo volta com codename, starter, nível
   // e resultado da Missão 1 intactos.
   // Sprint 7 — e volta NA ETAPA SALVA: a retomada restaura também o
   // ponto do corredor onde a pessoa parou.
+  // Sprint 8 — retomar uma etapa salva é evento do funil
+  // (onboarding_resumed); na primeira visita não há o que retomar.
   useEffect(() => {
     const saved = readOnboardingChoices();
-    if (!saved) return;
-    const store = useGameStore.getState();
-    if (saved.codename) store.setPlayerName(saved.codename);
-    if (saved.starterId) store.setStarter(saved.starterId);
-    if (saved.careerTier) store.setCareerTier(saved.careerTier);
-    if (saved.firstMission) store.setFirstMission(saved.firstMission);
-    if (saved.step) setCurrentStep(saved.step);
+    if (saved) {
+      const store = useGameStore.getState();
+      if (saved.codename) store.setPlayerName(saved.codename);
+      if (saved.starterId) store.setStarter(saved.starterId);
+      if (saved.careerTier) store.setCareerTier(saved.careerTier);
+      if (saved.firstMission) store.setFirstMission(saved.firstMission);
+      if (saved.step) {
+        restoredStepRef.current = saved.step;
+        setCurrentStep(saved.step);
+        track('onboarding_resumed', undefined, { step: saved.step, source: 'onboarding' });
+      }
+    }
+    hydratedRef.current = true;
   }, []);
+
+  // Sprint 8 — visualização por etapa do prólogo: dispara na etapa
+  // hidratada e a cada transição (inclusive revisitas pelos indicadores
+  // de passo), nunca na render pré-hidratação de uma sessão retomada.
+  useEffect(() => {
+    if (!hydratedRef.current || currentStep === 'complete') return;
+    const restored = restoredStepRef.current;
+    if (restored && restored !== currentStep) return;
+    if (restored === currentStep) restoredStepRef.current = null;
+    if (viewedStepRef.current === currentStep) return;
+    viewedStepRef.current = currentStep;
+    track('onboarding_step_viewed', undefined, { step: currentStep, source: 'onboarding' });
+  }, [currentStep]);
 
   // Sprint 7 — a etapa vigente acompanha cada gravação do espelho:
   // o subscribe do store lê o step deste ref, e o efeito do step

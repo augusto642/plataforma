@@ -19,6 +19,12 @@ import {
 // Sprint 5 — o catálogo ganha o topo e o fundo do funil: pageview (com
 // visitorId persistente), o quiz diagnóstico (started/completed) e a
 // primeira atividade concluída na IDE, para a leitura do funil fechar.
+// Sprint 8 — o MEIO do funil: até aqui a Missão 1 do prólogo era uma
+// caixa-preta (o Growth apontou em duas rodadas: zero eventos entre o
+// pageview do /onboarding e o signup). Entram os 4 desfechos da missão
+// (started/completed/failed/skipped — skipped distingue, via props,
+// pular antes de tentar de abandonar depois de tentar) e a leitura por
+// etapa do prólogo (step_viewed com props.step + resumed na retomada).
 export const FUNNEL_EVENTS = [
   'pageview',
   'hero_cta',
@@ -30,6 +36,12 @@ export const FUNNEL_EVENTS = [
   'final_cta',
   'diagnostic_started',
   'diagnostic_completed',
+  'mission_started',
+  'mission_completed',
+  'mission_failed',
+  'mission_skipped',
+  'onboarding_step_viewed',
+  'onboarding_resumed',
   'signup_submit',
   'signup_success',
   'first_activity_completed',
