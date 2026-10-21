@@ -3,7 +3,7 @@ export type UserStatus = 'active' | 'suspended';
 export type SeverityLevel = 'info' | 'warn' | 'critical';
 export type CourseStatus = 'published' | 'draft' | 'archived';
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
-export type AdminTab = 'overview' | 'users' | 'instructors' | 'courses' | 'system' | 'audit';
+export type AdminTab = 'overview' | 'funnel' | 'users' | 'instructors' | 'courses' | 'system' | 'audit';
 
 export interface AdminUser {
   id: string;

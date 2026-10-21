@@ -26,6 +26,7 @@ import {
 import { AdminSidebar } from './components/AdminSidebar';
 import { AdminTopbar } from './components/AdminTopbar';
 import { AdminOverviewTab } from './components/AdminOverviewTab';
+import { AdminFunnelTab } from './components/AdminFunnelTab';
 import { AdminUsersTab } from './components/AdminUsersTab';
 import { AdminInstructorsTab } from './components/AdminInstructorsTab';
 import { AdminCoursesTab } from './components/AdminCoursesTab';
@@ -352,6 +353,8 @@ export default function AdminDashboardPage() {
               }}
             />
           )}
+
+          {currentTab === 'funnel' && <AdminFunnelTab />}
 
           {currentTab === 'users' && (
             <AdminUsersTab
