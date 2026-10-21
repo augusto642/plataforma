@@ -16,8 +16,8 @@ import { captureUtmFromUrl, savePlanIntent } from './lib/attribution';
 import { track, trackPageview } from './lib/analytics';
 // Frente 3 — ícones SVG únicos da landing (fim do emoji como sistema)
 import {
-  IconBolt, IconBox, IconCard, IconChart, IconChat, IconClose, IconCode,
-  IconCpu, IconGamepad, IconGear, IconGitBranch, IconGithub, IconKey, IconLogoMark,
+  IconBolt, IconBox, IconCard, IconCards, IconChart, IconChat, IconClose, IconCode,
+  IconChevronDown, IconCpu, IconGamepad, IconGear, IconGitBranch, IconGithub, IconKey, IconLogoMark,
   IconMap, IconMenu, IconMonitor, IconNodes, IconPlay, IconRocket,
   IconSearch, IconShield, IconShieldCheck, IconSparkle, IconSpeech,
   IconSun, IconTarget, IconTerminal,
@@ -159,6 +159,8 @@ export default function HomePage() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandSearchQuery, setCommandSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Sprint 9 — dropdown "Jogo" da navbar enxuta (desktop)
+  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
 
   // B11 — a atribuição nasce na chegada: UTMs da URL da landing são
   // persistidos aqui, para qualquer porta de cadastro (register ou
@@ -253,8 +255,11 @@ export default function HomePage() {
           <nav className="hidden md:flex items-center justify-center gap-6 lg:gap-8 xl:gap-10 text-[15px] font-semibold text-ink-body">
             {/* Sprint 7 — a navbar segue a ORDEM DA OFERTA (a mesma das
                 seções da página): Como Funciona → Trilhas → Terminal →
-                Planos → Dúvidas. Os links do jogo vêm depois, mantido o
-                tratamento comum da Sprint 6 (D1: sem neon, sem destaque) */}
+                Planos → Dúvidas.
+                Sprint 9 — navbar enxuta: os 3 links do jogo (Modo RPG 2D,
+                Criar Avatar, Cards TCG) saíram da barra principal e
+                moram num único item "Jogo" (dropdown simples), pra barra
+                ter 6 itens e a oferta liderar sozinha */}
             <a href="#metodologia" className="hover:text-ink-heading transition-colors">Como Funciona</a>
             <a href="#trilhas" className="hover:text-ink-heading transition-colors">Trilhas</a>
             <a href="#sandbox" className="hover:text-ink-heading transition-colors flex items-center gap-2">
@@ -266,15 +271,37 @@ export default function HomePage() {
             </a>
             <a href="#precos" className="hover:text-ink-heading transition-colors">Planos</a>
             <a href="#faq" className="hover:text-ink-heading transition-colors">Dúvidas</a>
-            <Link href="/game" className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
-              <IconGamepad className="w-5 h-5" />
-              <span>Modo RPG 2D</span>
-            </Link>
-            <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => track('nav_cta', 'nav_avatar')} className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
-              <IconSparkle className="w-5 h-5" />
-              <span>Criar Avatar</span>
-            </Link>
-            <a href="#colecionaveis" className="hover:text-ink-heading transition-colors">Cards TCG</a>
+            <div className="relative" onMouseLeave={() => setIsGameMenuOpen(false)}>
+              <button
+                type="button"
+                onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
+                aria-expanded={isGameMenuOpen}
+                aria-haspopup="true"
+                className="hover:text-ink-heading transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <IconGamepad className="w-5 h-5" />
+                <span>Jogo</span>
+                <IconChevronDown className={`w-4 h-4 transition-transform ${isGameMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isGameMenuOpen && (
+                <div className="absolute right-0 top-full pt-3 z-50">
+                  <div className="w-52 rounded-2xl bg-surface-1 border border-border-1 shadow-elev-sm p-2 flex flex-col">
+                    <Link href="/game" onClick={() => setIsGameMenuOpen(false)} className="px-3 py-2.5 rounded-xl text-sm text-ink-body hover:text-ink-heading hover:bg-surface-2 transition-colors flex items-center gap-2">
+                      <IconGamepad className="w-5 h-5 shrink-0" />
+                      <span>Modo RPG 2D</span>
+                    </Link>
+                    <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => { track('nav_cta', 'nav_avatar'); setIsGameMenuOpen(false); }} className="px-3 py-2.5 rounded-xl text-sm text-ink-body hover:text-ink-heading hover:bg-surface-2 transition-colors flex items-center gap-2">
+                      <IconSparkle className="w-5 h-5 shrink-0" />
+                      <span>Criar Avatar</span>
+                    </Link>
+                    <a href="#colecionaveis" onClick={() => setIsGameMenuOpen(false)} className="px-3 py-2.5 rounded-xl text-sm text-ink-body hover:text-ink-heading hover:bg-surface-2 transition-colors flex items-center gap-2">
+                      <IconCards className="w-5 h-5 shrink-0" />
+                      <span>Cards TCG</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           </nav>
 
           {/* Botões do Navbar na Direita */}
@@ -332,15 +359,23 @@ export default function HomePage() {
             <a href="#faq" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
               Perguntas Frequentes
             </a>
-            <Link href="/game" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              Modo RPG 2D
-            </Link>
-            <Link href="/onboarding" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              Criar Avatar
-            </Link>
-            <a href="#colecionaveis" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              Cards TCG
-            </a>
+            {/* Sprint 9 — no drawer, os links do jogo viram um grupo
+                rotulado "Jogo" (mesma lógica do dropdown do desktop):
+                a oferta lidera e o jogo fica a um nível de distância */}
+            <div className="pt-2 mt-1 border-t border-border-1">
+              <span className="block text-xs font-mono font-bold uppercase tracking-wider text-ink-span py-1.5">Jogo</span>
+              <div className="flex flex-col pl-3">
+                <Link href="/game" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+                  Modo RPG 2D
+                </Link>
+                <Link href="/onboarding" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+                  Criar Avatar
+                </Link>
+                <a href="#colecionaveis" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+                  Cards TCG
+                </a>
+              </div>
+            </div>
             <div className="pt-3 border-t border-border-1 flex items-center justify-between gap-3">
               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-body-sm font-semibold text-ink-body hover:text-ink-heading py-2">
                 Entrar

@@ -230,6 +230,10 @@ export const IconCards: React.FC<IconProps> = (p) =>
 export const IconMenu: React.FC<IconProps> = (p) =>
   base(p, <path d="M4 6h16M4 12h16M4 18h16" />);
 
+// Sprint 9 — chevron do item "Jogo" da navbar enxuta (dropdown simples)
+export const IconChevronDown: React.FC<IconProps> = (p) =>
+  base(p, <path d="m6 9 6 6 6-6" />);
+
 export const IconClose: React.FC<IconProps> = (p) =>
   base(p, <path d="M18 6L6 18M6 6l12 12" />);
 
