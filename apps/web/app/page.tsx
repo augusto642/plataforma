@@ -415,18 +415,18 @@ export default function HomePage() {
         {/* HEADLINE H1: OS TRÊS TEMPOS — COMEÇA JOGANDO, EVOLUI COM VOCÊ, CHEGA AO MERCADO */}
         <h1 className="hero-rise font-heading text-5xl sm:text-6xl xl:text-7xl font-black tracking-tight text-ink-heading leading-[1.05] mb-6" style={{ animationDelay: '90ms' }}>
           Aprenda programação <span className="text-brand-purple">jogando</span>.
-          Evolua até o <span className="text-brand-purple">mercado de tecnologia</span>.
+          Suba de nível até o <span className="text-brand-purple">mercado de tecnologia</span>.
         </h1>
 
         {/* SUBHEADLINE: O ARCO INTEIRO, EM FRASES VERIFICÁVEIS */}
         <p className="hero-rise font-sans text-base sm:text-lg text-ink-body leading-relaxed mb-4 max-w-xl" style={{ animationDelay: '180ms' }}>
-          Você começa em missões em formato de jogo, escrevendo código de verdade — até em <strong className="text-ink-heading">Portugol</strong>, sem instalar nada.
-          A plataforma <strong className="text-ink-heading">evolui com você</strong>: projetos guiados, a IDE completa e, no fim, um portfólio que o mercado pode verificar.
+          Você escreve código de verdade, em português, direto no navegador — sem instalar nada e sem videoaula infinita.
+          A plataforma <strong className="text-ink-heading">evolui com você</strong>: as missões viram projetos guiados, os projetos viram a IDE completa — e a jornada termina num portfólio que o mercado pode verificar.
         </p>
 
         {/* A GUIA PRESENTE EM TODOS OS ESTÁGIOS */}
         <p className="hero-rise text-sm text-ink-span font-sans mb-8" style={{ animationDelay: '240ms' }}>
-          A <strong className="text-brand-purple-light">Lumi</strong> guia cada etapa — do primeiro comando ao portfólio, com perguntas e dicas. A resposta pronta, nunca.
+          Nossa <strong className="text-brand-purple-light">tutora de IA</strong> acompanha cada etapa — do primeiro comando ao portfólio — com perguntas e dicas em 3 níveis. A resposta pronta, nunca.
         </p>
 
         {/* AÇÃO: UM CTA PRIMÁRIO (ROXO SÓLIDO) + O QUIZ COMO CAMINHO DE BAIXO COMPROMISSO */}
@@ -465,7 +465,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Português, até em Portugol</span>
+              <span>100% em português</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
@@ -489,7 +489,7 @@ export default function HomePage() {
 
     </div>
 
-    {/* DEMONSTRAÇÃO DO MASCOTE LUMI COM TUTORIA SOCRÁTICA */}
+    {/* DEMONSTRAÇÃO DA TUTORA DE IA COM MÉTODO SOCRÁTICO (SEÇÃO SEPARADA, ABAIXO DO HERO) */}
     <LumiMascotHero />
 
   </section>

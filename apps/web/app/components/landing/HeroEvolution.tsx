@@ -23,28 +23,28 @@ const STAGES: StageMeta[] = [
     level: 'NÍVEL 1',
     name: 'Iniciante',
     short: 'O jogo',
-    desc: 'Você aprende jogando: missões curtas, XP e código em Português — até em Portugol — desde o primeiro dia.',
+    desc: 'Missões curtas, XP a cada acerto e código de verdade em português — desde o primeiro dia, direto no navegador.',
   },
   {
     id: 'junior',
     level: 'NÍVEL 2',
     name: 'Júnior',
     short: 'A construção',
-    desc: 'A base vira construção: funções, listas e arquivos aplicados ao seu primeiro sistema completo.',
+    desc: 'A lógica vira construção: funções, listas e arquivos montando o seu primeiro sistema completo, com testes.',
   },
   {
     id: 'pleno',
     level: 'NÍVEL 3',
     name: 'Pleno',
     short: 'O profissional',
-    desc: 'Nível profissional: frameworks, testes reais e a IDE completa — o mesmo ambiente do trabalho.',
+    desc: 'O treino vira trabalho: frameworks, testes reais e a IDE completa, no mesmo padrão das empresas.',
   },
   {
     id: 'mercado',
     level: 'DESTINO',
     name: 'Mercado',
     short: 'A prova',
-    desc: 'O destino: um portfólio de evidências que qualquer empresa pode verificar — e a ponte para vagas.',
+    desc: 'Tudo o que você fez vira prova: um portfólio público que qualquer empresa verifica — e a ponte direta para vagas.',
   },
 ];
 
@@ -112,16 +112,14 @@ const StageGame: React.FC = () => {
         <div>
           <p className="font-sans text-sm text-ink-body leading-relaxed mb-3">
             Faça o herói chegar ao cristal <strong className="text-ink-heading">escrevendo comandos</strong> — nada de
-            arrastar bloquinhos: é código de verdade, em Portugol.
+            arrastar bloquinhos: é JavaScript de verdade.
           </p>
           <CodeBlock
             lines={[
-              { node: <><K>programa</K> {'{'}</> },
-              { indent: 1, node: <><K>funcao</K> <F>inicio</F>() {'{'}</> },
-              { indent: 2, node: <>heroi.<F>andar</F>(<N>3</N>)</> },
-              { indent: 2, node: <>heroi.<F>virar</F>(<S>"baixo"</S>)</> },
-              { indent: 2, node: <>heroi.<F>andar</F>(<N>2</N>)</> },
-              { indent: 1, node: '}' },
+              { node: <><K>function</K> <F>inicio</F>() {'{'}</> },
+              { indent: 1, node: <>heroi.<F>andar</F>(<N>3</N>);</> },
+              { indent: 1, node: <>heroi.<F>virar</F>(<S>"baixo"</S>);</> },
+              { indent: 1, node: <>heroi.<F>andar</F>(<N>2</N>);</> },
               { node: '}' },
             ]}
           />
@@ -162,7 +160,7 @@ const StageGame: React.FC = () => {
             </div>
             <div className="flex items-center justify-between mt-3 text-[10px] font-mono text-ink-span">
               <span>ARENA · MISSÃO 1 DE 12</span>
-              <span className="text-ink-body font-bold">PORTUGOL</span>
+              <span className="text-ink-body font-bold">JAVASCRIPT</span>
             </div>
           </div>
 
@@ -200,8 +198,7 @@ const StageProject: React.FC = () => {
 
       <h4 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-1">Sistema de Biblioteca</h4>
       <p className="font-sans text-sm text-ink-body leading-relaxed mb-4 max-w-xl">
-        Da lógica solta ao primeiro sistema completo: estrutura de projeto, dados persistidos e testes — do jeito que
-        se constrói fora da sala de aula.
+        Estrutura de projeto, dados persistidos e testes: o seu primeiro sistema completo, construído como no trabalho real.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -295,7 +292,7 @@ const StageIde: React.FC = () => {
             <br />{'{ itens: […20], total }'}
           </div>
           <p className="mt-3 font-sans text-[11px] text-ink-span leading-relaxed">
-            Travou? A Lumi pede a próxima dica — ela nunca entrega a solução.
+            Travou? A tutora pede a próxima dica — ela nunca entrega a solução.
           </p>
         </div>
 
@@ -358,7 +355,7 @@ const StageIde: React.FC = () => {
 
 const StageProfile: React.FC = () => {
   const rows = [
-    { skill: 'Portugol · Lógica', evidence: '38 desafios aprovados', hash: 'sha-256 · 9f2c…a41b' },
+    { skill: 'Lógica de Programação', evidence: '38 desafios aprovados', hash: 'sha-256 · 9f2c…a41b' },
     { skill: 'Python', evidence: '214 testes aprovados no servidor', hash: 'sha-256 · 51be…07d3' },
     { skill: 'JavaScript', evidence: '17 sistemas simples entregues', hash: 'sha-256 · c804…9e2f' },
     { skill: 'Projeto · Nível Pleno', evidence: 'API de produtos — código e testes públicos', hash: 'sha-256 · 3d77…b6a0' },
@@ -508,11 +505,13 @@ export const HeroEvolution: React.FC = () => {
 
         {/* A guia presente em todos os estágios */}
         <div className="flex items-start sm:items-center gap-3 px-5 sm:px-6 py-4 bg-surface-2 border-t border-border-1">
-          <span className="w-9 h-9 rounded-lg bg-brand-purple text-white font-heading font-black flex items-center justify-center shrink-0">
-            L
+          <span className="w-9 h-9 rounded-lg bg-brand-purple text-white flex items-center justify-center shrink-0" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.5 14.1 9.9 21.5 12 14.1 14.1 12 21.5 9.9 14.1 2.5 12 9.9 9.9 12 2.5Z" />
+            </svg>
           </span>
           <p className="font-sans text-xs sm:text-[13px] text-ink-body leading-relaxed">
-            <strong className="text-ink-heading">A Lumi guia os 4 estágios</strong> — do primeiro comando ao portfólio,
+            <strong className="text-ink-heading">A tutora de IA guia os 4 estágios</strong> — do primeiro comando ao portfólio,
             ela ensina com perguntas e dicas em 3 níveis. A resposta pronta, nunca.
           </p>
           <span className="ml-auto hidden md:inline shrink-0 text-[10px] font-mono font-bold tracking-widest text-ink-span">
