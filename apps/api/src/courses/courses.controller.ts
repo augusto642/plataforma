@@ -16,6 +16,7 @@ import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { ActivitiesService } from '../activities/activities.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { buildCertificateHtml } from './certificate-html';
@@ -64,6 +65,17 @@ export class CoursesController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.activities.copyToCourse(id, activityId, user.sub, user.role);
+  }
+
+  /**
+   * B30 (Sprint 10) — verificação pública de certificado pelo código
+   * SHA-256 emitido. Consulta apenas registros reais persistidos na
+   * emissão; código desconhecido responde 404 (nunca "válido").
+   */
+  @Public()
+  @Get('certificates/verify/:code')
+  verifyCertificate(@Param('code') code: string) {
+    return this.courses.verifyCertificateByCode(code);
   }
 
   @Get(':id')

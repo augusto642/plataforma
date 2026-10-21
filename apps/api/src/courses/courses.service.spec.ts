@@ -30,7 +30,18 @@ describe('CoursesService', () => {
     },
     enrollment: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+    },
+    activity: {
+      count: jest.fn(),
+    },
+    submission: {
+      findMany: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
     },
   };
 
@@ -186,6 +197,126 @@ describe('CoursesService', () => {
 
       expect(result).toEqual({ course });
       expect(mockPrismaService.enrollment.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // B30 (Sprint 10) — a verificação pública de certificados consulta
+  // apenas o código persistido na emissão. Antes, a página /verify
+  // fabricava um certificado "válido" para qualquer hash digitado.
+  describe('certificados (B30)', () => {
+    const validCode = 'a'.repeat(64);
+    const issuedAt = new Date('2026-03-05T18:42:19Z');
+
+    beforeEach(() => {
+      mockPrismaService.enrollment.findFirst.mockReset();
+      mockPrismaService.enrollment.update.mockReset();
+    });
+
+    it('verifyCertificateByCode devolve o registro real de um código emitido', async () => {
+      mockPrismaService.enrollment.findFirst.mockResolvedValue({
+        certificateCode: validCode,
+        certificateIssuedAt: issuedAt,
+        user: { name: 'Maria Silva' },
+        course: { title: 'APIs com Go', slug: 'apis-go' },
+      });
+
+      const result = await service.verifyCertificateByCode(validCode);
+
+      expect(result).toEqual({
+        valid: true,
+        studentName: 'Maria Silva',
+        courseTitle: 'APIs com Go',
+        courseSlug: 'apis-go',
+        completedAt: issuedAt,
+        verificationCode: validCode,
+      });
+      expect(mockPrismaService.enrollment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { certificateCode: validCode } }),
+      );
+    });
+
+    it('verifyCertificateByCode aceita o código com prefixo sha256: e maiúsculas', async () => {
+      mockPrismaService.enrollment.findFirst.mockResolvedValue({
+        certificateCode: validCode,
+        certificateIssuedAt: issuedAt,
+        user: { name: 'Maria Silva' },
+        course: { title: 'APIs com Go', slug: 'apis-go' },
+      });
+
+      const result = await service.verifyCertificateByCode(`SHA256:${validCode.toUpperCase()}`);
+
+      expect(result.valid).toBe(true);
+      expect(mockPrismaService.enrollment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { certificateCode: validCode } }),
+      );
+    });
+
+    it('verifyCertificateByCode lança NotFound para código bem-formado desconhecido', async () => {
+      mockPrismaService.enrollment.findFirst.mockResolvedValue(null);
+
+      await expect(service.verifyCertificateByCode('b'.repeat(64))).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('verifyCertificateByCode lança NotFound para lixo (sem tocar o banco)', async () => {
+      await expect(service.verifyCertificateByCode('check')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.verifyCertificateByCode('')).rejects.toBeInstanceOf(NotFoundException);
+      expect(mockPrismaService.enrollment.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('getCertificate persiste o código na matrícula na primeira emissão', async () => {
+      mockPrismaService.course.findUnique.mockResolvedValue({
+        id: 'course-1',
+        title: 'APIs com Go',
+        slug: 'apis-go',
+      });
+      mockPrismaService.enrollment.findUnique.mockResolvedValue({
+        id: 'enr-1',
+        certificateCode: null,
+      });
+      mockPrismaService.activity.count.mockResolvedValue(1);
+      mockPrismaService.submission.findMany.mockResolvedValue([
+        { activityId: 'act-1', createdAt: issuedAt },
+      ]);
+      mockPrismaService.user.findUnique.mockResolvedValue({ name: 'Maria Silva' });
+      mockPrismaService.enrollment.update.mockResolvedValue({});
+
+      const result = await service.getCertificate('course-1', 'student-1');
+
+      expect(result.studentName).toBe('Maria Silva');
+      expect(result.verificationCode).toMatch(/^[a-f0-9]{64}$/);
+      expect(mockPrismaService.enrollment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            certificateCode: result.verificationCode,
+            certificateIssuedAt: issuedAt,
+          }),
+        }),
+      );
+    });
+
+    it('getCertificate não sobrescreve o código já emitido', async () => {
+      mockPrismaService.course.findUnique.mockResolvedValue({
+        id: 'course-1',
+        title: 'APIs com Go',
+        slug: 'apis-go',
+      });
+      mockPrismaService.enrollment.findUnique.mockResolvedValue({
+        id: 'enr-1',
+        certificateCode: validCode,
+      });
+      mockPrismaService.activity.count.mockResolvedValue(1);
+      mockPrismaService.submission.findMany.mockResolvedValue([
+        { activityId: 'act-1', createdAt: issuedAt },
+      ]);
+      mockPrismaService.user.findUnique.mockResolvedValue({ name: 'Maria Silva' });
+
+      await service.getCertificate('course-1', 'student-1');
+
+      expect(mockPrismaService.enrollment.update).not.toHaveBeenCalled();
     });
   });
 });

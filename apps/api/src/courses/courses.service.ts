@@ -427,7 +427,7 @@ export class CoursesService {
 
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId, courseId } },
-      select: { id: true },
+      select: { id: true, certificateCode: true },
     });
     if (!enrollment) {
       throw new ForbiddenException('Você precisa estar matriculado neste curso para emitir o certificado');
@@ -453,6 +453,17 @@ export class CoursesService {
       .update(`${userId}:${courseId}:${completedAt.toISOString()}`)
       .digest('hex');
 
+    // B30 (Sprint 10) — persiste o código na matrícula na primeira
+    // emissão: é esse registro que a verificação pública consulta.
+    // Sem persistir, o código só existia no ato da emissão e a página
+    // /verify não tinha fonte real para conferir.
+    if (!enrollment.certificateCode) {
+      await this.prisma.enrollment.update({
+        where: { userId_courseId: { userId, courseId } },
+        data: { certificateCode: verificationCode, certificateIssuedAt: completedAt },
+      });
+    }
+
     const student = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { name: true },
@@ -464,6 +475,46 @@ export class CoursesService {
       courseSlug: course.slug,
       completedAt,
       verificationCode,
+    };
+  }
+
+  /**
+   * B30 (Sprint 10) — verificação pública de certificado.
+   * Consulta SOMENTE o código persistido na emissão
+   * (Enrollment.certificateCode). Código desconhecido = certificado
+   * não encontrado — nunca um registro fabricado.
+   */
+  async verifyCertificateByCode(rawCode: string) {
+    const code = (rawCode ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/^sha256:/, '');
+
+    if (!/^[a-f0-9]{64}$/.test(code)) {
+      throw new NotFoundException('Certificado não encontrado');
+    }
+
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { certificateCode: code },
+      select: {
+        certificateCode: true,
+        certificateIssuedAt: true,
+        user: { select: { name: true } },
+        course: { select: { title: true, slug: true } },
+      },
+    });
+
+    if (!enrollment) {
+      throw new NotFoundException('Certificado não encontrado');
+    }
+
+    return {
+      valid: true,
+      studentName: enrollment.user.name,
+      courseTitle: enrollment.course.title,
+      courseSlug: enrollment.course.slug,
+      completedAt: enrollment.certificateIssuedAt,
+      verificationCode: enrollment.certificateCode,
     };
   }
 
