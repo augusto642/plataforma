@@ -1,8 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 // Frente 3 — ícones SVG únicos da landing
 import { IconChat } from './icons';
+// Sprint 7 (D4) — loops da seção só com função/estado e sob
+// prefers-reduced-motion: a preferência do sistema desliga a animação
+import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
 
 interface SocraticPrompt {
   tag: string;
@@ -37,10 +41,20 @@ export const LumiMascotHero: React.FC = () => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [lumiEmotion, setLumiEmotion] = useState<'thinking' | 'speaking' | 'insight'>('speaking');
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const currentItem = SOCRATIC_ITEMS[activeIndex];
 
   useEffect(() => {
+    // Movimento reduzido: sem digitação — a resposta aparece inteira e
+    // estática, e nenhum loop da seção é ligado (isTyping fica falso).
+    if (prefersReducedMotion) {
+      setDisplayedText(currentItem.response);
+      setIsTyping(false);
+      setLumiEmotion('speaking');
+      return;
+    }
+
     setDisplayedText('');
     setIsTyping(true);
     setLumiEmotion('thinking');
@@ -68,19 +82,21 @@ export const LumiMascotHero: React.FC = () => {
       clearTimeout(emotionTimeout);
       clearInterval(interval);
     };
-  }, [activeIndex, currentItem.response]);
+  }, [activeIndex, currentItem.response, prefersReducedMotion]);
 
-  // Ícone da expressão baseado no estado de reflexão
-  const getEmotionIcon = () => {
+  // Sprint 7 — a expressão da tutora agora é ARTE (ilustrações próprias
+  // em public/landing/tutora), não mais emoji: o emoji focal 🦊/🧐/💡
+  // saiu da seção. Cada estado do diálogo usa a sua expressão.
+  const getEmotionImage = () => {
     switch (lumiEmotion) {
       case 'thinking':
-        return '🧐';
+        return { src: '/landing/tutora/tutora-pensativa.webp', alt: 'Tutora de IA refletindo sobre a pergunta' };
       case 'speaking':
-        return '🦊';
+        return { src: '/landing/tutora/tutora-principal.webp', alt: 'Tutora de IA explicando com uma pergunta' };
       case 'insight':
-        return '💡';
+        return { src: '/landing/tutora/tutora-comemorando.webp', alt: 'Tutora de IA celebrando a descoberta' };
       default:
-        return '🦊';
+        return { src: '/landing/tutora/tutora-principal.webp', alt: 'Tutora de IA' };
     }
   };
 
@@ -92,27 +108,35 @@ export const LumiMascotHero: React.FC = () => {
   return (
     <section className="relative my-20 max-w-5xl mx-auto px-4">
       {/* Moldura com 1px Specular Border */}
-      <div className="relative rounded-[28px] p-[1px] bg-gradient-to-r from-purple-500/30 via-cyan-500/20 to-purple-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+      <div className="relative rounded-[28px] p-[1px] bg-gradient-to-r from-brand-purple/30 via-brand-cyan-neon/20 to-brand-purple/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
         <div className="relative rounded-[27px] bg-gradient-to-br from-surface-1/95 via-background/95 to-surface-1/95 p-6 sm:p-9 backdrop-blur-2xl">
           {/* Ambient Top Glow */}
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-brand-purple/15 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col md:flex-row items-center md:items-start gap-7">
             {/* Avatar Pixel Art Lumi com Aura Mística & Expressões */}
             <div className="relative shrink-0 flex flex-col items-center">
-              {/* Aura Radiante Expansiva quando Lumi está Raciocinando/Digitando */}
+              {/* Aura Radiante Expansiva quando a tutora está Raciocinando/Digitando —
+                  Sprint 7 (D4): os loops existem SÓ neste estado (digitação em curso);
+                  com prefers-reduced-motion, isTyping nunca liga e a seção fica estática */}
               {isTyping && (
                 <>
-                  <div className="absolute -inset-3 rounded-3xl bg-gradient-to-r from-purple-500/40 via-cyan-500/30 to-emerald-500/40 blur-xl animate-pulse -z-10" />
-                  <div className="absolute -inset-1.5 rounded-2xl border border-cyan-400/50 animate-ping opacity-40 pointer-events-none -z-10" />
+                  <div className="absolute -inset-3 rounded-3xl bg-gradient-to-r from-brand-purple/40 via-brand-cyan-neon/30 to-brand-green/40 blur-xl animate-pulse -z-10" />
+                  <div className="absolute -inset-1.5 rounded-2xl border border-brand-cyan-neon/50 animate-ping opacity-40 pointer-events-none -z-10" />
                 </>
               )}
 
               <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-[0_0_35px_rgba(130,87,229,0.35)] transition-all duration-300 ${
                 isTyping ? 'scale-105 shadow-[0_0_45px_rgba(0,229,255,0.45)]' : 'hover:scale-102'
               }`}>
-                <div className="w-full h-full bg-background rounded-[14px] flex items-center justify-center text-4xl select-none transition-transform">
-                  <span className={isTyping ? 'animate-pulse' : ''}>{getEmotionIcon()}</span>
+                <div className="w-full h-full bg-background rounded-[14px] overflow-hidden select-none">
+                  <Image
+                    src={getEmotionImage().src}
+                    alt={getEmotionImage().alt}
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
 
                 {/* Badge de Status de Lumi */}
@@ -133,8 +157,8 @@ export const LumiMascotHero: React.FC = () => {
                 <span className={`w-1 bg-brand-cyan-neon rounded-full transition-all duration-150 delay-100 ${isTyping ? 'h-3.5 animate-bounce' : 'h-2 opacity-40'}`} />
               </div>
 
-              <span className="mt-1 text-xs font-mono font-black text-purple-300">TUTORA DE IA</span>
-              <span className="text-xs font-mono text-zinc-500">Mentora Socrática</span>
+              <span className="mt-1 text-xs font-mono font-black text-brand-purple-light">TUTORA DE IA</span>
+              <span className="text-[13px] font-mono text-ink-span">Mentora Socrática</span>
             </div>
 
             {/* Diálogo Socrático & Balão Retrô de Luxo */}
@@ -144,7 +168,7 @@ export const LumiMascotHero: React.FC = () => {
                   <span className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
                     Mentoria Socrática em Tempo Real
                   </span>
-                  <span className="text-xs font-mono text-purple-300 bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-500/30">
+                  <span className="text-xs font-mono text-brand-purple-light bg-brand-purple-low px-2.5 py-0.5 rounded-full border border-brand-purple/30">
                     Zero Resposta Pronta • 100% Reflexão
                   </span>
                 </div>
@@ -152,16 +176,20 @@ export const LumiMascotHero: React.FC = () => {
               </div>
 
               {/* Caixa de Texto com Acabamento de Luxo */}
-              <div className="relative min-h-[96px] p-5 rounded-2xl bg-background/90 border border-border-1 text-zinc-200 text-sm sm:text-base font-sans leading-relaxed shadow-inner">
-                <p className="text-zinc-100 font-medium">
+              <div className="relative min-h-[96px] p-5 rounded-2xl bg-background/90 border border-border-1 text-ink-body text-sm sm:text-base font-sans leading-relaxed shadow-inner">
+                <p className="text-ink-heading font-medium">
                   {displayedText}
-                  <span className="inline-block w-2 h-4 ml-1 bg-brand-cyan-neon animate-pulse align-middle" />
+                  {/* Cursor de digitação: só existe ENQUANTO digita (função/estado) —
+                      Sprint 7 (D4): antes ele pulsava para sempre, mesmo com o texto pronto */}
+                  {isTyping && (
+                    <span className="inline-block w-2 h-4 ml-1 bg-brand-cyan-neon animate-pulse align-middle" />
+                  )}
                 </p>
               </div>
 
               {/* Pílulas Interativas de Perguntas */}
               <div className="mt-4 pt-3 border-t border-border-1">
-                <span className="text-xs font-mono text-zinc-400 block mb-2 font-medium">
+                <span className="text-xs font-mono text-ink-span block mb-2 font-medium">
                   Clique para testar o método socrático:
                 </span>
                 <div className="flex flex-wrap gap-2.5">
@@ -170,10 +198,10 @@ export const LumiMascotHero: React.FC = () => {
                       key={idx}
                       type="button"
                       onClick={() => handleSelectQuestion(idx)}
-                      className={`text-xs font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                      className={`text-[13px] font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
                         activeIndex === idx
-                          ? 'border-brand-cyan-neon bg-cyan-950/60 text-brand-cyan-neon shadow-[0_0_20px_rgba(0,229,255,0.25)] font-bold scale-[1.02]'
-                          : 'border-border-1 bg-surface-1 text-zinc-400 hover:text-ink-heading hover:border-border-2'
+                          ? 'border-brand-cyan-neon bg-brand-cyan/15 text-brand-cyan-neon shadow-[0_0_20px_rgba(0,229,255,0.25)] font-bold scale-[1.02]'
+                          : 'border-border-1 bg-surface-1 text-ink-span hover:text-ink-heading hover:border-border-2'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2"><IconChat className="w-4 h-4" /> {item.question}</span>

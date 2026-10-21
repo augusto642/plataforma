@@ -45,25 +45,25 @@ export const ComparisonVersus: React.FC = () => {
       {/* Cabeçalho da Seção Assimétrico (Esquerda + Direita) */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
         <div className="max-w-2xl text-left">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-rose-300 text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-rose text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <IconSwords className="w-5 h-5" />
             <span>COMPARATIVO DIRETO // SEM ENROLAÇÃO</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
             Assistir aula x aprender fazendo
           </h2>
-          <p className="text-base sm:text-lg text-zinc-300 font-sans leading-relaxed">
+          <p className="text-base sm:text-lg text-ink-body font-sans leading-relaxed">
             Veja por que engenheiros formados na prática superam desenvolvedores presos em cursos tradicionais de vídeo.
           </p>
         </div>
 
         {/* Contraste de método na Direita */}
         <div className="hidden lg:flex flex-col items-end gap-2 font-mono text-xs">
-          <div className="px-4 py-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-2.5">
+          <div className="px-4 py-2 rounded-xl bg-brand-green/10 border border-brand-green/30 text-brand-green-neon flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
             <span>MÉTODO ATIVO VS AULA PASSIVA</span>
           </div>
-          <span className="text-xs text-zinc-500">PROGRESSÃO, XP E FEEDBACK IMEDIATO</span>
+          <span className="text-xs text-ink-span">PROGRESSÃO, XP E FEEDBACK IMEDIATO</span>
         </div>
       </div>
 
@@ -72,14 +72,14 @@ export const ComparisonVersus: React.FC = () => {
         <div className="rounded-[27px] bg-surface-1/95 overflow-hidden backdrop-blur-2xl">
           {/* Header das Colunas */}
           <div className="grid grid-cols-1 md:grid-cols-12 border-b border-border-1 text-center font-heading font-black text-sm sm:text-base">
-            <div className="md:col-span-3 p-5 bg-background text-zinc-400 flex items-center justify-center font-mono text-xs tracking-wider uppercase">
+            <div className="md:col-span-3 p-5 bg-background text-ink-span flex items-center justify-center font-mono text-[13px] tracking-wider uppercase">
               Critério de Avaliação
             </div>
-            <div className="md:col-span-4 p-5 bg-black/40 text-rose-300 flex items-center justify-center gap-2.5 border-t md:border-t-0 md:border-l border-border-1">
+            <div className="md:col-span-4 p-5 bg-black/40 text-brand-rose flex items-center justify-center gap-2.5 border-t md:border-t-0 md:border-l border-border-1">
               <span className="text-brand-rose font-black">✕</span>
               <span>Cursos Tradicionais em Vídeo</span>
             </div>
-            <div className="md:col-span-5 p-5 bg-cyan-950/40 text-brand-cyan-neon flex items-center justify-center gap-2.5 border-t md:border-t-0 md:border-l border-border-1">
+            <div className="md:col-span-5 p-5 bg-brand-cyan/10 text-brand-cyan-neon flex items-center justify-center gap-2.5 border-t md:border-t-0 md:border-l border-border-1">
               <IconBolt className="w-5 h-5" />
               <span>NEXUS CODE (RPG & IDE Real)</span>
             </div>
@@ -90,18 +90,18 @@ export const ComparisonVersus: React.FC = () => {
             {ROWS.map((row, idx) => (
               <div key={idx} className="grid grid-cols-1 md:grid-cols-12 transition-colors hover:bg-surface-1">
                 {/* Aspecto */}
-                <div className="md:col-span-3 p-5 bg-background/60 font-mono text-xs text-zinc-300 font-bold flex items-center">
+                <div className="md:col-span-3 p-5 bg-background/60 font-mono text-[13px] text-ink-body font-bold flex items-center">
                   {row.aspect}
                 </div>
 
                 {/* Tradicional */}
-                <div className="md:col-span-4 p-5 bg-black/20 text-xs sm:text-sm text-zinc-400 leading-relaxed flex items-center border-t md:border-t-0 md:border-l border-border-1">
-                  <span className="mr-3 text-rose-500 font-bold shrink-0 text-base">✕</span>
+                <div className="md:col-span-4 p-5 bg-black/20 text-[13px] sm:text-sm text-ink-span leading-relaxed flex items-center border-t md:border-t-0 md:border-l border-border-1">
+                  <span className="mr-3 text-brand-rose font-bold shrink-0 text-base">✕</span>
                   <span>{row.traditional}</span>
                 </div>
 
                 {/* NEXUS */}
-                <div className="md:col-span-5 p-5 bg-cyan-950/10 text-xs sm:text-sm text-zinc-100 font-medium leading-relaxed flex items-center border-t md:border-t-0 md:border-l border-border-1">
+                <div className="md:col-span-5 p-5 bg-brand-cyan/10 text-[13px] sm:text-sm text-ink-heading font-medium leading-relaxed flex items-center border-t md:border-t-0 md:border-l border-border-1">
                   <span className="mr-3 text-brand-green-neon font-bold shrink-0 text-base">✔</span>
                   <span>{row.nexus}</span>
                 </div>
@@ -118,7 +118,7 @@ export const ComparisonVersus: React.FC = () => {
             para salvar o progresso é explícita — a conta grátis é o que
             guarda XP, starter e jornada. Sem contagem de "masmorras
             abertas" que o produto não garante. */}
-        <p className="text-xs text-zinc-400 font-sans mb-5">
+        <p className="text-[13px] text-ink-span font-sans mb-5">
           Experimente sem risco: entre no jogo agora como convidado, sem cartão e sem cadastro.
           Jogou e quer guardar seu XP, seu starter e seu progresso? Crie sua conta grátis — é ela
           que salva a sua jornada.

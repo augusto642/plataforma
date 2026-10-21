@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
 // B08 — eventos do funil da landing
@@ -17,7 +18,10 @@ interface TcgCardData {
   rarity: 'SECRET RARE' | 'MYTHIC LEGEND' | 'HOLO RARE' | 'ULTRA RARE';
   rarityColor: string;
   badgeGlow: string;
-  avatarIcon: string;
+  // Sprint 7 — o avatar da carta é ARTE (ilustração em public/landing/
+  // companions), não mais emoji: 🦀/🐹/🐍/⚡ saíram dos cards e do modal
+  avatarImage: string;
+  avatarAlt: string;
   element: string;
   hp: number;
   stats: { label: string; value: number }[];
@@ -35,9 +39,10 @@ const TCG_CARDS: TcgCardData[] = [
     lang: 'Rust 1.78',
     edition: 'NO. 001 // SPECIMEN',
     rarity: 'MYTHIC LEGEND',
-    rarityColor: 'text-amber-300 border-amber-500/40 bg-amber-950/40',
+    rarityColor: 'text-brand-amber border-brand-amber/40 bg-brand-amber/10',
     badgeGlow: 'rgba(245, 158, 11, 0.35)',
-    avatarIcon: '🦀',
+    avatarImage: '/landing/companions/rust-crab.webp',
+    avatarAlt: 'Caranguejo paladino de armadura, companion da trilha de Rust',
     element: 'CORINGA SÉRIE 01',
     hp: 480,
     stats: [
@@ -57,9 +62,10 @@ const TCG_CARDS: TcgCardData[] = [
     lang: 'Go 1.22',
     edition: 'NO. 002 // SPECIMEN',
     rarity: 'HOLO RARE',
-    rarityColor: 'text-cyan-300 border-cyan-500/40 bg-cyan-950/40',
+    rarityColor: 'text-brand-cyan-neon border-brand-cyan-neon/40 bg-brand-cyan/10',
     badgeGlow: 'rgba(0, 229, 255, 0.35)',
-    avatarIcon: '🐹',
+    avatarImage: '/landing/companions/go-hamster.webp',
+    avatarAlt: 'Hamster despachante com mochila de entregas, companion da trilha de Go',
     element: 'MICROSERVICES',
     hp: 440,
     stats: [
@@ -79,9 +85,10 @@ const TCG_CARDS: TcgCardData[] = [
     lang: 'Python 3.12',
     edition: 'NO. 003 // SPECIMEN',
     rarity: 'SECRET RARE',
-    rarityColor: 'text-purple-300 border-purple-500/40 bg-purple-950/40',
+    rarityColor: 'text-brand-purple-light border-brand-purple/40 bg-brand-purple-low',
     badgeGlow: 'rgba(168, 85, 247, 0.35)',
-    avatarIcon: '🐍',
+    avatarImage: '/landing/companions/python-snake.webp',
+    avatarAlt: 'Cobra alquimista com frascos de poções, companion da trilha de Python',
     element: 'ARTIFICIAL INTEL',
     hp: 420,
     stats: [
@@ -101,9 +108,10 @@ const TCG_CARDS: TcgCardData[] = [
     lang: 'TypeScript 5.4',
     edition: 'NO. 004 // SPECIMEN',
     rarity: 'ULTRA RARE',
-    rarityColor: 'text-blue-300 border-blue-500/40 bg-blue-950/40',
+    rarityColor: 'text-brand-cyan border-brand-cyan/40 bg-brand-cyan/10',
     badgeGlow: 'rgba(59, 130, 246, 0.35)',
-    avatarIcon: '⚡',
+    avatarImage: '/landing/companions/js-lightning.webp',
+    avatarAlt: 'Criatura de raio elétrico, companion da trilha de TypeScript',
     element: 'FRONTEND ARCH',
     hp: 410,
     stats: [
@@ -183,19 +191,19 @@ export const TcgCardsShowcase: React.FC = () => {
   return (
     <section id="colecionaveis" className="relative py-28 px-4 sm:px-6 max-w-7xl mx-auto">
       {/* Ambient Glows */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-r from-purple-500/10 via-cyan-500/10 to-amber-500/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-r from-brand-purple/10 via-brand-cyan-neon/10 to-brand-amber/10 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Título de Seção Assimétrico (Esquerda + Direita) */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
         <div className="max-w-2xl text-left">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-purple-300 text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-purple-light text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <IconCards className="w-5 h-5" />
             <span>SÉRIE 01 // CARTAS COLECIONÁVEIS HOLOGRÁFICAS</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
             Suas conquistas viram cards colecionáveis
           </h2>
-          <p className="text-base sm:text-lg text-zinc-300 font-sans leading-relaxed">
+          <p className="text-base sm:text-lg text-ink-body font-sans leading-relaxed">
             Cada trilha e chefão derrotado desbloqueia cards em 3D com efeito foil holográfico,
             atributos reais de combate e assinatura de validação em código auditável.
             Passe o cursor para inclinar e clique para inspecionar.
@@ -204,11 +212,11 @@ export const TcgCardsShowcase: React.FC = () => {
 
         {/* Deck Collector Stats na Direita */}
         <div className="hidden lg:flex flex-col items-end gap-2 font-mono text-xs">
-          <div className="px-4 py-2 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-300 flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-purple-400" />
+          <div className="px-4 py-2 rounded-xl bg-brand-purple-low border border-brand-purple/30 text-brand-purple-light flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-brand-purple-light" />
             <span>DECK: 4 CLASSES ELEMENTAIS DISPONÍVEIS</span>
           </div>
-          <span className="text-xs text-zinc-500">PROPORÇÃO 2.5:3.5 // FOIL METÁLICO SHADERS</span>
+          <span className="text-[13px] text-ink-span">PROPORÇÃO 2.5:3.5 // FOIL METÁLICO SHADERS</span>
         </div>
       </div>
 
@@ -261,34 +269,42 @@ export const TcgCardsShowcase: React.FC = () => {
                     <span className={`text-xs font-mono font-black px-2.5 py-0.5 rounded-full border ${card.rarityColor}`}>
                       {card.rarity}
                     </span>
-                    <span className="text-xs font-mono font-bold text-zinc-400">{card.lang}</span>
+                    <span className="text-xs font-mono font-bold text-ink-span">{card.lang}</span>
                   </div>
 
-                  {/* Arte / Avatar do Card com Fundo Metálico */}
-                  <div className="relative w-full h-44 rounded-2xl bg-gradient-to-br from-surface-2 via-surface-1 to-background border border-border-1 flex flex-col items-center justify-center p-3 mb-4 shadow-inner group-hover:border-border-2 transition-colors">
-                    <div className="text-5xl mb-2 drop-shadow-[0_0_20px_rgba(255,255,255,0.35)] transform group-hover:scale-110 transition-transform duration-300">
-                      {card.avatarIcon}
-                    </div>
-                    <div className="text-xs font-mono font-black text-ink-heading tracking-wider text-center">
-                      {card.name}
-                    </div>
-                    <div className="text-xs font-sans text-zinc-400 text-center">
-                      {card.classTitle}
+                  {/* Arte do Card — Sprint 7: ilustração própria em tela cheia
+                      da área de arte (lazy: a seção fica fora da primeira dobra) */}
+                  <div className="relative w-full h-44 rounded-2xl overflow-hidden bg-surface-2 border border-border-1 mb-4 shadow-inner group-hover:border-border-2 transition-colors">
+                    <Image
+                      src={card.avatarImage}
+                      alt={card.avatarAlt}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
+                      className="object-cover transform group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pt-9 pb-2">
+                      <div className="text-sm font-mono font-black text-ink-heading tracking-wider text-center">
+                        {card.name}
+                      </div>
+                      <div className="text-[13px] font-sans text-ink-body text-center">
+                        {card.classTitle}
+                      </div>
                     </div>
 
                     {/* Badge de HP no Canto */}
-                    <div className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-md bg-black/70 border border-border-1 text-xs font-mono font-black text-emerald-400">
+                    <div className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-md bg-black/70 border border-border-1 text-xs font-mono font-black text-brand-green-neon">
                       HP {card.hp}
                     </div>
 
-                    {/* Badge de Edição */}
-                    <div className="absolute bottom-2 left-2.5 text-xs font-mono text-zinc-500 tracking-wider">
+                    {/* Badge de Edição (canto superior: o rodapé da arte
+                        agora é da legenda nome/classe sobre o degradê) */}
+                    <div className="absolute top-2.5 left-2.5 text-xs font-mono text-ink-body tracking-wider bg-black/55 px-1.5 py-0.5 rounded">
                       {card.edition}
                     </div>
 
                     {/* Indicador de Inspecionar no Hover */}
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
-                      <span className="text-xs font-mono font-bold text-cyan-300 bg-black/80 px-3 py-1 rounded-full border border-cyan-500/40 shadow-lg inline-flex items-center gap-1.5">
+                      <span className="text-xs font-mono font-bold text-brand-cyan-neon bg-black/80 px-3 py-1 rounded-full border border-brand-cyan-neon/40 shadow-lg inline-flex items-center gap-1.5">
                         <IconSearch className="w-3.5 h-3.5" /> Inspecionar Card
                       </span>
                     </div>
@@ -298,11 +314,11 @@ export const TcgCardsShowcase: React.FC = () => {
                   <div className="space-y-2 mb-4">
                     {card.stats.map((stat, i) => (
                       <div key={i}>
-                        <div className="flex justify-between text-xs font-mono text-zinc-300 mb-0.5">
+                        <div className="flex justify-between text-[13px] font-mono text-ink-body mb-0.5">
                           <span>{stat.label}</span>
                           <span className="font-bold text-brand-cyan-neon">{stat.value}%</span>
                         </div>
-                        <div className="w-full h-1.5 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden">
+                        <div className="w-full h-1.5 rounded-full bg-surface-2 border border-border-1 overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-brand-cyan-neon via-brand-green-neon to-brand-green"
                             style={{ width: `${stat.value}%` }}
@@ -315,11 +331,11 @@ export const TcgCardsShowcase: React.FC = () => {
 
                 {/* Habilidade Especial & Citação */}
                 <div className="pt-3 border-t border-border-1">
-                  <div className="text-xs font-mono font-bold text-ink-heading flex items-center gap-1.5 mb-1">
+                  <div className="text-[13px] font-mono font-bold text-ink-heading flex items-center gap-1.5 mb-1">
                     <IconSwords className="w-4 h-4" />
                     <span>{card.signatureSpell}</span>
                   </div>
-                  <p className="text-xs text-zinc-400 italic font-sans leading-relaxed">
+                  <p className="text-[13px] text-ink-span italic font-sans leading-relaxed">
                     "{card.quote}"
                   </p>
                 </div>
@@ -335,7 +351,7 @@ export const TcgCardsShowcase: React.FC = () => {
           href="/onboarding"
           data-cta-id="tcg_onboarding"
           onClick={() => track('nav_cta', 'tcg_onboarding')}
-          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-surface-2 hover:bg-surface-3 border border-border-1 text-xs font-mono text-cyan-300 hover:text-ink-heading transition-all group"
+          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full bg-surface-2 hover:bg-surface-3 border border-border-1 text-[13px] font-mono text-brand-cyan-neon hover:text-ink-heading transition-all group"
         >
           <span>Escolha seu primeiro Card Starter no Onboarding</span>
           <span className="group-hover:translate-x-1 transition-transform">→</span>
@@ -356,7 +372,7 @@ export const TcgCardsShowcase: React.FC = () => {
             <button
               type="button"
               onClick={() => setInspectedCard(null)}
-              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-zinc-300 hover:text-ink-heading transition-colors cursor-pointer"
+              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-ink-body hover:text-ink-heading transition-colors cursor-pointer"
             >
               ✕
             </button>
@@ -368,10 +384,18 @@ export const TcgCardsShowcase: React.FC = () => {
                   <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-full border ${inspectedCard.rarityColor} inline-block mb-3`}>
                     {inspectedCard.rarity}
                   </span>
-                  <div className="text-6xl mb-2">{inspectedCard.avatarIcon}</div>
-                  <div className="text-xs font-mono font-black text-ink-heading">{inspectedCard.name}</div>
-                  <div className="text-xs text-zinc-400 font-sans mt-0.5">{inspectedCard.classTitle}</div>
-                  <div className="mt-3 px-2 py-1 rounded-md bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono text-xs font-bold">
+                  <div className="relative w-32 h-32 mx-auto mb-2 rounded-xl overflow-hidden">
+                    <Image
+                      src={inspectedCard.avatarImage}
+                      alt={inspectedCard.avatarAlt}
+                      fill
+                      sizes="128px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="text-sm font-mono font-black text-ink-heading">{inspectedCard.name}</div>
+                  <div className="text-[13px] text-ink-span font-sans mt-0.5">{inspectedCard.classTitle}</div>
+                  <div className="mt-3 px-2 py-1 rounded-md bg-brand-green/15 border border-brand-green/30 text-brand-green-neon font-mono text-xs font-bold">
                     HP {inspectedCard.hp} • {inspectedCard.lang}
                   </div>
                 </div>
@@ -381,28 +405,28 @@ export const TcgCardsShowcase: React.FC = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-mono text-brand-cyan-neon uppercase font-bold">{inspectedCard.element}</span>
-                  <span className="text-zinc-600">•</span>
-                  <span className="text-xs font-mono text-zinc-400">{inspectedCard.edition}</span>
+                  <span className="text-ink-span">•</span>
+                  <span className="text-xs font-mono text-ink-span">{inspectedCard.edition}</span>
                 </div>
                 <h3 className="text-2xl font-heading font-black text-ink-heading mb-1">{inspectedCard.name}</h3>
-                <p className="text-xs text-zinc-400 font-sans mb-4">{inspectedCard.lore}</p>
+                <p className="text-[13px] text-ink-span font-sans mb-4">{inspectedCard.lore}</p>
 
                 {/* Habilidades */}
                 <div className="space-y-2 mb-5">
                   <div className="p-2.5 rounded-xl bg-surface-2 border border-border-1">
-                    <div className="text-xs font-mono font-bold text-cyan-300 flex items-center gap-1.5 mb-0.5">
+                    <div className="text-[13px] font-mono font-bold text-brand-cyan-neon flex items-center gap-1.5 mb-0.5">
                       <span className="inline-flex items-center gap-1"><IconSwords className="w-3.5 h-3.5" /> Habilidade Suprema:</span>
                       <span className="text-ink-heading">{inspectedCard.signatureSpell}</span>
                     </div>
-                    <div className="text-xs text-zinc-400">Desfere dano crítico imediato e valida todas as asserções unitárias.</div>
+                    <div className="text-[13px] text-ink-span">Desfere dano crítico imediato e valida todas as asserções unitárias.</div>
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-surface-2 border border-border-1">
-                    <div className="text-xs font-mono font-bold text-purple-300 flex items-center gap-1.5 mb-0.5">
+                    <div className="text-[13px] font-mono font-bold text-brand-purple-light flex items-center gap-1.5 mb-0.5">
                       <span className="inline-flex items-center gap-1"><IconShield className="w-3.5 h-3.5" /> Passiva de Classe:</span>
                       <span className="text-ink-heading">{inspectedCard.passiveSkill}</span>
                     </div>
-                    <div className="text-xs text-zinc-400">Bônus de telemetria contínua contra bugs de concorrência.</div>
+                    <div className="text-[13px] text-ink-span">Bônus de telemetria contínua contra bugs de concorrência.</div>
                   </div>
                 </div>
 
@@ -414,7 +438,7 @@ export const TcgCardsShowcase: React.FC = () => {
                     href={`/onboarding?starter=${inspectedCard.id}`}
                     data-cta-id="tcg_starter"
                     onClick={() => track('nav_cta', 'tcg_starter', { starter: inspectedCard.id })}
-                    className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-xs tracking-tight text-center transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-[13px] tracking-tight text-center transition-all flex items-center justify-center gap-2"
                   >
                     <IconBolt className="w-4 h-4" />
                     <span>Escolher Como Meu Starter</span>
@@ -423,7 +447,7 @@ export const TcgCardsShowcase: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setInspectedCard(null)}
-                    className="py-3 px-4 rounded-xl bg-surface-2 hover:bg-white/[0.1] text-zinc-300 text-xs font-mono transition-colors"
+                    className="py-3 px-4 rounded-xl bg-surface-2 hover:bg-white/[0.1] text-ink-body text-[13px] font-mono transition-colors"
                   >
                     Voltar
                   </button>

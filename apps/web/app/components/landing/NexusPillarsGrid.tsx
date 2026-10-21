@@ -28,7 +28,7 @@ const PILLARS: Pillar[] = [
     badge: 'Canvas Engine 60 FPS',
     icon: 'gamepad',
     techHighlight: 'Zero Lag • Controles WASD / Touch • Física Retrô 16-bit',
-    accentGradient: 'from-cyan-500/20 via-blue-500/10 to-transparent',
+    accentGradient: 'from-brand-cyan-neon/20 via-brand-cyan/10 to-transparent',
   },
   {
     number: '02',
@@ -39,7 +39,7 @@ const PILLARS: Pillar[] = [
     badge: 'Taxonomia de Bloom',
     icon: 'chat',
     techHighlight: 'Inspeção de AST • Análise de Causa Raiz • Dicas Graduais',
-    accentGradient: 'from-purple-500/20 via-pink-500/10 to-transparent',
+    accentGradient: 'from-brand-purple/20 via-brand-rose/10 to-transparent',
   },
   {
     number: '03',
@@ -50,7 +50,7 @@ const PILLARS: Pillar[] = [
     badge: 'Foil 3D Shaders',
     icon: 'cards',
     techHighlight: 'Colecionismo Real • Metamorfose de Deck • Badges Raras',
-    accentGradient: 'from-amber-500/20 via-yellow-500/10 to-transparent',
+    accentGradient: 'from-brand-amber/20 via-brand-amber-solar/10 to-transparent',
   },
   {
     number: '04',
@@ -61,7 +61,7 @@ const PILLARS: Pillar[] = [
     badge: 'Verificação SHA-256',
     icon: 'shield',
     techHighlight: 'Kernel Linux Piston • Commits no Git • Portfólio Auditável',
-    accentGradient: 'from-emerald-500/20 via-teal-500/10 to-transparent',
+    accentGradient: 'from-brand-green/20 via-brand-green-neon/10 to-transparent',
   },
 ];
 
@@ -78,14 +78,14 @@ export const NexusPillarsGrid: React.FC = () => {
       {/* Título de Seção Assimétrico (Esquerda + Direita) */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
         <div className="max-w-2xl text-left">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-cyan-300 text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-cyan-neon text-xs font-mono font-bold mb-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
             <IconBolt className="w-5 h-5" />
             <span>POR DENTRO DA PLATAFORMA // 4 PILARES</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
             Quatro apoios para você chegar ao mercado
           </h2>
-          <p className="text-base sm:text-lg text-zinc-300 font-sans leading-relaxed">
+          <p className="text-base sm:text-lg text-ink-body font-sans leading-relaxed">
             Unimos o melhor do design de jogos clássicos à arquitetura de software contemporânea
             para que você nunca mais enfrente o tédio das videoaulas passivas.
           </p>
@@ -93,11 +93,11 @@ export const NexusPillarsGrid: React.FC = () => {
 
         {/* Status de Infraestrutura no Canto Direito */}
         <div className="hidden lg:flex flex-col items-end gap-2 font-mono text-xs">
-          <div className="px-4 py-2 rounded-xl bg-surface-2 border border-border-1 text-zinc-300 flex items-center gap-2.5">
+          <div className="px-4 py-2 rounded-xl bg-surface-2 border border-border-1 text-ink-body flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
             <span>INFRA: DOCKER + LINUX CGROUPS</span>
           </div>
-          <span className="text-xs text-zinc-500">ISOLAMENTO TOTAL POR DESAFIO</span>
+          <span className="text-[13px] text-ink-span">ISOLAMENTO TOTAL POR DESAFIO</span>
         </div>
       </div>
 
@@ -130,22 +130,22 @@ export const NexusPillarsGrid: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <span className="text-4xl font-heading font-black text-zinc-800 group-hover:text-ink-heading/15 transition-colors select-none">
+                  <span className="text-4xl font-heading font-black text-surface-3 group-hover:text-ink-heading/15 transition-colors select-none">
                     {pillar.number}
                   </span>
                 </div>
 
-                <p className="text-sm sm:text-base text-zinc-300 font-sans leading-relaxed mb-6">
+                <p className="text-sm sm:text-base text-ink-body font-sans leading-relaxed mb-6">
                   {pillar.description}
                 </p>
               </div>
 
               <div className="pt-4 border-t border-border-1 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-mono text-zinc-400 flex items-center gap-2">
+                <span className="text-[13px] font-mono text-ink-span flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-green-neon" />
                   {pillar.techHighlight}
                 </span>
-                <span className="text-xs font-mono px-3 py-1 rounded-lg bg-surface-2 border border-border-1 text-zinc-300 font-semibold">
+                <span className="text-xs font-mono px-3 py-1 rounded-lg bg-surface-2 border border-border-1 text-ink-body font-semibold">
                   {pillar.badge}
                 </span>
               </div>
@@ -159,7 +159,7 @@ export const NexusPillarsGrid: React.FC = () => {
       <div className="mt-14 flex flex-col sm:flex-row items-center justify-center gap-4">
         <Link
           href="/game"
-          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-cyan-400/50 text-brand-cyan-neon font-heading font-bold text-sm transition-all shadow-[0_0_20px_rgba(0,229,255,0.15)] active:scale-95"
+          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-sm transition-all shadow-[0_0_20px_rgba(0,229,255,0.15)] active:scale-95"
         >
           <IconGamepad className="w-5 h-5" />
           <span>Explorar o Overworld 2D no Navegador</span>
