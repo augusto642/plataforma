@@ -421,7 +421,7 @@ export default function HomePage() {
         {/* SUBHEADLINE: O ARCO INTEIRO, EM FRASES VERIFICÁVEIS */}
         <p className="hero-rise font-sans text-base sm:text-lg text-ink-body leading-relaxed mb-4 max-w-xl" style={{ animationDelay: '180ms' }}>
           Sem horas de vídeo que não viram prática: aqui, <strong className="text-ink-heading">cada conceito vira um exercício</strong> — código escrito por você e corrigido na hora.
-          Você começa em missões no formato de jogo e sobe de nível: projetos guiados, a IDE completa, até montar um portfólio que as empresas podem verificar.
+          Você começa em missões no formato de jogo e sobe de nível: projetos guiados, a IDE completa, até montar um portfólio que as empresas buscam.
           O destino não é um certificado. É você, <strong className="text-ink-heading">dev completo, pronto para o mercado</strong>.
         </p>
 
