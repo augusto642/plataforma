@@ -217,7 +217,7 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
               CGROUPS-V2 ISOLATED
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300">
-              P99: {state.outputLatency}
+              LATÊNCIA: {state.outputLatency}
             </span>
           </div>
         </div>
@@ -424,7 +424,7 @@ fn expurgar_deadlock(lock: &mut Mutex) -> bool {
             <div>
               <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-border-1 text-xs font-mono text-zinc-400">
                 <span>TELEMETRIA & COMBAT OUTPUT</span>
-                <span className="text-brand-cyan-neon font-bold">SUB-20MS</span>
+                <span className="text-brand-cyan-neon font-bold">TEMPO REAL</span>
               </div>
 
               <div

@@ -64,7 +64,7 @@ const TCG_CARDS: TcgCardData[] = [
     hp: 440,
     stats: [
       { label: 'Goroutines Flow', value: 99 },
-      { label: 'Low Latency P99', value: 98 },
+      { label: 'Baixa Latência', value: 98 },
       { label: 'Throughput OPS', value: 95 },
     ],
     signatureSpell: 'Canal de Concorrência Paralela',
