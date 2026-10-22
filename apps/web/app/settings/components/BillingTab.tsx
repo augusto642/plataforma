@@ -20,7 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 const EXPLORER_INCLUDES = [
   'Desafios fundamentais do nível Iniciante',
   'Sandbox Linux Piston',
-  'Leaderboard público da comunidade',
+  'Ranking por curso entre alunos matriculados',
   'Tutora de IA socrática no nível Iniciante',
   'Portfólio público com seus projetos',
 ];
