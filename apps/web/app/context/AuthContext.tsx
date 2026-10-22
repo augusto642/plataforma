@@ -8,6 +8,10 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'instructor' | 'admin';
+  /** B40 (Sprint 13) — handle público real, exposto por GET /users/me. */
+  nickname?: string | null;
+  /** B40 (Sprint 13) — nível de carreira real, exposto por GET /users/me. */
+  careerTier?: string;
   /** B37 (Sprint 11) — plano real da conta, exposto por GET /users/me (B32). */
   plan?: 'free' | 'pro';
   xp?: number;
@@ -51,6 +55,8 @@ function normalizeUser(raw: any): User | null {
     name: raw.name ?? String(raw.email ?? '').split('@')[0] ?? 'Usuário',
     email: raw.email ?? '',
     role: raw.role ?? 'student',
+    nickname: typeof raw.nickname === 'string' ? raw.nickname : null,
+    careerTier: typeof raw.careerTier === 'string' ? raw.careerTier : undefined,
     plan: raw.plan === 'pro' ? 'pro' : raw.plan === 'free' ? 'free' : undefined,
     xp: raw.xp,
     level: raw.level,
