@@ -1,6 +1,25 @@
 // Resolve @prisma/client e bcrypt a partir de apps/api (onde estão instalados
 // no workspace pnpm; este script vive fora do workspace de pacotes).
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { CATALOG_TRACK_ACTIVITIES } from './track-content.mjs';
+
+// Espinha de conceitos v1 (fonte única: content/concept-spine.json).
+// O seed confere as conceptTags do catálogo contra ela antes de gravar —
+// tag fora da espinha aqui é erro de conteúdo, não surpresa em produção.
+const conceptSpine = JSON.parse(
+  readFileSync(new URL('../content/concept-spine.json', import.meta.url), 'utf8'),
+);
+const spineTagSet = new Set(conceptSpine.modules.map((m) => m.tag));
+for (const activity of CATALOG_TRACK_ACTIVITIES) {
+  for (const tag of activity.conceptTags ?? []) {
+    if (!spineTagSet.has(tag)) {
+      throw new Error(
+        `[seed-data] conceptTag "${tag}" de ${activity.courseSlug}/${activity.slug} não existe na espinha (content/concept-spine.json)`,
+      );
+    }
+  }
+}
 const apiRequire = createRequire(
   new URL('../apps/api/package.json', import.meta.url),
 );
@@ -150,103 +169,30 @@ async function main() {
     create: { userId: student2.id, courseId: course1.id },
   });
 
-  // 4. Criar Atividades para o Curso de JavaScript
-  const solutionSoma = `function soma(a, b) {\n  return a + b;\n}\n`;
-  const solutionPalindromo = `function ehPalindromo(str) {\n  const invertida = str.split('').reverse().join('');\n  return str === invertida;\n}\n`;
-  const solutionMaiorNumero = `function maiorNumero(arr) {\n  return Math.max(...arr);\n}\n`;
-  const solutionDobro = `def dobro(n):\n    return n * 2\n`;
-  const solutionVogais = `def contar_vogais(texto):\n    total = 0\n    for letra in texto.lower():\n        if letra in "aeiou":\n            total += 1\n    return total\n`;
-
-  const activity1 = await prisma.activity.upsert({
-    where: { courseId_slug: { courseId: course1.id, slug: 'soma-dois-numeros' } },
-    update: { referenceSolution: solutionSoma },
-    create: {
-      courseId: course1.id,
-      title: '1. Soma de Dois Números',
-      slug: 'soma-dois-numeros',
-      description: 'Escreva uma função chamada `soma(a, b)` que receba dois números como parâmetros e retorne o resultado da sua soma.',
-      instructions: 'Exemplo: soma(2, 3) => 5; soma(-1, 5) => 4',
-      language: 'javascript',
-      initialCode: `function soma(a, b) {\n  // Implemente sua solucao aqui\n}\n`,
-      testCode: `if (typeof soma !== 'function') throw new Error('A funcao soma precisa estar declarada');\nif (soma(2, 3) !== 5) throw new Error('soma(2, 3) deve retornar 5');\nif (soma(-1, 5) !== 4) throw new Error('soma(-1, 5) deve retornar 4');`,
-      hiddenTests: `if (soma(0, 0) !== 0) throw new Error('soma(0, 0) deve retornar 0');\nif (soma(100, 200) !== 300) throw new Error('soma(100, 200) deve retornar 300');`,
-      referenceSolution: solutionSoma,
-      order: 1,
-    },
-  });
-
-  const activity2 = await prisma.activity.upsert({
-    where: { courseId_slug: { courseId: course1.id, slug: 'verificar-palindromo' } },
-    update: { referenceSolution: solutionPalindromo },
-    create: {
-      courseId: course1.id,
-      title: '2. Verificador de Palíndromo',
-      slug: 'verificar-palindromo',
-      description: 'Crie uma função `ehPalindromo(str)` que verifique se uma palavra ou sequência de caracteres é lida da mesma forma de trás para frente. Retorne `true` ou `false`.',
-      instructions: 'Exemplo: ehPalindromo("radar") => true; ehPalindromo("programacao") => false',
-      language: 'javascript',
-      initialCode: `function ehPalindromo(str) {\n  // Retorne true se for palindromo e false caso contrario\n}\n`,
-      testCode: `if (typeof ehPalindromo !== 'function') throw new Error('A funcao ehPalindromo precisa estar declarada');\nif (ehPalindromo('radar') !== true) throw new Error('ehPalindromo("radar") deve retornar true');\nif (ehPalindromo('codigo') !== false) throw new Error('ehPalindromo("codigo") deve retornar false');`,
-      hiddenTests: `if (ehPalindromo('ana') !== true) throw new Error('ehPalindromo("ana") deve retornar true');\nif (ehPalindromo('osso') !== true) throw new Error('ehPalindromo("osso") deve retornar true');`,
-      referenceSolution: solutionPalindromo,
-      order: 2,
-    },
-  });
-
-  const activity3 = await prisma.activity.upsert({
-    where: { courseId_slug: { courseId: course1.id, slug: 'maior-numero-array' } },
-    update: { referenceSolution: solutionMaiorNumero },
-    create: {
-      courseId: course1.id,
-      title: '3. Encontrar o Maior Número',
-      slug: 'maior-numero-array',
-      description: 'Implemente a função `maiorNumero(arr)` que receba um array de números inteiros e retorne o maior elemento presente no array.',
-      instructions: 'Exemplo: maiorNumero([1, 5, 3, 9, 2]) => 9',
-      language: 'javascript',
-      initialCode: `function maiorNumero(arr) {\n  // Retorne o maior elemento do array\n}\n`,
-      testCode: `if (typeof maiorNumero !== 'function') throw new Error('A funcao maiorNumero precisa estar declarada');\nif (maiorNumero([1, 5, 3, 9, 2]) !== 9) throw new Error('maiorNumero([1, 5, 3, 9, 2]) deve retornar 9');\nif (maiorNumero([10]) !== 10) throw new Error('maiorNumero([10]) deve retornar 10');`,
-      hiddenTests: `if (maiorNumero([-10, -5, -20]) !== -5) throw new Error('maiorNumero([-10, -5, -20]) deve retornar -5');\nif (maiorNumero([100, 20, 500, 1]) !== 500) throw new Error('maiorNumero([100, 20, 500, 1]) deve retornar 500');`,
-      referenceSolution: solutionMaiorNumero,
-      order: 3,
-    },
-  });
-
-  // 5. Criar Atividades para o Curso de Python
-  await prisma.activity.upsert({
-    where: { courseId_slug: { courseId: course2.id, slug: 'dobro-numero-python' } },
-    update: { referenceSolution: solutionDobro },
-    create: {
-      courseId: course2.id,
-      title: '1. Dobro de um Número',
-      slug: 'dobro-numero-python',
-      description: 'Defina a função `dobro(n)` que recebe um número inteiro ou decimal e retorna o dobro dele.',
-      instructions: 'Exemplo: dobro(4) => 8; dobro(-3) => -6',
-      language: 'python',
-      initialCode: `def dobro(n):\n    # Retorne o dobro de n\n    pass\n`,
-      testCode: `assert dobro(4) == 8, "dobro(4) deve ser 8"\nassert dobro(-3) == -6, "dobro(-3) deve ser -6"`,
-      hiddenTests: `assert dobro(0) == 0, "dobro(0) deve ser 0"\nassert dobro(2.5) == 5.0, "dobro(2.5) deve ser 5.0"`,
-      referenceSolution: solutionDobro,
-      order: 1,
-    },
-  });
-
-  await prisma.activity.upsert({
-    where: { courseId_slug: { courseId: course2.id, slug: 'contar-vogais-python' } },
-    update: { referenceSolution: solutionVogais },
-    create: {
-      courseId: course2.id,
-      title: '2. Contagem de Vogais',
-      slug: 'contar-vogais-python',
-      description: 'Defina a função `contar_vogais(texto)` que retorne o número de vogais (a, e, i, o, u - maiúsculas ou minúsculas) presentes na string fornecida.',
-      instructions: 'Exemplo: contar_vogais("Python") => 1; contar_vogais("Desenvolvimento") => 6',
-      language: 'python',
-      initialCode: `def contar_vogais(texto):\n    # Retorne a quantidade de vogais\n    pass\n`,
-      testCode: `assert contar_vogais("Python") == 1, "contar_vogais('Python') deve ser 1"\nassert contar_vogais("Desenvolvimento") == 6, "contar_vogais('Desenvolvimento') deve ser 6"`,
-      hiddenTests: `assert contar_vogais("AEIOU") == 5, "contar_vogais('AEIOU') deve ser 5"\nassert contar_vogais("xyz") == 0, "contar_vogais('xyz') deve ser 0"`,
-      referenceSolution: solutionVogais,
-      order: 2,
-    },
-  });
+  // 4. Atividades do catálogo de aluno — fonte única em
+  // scripts/track-content.mjs (Sprint 20A): conceptTags da espinha
+  // (content/concept-spine.json) e lessonPayload com exemplo análogo.
+  // O `update` regrava o conteúdo inteiro de propósito: é assim que o
+  // retrofit (tags + exemplo análogo) chega a bancos já semeados.
+  // Gate de integridade deste conteúdo: scripts/validate-tracks.mjs.
+  const catalogCoursesBySlug = {
+    'algoritmos-javascript': course1,
+    'introducao-python': course2,
+  };
+  for (const activity of CATALOG_TRACK_ACTIVITIES) {
+    const course = catalogCoursesBySlug[activity.courseSlug];
+    if (!course) {
+      throw new Error(
+        `[seed-data] curso do catálogo não criado neste seed: ${activity.courseSlug}`,
+      );
+    }
+    const { courseSlug: _courseSlug, ...content } = activity;
+    await prisma.activity.upsert({
+      where: { courseId_slug: { courseId: course.id, slug: activity.slug } },
+      update: content,
+      create: { courseId: course.id, ...content },
+    });
+  }
 
   // 6. Biblioteca Pública (curso marcado como biblioteca, visível apenas para instrutores)
   const libraryCourse = await prisma.course.upsert({
