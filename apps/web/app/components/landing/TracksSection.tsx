@@ -152,7 +152,7 @@ export const TracksSection: React.FC = () => (
 
             {/* Resumo do Curso */}
             <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
-              Do primeiro <code className="text-brand-amber bg-brand-amber/10 px-1 rounded">println!</code> à resolução de problemas reais. Aprenda a pensar como programador e a escrever códigos rápidos e sem erros de memória.
+              O roteiro em estudo começa do primeiro <code className="text-brand-amber bg-brand-amber/10 px-1 rounded">println!</code> e avança até a resolução de problemas reais: pensar como programador e escrever código rápido e sem erros de memória.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
@@ -185,7 +185,7 @@ export const TracksSection: React.FC = () => (
           <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-amber"></span>
-              <span className="text-xs font-mono text-ink-span">Do Zero ao Avançado</span>
+              <span className="text-xs font-mono text-ink-span">Percurso planejado: Do Zero ao Avançado</span>
             </div>
             <TrackWaitlistForm track="rust" />
           </div>
@@ -217,7 +217,7 @@ export const TracksSection: React.FC = () => (
 
             {/* Resumo do Curso */}
             <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
-              Construa o backend que move gigantes da tecnologia. Crie rotas HTTP ultra rápidas, conecte bancos de dados PostgreSQL e faça deploys reais de microsserviços.
+              O plano: construir backends em Go — rotas HTTP rápidas, conexão com bancos de dados PostgreSQL e deploy de microsserviços.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
@@ -243,7 +243,7 @@ export const TracksSection: React.FC = () => (
           <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-cyan-neon"></span>
-              <span className="text-xs font-mono text-ink-span">Intermediário</span>
+              <span className="text-xs font-mono text-ink-span">Nível planejado: Intermediário</span>
             </div>
             <TrackWaitlistForm track="go" />
           </div>
@@ -275,7 +275,7 @@ export const TracksSection: React.FC = () => (
 
             {/* Resumo do Curso */}
             <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
-              Crie sites modernos, interativos e rápidos com as ferramentas usadas por startups unicórnio. Aprenda TypeScript, Tailwind e Next.js criando produtos reais.
+              O roteiro prevê criar sites modernos e interativos com TypeScript, Tailwind e Next.js, em projetos práticos do início ao deploy.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
@@ -301,7 +301,7 @@ export const TracksSection: React.FC = () => (
           <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-green-neon"></span>
-              <span className="text-xs font-mono text-ink-span">Do Zero ao Deploy</span>
+              <span className="text-xs font-mono text-ink-span">Percurso planejado: Do Zero ao Deploy</span>
             </div>
             <TrackWaitlistForm track="web" />
           </div>
@@ -333,7 +333,7 @@ export const TracksSection: React.FC = () => (
 
             {/* Resumo do Curso */}
             <p className="text-body-sm text-ink-span leading-relaxed line-clamp-2 mb-4 font-sans">
-              Comece com scripts básicos em Python e avance até criar agentes autônomos com LLMs que leem arquivos, resolvem tarefas e integram APIs inteligentes.
+              O plano parte de scripts básicos em Python e avança até agentes com LLMs que leem arquivos, resolvem tarefas e integram APIs.
             </p>
 
             {/* Tecnologias & Conteúdos-Chave */}
@@ -362,7 +362,7 @@ export const TracksSection: React.FC = () => (
           <div className="pt-3.5 border-t border-border-1/80 flex flex-col gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-brand-purple"></span>
-              <span className="text-xs font-mono text-ink-span">Do Zero ao Avançado</span>
+              <span className="text-xs font-mono text-ink-span">Percurso planejado: Do Zero ao Avançado</span>
             </div>
             <TrackWaitlistForm track="python-ia" />
           </div>
