@@ -30,21 +30,26 @@ const STAGES: StageMeta[] = [
     level: 'NÍVEL 2',
     name: 'Júnior',
     short: 'A construção',
-    desc: 'Os exercícios viram construção: funções, listas e arquivos montando o seu primeiro sistema completo, com testes.',
+    // B53 (Sprint 17 · Volta 2) — gramática do caminho: só o estágio 1
+    // é o presente (prólogo + cursos introdutórios no ar). Os estágios
+    // 2 e 3 são os próximos degraus da jornada, não inventário atual —
+    // as descrições ganham a marca do caminho ("próximo degrau",
+    // "mais adiante"), e o 4 é nomeado como o que é: o destino.
+    desc: 'O próximo degrau do caminho: os exercícios viram construção — funções, listas e arquivos montando o seu primeiro sistema completo, com testes.',
   },
   {
     id: 'pleno',
     level: 'NÍVEL 3',
     name: 'Pleno',
     short: 'O profissional',
-    desc: 'O treino vira trabalho: frameworks, testes reais e a IDE completa, no mesmo padrão usado nas empresas.',
+    desc: 'Mais adiante no caminho, o treino vira trabalho: frameworks, testes reais e a IDE completa, no mesmo padrão usado nas empresas.',
   },
   {
     id: 'mercado',
     level: 'DESTINO',
     name: 'Mercado',
     short: 'A prova',
-    desc: 'Tudo o que você construiu vira um portfólio público de evidências — a prova que qualquer empresa busca antes de te chamar.',
+    desc: 'O destino da jornada: tudo o que você construiu vira um portfólio público de evidências — a prova que qualquer empresa busca antes de te chamar.',
   },
 ];
 
@@ -429,8 +434,14 @@ const StageProfile: React.FC = () => {
 
       <div className="px-4 sm:px-5 py-3.5 bg-surface-2 border-t border-border-1">
         <p className="font-sans text-xs sm:text-[13px] text-ink-body leading-relaxed">
-          Empresas parceiras encontram perfis verificados no <strong className="text-ink-heading">módulo Talent</strong>:
-          sua prova vira ponte para vagas — verificação pública, sem login.
+          {/* B53 (Sprint 17 · Volta 2) — o rodapé prometia "empresas
+              encontram perfis verificados" e "ponte para vagas": o
+              módulo Talent real é o ranking de talentos por curso para
+              empresas parceiras, só de alunos que optaram por aparecer;
+              a verificação pública sem login é a do certificado. */}
+          No <strong className="text-ink-heading">módulo Talent</strong>, empresas parceiras veem o ranking de
+          talentos por curso — só de alunos que optaram por aparecer. E qualquer pessoa confere um
+          certificado pelo código SHA-256, sem login.
         </p>
       </div>
     </div>
@@ -534,7 +545,7 @@ export const HeroEvolution: React.FC = () => {
             </svg>
           </span>
           <p className="font-sans text-xs sm:text-[13px] text-ink-body leading-relaxed">
-            <strong className="text-ink-heading">A tutora de IA guia os 4 estágios</strong> — do primeiro comando ao portfólio,
+            <strong className="text-ink-heading">A tutora de IA acompanha a jornada</strong> — do primeiro comando ao portfólio,
             ela ensina com perguntas e dicas em 3 níveis. A resposta pronta, nunca.
           </p>
           <span className="ml-auto hidden md:inline shrink-0 text-[10px] font-mono font-bold tracking-widest text-ink-span">
