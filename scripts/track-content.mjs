@@ -138,10 +138,21 @@ export const CATALOG_TRACK_ACTIVITIES = [
     instructions: 'Exemplo: ao executar main(), a saída deve ser: Olá, Mundo!',
     language: 'python',
     initialCode: 'def main():\n    # Imprima a mensagem Olá, Mundo!\n    pass\n',
+    // ATENÇÃO — formato exigido pelo runner do aluno (Correção 20B.1):
+    // o runner quebra testCode/hiddenTests em linhas e executa CADA linha
+    // como um programa separado (código do aluno + aquela linha). Logo,
+    // cada linha de teste precisa ser autossuficiente: nada de blocos
+    // compostos (with/for/if com corpo indentado em outra linha) nem de
+    // variáveis criadas numa linha e usadas noutra — o estado NÃO persiste
+    // entre linhas. A captura do print usa __enter__/__exit__ do
+    // redirect_stdout na própria linha, com instruções simples separadas
+    // por ';'. (O formato antigo, com bloco `with` multi-linha, passava no
+    // validador — que executa o script inteiro — mas reprovava TODO aluno
+    // no runner, inclusive com a solução correta.)
     testCode:
-      'import io, contextlib\n_saida = io.StringIO()\nwith contextlib.redirect_stdout(_saida):\n    main()\nassert _saida.getvalue() == "Olá, Mundo!\\n", "a saída deve ser exatamente: Olá, Mundo!"',
+      'import io, contextlib; _saida = io.StringIO(); _red = contextlib.redirect_stdout(_saida); _red.__enter__(); main(); _red.__exit__(None, None, None); assert _saida.getvalue() == "Olá, Mundo!\\n", "a saída deve ser exatamente: Olá, Mundo!"',
     hiddenTests:
-      'import io, contextlib\n_saida2 = io.StringIO()\nwith contextlib.redirect_stdout(_saida2):\n    main()\n_linhas = _saida2.getvalue().splitlines()\nassert len(_linhas) == 1, "a saída deve ter exatamente uma linha"\nassert _linhas[0] == "Olá, Mundo!", "a linha impressa deve ser Olá, Mundo!"',
+      'import io, contextlib; _s2 = io.StringIO(); _r2 = contextlib.redirect_stdout(_s2); _r2.__enter__(); main(); _r2.__exit__(None, None, None); assert len(_s2.getvalue().splitlines()) == 1, "a saída deve ter exatamente uma linha"\nimport io, contextlib; _s3 = io.StringIO(); _r3 = contextlib.redirect_stdout(_s3); _r3.__enter__(); main(); _r3.__exit__(None, None, None); assert _s3.getvalue().splitlines()[0] == "Olá, Mundo!", "a linha impressa deve ser Olá, Mundo!"',
     referenceSolution: 'def main():\n    print("Olá, Mundo!")\n',
     conceptTags: ['saida-e-variaveis'],
     lessonPayload: {
