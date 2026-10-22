@@ -24,3 +24,31 @@ export function useCourseActivitiesQuery(courseId?: string) {
     enabled: Boolean(courseId),
   });
 }
+
+// B41 (Sprint 14) — detalhe real do curso (ementa da listagem) e
+// progresso real do usuário logado (selos, banner e cabeçalho da
+// página de cursos). Antes a listagem não consultava nenhum dos dois
+// e exibia um catálogo estático com progresso fabricado.
+export function useCourseDetailQuery(courseId?: string) {
+  return useQuery({
+    queryKey: queryKeys.courses.detail(courseId || ''),
+    queryFn: async () => {
+      const res = await apiFetch(`${API_BASE}/courses/${courseId}`);
+      if (!res.ok) throw new Error('Falha ao carregar o curso.');
+      return res.json();
+    },
+    enabled: Boolean(courseId),
+  });
+}
+
+export function useMyProgressQuery(enabled: boolean = true) {
+  return useQuery({
+    queryKey: queryKeys.profile.progress,
+    queryFn: async () => {
+      const res = await apiFetch(`${API_BASE}/users/me/progress`);
+      if (!res.ok) throw new Error('Falha ao carregar o progresso.');
+      return res.json();
+    },
+    enabled,
+  });
+}

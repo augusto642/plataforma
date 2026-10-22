@@ -1,15 +1,24 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Course } from '../types';
+import type { CourseListItem } from '../types';
+import { mapApiCourseDetail } from '../utils';
+import { useCourseDetailQuery } from '../../hooks/useCoursesQuery';
 
 interface CourseModalProps {
-  course: Course | null;
+  course: CourseListItem | null;
   onClose: () => void;
 }
 
+// B41 (Sprint 14) — a ementa deixou de vir dos "módulos" do catálogo
+// estático: ao abrir, o modal busca GET /courses/:id e lista as
+// atividades reais do curso (título e linguagem, na ordem da API).
+// Nível, horas e XP não existem no DTO e não são exibidos.
 export function CourseModal({ course, onClose }: CourseModalProps) {
+  const { data, isLoading, isError } = useCourseDetailQuery(course?.id);
+  const detail = useMemo(() => (data ? mapApiCourseDetail(data) : null), [data]);
+
   // ESC key listener to close modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -52,63 +61,72 @@ export function CourseModal({ course, onClose }: CourseModalProps) {
           ✕
         </button>
 
-        {/* Top Badges */}
-        <div className="flex items-center justify-between gap-2 mb-3 pr-10">
-          <span className="text-[11px] font-mono font-bold bg-[#8257E5]/20 text-[#996DFF] px-2.5 py-0.5 rounded-full border border-[#8257E5]/30">
-            {course.level}
-          </span>
-          <span className="text-xs font-mono font-bold text-[#04D361]">
-            ⚡ {course.xp}
-          </span>
-        </div>
-
         {/* Title */}
-        <h2 className="text-[22px] font-extrabold text-white mb-1.5 font-heading leading-tight">
-          {course.modalTitle || course.title}
+        <h2 className="text-[22px] font-extrabold text-white mb-1.5 font-heading leading-tight pr-10">
+          {course.title}
         </h2>
 
-        {/* Meta */}
+        {/* Meta — somente campos reais da API */}
         <div className="text-xs font-mono text-zinc-500 mb-4">
-          {course.hours} • {course.challenges} • Git Nativo
+          {course.activitiesCount} atividades · {course.enrollmentsCount} alunos
+          matriculados
+          {course.instructorName ? <> · Instrutor: {course.instructorName}</> : null}
         </div>
 
         {/* Description */}
-        <p className="text-sm text-zinc-400 leading-relaxed mb-6">
-          {course.desc}
-        </p>
+        {course.description ? (
+          <p className="text-sm text-zinc-400 leading-relaxed mb-6">{course.description}</p>
+        ) : null}
 
-        {/* Syllabus / Modules List */}
+        {/* Syllabus — atividades reais do detalhe */}
         <div className="mb-6">
           <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-3">
-            📚 Ementa dos Módulos
+            📚 Conteúdo do curso
           </h3>
-          <div className="space-y-2">
-            {course.modules.map((m, idx) => (
-              <div
-                key={idx}
-                className="bg-[#181820] border border-[#27272A] rounded-xl p-3 sm:px-4 flex items-center justify-between gap-3 hover:border-zinc-700 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 h-6 rounded-md bg-[#27272A] text-[#04D361] font-mono font-bold text-[11px] flex items-center justify-center shrink-0">
-                    {idx + 1}
-                  </span>
-                  <span className="text-[13px] font-semibold text-white truncate">
-                    {m.name}
-                  </span>
+          {isLoading ? (
+            <p className="text-xs font-mono text-zinc-500">Carregando conteúdo…</p>
+          ) : isError || !detail ? (
+            <p className="text-xs font-mono text-zinc-500">
+              Não foi possível carregar o conteúdo deste curso agora.
+            </p>
+          ) : detail.activities.length === 0 ? (
+            <p className="text-xs font-mono text-zinc-500">
+              Este curso ainda não tem atividades publicadas.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {detail.activities.map((activity, idx) => (
+                <div
+                  key={activity.id}
+                  className="bg-[#181820] border border-[#27272A] rounded-xl p-3 sm:px-4 flex items-center justify-between gap-3 hover:border-zinc-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-6 h-6 rounded-md bg-[#27272A] text-[#04D361] font-mono font-bold text-[11px] flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span className="text-[13px] font-semibold text-white truncate">
+                      {activity.title}
+                    </span>
+                  </div>
+                  {activity.language ? (
+                    <span className="text-[11px] font-mono text-zinc-400 shrink-0 whitespace-nowrap">
+                      {activity.language}
+                    </span>
+                  ) : null}
                 </div>
-                <span className="text-[11px] font-mono text-zinc-400 shrink-0 whitespace-nowrap">
-                  {m.tasks}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
         <div className="border-t border-[#27272A] pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <span className="text-[11px] font-mono text-zinc-500">
-            Ambiente: <span className="text-zinc-300">Piston Runner + Git Privado</span>
-          </span>
+          <Link
+            href={`/courses/${course.slug}`}
+            className="text-[11px] font-mono text-zinc-400 hover:text-white transition-colors"
+          >
+            Abrir página do curso →
+          </Link>
           <Link
             href="/ide"
             className="bg-[#04D361] hover:opacity-90 text-black font-extrabold text-xs px-5 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-all duration-200 shadow-[0_0_20px_rgba(4,211,97,0.25)] active:scale-95 text-center"
