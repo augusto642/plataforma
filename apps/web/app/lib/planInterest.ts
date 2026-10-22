@@ -4,7 +4,7 @@ import {
   PLAN_PRICES,
   annualTotal,
   formatBRL,
-  type PlanId,
+  type PlanPrice,
 } from '../components/landing/pricing-data';
 
 /**
@@ -19,7 +19,7 @@ import {
  * aviso quando a cobrança abrir, e a confirmação diz exatamente isso.
  */
 
-export type InterestPlanId = Extract<PlanId, 'pro' | 'staff'>;
+export type InterestPlanId = Extract<PlanPrice['id'], 'pro' | 'staff'>;
 export type InterestBillingCycle = 'monthly' | 'annual';
 
 export interface PlanInterestRegistration {
