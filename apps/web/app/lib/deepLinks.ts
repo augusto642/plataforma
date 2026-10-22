@@ -6,7 +6,7 @@
 // perdendo a trilha clicada. Aqui vivem os dois mapeamentos — puros e
 // testáveis — usados na montagem de cada porta.
 
-import type { TrackId } from '../register/components/StepTracks';
+import type { TrackId } from '../(app)/register/components/StepTracks';
 
 // Card TCG (landing) → starter do catálogo do jogo, pela LINGUAGEM da
 // trilha: o card é a vitrine, o starter é a criatura jogável da mesma

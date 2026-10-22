@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToPipeableStream } from 'react-dom/server';
 import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
-import HomePage from '../../../page';
+import HomePage from '../../../(public)/page';
 
 // B76 (Sprint 18 · Volta 3 · TL M3) — testes de RENDERIZAÇÃO dos
 // claims estruturais da landing: até a Volta 2, as voltas travavam
