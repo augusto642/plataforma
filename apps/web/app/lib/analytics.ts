@@ -30,6 +30,13 @@ export type FunnelEvent =
   | 'final_cta'
   | 'diagnostic_started'
   | 'diagnostic_completed'
+  // Sprint 16 (P3/B50) — a demo da landing medida como funil próprio:
+  // início (rodou a demonstração), conclusão (a saída de exemplo foi
+  // exibida) e clique no CTA que leva à primeira lição REAL
+  // (Missão 1 do prólogo, em /onboarding).
+  | 'demo_started'
+  | 'demo_completed'
+  | 'demo_cta'
   | 'mission_started'
   | 'mission_completed'
   | 'mission_failed'

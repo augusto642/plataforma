@@ -36,6 +36,11 @@ export const FUNNEL_EVENTS = [
   'final_cta',
   'diagnostic_started',
   'diagnostic_completed',
+  // Sprint 16 (P3/B50) — funil da demo da landing: início, conclusão
+  // e clique no CTA para a primeira lição real (Missão 1 do prólogo).
+  'demo_started',
+  'demo_completed',
+  'demo_cta',
   'mission_started',
   'mission_completed',
   'mission_failed',
