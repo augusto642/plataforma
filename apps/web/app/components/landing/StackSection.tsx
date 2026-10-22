@@ -61,8 +61,12 @@ export const StackSection: React.FC = () => (
           <div className="p-3.5 rounded-2xl bg-surface-1 border border-border-1 hover:border-brand-rose/50 flex items-center gap-3 transition-all group">
             <span className="text-brand-rose group-hover:scale-110 transition-transform"><IconTerminal className="w-7 h-7" /></span>
             <div className="text-left font-mono">
-              <div className="text-body-sm font-bold text-ink-heading">Linux cgroups-v2</div>
-              <div className="text-body-sm text-ink-span">Containers Isolados</div>
+              {/* B48/P1 (Sprint 16) — a stack descrevia a execução de um
+                  terceiro jeito ("Linux cgroups-v2"). Formulação única
+                  e verdadeira em toda a landing: containers Linux
+                  isolados via Piston (runner.config da API). */}
+              <div className="text-body-sm font-bold text-ink-heading">Sandbox Piston</div>
+              <div className="text-body-sm text-ink-span">Containers Linux Isolados</div>
             </div>
           </div>
 

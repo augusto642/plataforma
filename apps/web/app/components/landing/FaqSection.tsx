@@ -52,7 +52,7 @@ export const FaqSection: React.FC = () => (
           Preciso instalar algo na minha máquina para começar?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes em Python, Go e Rust.
+          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes nas linguagens da plataforma: Java, JavaScript, TypeScript, Python e Portugol.
         </p>
       </div>
 
@@ -147,7 +147,7 @@ export const FaqSection: React.FC = () => (
           Como os projetos e certificados me ajudam a conseguir vagas?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Cada projeto gera repositórios Git reais com histórico de commits e certificados com <span className="text-ink-heading font-medium">código de verificação SHA-256</span> que qualquer pessoa pode conferir. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.
+          Ao se matricular em um curso, você ganha um <span className="text-ink-heading font-medium">repositório Git real</span> no seu nome. Seus projetos e certificados — com <span className="text-ink-heading font-medium">código de verificação SHA-256</span> que qualquer pessoa pode conferir publicamente — ficam no seu portfólio. É assim que você prova capacidade técnica para recrutadores: com código e certificados verificáveis, não com promessas.
         </p>
       </div>
 

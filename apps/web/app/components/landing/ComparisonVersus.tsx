@@ -18,7 +18,7 @@ const ROWS: ComparisonRow[] = [
   {
     aspect: 'Ritmo & Conclusão',
     traditional: 'Abandono frequente por fadiga, tédio e sensação de impotência.',
-    nexus: 'Progressão RPG, cartas colecionáveis e feedback imediato que mantêm você avançando.',
+    nexus: 'Progressão RPG, XP, sequências de estudo e feedback imediato que mantêm você avançando.',
   },
   {
     aspect: 'Resolução de Dúvidas',
@@ -28,7 +28,7 @@ const ROWS: ComparisonRow[] = [
   {
     aspect: 'Validação para o Mercado',
     traditional: 'Certificado em PDF genérico que recrutadores e tech leads desconsideram.',
-    nexus: 'Repositórios no Git real com commits automáticos e dossiê SHA-256 auditável.',
+    nexus: 'Repositório Git real criado na sua matrícula, projetos no portfólio e certificados com verificação SHA-256 que qualquer um pode conferir.',
   },
   {
     aspect: 'Setup de Ambiente',

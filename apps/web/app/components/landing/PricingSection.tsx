@@ -120,10 +120,15 @@ export const PricingSection: React.FC = () => {
             </div>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-heading mb-8">
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as 4 Trilhas Master</li>
+            {/* B48/P1 (Sprint 16) — a lista prometia "todas as 4 Trilhas
+                Master" e "capstones de concorrência e sistemas
+                distribuídos": as trilhas da ementa ainda não existem
+                como cursos (ver seção de trilhas/roadmap) e capstone
+                nomeado não é conferível. Fica o benefício real do plano:
+                acesso a trilhas e níveis, tutora e portfólio verificável. */}
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as trilhas e níveis da plataforma</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Capstones de concorrência e sistemas distribuídos</li>
           </ul>
         </div>
         <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">

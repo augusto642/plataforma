@@ -14,7 +14,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: 'Preciso instalar algo na minha máquina para começar?',
     answer:
-      'Não. Todo o ambiente roda em containers Linux isolados diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes em Python, Go e Rust.',
+      'Não. Todo o ambiente roda em containers Linux isolados diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes nas linguagens da plataforma: Java, JavaScript, TypeScript, Python e Portugol.',
   },
   {
     question: 'Qual a diferença entre a NEXUS CODE e cursos em vídeo?',
@@ -39,6 +39,6 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: 'Como os projetos e certificados me ajudam a conseguir vagas?',
     answer:
-      'Cada projeto gera repositórios Git reais com histórico de commits e certificados com código de verificação SHA-256 que qualquer pessoa pode conferir. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.',
+      'Ao se matricular em um curso, você ganha um repositório Git real no seu nome. Seus projetos e certificados — com código de verificação SHA-256 que qualquer pessoa pode conferir publicamente — ficam no seu portfólio. É assim que você prova capacidade técnica para recrutadores: com código e certificados verificáveis, não com promessas.',
   },
 ];
