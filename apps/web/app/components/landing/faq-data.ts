@@ -41,4 +41,18 @@ export const FAQ_ITEMS: FaqItem[] = [
     answer:
       'Ao se matricular em um curso, você ganha um repositório Git real no seu nome. Seus projetos e certificados — com código de verificação SHA-256 que qualquer pessoa pode conferir publicamente — ficam no seu portfólio. É assim que você prova capacidade técnica para recrutadores: com código e certificados verificáveis, não com promessas.',
   },
+  {
+    // B51/P4 (Sprint 16) — FAQ de dinheiro: responde com o estado
+    // REAL de hoje (sem cobrança ativa) e com a regra que valerá
+    // para os planos pagos — a garantia é o piso do CDC, art. 49,
+    // não uma concessão inventada.
+    question: 'Preciso pagar para começar? Como funcionam os pagamentos hoje?',
+    answer:
+      'Não. O cadastro e o nível Iniciante são gratuitos. E, hoje, nenhuma cobrança é feita na plataforma: os planos pagos exibidos na página de preços ainda não têm cobrança ativa. Quando a cobrança entrar no ar, ela será anunciada com antecedência, pelos preços exatamente como exibidos.',
+  },
+  {
+    question: 'Se eu assinar um plano pago, tenho garantia? Posso cancelar?',
+    answer:
+      'Sim. Quando os planos pagos entrarem no ar, vale a regra do Código de Defesa do Consumidor (art. 49): compras feitas pela internet têm 7 dias de desistência com reembolso integral, sem precisar justificar. E o cancelamento é feito por você, direto na sua conta — sem precisar falar com ninguém e sem multa.',
+  },
 ];

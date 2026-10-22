@@ -8,7 +8,7 @@ import { savePlanIntent } from '../../lib/attribution';
 // Frente 3 — ícones SVG únicos da landing
 import { IconBolt, IconCard, IconRocket } from './icons';
 // B52/P5 (Sprint 16) — preços da fonte única (pricing-data.ts)
-import { PLAN_PRICES, annualTotal, formatBRL } from './pricing-data';
+import { PLAN_PRICES, annualSavings, annualTotal, formatBRL } from './pricing-data';
 
 /* Sprint 10 · B34 — ilha client dos preços: o toggle mensal/anual é o
    único estado da seção; os cards leem o ciclo dele.
@@ -68,6 +68,14 @@ export const PricingSection: React.FC = () => {
         </button>
       </div>
     </div>
+    {/* B51/P4 (Sprint 16) — a economia do anual em REAIS ABSOLUTOS,
+        junto ao toggle (a pesquisa do ciclo: valor absoluto supera o
+        percentual na escolha do anual). Os valores vêm da fonte única
+        de preços — Pro: R$ 120/ano; Staff: R$ 240/ano contra o mensal. */}
+    <p className="text-body-sm font-mono text-ink-span -mt-8 mb-16 lg:text-right">
+      No plano anual: <span className="text-ink-heading font-bold">economize {formatBRL(annualSavings(PLAN_PRICES.pro))} por ano</span> no Pro
+      e <span className="text-ink-heading font-bold">{formatBRL(annualSavings(PLAN_PRICES.staff))} por ano</span> no Staff, em relação ao mensal.
+    </p>
 {/* CARDS DE PREÇO */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
       
