@@ -1,126 +1,110 @@
+// B40/A4 (Sprint 13) — tipos do painel admin espelham os DTOs REAIS da
+// API. Os tipos fictícios anteriores (SystemMetric de "cluster Piston",
+// PistonClusterNode, AuditLogItem, CertificateItem, CourseAdminItem com
+// rating/status, InstructorItem com rating/especializações) nasceram do
+// mockData e foram removidos junto com ele: nada aqui descreve um dado
+// que a API não retorne de verdade.
+
+export type AdminTab =
+  | 'overview'
+  | 'funnel'
+  | 'users'
+  | 'instructors'
+  | 'courses'
+  | 'system'
+  | 'audit';
+
 export type AdminRole = 'student' | 'instructor' | 'admin';
-export type UserStatus = 'active' | 'suspended';
-export type SeverityLevel = 'info' | 'warn' | 'critical';
-export type CourseStatus = 'published' | 'draft' | 'archived';
-export type DifficultyLevel = 'easy' | 'medium' | 'hard';
-export type AdminTab = 'overview' | 'funnel' | 'users' | 'instructors' | 'courses' | 'system' | 'audit';
+export type AdminPlan = 'free' | 'pro';
 
-export interface AdminUser {
+/** Linha de GET /admin/users (AdminService.getUsers). */
+export interface AdminUserRow {
   id: string;
-  name: string;
   email: string;
+  name: string;
   role: AdminRole;
+  plan: AdminPlan;
   xp: number;
-  streak: number;
-  status: UserStatus;
+  level: number;
+  streakDays: number;
+  talentVisible: boolean;
+  giteaUserId: number | null;
+  lastActiveAt: string | null;
   createdAt: string;
-  lastActiveAt: string;
-  avatar?: string;
-  tracksEnrolled?: string[];
-  challengesCompleted?: number;
-  specialization?: string;
+  updatedAt: string;
+  enrollmentsCount: number;
+  submissionsCount: number;
+  instructedCoursesCount: number;
+  badgesCount: number;
 }
 
-export interface SystemMetric {
-  activeUsers: number;
-  pistonLatencyMs: number;
-  totalSubmissions: number;
-  passRate: number;
-  containerMemoryUsage: string;
-  cpuLoad: string;
-  p99LatencyMs: number;
-  queueSize: number;
-  errorRate: number;
-  dockerContainersCount: number;
-  sandboxUptime: string;
+export interface AdminUsersPage {
+  data: AdminUserRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages?: number;
+  };
 }
 
-export interface AdminChallengeTestCase {
-  id: string;
-  input: string;
-  expectedOutput: string;
-  isHidden: boolean;
-}
-
-export interface AdminChallengeItem {
-  id: string;
-  title: string;
-  language: string;
-  difficulty: DifficultyLevel;
-  cpuLimitMs: number;
-  ramLimitMb: number;
-  codeTemplate: string;
-  hiddenTestsCount: number;
-  testCases: AdminChallengeTestCase[];
-  activeSubmissions: number;
-  passRate: number;
-}
-
-export interface CourseAdminItem {
+/** Item de GET /courses (CoursesService.findAll). */
+export interface AdminCourseRow {
   id: string;
   title: string;
   slug: string;
-  language: string;
-  difficulty: 'iniciante' | 'intermediário' | 'avançado';
-  totalChallenges: number;
-  enrolledStudents: number;
-  status: CourseStatus;
-  instructorName: string;
+  description: string | null;
+  isPublicLibrary: boolean;
   instructorId: string;
-  challenges: AdminChallengeItem[];
-  rating: number;
+  createdAt: string;
   updatedAt: string;
+  instructor: { id: string; name: string; email: string } | null;
+  _count: { enrollments: number; activities: number };
 }
 
-export interface InstructorItem {
-  id: string;
-  name: string;
-  email: string;
-  tracksCount: number;
-  challengesCount: number;
-  activeStudents: number;
-  rating: number;
-  status: UserStatus;
-  specializations: string[];
-  joinedAt: string;
-  avatar?: string;
-}
-
-export interface AuditLogItem {
-  id: string;
+/** GET /admin/metrics (AdminService.getMetrics). */
+export interface AdminMetrics {
   timestamp: string;
-  actor: {
-    id: string;
-    name: string;
-    role: AdminRole;
-    email: string;
+  system: {
+    uptimeSeconds: number;
+    memory: {
+      rssMb: number;
+      heapTotalMb: number;
+      heapUsedMb: number;
+      externalMb: number;
+    };
+    nodeVersion: string;
+    platform: string;
+    httpRequestsTotal: number;
+    httpErrorsTotal: number;
+    avgLatencyMs: number;
+    activeSubmissions: number;
   };
-  action: string;
-  target: string;
-  ipAddress: string;
-  severity: SeverityLevel;
-  details?: string;
+  platform: {
+    users: {
+      total: number;
+      students: number;
+      instructors: number;
+      admins: number;
+      activeLast24h: number;
+    };
+    courses: { total: number; publicLibrary: number; totalEnrollments: number };
+    activities: { total: number };
+    submissions: {
+      total: number;
+      passed: number;
+      failed: number;
+      pendingOrRunning: number;
+      passRate: number;
+    };
+  };
+  cache: { status: string; pingLatencyMs: number };
 }
 
-export interface CertificateItem {
-  id: string;
-  certificateCode: string;
-  studentName: string;
-  studentEmail: string;
-  courseTitle: string;
-  issuedAt: string;
-  sha256Hash: string;
-  score: number;
-  status: 'valid' | 'revoked';
-}
-
-export interface PistonClusterNode {
-  id: string;
-  name: string;
-  status: 'healthy' | 'warning' | 'degraded';
-  latencyMs: number;
-  activeJobs: number;
-  memoryUsage: string;
-  cpuUsage: string;
-  runtimeEngines: string[];
+/** GET /admin/health (AdminService.getHealth). */
+export interface AdminHealth {
+  status: string;
+  timestamp: string;
+  uptime: number;
+  services: { database: string; redis: string };
 }

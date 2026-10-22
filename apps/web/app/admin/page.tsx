@@ -1,28 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { apiFetch, API_BASE } from '../lib/apiClient';
+import { useAuth } from '../context/AuthContext';
 import {
-  AdminUser,
-  SystemMetric,
-  CourseAdminItem,
-  InstructorItem,
-  AuditLogItem,
-  CertificateItem,
-  PistonClusterNode,
-  AdminTab,
+  AdminCourseRow,
+  AdminHealth,
+  AdminMetrics,
+  AdminPlan,
   AdminRole,
-  CourseStatus,
-  AdminChallengeItem,
+  AdminTab,
+  AdminUsersPage,
 } from './types';
-import {
-  INITIAL_ADMIN_USERS,
-  INITIAL_SYSTEM_METRICS,
-  INITIAL_COURSES,
-  INITIAL_INSTRUCTORS,
-  INITIAL_AUDIT_LOGS,
-  INITIAL_CERTIFICATES,
-  INITIAL_PISTON_NODES,
-} from './data/mockData';
+import { initialsOf } from './utils';
 import { AdminSidebar } from './components/AdminSidebar';
 import { AdminTopbar } from './components/AdminTopbar';
 import { AdminOverviewTab } from './components/AdminOverviewTab';
@@ -33,324 +24,282 @@ import { AdminCoursesTab } from './components/AdminCoursesTab';
 import { AdminSystemHealthTab } from './components/AdminSystemHealthTab';
 import { AdminAuditLogsTab } from './components/AdminAuditLogsTab';
 
+// B40/A4 (Sprint 13) — painel admin ligado à API REAL.
+// Antes esta página era uma simulação completa no navegador: usuários,
+// métricas de "cluster", cursos, instrutores, logs e certificados
+// inventados em data/mockData.ts, persistidos em localStorage, com
+// ações que só mudavam estado local e exibiam sucesso falso. Agora:
+//  - métricas   -> GET /admin/metrics               (real)
+//  - usuários   -> GET /admin/users (busca no servidor, real)
+//  - instrutores-> GET /admin/users?role=instructor (real)
+//  - cursos     -> GET /courses                     (real)
+//  - saúde      -> GET /admin/health                (real)
+//  - papel/plano-> PATCH /admin/users/:id/role|plan (real)
+//  - instrutor  -> POST /admin/instructors          (real)
+//  - funil      -> GET /analytics/funnel (AdminFunnelTab, desde a
+//                  Sprint 8 — única aba que já era real)
+// Logs de auditoria e certificados não têm endpoint de listagem: a aba
+// correspondente declara a indisponibilidade em vez de fabricar dados.
+// mockData.ts foi deletado; nenhum localStorage é lido ou escrito aqui.
+
+type Toast = { message: string; type: 'success' | 'error' } | null;
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  const body = await res.json().catch(() => null);
+  return body?.message || `${fallback} (HTTP ${res.status})`;
+}
+
 export default function AdminDashboardPage() {
+  const { user: sessionUser } = useAuth();
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast>(null);
 
-  // Core State with hydration safety
-  const [users, setUsers] = useState<AdminUser[]>(INITIAL_ADMIN_USERS);
-  const [metrics, setMetrics] = useState<SystemMetric>(INITIAL_SYSTEM_METRICS);
-  const [courses, setCourses] = useState<CourseAdminItem[]>(INITIAL_COURSES);
-  const [instructors, setInstructors] = useState<InstructorItem[]>(INITIAL_INSTRUCTORS);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
-  const [certificates, setCertificates] = useState<CertificateItem[]>(INITIAL_CERTIFICATES);
-  const [nodes, setNodes] = useState<PistonClusterNode[]>(INITIAL_PISTON_NODES);
+  const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [health, setHealth] = useState<AdminHealth | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [usersPage, setUsersPage] = useState<AdminUsersPage | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [instructorsPage, setInstructorsPage] = useState<AdminUsersPage | null>(null);
+  const [instructorsError, setInstructorsError] = useState<string | null>(null);
+  const [courses, setCourses] = useState<AdminCourseRow[]>([]);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
+  const [mutatingId, setMutatingId] = useState<string | null>(null);
 
-  // Load from LocalStorage on mount
-  useEffect(() => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((current) => (current?.message === message ? null : current));
+    }, 4500);
+  }, []);
+
+  const loadUsers = useCallback(async (search: string) => {
     try {
-      const savedUsers = localStorage.getItem('nexus_admin_users');
-      if (savedUsers) setUsers(JSON.parse(savedUsers));
-
-      const savedCourses = localStorage.getItem('nexus_admin_courses');
-      if (savedCourses) setCourses(JSON.parse(savedCourses));
-
-      const savedInstructors = localStorage.getItem('nexus_admin_instructors');
-      if (savedInstructors) setInstructors(JSON.parse(savedInstructors));
-
-      const savedLogs = localStorage.getItem('nexus_admin_logs');
-      if (savedLogs) setAuditLogs(JSON.parse(savedLogs));
-
-      const savedCerts = localStorage.getItem('nexus_admin_certs');
-      if (savedCerts) setCertificates(JSON.parse(savedCerts));
+      const params = new URLSearchParams({ page: '1', limit: '100' });
+      if (search.trim()) params.set('search', search.trim());
+      const res = await apiFetch(`${API_BASE}/admin/users?${params.toString()}`);
+      if (res.status === 401 || res.status === 403) {
+        setAuthError(true);
+        return;
+      }
+      if (!res.ok) {
+        setUsersError(await readError(res, 'Erro ao listar usuários'));
+        return;
+      }
+      setUsersError(null);
+      setUsersPage(await res.json());
     } catch {
-      // ignore storage error
+      setUsersError('Erro de conexão com o servidor.');
     }
   }, []);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((current) => (current === msg ? null : current));
-    }, 4000);
-  };
-
-  const addAuditLog = (action: string, target: string, severity: 'info' | 'warn' | 'critical', details?: string) => {
-    const newLog: AuditLogItem = {
-      id: `log-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      actor: {
-        id: users[0]?.id || 'usr-001',
-        name: users[0]?.name || 'Augusto Lead Architect',
-        role: 'admin',
-        email: users[0]?.email || 'augusto@nexuscode.dev',
-      },
-      action,
-      target,
-      ipAddress: '189.40.122.14',
-      severity,
-      details,
-    };
-    const updated = [newLog, ...auditLogs];
-    setAuditLogs(updated);
+  const loadInstructors = useCallback(async () => {
     try {
-      localStorage.setItem('nexus_admin_logs', JSON.stringify(updated));
-    } catch {}
-  };
-
-  // Actions
-  const handlePromoteUser = (userId: string, newRole: AdminRole) => {
-    const updated = users.map((u) => (u.id === userId ? { ...u, role: newRole } : u));
-    setUsers(updated);
-    try {
-      localStorage.setItem('nexus_admin_users', JSON.stringify(updated));
-    } catch {}
-
-    const targetUser = users.find((u) => u.id === userId);
-    addAuditLog(
-      'USER_ROLE_UPDATED',
-      `${targetUser?.name || userId} -> ${newRole.toUpperCase()}`,
-      'info',
-      `Papel administrativo alterado para ${newRole}`
-    );
-    showToast(`Papel do usuário atualizado para "${newRole.toUpperCase()}" com sucesso.`);
-  };
-
-  const handleToggleUserStatus = (userId: string) => {
-    const updated = users.map((u) => {
-      if (u.id === userId) {
-        const nextStatus = u.status === 'active' ? 'suspended' : 'active';
-        addAuditLog(
-          nextStatus === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_ACTIVATED',
-          `${u.name} (${u.email})`,
-          nextStatus === 'suspended' ? 'warn' : 'info',
-          `Status de acesso da conta modificado para ${nextStatus}`
-        );
-        return { ...u, status: nextStatus as 'active' | 'suspended' };
+      const res = await apiFetch(`${API_BASE}/admin/users?role=instructor&page=1&limit=100`);
+      if (res.status === 401 || res.status === 403) {
+        setAuthError(true);
+        return;
       }
-      return u;
-    });
-    setUsers(updated);
-    try {
-      localStorage.setItem('nexus_admin_users', JSON.stringify(updated));
-    } catch {}
-    showToast('Status da conta atualizado com sucesso.');
-  };
-
-  const handleAdjustXp = (userId: string, amount: number) => {
-    const updated = users.map((u) => (u.id === userId ? { ...u, xp: u.xp + amount } : u));
-    setUsers(updated);
-    try {
-      localStorage.setItem('nexus_admin_users', JSON.stringify(updated));
-    } catch {}
-    showToast(`Concedido +${amount} XP ao usuário.`);
-  };
-
-  const handleCreateInstructor = (data: {
-    name: string;
-    email: string;
-    specialization: string;
-    initialTrack: string;
-  }) => {
-    const newId = `usr-${Date.now().toString().slice(-4)}`;
-    const initials = data.name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-
-    const newUser: AdminUser = {
-      id: newId,
-      name: data.name,
-      email: data.email,
-      role: 'instructor',
-      xp: 25000,
-      streak: 1,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString(),
-      avatar: initials,
-      tracksEnrolled: [data.initialTrack],
-      challengesCompleted: 50,
-      specialization: data.specialization,
-    };
-
-    const newInst: InstructorItem = {
-      id: newId,
-      name: data.name,
-      email: data.email,
-      tracksCount: 1,
-      challengesCount: 0,
-      activeStudents: 0,
-      rating: 5.0,
-      status: 'active',
-      specializations: [data.specialization],
-      joinedAt: new Date().toISOString().split('T')[0],
-      avatar: initials,
-    };
-
-    const updatedUsers = [newUser, ...users];
-    const updatedInsts = [newInst, ...instructors];
-
-    setUsers(updatedUsers);
-    setInstructors(updatedInsts);
-
-    try {
-      localStorage.setItem('nexus_admin_users', JSON.stringify(updatedUsers));
-      localStorage.setItem('nexus_admin_instructors', JSON.stringify(updatedInsts));
-    } catch {}
-
-    addAuditLog('INSTRUCTOR_ONBOARDED', `${data.name} (${data.email})`, 'info', `Atribuído à trilha ${data.initialTrack}`);
-    showToast(`Instrutor Lead ${data.name} cadastrado com sucesso!`);
-  };
-
-  const handleAssignTrack = (instructorId: string, trackName: string) => {
-    const updated = instructors.map((inst) =>
-      inst.id === instructorId
-        ? {
-            ...inst,
-            tracksCount: inst.tracksCount + 1,
-            specializations: [...inst.specializations, trackName],
-          }
-        : inst
-    );
-    setInstructors(updated);
-    try {
-      localStorage.setItem('nexus_admin_instructors', JSON.stringify(updated));
-    } catch {}
-    const inst = instructors.find((i) => i.id === instructorId);
-    addAuditLog('TRACK_ASSIGNED', `${trackName} -> ${inst?.name}`, 'info');
-    showToast(`Trilha "${trackName}" designada com sucesso.`);
-  };
-
-  const handleCreateChallenge = (
-    courseId: string,
-    challengeData: Omit<AdminChallengeItem, 'id' | 'activeSubmissions' | 'passRate'>
-  ) => {
-    const newChallenge: AdminChallengeItem = {
-      ...challengeData,
-      id: `ch-${Date.now().toString().slice(-4)}`,
-      activeSubmissions: 0,
-      passRate: 100,
-    };
-
-    const updatedCourses = courses.map((c) => {
-      if (c.id === courseId) {
-        return {
-          ...c,
-          totalChallenges: c.totalChallenges + 1,
-          challenges: [newChallenge, ...c.challenges],
-        };
+      if (!res.ok) {
+        setInstructorsError(await readError(res, 'Erro ao listar instrutores'));
+        return;
       }
-      return c;
-    });
+      setInstructorsError(null);
+      setInstructorsPage(await res.json());
+    } catch {
+      setInstructorsError('Erro de conexão com o servidor.');
+    }
+  }, []);
 
-    setCourses(updatedCourses);
-    try {
-      localStorage.setItem('nexus_admin_courses', JSON.stringify(updatedCourses));
-    } catch {}
+  const loadAll = useCallback(async () => {
+    const [metricsRes, healthRes, coursesRes] = await Promise.allSettled([
+      apiFetch(`${API_BASE}/admin/metrics`),
+      apiFetch(`${API_BASE}/admin/health`),
+      apiFetch(`${API_BASE}/courses`),
+    ]);
 
-    addAuditLog(
-      'CHALLENGE_CREATED',
-      `${newChallenge.title} (${newChallenge.language.toUpperCase()})`,
-      'info',
-      `Limites: ${newChallenge.cpuLimitMs}ms CPU, ${newChallenge.ramLimitMb}MB RAM, ${newChallenge.hiddenTestsCount} testes ocultos`
-    );
-    showToast(`Desafio "${newChallenge.title}" publicado na Sandbox!`);
-  };
-
-  const handleToggleCourseStatus = (courseId: string, newStatus: CourseStatus) => {
-    const updated = courses.map((c) => (c.id === courseId ? { ...c, status: newStatus } : c));
-    setCourses(updated);
-    try {
-      localStorage.setItem('nexus_admin_courses', JSON.stringify(updated));
-    } catch {}
-    const course = courses.find((c) => c.id === courseId);
-    addAuditLog('COURSE_STATUS_CHANGED', `${course?.title} -> ${newStatus.toUpperCase()}`, 'info');
-    showToast(`Status do curso alterado para ${newStatus}.`);
-  };
-
-  const handleToggleCertificateStatus = (certId: string) => {
-    const updated = certificates.map((cert) => {
-      if (cert.id === certId) {
-        const nextStatus = cert.status === 'valid' ? 'revoked' : 'valid';
-        addAuditLog(
-          nextStatus === 'revoked' ? 'CERTIFICATE_REVOKED' : 'CERTIFICATE_REVALIDATED',
-          `${cert.certificateCode} (${cert.studentName})`,
-          nextStatus === 'revoked' ? 'warn' : 'info'
-        );
-        return { ...cert, status: nextStatus as 'valid' | 'revoked' };
+    if (metricsRes.status === 'fulfilled') {
+      const res = metricsRes.value;
+      if (res.status === 401 || res.status === 403) setAuthError(true);
+      else if (!res.ok) setMetricsError(`A API respondeu ${res.status}.`);
+      else {
+        setMetricsError(null);
+        setMetrics(await res.json());
       }
-      return cert;
-    });
-    setCertificates(updated);
-    try {
-      localStorage.setItem('nexus_admin_certs', JSON.stringify(updated));
-    } catch {}
-    showToast('Status do certificado atualizado.');
-  };
+    } else {
+      setMetricsError('Erro de conexão com o servidor.');
+    }
 
-  // SRE actions
-  const handleRecyclePool = () => {
-    setMetrics((prev) => ({ ...prev, pistonLatencyMs: 38 }));
-    addAuditLog('CONTAINER_POOL_RECYCLED', 'Piston Engine Cluster (32 VMs)', 'info', 'Zero-downtime micro-VM pool recycled');
-    showToast('Pool de 32 micro-VMs Piston reciclado com sucesso.');
-  };
+    if (healthRes.status === 'fulfilled') {
+      const res = healthRes.value;
+      if (res.status === 401 || res.status === 403) setAuthError(true);
+      else if (!res.ok) setHealthError(`A API respondeu ${res.status}.`);
+      else {
+        setHealthError(null);
+        setHealth(await res.json());
+      }
+    } else {
+      setHealthError('Erro de conexão com o servidor.');
+    }
 
-  const handlePurgeCache = () => {
-    addAuditLog('BUILD_CACHE_PURGED', 'Rustc, Go & Solidity AST Cache', 'info', '6.4 GB de cache liberados.');
-    showToast('Cache de compilação purgado com sucesso.');
-  };
+    if (coursesRes.status === 'fulfilled') {
+      const res = coursesRes.value;
+      if (res.status === 401 || res.status === 403) setAuthError(true);
+      else if (!res.ok) setCoursesError(`A API respondeu ${res.status}.`);
+      else {
+        const data = await res.json().catch(() => []);
+        setCoursesError(null);
+        setCourses(Array.isArray(data) ? data : []);
+      }
+    } else {
+      setCoursesError('Erro de conexão com o servidor.');
+    }
 
-  const handleRunBenchmark = () => {
-    addAuditLog('SRE_BENCHMARK_EXECUTED', 'Piston Micro-VMs Stress (500 jobs)', 'info', 'P50: 39ms | P99: 114ms | 0 erros.');
-    showToast('Benchmark concluído: P50=39ms, P99=114ms.');
-  };
+    await Promise.all([loadUsers(''), loadInstructors()]);
+  }, [loadInstructors, loadUsers]);
 
-  const criticalLogsCount = auditLogs.filter((l) => l.severity === 'critical').length;
-  const currentUser = users[0] || INITIAL_ADMIN_USERS[0];
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  // Busca de usuários com debounce — o filtro é aplicado no servidor.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void loadUsers(globalSearch);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [globalSearch, loadUsers]);
+
+  const handleUpdateRole = useCallback(
+    async (userId: string, role: AdminRole) => {
+      setMutatingId(userId);
+      try {
+        const res = await apiFetch(`${API_BASE}/admin/users/${userId}/role`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role }),
+        });
+        if (!res.ok) {
+          showToast(await readError(res, 'Não foi possível alterar o papel'), 'error');
+          return;
+        }
+        showToast('Papel do usuário atualizado na API.');
+        await Promise.all([loadUsers(globalSearch), loadInstructors()]);
+      } catch {
+        showToast('Erro de conexão ao alterar o papel.', 'error');
+      } finally {
+        setMutatingId(null);
+      }
+    },
+    [globalSearch, loadInstructors, loadUsers, showToast],
+  );
+
+  const handleUpdatePlan = useCallback(
+    async (userId: string, plan: AdminPlan) => {
+      setMutatingId(userId);
+      try {
+        const res = await apiFetch(`${API_BASE}/admin/users/${userId}/plan`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        });
+        if (!res.ok) {
+          showToast(await readError(res, 'Não foi possível alterar o plano'), 'error');
+          return;
+        }
+        showToast('Plano do usuário atualizado na API.');
+        await loadUsers(globalSearch);
+      } catch {
+        showToast('Erro de conexão ao alterar o plano.', 'error');
+      } finally {
+        setMutatingId(null);
+      }
+    },
+    [globalSearch, loadUsers, showToast],
+  );
+
+  const handleCreateInstructor = useCallback(
+    async (data: { name: string; email: string; password?: string }): Promise<boolean> => {
+      try {
+        const res = await apiFetch(`${API_BASE}/admin/instructors`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) {
+          showToast(await readError(res, 'Não foi possível cadastrar o instrutor'), 'error');
+          return false;
+        }
+        showToast(`Instrutor ${data.name} cadastrado na API.`);
+        await Promise.all([loadUsers(globalSearch), loadInstructors()]);
+        return true;
+      } catch {
+        showToast('Erro de conexão ao cadastrar o instrutor.', 'error');
+        return false;
+      }
+    },
+    [globalSearch, loadInstructors, loadUsers, showToast],
+  );
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-[#09090A] text-[#EDEDED] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-[#121217] border border-[#27272A] rounded-2xl p-8 space-y-4">
+          <h1 className="text-xl font-bold text-white font-heading">
+            Área restrita a administradores
+          </h1>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            A API recusou o acesso aos dados administrativos nesta sessão (401/403). Entre com uma
+            conta de administrador para ver os dados reais da plataforma — nenhum número de exemplo
+            é exibido aqui.
+          </p>
+          <Link
+            href="/login"
+            className="inline-block px-5 py-2.5 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs transition-all"
+          >
+            Entrar
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const users = usersPage?.data ?? [];
+  const instructors = instructorsPage?.data ?? [];
 
   return (
     <div className="min-h-screen bg-[#09090A] text-[#EDEDED] flex antialiased selection:bg-[#8257E5] selection:text-white">
-      {/* 1. Sidebar */}
       <AdminSidebar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
-        usersCount={users.length}
+        usersCount={usersPage?.pagination.total ?? 0}
         coursesCount={courses.length}
-        instructorsCount={instructors.length}
-        criticalLogsCount={criticalLogsCount}
+        instructorsCount={instructorsPage?.pagination.total ?? 0}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
       />
 
-      {/* 2. Main Content Area */}
       <div className="flex-1 lg:ml-64 xl:ml-72 flex flex-col min-w-0">
-        {/* Topbar */}
         <AdminTopbar
-          currentUser={currentUser}
-          metrics={metrics}
+          currentUserName={sessionUser?.name ?? 'Administrador'}
+          currentUserEmail={sessionUser?.email ?? ''}
+          currentUserInitials={sessionUser ? initialsOf(sessionUser.name) : '—'}
+          healthStatus={health?.status ?? null}
           searchQuery={globalSearch}
           onSearchChange={setGlobalSearch}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
-          onQuickAction={(action) => {
-            if (action === 'flush_pool') handleRecyclePool();
-          }}
         />
 
-        {/* Dynamic Tab Body */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6">
           {currentTab === 'overview' && (
             <AdminOverviewTab
               metrics={metrics}
-              recentLogs={auditLogs}
+              metricsError={metricsError}
+              health={health}
               onNavigateTab={setCurrentTab}
-              onQuickAction={(action) => {
-                if (action === 'flush_pool') handleRecyclePool();
-              }}
             />
           )}
 
@@ -359,54 +308,56 @@ export default function AdminDashboardPage() {
           {currentTab === 'users' && (
             <AdminUsersTab
               users={users}
-              onPromoteUser={handlePromoteUser}
-              onToggleUserStatus={handleToggleUserStatus}
+              total={usersPage?.pagination.total ?? 0}
+              usersError={usersError}
+              mutatingId={mutatingId}
+              onUpdateRole={handleUpdateRole}
+              onUpdatePlan={handleUpdatePlan}
               onCreateInstructor={handleCreateInstructor}
-              onAdjustXp={handleAdjustXp}
             />
           )}
 
           {currentTab === 'instructors' && (
             <AdminInstructorsTab
               instructors={instructors}
+              total={instructorsPage?.pagination.total ?? 0}
+              instructorsError={instructorsError}
               onOpenCreateModal={() => setCurrentTab('users')}
-              onAssignTrack={handleAssignTrack}
             />
           )}
 
           {currentTab === 'courses' && (
-            <AdminCoursesTab
-              courses={courses}
-              onCreateChallenge={handleCreateChallenge}
-              onToggleCourseStatus={handleToggleCourseStatus}
-            />
+            <AdminCoursesTab courses={courses} coursesError={coursesError} />
           )}
 
           {currentTab === 'system' && (
             <AdminSystemHealthTab
               metrics={metrics}
-              nodes={nodes}
-              onRecyclePool={handleRecyclePool}
-              onPurgeCache={handlePurgeCache}
-              onRunBenchmark={handleRunBenchmark}
+              metricsError={metricsError}
+              health={health}
+              healthError={healthError}
             />
           )}
 
-          {currentTab === 'audit' && (
-            <AdminAuditLogsTab
-              logs={auditLogs}
-              certificates={certificates}
-              onToggleCertificateStatus={handleToggleCertificateStatus}
-            />
-          )}
+          {currentTab === 'audit' && <AdminAuditLogsTab />}
         </main>
       </div>
 
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-[#121217] border border-[#8257E5] text-white text-xs font-semibold shadow-[0_0_25px_rgba(130,87,229,0.35)] flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#04D361] animate-pulse" />
-          <span>{toastMessage}</span>
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-[#121217] text-white text-xs font-semibold shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200 border ${
+            toast.type === 'error'
+              ? 'border-[#F43F5E] shadow-[0_0_25px_rgba(244,63,94,0.35)]'
+              : 'border-[#8257E5] shadow-[0_0_25px_rgba(130,87,229,0.35)]'
+          }`}
+          role="status"
+        >
+          <span
+            className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+              toast.type === 'error' ? 'bg-[#F43F5E]' : 'bg-[#04D361]'
+            }`}
+          />
+          <span>{toast.message}</span>
         </div>
       )}
     </div>

@@ -11,7 +11,6 @@ interface AdminSidebarProps {
   usersCount: number;
   coursesCount: number;
   instructorsCount: number;
-  criticalLogsCount: number;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -22,7 +21,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   usersCount,
   coursesCount,
   instructorsCount,
-  criticalLogsCount,
   mobileOpen,
   onCloseMobile,
 }) => {
@@ -41,12 +39,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
       ),
-      badge: 'Live',
+      badge: 'Real',
       badgeColor: 'bg-[#04D361]/15 text-[#04D361] border border-[#04D361]/30',
     },
     {
-      // Sprint 8 — a ÚNICA aba com dados reais de produto: consome
-      // GET /analytics/funnel (as demais seguem no mock local da área).
+      // Sprint 8 ligou esta aba ao GET /analytics/funnel; na Sprint 13
+      // (B40/A4) as demais abas também passaram a consumir a API real —
+      // o mock local da área foi deletado.
       id: 'funnel',
       label: 'Funil de Conversão',
       icon: (
@@ -92,14 +91,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     },
     {
       id: 'system',
-      label: 'Sandbox & Piston SRE',
+      label: 'Saúde do Sistema',
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       ),
-      badge: '32 VMs',
-      badgeColor: 'bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/30',
     },
     {
       id: 'audit',
@@ -109,8 +106,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
         </svg>
       ),
-      badge: criticalLogsCount > 0 ? `${criticalLogsCount} alertas` : undefined,
-      badgeColor: 'bg-[#F43F5E]/15 text-[#F43F5E] border border-[#F43F5E]/30',
     },
   ];
 
@@ -151,7 +146,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 Admin Master
                 <span className="w-2 h-2 rounded-full bg-[#04D361] animate-pulse" />
               </span>
-              <span className="text-[11px] text-[#A1A1AA] font-mono">Cluster: us-east-1</span>
+              <span className="text-[11px] text-[#A1A1AA] font-mono">Dados reais da API</span>
             </div>
           </div>
         </div>
@@ -218,10 +213,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <span>Nexus IDE & Sandbox</span>
         </Link>
         <div className="pt-2 flex items-center justify-between text-[10px] font-mono text-[#71717A]">
-          <span>NEXUS ENGINE v2.4</span>
-          <span className="text-[#04D361] flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#04D361]" /> Online
-          </span>
+          <span>PAINEL ADMIN</span>
+          <span className="text-[#A1A1AA]">fonte: API da plataforma</span>
         </div>
       </div>
     </div>

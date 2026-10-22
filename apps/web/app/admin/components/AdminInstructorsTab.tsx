@@ -1,230 +1,116 @@
 'use client';
 
-import React, { useState } from 'react';
-import { InstructorItem } from '../types';
+import React from 'react';
+import { AdminUserRow } from '../types';
+import { formatDate, formatNumber, initialsOf } from '../utils';
+
+// B40/A4 (Sprint 13) — Instrutores REAIS.
+// Antes: lista de instrutores inventados com rating 5,0, especializações
+// e "alunos ativos" fabricados, e ação de "designar trilha" que só
+// mudava estado local. Agora a lista vem de GET /admin/users?role=
+// instructor e mostra apenas campos reais da API (cursos ministrados,
+// XP, nível, submissões). Rating, especializações e designação de
+// trilha não existem na API: foram removidos, não estimados.
 
 interface AdminInstructorsTabProps {
-  instructors: InstructorItem[];
+  instructors: AdminUserRow[];
+  total: number;
+  instructorsError: string | null;
   onOpenCreateModal: () => void;
-  onAssignTrack: (instructorId: string, trackName: string) => void;
 }
 
 export const AdminInstructorsTab: React.FC<AdminInstructorsTabProps> = ({
   instructors,
+  total,
+  instructorsError,
   onOpenCreateModal,
-  onAssignTrack,
 }) => {
-  const [selectedInstructor, setSelectedInstructor] = useState<InstructorItem | null>(null);
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [newTrackName, setNewTrackName] = useState('Distributed Go Microservices');
-
-  const totalMentoredStudents = instructors.reduce((acc, curr) => acc + curr.activeStudents, 0);
-  const totalChallengesCreated = instructors.reduce((acc, curr) => acc + curr.challengesCount, 0);
-
-  const handleOpenAssign = (inst: InstructorItem) => {
-    setSelectedInstructor(inst);
-    setAssignModalOpen(true);
-  };
-
-  const handleConfirmAssign = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedInstructor && newTrackName) {
-      onAssignTrack(selectedInstructor.id, newTrackName);
-      setAssignModalOpen(false);
-    }
-  };
+  const totalCourses = instructors.reduce((acc, i) => acc + i.instructedCoursesCount, 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* 1. Header & Summary Stats */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white font-heading tracking-tight">
-            Corpo Docente & Tech Leads
-          </h1>
-          <p className="text-xs text-[#A1A1AA]">
-            Supervisão de instrutores, métricas de mentoria, autoria de desafios e curadoria de trilhas.
+          <h2 className="text-xl font-bold text-white font-heading">Instrutores</h2>
+          <p className="text-xs text-[#A1A1AA] mt-0.5">
+            {formatNumber(total)} instrutor(es) reais na plataforma ·{' '}
+            {formatNumber(totalCourses)} curso(s) ministrados por eles (GET /admin/users).
           </p>
         </div>
-
         <button
+          type="button"
           onClick={onOpenCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-semibold shadow-[0_0_15px_rgba(130,87,229,0.35)] transition-all self-start md:self-auto"
+          className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-semibold transition-all shrink-0"
         >
-          <span>➕</span>
-          <span>Adicionar Novo Instrutor Lead</span>
+          + Cadastrar Instrutor
         </button>
       </div>
 
-      {/* 2. Bento Stats for Instructors */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-[#121217] border border-[#27272A] flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-mono text-[#71717A] uppercase">Instrutores Ativos</span>
-            <p className="text-2xl font-bold text-white font-heading mt-1">{instructors.length}</p>
-            <p className="text-xs text-[#04D361] mt-1 font-mono">100% Taxa de SLA</p>
-          </div>
-          <div className="p-3 rounded-xl bg-[#181820] text-[#8257E5] border border-[#27272A] text-xl">
-            🎓
-          </div>
+      {instructorsError ? (
+        <div className="p-6 rounded-2xl bg-[#121217] border border-[#27272A] text-xs text-[#A1A1AA]">
+          Não foi possível carregar os instrutores reais: {instructorsError}
         </div>
-
-        <div className="p-5 rounded-2xl bg-[#121217] border border-[#27272A] flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-mono text-[#71717A] uppercase">Alunos Supervisionados</span>
-            <p className="text-2xl font-bold text-white font-heading mt-1">
-              {totalMentoredStudents.toLocaleString('pt-BR')}
-            </p>
-            <p className="text-xs text-[#00E5FF] mt-1 font-mono">+18% este mês</p>
-          </div>
-          <div className="p-3 rounded-xl bg-[#181820] text-[#00E5FF] border border-[#27272A] text-xl">
-            👥
-          </div>
+      ) : instructors.length === 0 ? (
+        <div className="p-6 rounded-2xl bg-[#121217] border border-[#27272A] text-xs text-[#A1A1AA]">
+          Nenhum instrutor cadastrado na plataforma até o momento.
         </div>
-
-        <div className="p-5 rounded-2xl bg-[#121217] border border-[#27272A] flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-mono text-[#71717A] uppercase">Desafios Publicados</span>
-            <p className="text-2xl font-bold text-white font-heading mt-1">{totalChallengesCreated}</p>
-            <p className="text-xs text-[#FFA116] mt-1 font-mono">Nota Média: 4.96 ⭐</p>
-          </div>
-          <div className="p-3 rounded-xl bg-[#181820] text-[#FFA116] border border-[#27272A] text-xl">
-            ⚡
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Instructors Grid Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {instructors.map((inst) => (
-          <div
-            key={inst.id}
-            className="p-5 rounded-2xl bg-[#121217] border border-[#27272A] hover:border-[#8257E5]/60 transition-all duration-300 flex flex-col justify-between space-y-4 group"
-          >
-            <div>
-              {/* Card Header with Avatar and Rating */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#8257E5] via-[#996DFF] to-[#00E5FF] p-[1.5px] shadow-[0_0_15px_rgba(130,87,229,0.25)]">
-                    <div className="w-full h-full bg-[#121217] rounded-[10px] flex items-center justify-center font-bold text-white text-sm">
-                      {inst.avatar || inst.name.slice(0, 2).toUpperCase()}
+      ) : (
+        <div className="rounded-2xl bg-[#121217] border border-[#27272A] overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-[720px]">
+            <thead>
+              <tr className="border-b border-[#27272A] text-[#71717A] font-mono uppercase tracking-wider">
+                <th className="py-3 px-4">Instrutor</th>
+                <th className="py-3 px-4">Cursos ministrados</th>
+                <th className="py-3 px-4">XP / Nível</th>
+                <th className="py-3 px-4">Submissões</th>
+                <th className="py-3 px-4">Visível no Talent</th>
+                <th className="py-3 px-4">Desde</th>
+              </tr>
+            </thead>
+            <tbody>
+              {instructors.map((inst) => (
+                <tr key={inst.id} className="border-b border-[#27272A]/50 hover:bg-[#181820]/60">
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-[#00E5FF] to-[#8257E5] p-[1.5px] shrink-0">
+                        <div className="w-full h-full bg-[#181820] rounded-[7px] flex items-center justify-center font-mono font-black text-[11px] text-white">
+                          {initialsOf(inst.name)}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white truncate max-w-[220px]">
+                          {inst.name}
+                        </p>
+                        <p className="text-[11px] text-[#71717A] font-mono truncate max-w-[220px]">
+                          {inst.email}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white group-hover:text-[#996DFF] transition-colors">
-                      {inst.name}
-                    </h3>
-                    <p className="text-[11px] text-[#71717A] font-mono truncate max-w-[160px]">
-                      {inst.email}
-                    </p>
-                  </div>
-                </div>
-
-                <span className="flex items-center gap-1 text-xs font-mono font-bold text-[#FFA116] bg-[#FFA116]/10 px-2 py-0.5 rounded-md border border-[#FFA116]/20">
-                  ★ {inst.rating.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Specializations Tags */}
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {inst.specializations.map((spec, sIdx) => (
-                  <span
-                    key={sIdx}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#181820] text-[#A1A1AA] border border-[#27272A]"
-                  >
-                    {spec}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Metrics footer */}
-            <div className="space-y-3 pt-3 border-t border-[#27272A]">
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="p-2 rounded-lg bg-[#181820] border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] font-mono">Trilhas</p>
-                  <p className="font-bold text-white">{inst.tracksCount}</p>
-                </div>
-                <div className="p-2 rounded-lg bg-[#181820] border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] font-mono">Desafios</p>
-                  <p className="font-bold text-[#8257E5]">{inst.challengesCount}</p>
-                </div>
-                <div className="p-2 rounded-lg bg-[#181820] border border-[#27272A]">
-                  <p className="text-[10px] text-[#71717A] font-mono">Alunos</p>
-                  <p className="font-bold text-[#04D361]">{inst.activeStudents}</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleOpenAssign(inst)}
-                className="w-full py-2 rounded-xl bg-[#181820] hover:bg-[#8257E5]/15 border border-[#27272A] hover:border-[#8257E5]/40 text-xs font-semibold text-[#EDEDED] hover:text-[#8257E5] transition-all flex items-center justify-center gap-1.5"
-              >
-                <span>➕ Designar Nova Trilha</span>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 4. Modal: Designar Trilha */}
-      {assignModalOpen && selectedInstructor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#121217] border border-[#8257E5]/40 rounded-2xl p-6 shadow-[0_0_40px_rgba(130,87,229,0.2)] space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
-              <div>
-                <h3 className="text-base font-bold text-white font-heading">
-                  Designar Trilha para Instrutor
-                </h3>
-                <p className="text-xs text-[#A1A1AA]">{selectedInstructor.name}</p>
-              </div>
-              <button
-                onClick={() => setAssignModalOpen(false)}
-                className="text-[#71717A] hover:text-white p-1 rounded-lg hover:bg-[#181820]"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmAssign} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[#A1A1AA] mb-1 font-medium">Selecione a Trilha</label>
-                <select
-                  value={newTrackName}
-                  onChange={(e) => setNewTrackName(e.target.value)}
-                  className="w-full bg-[#181820] border border-[#27272A] focus:border-[#8257E5] rounded-xl px-3 py-2 text-white outline-none"
-                >
-                  <option value="Rust Systems Core">Rust Systems Core & Memory Safety</option>
-                  <option value="Distributed Go Microservices">Distributed Go Microservices & Raft</option>
-                  <option value="TypeScript Type Gymnastics">TypeScript Type Gymnastics</option>
-                  <option value="Solidity Smart Contracts & EVM">Solidity Smart Contracts & EVM</option>
-                  <option value="C++ High Performance Systems">C++ High Performance Systems</option>
-                  <option value="Kubernetes & Linux Kernel Internals">Kubernetes & Linux Kernel Internals</option>
-                </select>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[#181820] border border-[#27272A] text-xs text-[#A1A1AA]">
-                O instrutor receberá acesso de curadoria, gestão de submissões e publicação de novos desafios para esta trilha.
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#27272A]">
-                <button
-                  type="button"
-                  onClick={() => setAssignModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-[#181820] hover:bg-[#202028] text-[#A1A1AA] text-xs font-semibold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-semibold shadow-[0_0_15px_rgba(130,87,229,0.35)]"
-                >
-                  Confirmar Designação
-                </button>
-              </div>
-            </form>
-          </div>
+                  </td>
+                  <td className="py-3 px-4 font-mono text-[#EDEDED]">
+                    {inst.instructedCoursesCount}
+                  </td>
+                  <td className="py-3 px-4 font-mono text-[#EDEDED]">
+                    {formatNumber(inst.xp)} XP · Nv. {inst.level}
+                  </td>
+                  <td className="py-3 px-4 font-mono text-[#EDEDED]">{inst.submissionsCount}</td>
+                  <td className="py-3 px-4 text-[#A1A1AA]">
+                    {inst.talentVisible ? 'Sim' : 'Não'}
+                  </td>
+                  <td className="py-3 px-4 text-[#A1A1AA]">{formatDate(inst.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div className="bg-[#181820] border border-[#27272A] rounded-xl p-4 text-xs text-zinc-300">
+        <span className="font-bold text-white">Campos não exibidos:</span> avaliação (rating),
+        especializações e “alunos ativos por instrutor” não são retornados pela API — os valores
+        fabricados que esta tela mostrava foram removidos. Designar trilhas a instrutores também
+        não tem endpoint e a ação simulada foi retirada.
+      </div>
     </div>
   );
 };
