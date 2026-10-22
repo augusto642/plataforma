@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { JoinPlanInterestLeadDto } from './dto/join-plan-interest-lead.dto';
 import { RegisterPlanInterestDto } from './dto/register-plan-interest.dto';
 import { PlanInterestService } from './plan-interest.service';
 
@@ -22,6 +23,19 @@ export class PlanInterestController {
     @Body() dto: RegisterPlanInterestDto,
   ) {
     return this.planInterest.register(userId, dto);
+  }
+
+  // Sprint 18 (Ciclo 10/10 · Volta 3/B71) — captura pública só-e-mail
+  // da lista (espelho da waitlist): quem tem intenção de plano não
+  // precisa concluir o cadastro para entrar na lista. Pública pelo
+  // mesmo motivo da waitlist — quem escreve é um visitante; a
+  // proteção é o DTO fechado e o throttler global. A resposta não
+  // expõe e-mail nenhum: plano, contagem total e alreadyOnList.
+  @Public()
+  @Post('lead')
+  @HttpCode(201)
+  joinLead(@Body() dto: JoinPlanInterestLeadDto) {
+    return this.planInterest.registerLead(dto);
   }
 
   @Get('me')

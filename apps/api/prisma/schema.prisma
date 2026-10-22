@@ -388,3 +388,24 @@ model PlanInterest {
   @@index([plan])
   @@map("plan_interests")
 }
+
+// Sprint 18 (Ciclo 10/10 · Volta 3/B71) — captura só-e-mail da lista de
+// interessados (Growth M1): a waitlist das trilhas captura só e-mail,
+// mas a intenção de PLANO — o lead mais valioso — exigia o cadastro
+// completo. Este modelo é o espelho público da lista: um lead por
+// e-mail (unique); plano novo substitui o anterior, como no registro
+// por conta. Quando a pessoa conclui o cadastro e a intenção vira
+// registro na conta (PlanInterest), o registro da conta PREVALECE e o
+// lead do mesmo e-mail é removido — a contagem pública soma as duas
+// tabelas sem contar ninguém duas vezes.
+model PlanInterestLead {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(254)
+  plan         String   @db.VarChar(16)
+  billingCycle String?  @map("billing_cycle") @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([plan])
+  @@map("plan_interest_leads")
+}
