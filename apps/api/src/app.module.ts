@@ -16,6 +16,7 @@ import { DiagnosticModule } from './diagnostic/diagnostic.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ContactModule } from './contact/contact.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
+import { PlanInterestModule } from './plan-interest/plan-interest.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { GiteaModule } from './gitea/gitea.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -83,6 +84,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     AnalyticsModule,
     ContactModule,
     WaitlistModule,
+    PlanInterestModule,
     GamificationModule,
     ActivitiesModule,
     SubmissionsModule,
