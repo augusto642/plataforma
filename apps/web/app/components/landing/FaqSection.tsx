@@ -1,12 +1,142 @@
 {/* Sprint 10 · B34 — fatiado do antigo page.tsx monolítico ('use client' integral, 1.767 linhas): esta seção é Server Component; o estado interativo vive nas ilhas client. */}
-{/* B44 (Sprint 15) — as perguntas/respostas desta seção têm um espelho
-    em texto puro em faq-data.ts, usado no JSON-LD (FAQPage) da home.
-    Editou uma pergunta ou resposta aqui? Edite lá também. */}
+{/* B60 (Sprint 17 · Volta 2) — FONTE ÚNICA: as perguntas e respostas
+    saíram dos 8 cards hardcoded em JSX e passaram a ser renderizadas
+    de faq-data.ts — a mesma fonte do JSON-LD (FAQPage) em
+    StructuredData.tsx. Acabou a duplicação JSX × dados (e o risco de
+    o dado estruturado divergir do visível). O que fica aqui é só
+    APRESENTAÇÃO: ícone, tag e tema de cor de cada card, por índice.
+    As ênfases (trechos em destaque) são substrings exatas da resposta
+    declaradas no próprio faq-data.ts. */}
 import React from 'react';
 import { TrackedLink } from './TrackedLink';
+import { FAQ_ITEMS } from './faq-data';
 import {
   IconBolt, IconBox, IconCard, IconChat, IconMonitor, IconShield, IconShieldCheck, IconSpeech, IconSun,
 } from './icons';
+
+interface FaqDecoration {
+  tag: string;
+  Icon: React.FC<{ className?: string }>;
+  cardHover: string;
+  lineVia: string;
+  iconBox: string;
+  tagCls: string;
+  titleHover: string;
+}
+
+/* Decoração por índice de FAQ_ITEMS — a ordem acompanha faq-data.ts:
+   1 zero instalação · 2 metodologia · 3 iniciantes · 4 pré-requisitos
+   · 5 tutora · 6 certificados · 7 dinheiro · 8 garantia. */
+const FAQ_DECORATIONS: FaqDecoration[] = [
+  {
+    tag: 'ZERO INSTALAÇÃO',
+    Icon: IconMonitor,
+    cardHover: 'hover:border-brand-cyan-neon/60 hover:shadow-accent-sm-cyan',
+    lineVia: 'via-brand-cyan-neon/60',
+    iconBox: 'bg-brand-cyan-neon/10 border-brand-cyan-neon/30 text-brand-cyan-neon',
+    tagCls: 'border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon',
+    titleHover: 'group-hover:text-brand-cyan-neon',
+  },
+  {
+    tag: 'METODOLOGIA ATIVA',
+    Icon: IconBolt,
+    cardHover: 'hover:border-brand-rose/60 hover:shadow-accent-sm-pink',
+    lineVia: 'via-brand-rose/60',
+    iconBox: 'bg-brand-rose/10 border-brand-rose/30 text-brand-rose',
+    tagCls: 'border-brand-rose/40 bg-brand-rose/10 text-brand-rose',
+    titleHover: 'group-hover:text-brand-rose',
+  },
+  {
+    tag: 'DO ZERO AO CÓDIGO',
+    Icon: IconSun,
+    cardHover: 'hover:border-brand-green-neon/60 hover:shadow-accent-sm-green',
+    lineVia: 'via-brand-green-neon/60',
+    iconBox: 'bg-brand-green-neon/10 border-brand-green-neon/30 text-brand-green-neon',
+    tagCls: 'border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon',
+    titleHover: 'group-hover:text-brand-green-neon',
+  },
+  {
+    tag: 'SEM PRÉ-REQUISITOS',
+    Icon: IconBox,
+    cardHover: 'hover:border-brand-amber/60 hover:shadow-accent-sm-amber',
+    lineVia: 'via-brand-amber/60',
+    iconBox: 'bg-brand-amber/10 border-brand-amber/30 text-brand-amber',
+    tagCls: 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber',
+    titleHover: 'group-hover:text-brand-amber',
+  },
+  {
+    tag: 'TUTOR SOCRÁTICO',
+    Icon: IconSpeech,
+    cardHover: 'hover:border-brand-purple/60 hover:shadow-accent-sm-purple',
+    lineVia: 'via-brand-purple/60',
+    iconBox: 'bg-brand-purple/10 border-brand-purple/30 text-brand-purple-light',
+    tagCls: 'border-brand-purple/40 bg-brand-purple/10 text-brand-purple-light',
+    titleHover: 'group-hover:text-brand-purple-light',
+  },
+  {
+    tag: 'COMPROVAÇÃO REAL',
+    Icon: IconShieldCheck,
+    cardHover: 'hover:border-brand-green/60 hover:shadow-accent-sm-emerald',
+    lineVia: 'via-brand-green-neon/60',
+    iconBox: 'bg-brand-green/10 border-brand-green/30 text-brand-green-neon',
+    tagCls: 'border-brand-green/40 bg-brand-green/10 text-brand-green-neon',
+    titleHover: 'group-hover:text-brand-green-neon',
+  },
+  {
+    tag: 'DINHEIRO',
+    Icon: IconCard,
+    cardHover: 'hover:border-brand-green-neon/60 hover:shadow-accent-sm-green',
+    lineVia: 'via-brand-green-neon/60',
+    iconBox: 'bg-brand-green-neon/10 border-brand-green-neon/30 text-brand-green-neon',
+    tagCls: 'border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon',
+    titleHover: 'group-hover:text-brand-green-neon',
+  },
+  {
+    tag: 'GARANTIA & CANCELAMENTO',
+    Icon: IconShield,
+    cardHover: 'hover:border-brand-cyan-neon/60 hover:shadow-accent-sm-cyan',
+    lineVia: 'via-brand-cyan-neon/60',
+    iconBox: 'bg-brand-cyan-neon/10 border-brand-cyan-neon/30 text-brand-cyan-neon',
+    tagCls: 'border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon',
+    titleHover: 'group-hover:text-brand-cyan-neon',
+  },
+];
+
+/* Renderiza a resposta em texto puro envolvendo em destaque cada
+   substring declarada em `emphasis`. Ênfase não encontrada é ignorada
+   (o conteúdo nunca muda — só a apresentação); um teste trava que
+   todas as ênfases são substrings das respostas. */
+function renderAnswer(answer: string, emphasis: string[] = []): React.ReactNode {
+  let segments: { text: string; strong: boolean }[] = [{ text: answer, strong: false }];
+  for (const phrase of emphasis) {
+    const next: { text: string; strong: boolean }[] = [];
+    for (const segment of segments) {
+      if (segment.strong) {
+        next.push(segment);
+        continue;
+      }
+      const idx = segment.text.indexOf(phrase);
+      if (idx === -1) {
+        next.push(segment);
+        continue;
+      }
+      if (idx > 0) next.push({ text: segment.text.slice(0, idx), strong: false });
+      next.push({ text: phrase, strong: true });
+      const rest = segment.text.slice(idx + phrase.length);
+      if (rest) next.push({ text: rest, strong: false });
+    }
+    segments = next;
+  }
+  return segments.map((segment, i) =>
+    segment.strong ? (
+      <span key={i} className="text-ink-heading font-medium">
+        {segment.text}
+      </span>
+    ) : (
+      <React.Fragment key={i}>{segment.text}</React.Fragment>
+    ),
+  );
+}
 
 export const FaqSection: React.FC = () => (
   <>
@@ -34,161 +164,35 @@ export const FaqSection: React.FC = () => (
           vivo da comunidade saiu daqui: claim sem fonte */}
     </div>
 
-    {/* Grid de Perguntas em 2 Colunas com Cores Semânticas */}
+    {/* Grid de Perguntas em 2 Colunas com Cores Semânticas — conteúdo
+        de faq-data.ts (fonte única), decoração por índice */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-      
-      {/* 1. Ciano: Zero Instalação */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-cyan">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-cyan-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconMonitor className="w-5 h-5" />
+      {FAQ_ITEMS.map((item, i) => {
+        const deco = FAQ_DECORATIONS[i % FAQ_DECORATIONS.length];
+        const DecoIcon = deco.Icon;
+        return (
+          <div
+            key={item.question}
+            className={`group relative p-7 rounded-2xl bg-surface-1 border border-border-2 transition-all duration-300 hover:-translate-y-1 ${deco.cardHover}`}
+          >
+            <div className={`absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity ${deco.lineVia}`}></div>
+            <div className="flex items-center justify-between mb-4">
+              <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${deco.iconBox}`}>
+                <DecoIcon className="w-5 h-5" />
+              </div>
+              <span className={`text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border ${deco.tagCls}`}>
+                {deco.tag}
+              </span>
+            </div>
+            <h3 className={`font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 transition-colors ${deco.titleHover}`}>
+              {item.question}
+            </h3>
+            <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
+              {renderAnswer(item.answer, item.emphasis)}
+            </p>
           </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon">
-            ZERO INSTALAÇÃO
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-cyan-neon transition-colors">
-          Preciso instalar algo na minha máquina para começar?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes nas linguagens da plataforma: Java, JavaScript, TypeScript, Python e Portugol.
-        </p>
-      </div>
-
-      {/* 2. Rosa: Metodologia vs Cursos em Vídeo */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-rose/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-pink">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-rose/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-rose/10 border border-brand-rose/30 text-brand-rose flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconBolt className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-rose/40 bg-brand-rose/10 text-brand-rose">
-            METODOLOGIA ATIVA
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-rose transition-colors">
-          Qual a diferença entre a NEXUS CODE e cursos em vídeo?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Nas plataformas tradicionais você passa a maior parte do tempo assistindo passivamente a vídeos longos. Na NEXUS CODE você passa <span className="text-ink-heading font-medium">a maior parte do tempo escrevendo código e corrigindo testes</span>, exatamente o que molda o programador contratado pelo mercado.
-        </p>
-      </div>
-
-      {/* 3. Verde: Iniciantes Absolutos */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-green">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-green-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-green-neon/10 border border-brand-green-neon/30 text-brand-green-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconSun className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon">
-            DO ZERO AO CÓDIGO
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-green-neon transition-colors">
-          Sou iniciante absoluto. Vou conseguir acompanhar?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Sim, com certeza! A plataforma foi desenhada para quem nunca escreveu uma linha de código. Você começa aprendendo <span className="text-ink-heading font-medium">lógica básica e sintaxe elementar</span>, com feedback passo a passo até construir projetos completos.
-        </p>
-      </div>
-
-      {/* 4. Âmbar: Pré-requisitos & Faculdade */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-amber/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-amber">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-amber/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-amber/10 border border-brand-amber/30 text-brand-amber flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconBox className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-amber/40 bg-brand-amber/10 text-brand-amber">
-            SEM PRÉ-REQUISITOS
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-amber transition-colors">
-          Preciso ter faculdade ou saber matemática avançada?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Não! Você não precisa de diploma na área nem de fórmulas complexas. O raciocínio lógico é construído de forma <span className="text-ink-heading font-medium">prática, visual e gradual</span>, resolvendo problemas reais no terminal desde o primeiro dia.
-        </p>
-      </div>
-
-      {/* 5. Roxo: Tutor Socrático & Feedback */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-purple/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-purple">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-purple/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-purple/10 border border-brand-purple/30 text-brand-purple-light flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconSpeech className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-purple/40 bg-brand-purple/10 text-brand-purple-light">
-            TUTOR SOCRÁTICO
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-purple-light transition-colors">
-          Como funciona o feedback quando meu código dá erro?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Nossa tutoria socrática lê a <span className="text-ink-heading font-medium">mensagem de erro e o seu código</span>, reconhece o padrão do problema e aponta pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.
-        </p>
-      </div>
-
-      {/* 6. Esmeralda: Certificados & Mercado */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-emerald">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-green-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-green/10 border border-brand-green/30 text-brand-green-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconShieldCheck className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green/40 bg-brand-green/10 text-brand-green-neon">
-            COMPROVAÇÃO REAL
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-green-neon transition-colors">
-          Como os projetos e certificados me ajudam a conseguir vagas?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Ao se matricular em um curso, você ganha um <span className="text-ink-heading font-medium">repositório Git real</span> no seu nome. Seus projetos e certificados — com <span className="text-ink-heading font-medium">código de verificação SHA-256</span> que qualquer pessoa pode conferir publicamente — ficam no seu portfólio. É assim que você prova capacidade técnica para recrutadores: com código e certificados verificáveis, não com promessas.
-        </p>
-      </div>
-
-      {/* 7. Verde: Dinheiro — estado real de hoje (B51/P4, Sprint 16) */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-green">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-green-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-green-neon/10 border border-brand-green-neon/30 text-brand-green-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconCard className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon">
-            DINHEIRO
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-green-neon transition-colors">
-          Preciso pagar para começar? Como funcionam os pagamentos hoje?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Não. O cadastro e o nível Iniciante são <span className="text-ink-heading font-medium">gratuitos</span>. E, hoje, <span className="text-ink-heading font-medium">nenhuma cobrança é feita</span> na plataforma: os planos pagos exibidos na página de preços ainda não têm cobrança ativa. Quando a cobrança entrar no ar, ela será anunciada com antecedência, pelos preços exatamente como exibidos.
-        </p>
-      </div>
-
-      {/* 8. Ciano: Garantia legal & cancelamento (B51/P4, Sprint 16) */}
-      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-cyan">
-        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-cyan-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <IconShield className="w-5 h-5" />
-          </div>
-          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon">
-            GARANTIA & CANCELAMENTO
-          </span>
-        </div>
-        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-cyan-neon transition-colors">
-          Se eu assinar um plano pago, tenho garantia? Posso cancelar?
-        </h3>
-        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Sim. Quando os planos pagos entrarem no ar, vale a regra do <span className="text-ink-heading font-medium">Código de Defesa do Consumidor (art. 49)</span>: compras feitas pela internet têm <span className="text-ink-heading font-medium">7 dias de desistência com reembolso integral</span>, sem precisar justificar. E o cancelamento é feito por você, direto na sua conta — sem precisar falar com ninguém e sem multa.
-        </p>
-      </div>
-
+        );
+      })}
     </div>
 
     {/* Banner inferior de suporte / contato */}
