@@ -2,6 +2,9 @@
 import React from 'react';
 import { HeroEvolution } from './HeroEvolution';
 import { TrackedLink } from './TrackedLink';
+// B52/P5 (Sprint 16) — a âncora de preço do hero lê da fonte única
+// de preços (pricing-data.ts), a mesma do card e do JSON-LD.
+import { PLAN_PRICES, formatBRL } from './pricing-data';
 
 export const HeroSection: React.FC = () => (
   <>
@@ -73,7 +76,7 @@ export const HeroSection: React.FC = () => (
 
         {/* MICROCOPY DO LOTE FUNDADOR (HONESTA, SEM URGÊNCIA INVENTADA) */}
         <p className="hero-rise text-xs font-mono text-ink-span mb-8" style={{ animationDelay: '380ms' }}>
-          Lote fundador aberto · Pro por R$ 39,90/mês · grátis para começar, sem cartão
+          Lote fundador aberto · Pro por {formatBRL(PLAN_PRICES.pro.monthly)}/mês · grátis para começar, sem cartão
         </p>
 
         {/* PROVAS DE MECANISMO (SUBSTITUEM AS MÉTRICAS FABRICADAS) */}

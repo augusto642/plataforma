@@ -94,7 +94,13 @@ export default function HomePage() {
         protagonista. As duas capturadas com Playwright do app rodando
         local, rotuladas como o que são: telas de verdade */}
     <div className="flex flex-col gap-6 mb-6">
-      <figure className="rounded-2xl bg-surface-1 border border-border-2 overflow-hidden">
+      {/* B52/P5 (Sprint 16) — a captura da Missão 1 é REAL, mas tem
+          768×500 px e era exibida esticada a ~1.216px (upscale visível
+          justamente na seção de prova). Sem captura nova em resolução
+          maior, a exibição fica no TAMANHO NATIVO da imagem (768px,
+          centralizada) — nítida e honesta, nunca arte fabricada nem
+          upscale. A captura da IDE (1600×1000) segue em largura cheia. */}
+      <figure className="rounded-2xl bg-surface-1 border border-border-2 overflow-hidden w-full max-w-[768px] mx-auto">
         <Image
           src="/landing/produto-missao-1.webp"
           alt="Tela real da Nexus Code: batalha da Missão 1 contra o SyntaxBug número 404, com o starter Pythox, barras de HP, registro da batalha e os botões de habilidade que pedem código"

@@ -7,6 +7,8 @@ import { track } from '../../lib/analytics';
 import { savePlanIntent } from '../../lib/attribution';
 // Frente 3 — ícones SVG únicos da landing
 import { IconBolt, IconCard, IconRocket } from './icons';
+// B52/P5 (Sprint 16) — preços da fonte única (pricing-data.ts)
+import { PLAN_PRICES, annualTotal, formatBRL } from './pricing-data';
 
 /* Sprint 10 · B34 — ilha client dos preços: o toggle mensal/anual é o
    único estado da seção; os cards leem o ciclo dele.
@@ -78,7 +80,7 @@ export const PricingSection: React.FC = () => {
             Para experimentar os primeiros módulos e o terminal interativo.
           </p>
           <div className="mb-6">
-            <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">R$ 0</span>
+            <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">{formatBRL(PLAN_PRICES.explorer.monthly)}</span>
             <span className="text-body-sm font-mono text-ink-span ml-1">/ para sempre</span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
@@ -107,10 +109,10 @@ export const PricingSection: React.FC = () => {
           </p>
           <div className="mb-6">
             <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-ink-heading">
-              {billingCycle === 'annual' ? 'R$ 29,90' : 'R$ 39,90'}
+              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.pro.annualMonthly : PLAN_PRICES.pro.monthly)}
             </span>
             <span id="cycle-pro" className="text-body-sm font-mono text-ink-span ml-1">
-              {billingCycle === 'annual' ? '/ mês (R$ 358,80/ano)' : '/ mês'}
+              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.pro))}/ano)` : '/ mês'}
             </span>
             <div className="mt-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-xs font-mono font-bold uppercase tracking-wider">
@@ -146,10 +148,10 @@ export const PricingSection: React.FC = () => {
           </p>
           <div className="mb-6">
             <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">
-              {billingCycle === 'annual' ? 'R$ 59,90' : 'R$ 79,90'}
+              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.staff.annualMonthly : PLAN_PRICES.staff.monthly)}
             </span>
             <span id="cycle-staff" className="text-body-sm font-mono text-ink-span ml-1">
-              {billingCycle === 'annual' ? '/ mês (R$ 718,80/ano)' : '/ mês'}
+              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.staff))}/ano)` : '/ mês'}
             </span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">

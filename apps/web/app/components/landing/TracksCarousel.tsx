@@ -41,6 +41,27 @@ export const TracksCarousel: React.FC<TracksCarouselProps> = ({ labels, children
     setActiveIndex(nearestSnapIndex(container.scrollLeft, computeTargets()));
   }, [computeTargets]);
 
+  // B52/P5 (Sprint 16) — INP: o handler de scroll disparava setState
+  // a cada evento (scroll gera dezenas por gesto). Agora ele agenda
+  // no máximo UM cálculo por frame (requestAnimationFrame), que é a
+  // cadência em que o dot ativo pode mudar visualmente de qualquer
+  // jeito — mesmo comportamento, fração do custo na main thread.
+  const rafRef = useRef<number | null>(null);
+  const handleScroll = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      updateActiveFromScroll();
+    });
+  }, [updateActiveFromScroll]);
+
+  useEffect(
+    () => () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    },
+    [],
+  );
+
   // Um resize muda os alvos (o padding-left é percentual): recalcula
   // o dot ativo para a posição de scroll corrente.
   useEffect(() => {
@@ -66,7 +87,7 @@ export const TracksCarousel: React.FC<TracksCarouselProps> = ({ labels, children
 
       <div
         ref={scrollRef}
-        onScroll={updateActiveFromScroll}
+        onScroll={handleScroll}
         className="flex gap-6 overflow-x-auto scroll-smooth pb-6 pl-[10%] pr-12"
         style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
