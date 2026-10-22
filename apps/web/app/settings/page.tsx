@@ -102,7 +102,11 @@ export default function SettingsPage() {
 
         {/* Layout: Sidebar Tabs + Active Tab Content */}
         <div className="flex flex-col md:flex-row gap-8">
-          <SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <SettingsSidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            plan={user?.plan}
+          />
 
           <section className="flex-1 min-w-0">
             {activeTab === 'profile' && (

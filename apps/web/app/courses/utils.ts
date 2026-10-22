@@ -72,6 +72,31 @@ export function progressByCourseId(
   return new Map(entries.map((entry) => [entry.courseId, entry]));
 }
 
+export type CourseProgressStatusKind = 'not-started' | 'in-progress' | 'completed';
+
+/**
+ * Q2 (Sprint 15) — regra ÚNICA de rótulo de progresso, compartilhada
+ * por CourseCard e ActiveMissionBanner: 0% é "Não iniciado" (a mesma
+ * leitura que pickActiveProgress já fazia ao escolher a trilha
+ * ativa). Antes o card dizia "Em Progresso (0%)" para uma matrícula
+ * real em 0%, enquanto o restante da página tratava 0% como não
+ * iniciado. O dado não muda — só o rótulo é unificado.
+ */
+export function courseProgressStatus(
+  progress?: CourseProgressEntry | null,
+): { kind: CourseProgressStatusKind; label: string } {
+  if (!progress || progress.progressPercent <= 0) {
+    return { kind: 'not-started', label: 'Não iniciado' };
+  }
+  if (progress.progressPercent >= 100) {
+    return { kind: 'completed', label: 'Concluído (100%)' };
+  }
+  return {
+    kind: 'in-progress',
+    label: `Em Progresso (${progress.progressPercent}%)`,
+  };
+}
+
 /**
  * Escolhe a "trilha ativa" para o banner a partir do progresso REAL:
  * cursos em andamento (1–99%) primeiro, pelo maior percentual; se

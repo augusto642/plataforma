@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import type { CourseProgressEntry } from '../types';
+import { courseProgressStatus } from '../utils';
 import { CourseGlyph } from './CourseGlyph';
 
 interface ActiveMissionBannerProps {
@@ -12,6 +13,12 @@ interface ActiveMissionBannerProps {
 // Agora ele só é renderizado quando GET /users/me/progress devolve
 // uma matrícula real em andamento, e todos os números vêm dela.
 export function ActiveMissionBanner({ progress }: ActiveMissionBannerProps) {
+  // Q2 (Sprint 15) — mesma regra de rótulo do CourseCard
+  // (courseProgressStatus): um curso em 0% é "Não iniciado" também
+  // aqui — o selo não o chama de trilha ativa nem o CTA de
+  // "Continuar". Os números exibidos são os mesmos de sempre.
+  const status = courseProgressStatus(progress);
+  const notStarted = status.kind === 'not-started';
   return (
     <div className="bg-gradient-to-br from-[#8257E5]/15 to-[#121217]/95 border border-[#8257E5]/40 rounded-[20px] p-6 sm:p-7 my-7 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
       <div className="flex items-center gap-4">
@@ -20,7 +27,7 @@ export function ActiveMissionBanner({ progress }: ActiveMissionBannerProps) {
         </div>
         <div>
           <span className="inline-block text-[10px] font-mono font-bold uppercase bg-[#8257E5] text-white px-2 py-0.5 rounded-full mb-1">
-            Sua Trilha Ativa
+            {notStarted ? 'Não iniciado' : 'Sua Trilha Ativa'}
           </span>
           <h2 className="text-lg font-bold text-white tracking-tight font-heading">
             {progress.courseTitle}
@@ -48,7 +55,7 @@ export function ActiveMissionBanner({ progress }: ActiveMissionBannerProps) {
             href={`/courses/${progress.slug}`}
             className="bg-[#04D361] hover:opacity-90 text-black font-bold text-xs px-4 py-2 rounded-xl transition-all duration-200 inline-flex items-center gap-1.5 shadow-[0_0_15px_rgba(4,211,97,0.25)] active:scale-95 cursor-pointer"
           >
-            <span>Continuar</span>
+            <span>{notStarted ? 'Começar' : 'Continuar'}</span>
             <span>→</span>
           </Link>
         </div>

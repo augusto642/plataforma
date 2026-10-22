@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  courseProgressStatus,
   extractCoursesProgress,
   extractMyStats,
   initialsOf,
@@ -113,6 +114,38 @@ describe('progresso real (GET /users/me/progress)', () => {
       pickActiveProgress(entries.filter((e) => e.courseId === 'done')),
     ).toBeNull();
     expect(pickActiveProgress([])).toBeNull();
+  });
+});
+
+describe('courseProgressStatus (Q2 — Sprint 15)', () => {
+  const base: CourseProgressEntry = {
+    courseId: 'c1',
+    courseTitle: 'Curso',
+    slug: 'curso',
+    totalActivities: 10,
+    completedActivities: 0,
+    progressPercent: 0,
+  };
+
+  it('0% é "Não iniciado" — com e sem matrícula', () => {
+    expect(courseProgressStatus(base)).toEqual({
+      kind: 'not-started',
+      label: 'Não iniciado',
+    });
+    expect(courseProgressStatus(undefined)).toEqual({
+      kind: 'not-started',
+      label: 'Não iniciado',
+    });
+    expect(courseProgressStatus(null).kind).toBe('not-started');
+  });
+
+  it('1–99% é "Em Progresso (N%)" e 100% é "Concluído (100%)"', () => {
+    expect(
+      courseProgressStatus({ ...base, progressPercent: 40, completedActivities: 4 }),
+    ).toEqual({ kind: 'in-progress', label: 'Em Progresso (40%)' });
+    expect(
+      courseProgressStatus({ ...base, progressPercent: 100, completedActivities: 10 }),
+    ).toEqual({ kind: 'completed', label: 'Concluído (100%)' });
   });
 });
 
