@@ -31,7 +31,7 @@ export const PricingSection: React.FC = () => {
   return (
     <>
   {/* 10. PLANOS E PREÇOS: DESTAQUE NO PLANO PRO EM ROXO */}
-  <section id="precos" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
+  <section id="precos" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto">
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
       <div className="max-w-2xl text-left">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-green/10 border border-brand-green/30 text-brand-green-neon text-xs font-mono font-bold mb-3">

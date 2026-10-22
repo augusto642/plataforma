@@ -16,9 +16,12 @@ export const StackSection: React.FC = () => (
             <IconShield className="w-4 h-4" />
             <span>TECNOLOGIAS DO CURSO</span>
           </div>
-          <h3 className="text-2xl sm:text-3xl font-heading font-black text-ink-heading tracking-tight mb-3">
+          {/* B59 (Sprint 17 · Volta 2) — título de seção é H2: era o
+              único <h3> de topo entre os H2 das demais seções e
+              quebrava o outline da página. */}
+          <h2 className="text-2xl sm:text-3xl font-heading font-black text-ink-heading tracking-tight mb-3">
             As tecnologias que o mercado usa
-          </h3>
+          </h2>
           <p className="text-body-sm sm:text-sm font-sans text-ink-span leading-relaxed">
             Sem simulações simplórias. Você constrói soluções nas mesmas linguagens compiladas e runtimes isolados que sustentam a infraestrutura moderna de Big Techs.
           </p>

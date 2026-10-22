@@ -33,8 +33,25 @@
   --brand-amber: #FFA116;
   --brand-warning: #EF6220;
   --brand-rose: #F43F5E;
-  /* D2 — token de foco visível */
-  --focus: #03B2CB;
+  /* D2 — token de foco visível.
+     B59 (Sprint 17 · Volta 2) — alinhado ao ciano da marca
+     (--brand-cyan-neon, #00E5FF): o valor antigo (#03B2CB) era um
+     ciano vizinho fora da paleta, e foco é elemento de marca. */
+  --focus: #00E5FF;
+}
+
+/* B59 (Sprint 17 · Volta 2) — fadeIn GLOBAL: a classe animate-fadeIn
+   é usada na landing (modal TCG, drawer, command palette), no auth e
+   no jogo, mas o keyframe só existia no dashboard.css — fora do
+   dashboard, era classe morta e a animação simplesmente não rodava.
+   A definição passa a viver aqui, idêntica à original. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
 }
 
 body {
