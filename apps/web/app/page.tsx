@@ -14,6 +14,7 @@ import { PricingSection } from './components/landing/PricingSection';
 import { FaqSection } from './components/landing/FaqSection';
 import { FinalCtaSection } from './components/landing/FinalCtaSection';
 import { LandingFooter } from './components/landing/LandingFooter';
+import { StructuredData } from './components/landing/StructuredData';
 
 /* Sprint 10 · B34 — a landing deixou de ser UM client component de
    1.767 linhas: este page é um Server Component que compõe seções
@@ -51,6 +52,9 @@ export default function HomePage() {
       </div>
 
       <LandingChrome />
+
+      {/* B44 (Sprint 15) — JSON-LD real da home (Organization + FAQPage) */}
+      <StructuredData />
 
       {/* MAIN CONTAINER */}
       <div id="main-content">

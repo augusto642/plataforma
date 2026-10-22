@@ -9,9 +9,13 @@ import { savePlanIntent } from '../../lib/attribution';
 import { IconBolt, IconCard, IconRocket } from './icons';
 
 /* Sprint 10 · B34 — ilha client dos preços: o toggle mensal/anual é o
-   único estado da seção; os cards leem o ciclo dele. */
+   único estado da seção; os cards leem o ciclo dele.
+   B45 (Sprint 15) — o toggle agora ABRE NO MENSAL: ele nascia no
+   anual ('annual') e o primeiro preço lido era R$ 29,90/mês,
+   desencontrado da âncora do hero (Pro R$ 39,90/mês). O anual segue
+   a um clique, com o total do ano exibido como sempre. */
 export const PricingSection: React.FC = () => {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   return (
     <>
@@ -36,6 +40,7 @@ export const PricingSection: React.FC = () => {
         <button
           type="button"
           onClick={() => setBillingCycle('monthly')}
+          aria-pressed={billingCycle === 'monthly'}
           className={`px-6 py-2 rounded-full text-body-sm sm:text-sm transition-all cursor-pointer ${
             billingCycle === 'monthly'
               ? 'font-bold bg-brand-purple text-white shadow-md'
@@ -47,6 +52,7 @@ export const PricingSection: React.FC = () => {
         <button
           type="button"
           onClick={() => setBillingCycle('annual')}
+          aria-pressed={billingCycle === 'annual'}
           className={`px-6 py-2 rounded-full text-body-sm sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
             billingCycle === 'annual'
               ? 'font-bold bg-brand-purple text-white shadow-md'

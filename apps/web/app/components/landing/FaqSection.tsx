@@ -1,4 +1,7 @@
 {/* Sprint 10 · B34 — fatiado do antigo page.tsx monolítico ('use client' integral, 1.767 linhas): esta seção é Server Component; o estado interativo vive nas ilhas client. */}
+{/* B44 (Sprint 15) — as perguntas/respostas desta seção têm um espelho
+    em texto puro em faq-data.ts, usado no JSON-LD (FAQPage) da home.
+    Editou uma pergunta ou resposta aqui? Edite lá também. */}
 import React from 'react';
 import { TrackedLink } from './TrackedLink';
 import {
