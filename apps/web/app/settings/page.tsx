@@ -111,9 +111,7 @@ export default function SettingsPage() {
 
             {activeTab === 'git-ssh' && <GitKeysTab />}
 
-            {activeTab === 'tutor' && (
-              <TutorPreferencesTab onSave={(msg) => showToast(msg)} />
-            )}
+            {activeTab === 'tutor' && <TutorPreferencesTab />}
 
             {activeTab === 'billing' && <BillingTab />}
 
