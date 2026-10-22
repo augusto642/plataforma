@@ -348,3 +348,21 @@ model ContactMessage {
   @@index([createdAt])
   @@map("contact_messages")
 }
+
+// Sprint 16 (Ciclo 10/10 · P2/B49) — lista de espera por trilha do
+// roadmap da landing. As trilhas da ementa que ainda não são cursos
+// (rust, go, web, python-ia) capturam e-mail de quem quer ser avisado;
+// o contador público por trilha é a CONTAGEM REAL desta tabela —
+// zero é zero, sem piso nem inflação. Um e-mail entra uma vez por
+// trilha (unique composto); a leitura pública é só a contagem
+// agregada, nunca os e-mails.
+model TrackWaitlistEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @db.VarChar(254)
+  track     String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, track])
+  @@index([track])
+  @@map("track_waitlist_entries")
+}
