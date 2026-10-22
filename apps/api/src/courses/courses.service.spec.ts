@@ -27,6 +27,7 @@ describe('CoursesService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
     },
     enrollment: {
       findUnique: jest.fn(),
@@ -42,6 +43,13 @@ describe('CoursesService', () => {
     },
     user: {
       findUnique: jest.fn(),
+      count: jest.fn(),
+    },
+    planInterestLead: {
+      count: jest.fn(),
+    },
+    planInterest: {
+      count: jest.fn(),
     },
   };
 
@@ -192,6 +200,76 @@ describe('CoursesService', () => {
 
       expect(result).toEqual(cached);
       expect(mockPrismaService.course.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findPublicStats (B77 · Sprint 19)', () => {
+    it('agrega as contagens vivas com as réguas declaradas e soma os interessados', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+      mockPrismaService.course.count.mockResolvedValue(2);
+      mockPrismaService.activity.count.mockResolvedValue(5);
+      mockPrismaService.user.count.mockResolvedValue(42);
+      mockPrismaService.planInterestLead.count.mockResolvedValue(4);
+      mockPrismaService.planInterest.count.mockResolvedValue(3);
+
+      const result = await service.findPublicStats();
+
+      // Cursos e atividades: a régua do catálogo público (fora a
+      // biblioteca interna) — a mesma do findPublicCatalog.
+      expect(mockPrismaService.course.count).toHaveBeenCalledWith({
+        where: { isPublicLibrary: false },
+      });
+      expect(mockPrismaService.activity.count).toHaveBeenCalledWith({
+        where: { course: { isPublicLibrary: false } },
+      });
+      // Alunos: só o papel de aluno — admin e instrutor fora da
+      // contagem pela própria role; nenhum dado individual sai.
+      expect(mockPrismaService.user.count).toHaveBeenCalledWith({
+        where: { role: 'student' },
+      });
+      expect(result).toEqual({
+        publishedCourses: 2,
+        publishedActivities: 5,
+        registeredStudents: 42,
+        planInterestTotal: 7,
+      });
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'courses:public-stats',
+        result,
+        60,
+      );
+    });
+
+    it('zero real é devolvido como zero (a landing exibe zero, não estima)', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+      mockPrismaService.course.count.mockResolvedValue(0);
+      mockPrismaService.activity.count.mockResolvedValue(0);
+      mockPrismaService.user.count.mockResolvedValue(0);
+      mockPrismaService.planInterestLead.count.mockResolvedValue(0);
+      mockPrismaService.planInterest.count.mockResolvedValue(0);
+
+      await expect(service.findPublicStats()).resolves.toEqual({
+        publishedCourses: 0,
+        publishedActivities: 0,
+        registeredStudents: 0,
+        planInterestTotal: 0,
+      });
+    });
+
+    it('retorna o cache das estatísticas sem tocar o banco quando há cache', async () => {
+      const cached = {
+        publishedCourses: 2,
+        publishedActivities: 5,
+        registeredStudents: 42,
+        planInterestTotal: 7,
+      };
+      mockCacheService.get.mockResolvedValue(cached);
+
+      const result = await service.findPublicStats();
+
+      expect(result).toEqual(cached);
+      expect(mockPrismaService.course.count).not.toHaveBeenCalled();
+      expect(mockPrismaService.user.count).not.toHaveBeenCalled();
     });
   });
 
