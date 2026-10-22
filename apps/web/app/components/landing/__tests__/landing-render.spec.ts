@@ -21,6 +21,17 @@ vi.mock('../TracksSection', async () => {
   };
 });
 
+// Pelo mesmo motivo, a faixa de números reais (B78, Sprint 19) é
+// async (estatísticas via API): stubada aqui e coberta de verdade
+// em stats-section.spec.ts.
+vi.mock('../PlatformStatsSection', async () => {
+  const ReactModule = await import('react');
+  return {
+    PlatformStatsSection: () =>
+      ReactModule.createElement('section', { 'data-stats-stub': 'true' }),
+  };
+});
+
 async function renderHtml(element: React.ReactElement): Promise<string> {
   return new Promise((resolve, reject) => {
     let html = '';
@@ -124,5 +135,20 @@ describe('landing — renderização e claims estruturais (B76)', () => {
   it('lista de interessados: o processo do Staff é nomeado, sem prazo prometido', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     expect(html).toContain('cadastra a sua empresa, falando com você por e-mail');
+  });
+
+  it('fundador (B79 · Sprint 19): nome e papel reais na página e no JSON-LD, sem foto de pessoa', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    expect(html).toContain('Quem criou a Nexus Code');
+    expect(html).toContain('Augusto Fortes');
+    expect(html).toContain('Professor de Informática');
+    expect(html).toContain('curso técnico de Informática para Internet');
+    // Sem foto por enquanto (decisão B4): o visual é o monograma
+    // tipográfico — e nenhuma imagem de pessoa entra na seção.
+    expect(html).toContain('>AF<');
+    expect(html).not.toContain('user-profile-reference');
+    // O dado estruturado espelha a seção visível (founder na
+    // Organization), sem inventar campo novo de avaliação.
+    expect(html).toContain('"founder"');
   });
 });
