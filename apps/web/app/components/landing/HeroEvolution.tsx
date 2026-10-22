@@ -535,6 +535,16 @@ export const HeroEvolution: React.FC = () => {
             {stage.id === 'pleno' && <StageIde />}
             {stage.id === 'mercado' && <StageProfile />}
           </div>
+          {/* B68 (Sprint 18 · Volta 3 · PM A2) — o rótulo de visão
+              ilustrativa existia SÓ no estágio 4, em texto miúdo
+              dentro do painel ("exemplo ilustrativo"): quem parava
+              nos estágios 1–3 lia os painéis como telas do produto.
+              Agora a legenda vale para TODOS os painéis, permanente
+              sob o painel ativo, apontando onde estão as telas
+              reais (a captura que fecha o hero e a demonstração). */}
+          <p className="mt-4 text-[10px] font-mono font-bold tracking-widest text-ink-span uppercase">
+            Visão ilustrativa da jornada — painéis representados, não são telas do produto; as telas reais estão logo abaixo
+          </p>
         </div>
 
         {/* A guia presente em todos os estágios */}

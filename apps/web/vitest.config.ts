@@ -10,8 +10,17 @@ import { defineConfig } from 'vitest/config';
  * `globals: true` provê describe/it/expect globalmente (os specs usam a
  * API estilo Jest — engine.spec.ts tem harness adaptativo, mas
  * pedagogy-and-bosses.spec.ts depende de globais).
+ *
+ * B76 (Sprint 18 · Volta 3) — `oxc.jsx` habilita os specs de
+ * RENDERIZAÇÃO (landing-render.spec.ts): o tsconfig do Next usa
+ * `jsx: preserve` (quem transforma é o compilador do Next), então
+ * sem esta linha o Vite 8 (transform oxc) não compila os .tsx
+ * importados pelos testes.
  */
 export default defineConfig({
+  oxc: {
+    jsx: { runtime: 'automatic' },
+  },
   test: {
     globals: true,
     environment: 'node',

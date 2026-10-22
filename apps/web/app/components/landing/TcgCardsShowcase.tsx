@@ -8,7 +8,7 @@ import { track } from '../../lib/analytics';
 // Frente 3 — ícones SVG únicos da landing
 import { IconBolt, IconCards, IconSearch, IconShield, IconSwords } from './icons';
 
-interface TcgCardData {
+export interface TcgCardData {
   id: string;
   name: string;
   classTitle: string;
@@ -41,7 +41,7 @@ interface TcgCardData {
   radarTrackName?: string;
 }
 
-const TCG_CARDS: TcgCardData[] = [
+export const TCG_CARDS: TcgCardData[] = [
   {
     id: 'rust-paladin',
     name: 'FERROX // PALADINO',

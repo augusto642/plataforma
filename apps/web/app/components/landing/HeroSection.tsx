@@ -1,6 +1,8 @@
 {/* Sprint 10 · B34 — fatiado do antigo page.tsx monolítico ('use client' integral, 1.767 linhas): esta seção é Server Component; o estado interativo vive nas ilhas client. */}
 import React from 'react';
+import Image from 'next/image';
 import { HeroEvolution } from './HeroEvolution';
+import { PlanInterestCountNote } from './PlanInterestCountNote';
 import { TrackedLink } from './TrackedLink';
 // B52/P5 (Sprint 16) — a âncora de preço do hero lê da fonte única
 // de preços (pricing-data.ts), a mesma do card e do JSON-LD.
@@ -87,6 +89,11 @@ export const HeroSection: React.FC = () => (
             interessados do plano (B54), e é ela que a microcopy nomeia. */}
         <p className="hero-rise text-xs font-mono text-ink-span mb-8" style={{ animationDelay: '380ms' }}>
           Lista de interessados do Pro aberta · Pro por {formatBRL(PLAN_PRICES.pro.monthly)}/mês · grátis para começar, sem cartão
+          {/* B72 (Sprint 18 · Volta 3 · Growth B1) — a contagem REAL
+              de interessados do Pro (leads + registros de conta),
+              exibida pela ilha quando a API responde; sem resposta,
+              nenhum número aparece. */}
+          <PlanInterestCountNote />
         </p>
 
         {/* PROVAS DE MECANISMO (SUBSTITUEM AS MÉTRICAS FABRICADAS) */}
@@ -130,6 +137,27 @@ export const HeroSection: React.FC = () => (
       </div>
 
     </div>
+
+    {/* B68 (Sprint 18 · Volta 3 · Designer M1) — O PRODUTO REAL no
+        primeiro viewport: até a Volta 2 a primeira tela era só
+        narrativa + painéis ilustrativos da jornada, e a prova real
+        morava bem mais abaixo (seção de demonstração). A captura da
+        Missão 1 — a MESMA tela real que abre a demonstração — passa
+        a fechar o hero, no tamanho nativo (768×500, sem upscale,
+        padrão B52), rotulada como o que é: tela de verdade. */}
+    <figure className="mt-14 rounded-2xl bg-surface-1 border border-border-2 overflow-hidden w-full max-w-[768px] mx-auto">
+      <Image
+        src="/landing/produto-missao-1.webp"
+        alt="Tela real da Nexus Code: batalha da Missão 1 contra o SyntaxBug número 404, com o starter Pythox, barras de HP, registro da batalha e os botões de habilidade que pedem código"
+        width={768}
+        height={500}
+        className="w-full h-auto"
+        loading="lazy"
+      />
+      <figcaption className="px-5 py-3.5 border-t border-border-2 text-body-sm font-mono text-ink-span">
+        Tela real da plataforma: a Missão 1 do prólogo — você batalha escrevendo código, antes mesmo de criar a conta.
+      </figcaption>
+    </figure>
 
   </section>
   </>

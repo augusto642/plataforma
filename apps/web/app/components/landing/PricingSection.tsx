@@ -9,6 +9,8 @@ import { savePlanIntent } from '../../lib/attribution';
 import { IconBolt, IconCard, IconRocket } from './icons';
 // B52/P5 (Sprint 16) — preços da fonte única (pricing-data.ts)
 import { PLAN_PRICES, annualSavings, annualTotal, formatBRL } from './pricing-data';
+// B71 (Sprint 18 · Volta 3) — captura só-e-mail da lista de interessados
+import { PlanInterestForm } from './PlanInterestForm';
 
 /* Sprint 10 · B34 — ilha client dos preços: o toggle mensal/anual é o
    único estado da seção; os cards leem o ciclo dele.
@@ -174,6 +176,13 @@ export const PricingSection: React.FC = () => {
             <span className="inline-flex items-center gap-2">Entrar na lista de interessados <IconBolt className="w-4 h-4" /></span>
           </Link>
           <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
+          {/* B71 (Sprint 18 · Volta 3 · Growth M1) — captura só-e-mail
+              no card: entrar na lista não pode exigir o cadastro
+              completo (a waitlist das trilhas já capturava só o
+              e-mail; a assimetria era invertida no lead mais valioso). */}
+          <div className="mt-4 border-t border-border-2/60 pt-4">
+            <PlanInterestForm plan="pro" planLabel="plano Pro" billingCycle={billingCycle} />
+          </div>
         </div>
       </div>
 
@@ -229,6 +238,10 @@ export const PricingSection: React.FC = () => {
             Como funciona: você escreve pelo formulário de contato e a nossa equipe
             cadastra a sua empresa, falando com você por e-mail.
           </p>
+          {/* B71 — a lista do Staff também captura só o e-mail. */}
+          <div className="mt-4 border-t border-border-2/60 pt-4">
+            <PlanInterestForm plan="staff" planLabel="plano Staff" billingCycle={billingCycle} />
+          </div>
         </div>
       </div>
 
