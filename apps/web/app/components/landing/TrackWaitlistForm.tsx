@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { API_BASE } from '../../lib/apiClient';
-import { track } from '../../lib/analytics';
+// Alias: a prop `track` (a trilha) sombreia a função de analytics.
+import { track as trackEvent } from '../../lib/analytics';
 import { waitlistCountLabel, type WaitlistTrackKey } from './waitlist';
 
 /* B49/P2 (Sprint 16) — ilha client do formulário de lista de espera
@@ -74,7 +75,7 @@ export const TrackWaitlistForm: React.FC<TrackWaitlistFormProps> = ({ track }) =
       setCount(data.count);
       setStatus(data.alreadyOnList ? 'already' : 'joined');
       // Demanda medida no funil existente (catálogo fechado de eventos).
-      track('trilha_cta', `waitlist_${track}`, { track });
+      trackEvent('trilha_cta', `waitlist_${track}`, { track });
     } catch {
       setStatus('error');
     }
