@@ -144,15 +144,34 @@ export const PricingSection: React.FC = () => {
                 distribuídos": as trilhas da ementa ainda não existem
                 como cursos (ver seção de trilhas/roadmap) e capstone
                 nomeado não é conferível. Fica o benefício real do plano:
-                acesso a trilhas e níveis, tutora e portfólio verificável. */}
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as trilhas e níveis da plataforma</li>
+                acesso a trilhas e níveis, tutora e portfólio verificável.
+                B66 (Sprint 18 · Volta 3 · QA A6) — "Acesso TOTAL a
+                TODAS as trilhas" lia como inventário presente,
+                incluindo as 4 do radar. Formulação no presente
+                verdadeiro: as trilhas e níveis DISPONÍVEIS. */}
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso a todas as trilhas e níveis disponíveis na plataforma</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Certificado de conclusão com verificação pública por código SHA-256</li>
           </ul>
+          {/* B67 (Sprint 18 · Volta 3 · PM M2) — a diferença free×Pro
+              dita com precisão: conferido no código (B61), o ÚNICO
+              entitlement de plano que existe hoje é a tutora além do
+              nível Iniciante (AiTutorPlanGuard). O card diz isso em
+              vez de deixar o visitante presumir um muro maior. */}
+          <p className="text-body-sm font-sans text-ink-span leading-relaxed -mt-4 mb-8">
+            A diferença para o Explorer, hoje: a tutora de IA em <span className="text-ink-heading font-semibold">todos os níveis</span> —
+            no plano gratuito, ela acompanha só o nível Iniciante.
+          </p>
         </div>
         <div>
+          {/* B67 (Sprint 18 · Volta 3 · PM M2/Growth M2) — os três
+              cards diziam a mesma frase ("Começar grátis agora") e
+              nenhum momento de compromisso era nomeado. Cada CTA
+              agora diz a ação verdadeira do seu card: o Pro é entrar
+              na lista de interessados (o destino real do clique,
+              via cadastro + registro no servidor). */}
           <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="block w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
-            <span className="inline-flex items-center gap-2">Começar grátis agora <IconBolt className="w-4 h-4" /></span>
+            <span className="inline-flex items-center gap-2">Entrar na lista de interessados <IconBolt className="w-4 h-4" /></span>
           </Link>
           <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
         </div>
@@ -195,10 +214,21 @@ export const PricingSection: React.FC = () => {
             (formulário próprio com endpoint na API), não mais o /register
             disfarçado de contato. */}
         <div>
+          {/* B67 — rótulo do Staff nomeia a ação real (falar com a
+              equipe), não um departamento genérico. */}
           <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="block w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-body-sm font-mono font-bold text-center border border-brand-purple/60 transition-colors">
-            Falar com Engenharia
+            Falar com a equipe
           </Link>
           <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
+          {/* B72 (Sprint 18 · Volta 3 · Growth B2) — o próximo passo
+              nomeado, sem prometer prazo que não existe: é o processo
+              real da página /contato (formulário respondido por
+              e-mail) + o cadastro assistido que o próprio card já
+              anuncia nos bullets. */}
+          <p className="mt-2 text-center text-xs font-sans text-ink-span">
+            Como funciona: você escreve pelo formulário de contato e a nossa equipe
+            cadastra a sua empresa, falando com você por e-mail.
+          </p>
         </div>
       </div>
 

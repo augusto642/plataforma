@@ -106,7 +106,12 @@ export const HeroSection: React.FC = () => (
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              <span>Monte um portfólio profissional e de alto valor</span>
+              {/* B66 (Sprint 18 · Volta 3 · PM B2) — "Monte um
+                  portfólio profissional e de alto valor" era exagero
+                  no presente dentro da caixa de PROVAS. Entra o fato
+                  conferível (B61): portfólio público e certificado
+                  com verificação pública por código SHA-256. */}
+              <span>Portfólio público e certificado verificável por código SHA-256</span>
             </div>
           </div>
         </div>

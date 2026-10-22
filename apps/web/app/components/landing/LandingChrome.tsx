@@ -59,10 +59,15 @@ export const LandingChrome: React.FC = () => {
     { label: 'Abrir Terminal & Playground de Código', href: '/ide', icon: <IconTerminal className="w-5 h-5" />, category: 'Ações Rápidas' },
     { label: 'Acessar Dashboard do Aluno', href: '/dashboard', icon: <IconChart className="w-5 h-5" />, category: 'Navegação' },
     { label: 'Entrar na Minha Conta', href: '/login', icon: <IconKey className="w-5 h-5" />, category: 'Navegação' },
-    { label: 'Trilha 1: Lógica de Programação & Alta Performance em Rust', href: '/register', icon: <IconGear className="w-5 h-5" />, category: 'Trilhas' },
-    { label: 'Trilha 2: Criação de APIs & Backend Moderno em Go', href: '/register', icon: <IconNodes className="w-5 h-5" />, category: 'Trilhas' },
-    { label: 'Trilha 3: Desenvolvimento Web Completo com React & Next.js', href: '/register', icon: <IconBolt className="w-5 h-5" />, category: 'Trilhas' },
-    { label: 'Trilha 4: Python & Inteligência Artificial na Prática', href: '/register', icon: <IconCode className="w-5 h-5" />, category: 'Trilhas' },
+    // B64 (Sprint 18 · Volta 3 · QA A3) — as 4 "trilhas" da palette
+    // são as trilhas do RADAR (não são cursos abertos): ganham a
+    // marcação de roadmap no rótulo e o destino vira a seção de
+    // trilhas, onde mora a lista de espera de cada uma — não o
+    // /register seco, que prometia matrícula numa trilha inexistente.
+    { label: 'Rust — Lógica & Alta Performance (no radar: lista de espera)', href: '/#trilhas', icon: <IconGear className="w-5 h-5" />, category: 'Trilhas no radar' },
+    { label: 'Go — APIs & Backend Moderno (no radar: lista de espera)', href: '/#trilhas', icon: <IconNodes className="w-5 h-5" />, category: 'Trilhas no radar' },
+    { label: 'React & Next.js — Desenvolvimento Web (no radar: lista de espera)', href: '/#trilhas', icon: <IconBolt className="w-5 h-5" />, category: 'Trilhas no radar' },
+    { label: 'Python & IA (no radar: lista de espera)', href: '/#trilhas', icon: <IconCode className="w-5 h-5" />, category: 'Trilhas no radar' },
     { label: 'Ver Planos & Preços', href: '#precos', icon: <IconCard className="w-5 h-5" />, category: 'Navegação' },
   ];
 

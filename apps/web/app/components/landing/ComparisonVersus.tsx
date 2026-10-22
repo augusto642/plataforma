@@ -33,7 +33,10 @@ const ROWS: ComparisonRow[] = [
   {
     aspect: 'Setup de Ambiente',
     traditional: 'Horas instalando compiladores, dependências e corrigindo conflitos de SO.',
-    nexus: 'Zero instalação: containers Linux dedicados rodando direto no seu navegador.',
+    // B66 (Sprint 18 · Volta 3 · QA A5) — "containers dedicados
+    // rodando no seu navegador": errado duas vezes (é no servidor, e
+    // são isolados, não dedicados). Mesma formulação do FAQ.
+    nexus: 'Zero instalação: containers Linux isolados rodando nos servidores da plataforma, com a IDE aberta direto no seu navegador.',
   },
 ];
 

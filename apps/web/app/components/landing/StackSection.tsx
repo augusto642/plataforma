@@ -14,7 +14,12 @@ export const StackSection: React.FC = () => (
         <div className="lg:col-span-4 text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-2 border border-border-1 text-brand-cyan-neon text-xs font-mono mb-3">
             <IconShield className="w-4 h-4" />
-            <span>TECNOLOGIAS DO CURSO</span>
+            {/* B64 (Sprint 18 · Volta 3 · QA A2) — o selo dizia
+                "TECNOLOGIAS DO CURSO" sobre uma grade que mistura o
+                que já roda na plataforma com Rust/Go, que são trilhas
+                NO RADAR. O selo e a grade agora contam a mesma
+                história da seção de trilhas. */}
+            <span>TECNOLOGIAS DE HOJE & DO RADAR</span>
           </div>
           {/* B59 (Sprint 17 · Volta 2) — título de seção é H2: era o
               único <h3> de topo entre os H2 das demais seções e
@@ -23,7 +28,10 @@ export const StackSection: React.FC = () => (
             As tecnologias que o mercado usa
           </h2>
           <p className="text-body-sm sm:text-sm font-sans text-ink-span leading-relaxed">
-            Sem simulações simplórias. Você constrói soluções nas mesmas linguagens compiladas e runtimes isolados que sustentam a infraestrutura moderna de Big Techs.
+            Sem simulações simplórias: você escreve e executa código de verdade nas linguagens e
+            na infraestrutura que já rodam na plataforma. As tecnologias marcadas como{' '}
+            <span className="text-brand-amber font-semibold">NO RADAR</span> são as próximas do
+            roteiro — ainda não são cursos abertos.
           </p>
         </div>
 
@@ -34,6 +42,9 @@ export const StackSection: React.FC = () => (
             <div className="text-left font-mono">
               <div className="text-body-sm font-bold text-ink-heading">Rust 1.78</div>
               <div className="text-body-sm text-ink-span">Zero-Cost Memory</div>
+              {/* B64 — Rust é trilha do radar (ver TracksSection): o
+                  card carrega o mesmo selo NO RADAR da vitrine. */}
+              <span className="mt-1 inline-block text-[10px] font-mono font-black px-1.5 py-0.5 rounded border border-brand-amber/40 bg-brand-amber/10 text-brand-amber">NO RADAR</span>
             </div>
           </div>
 
@@ -42,6 +53,8 @@ export const StackSection: React.FC = () => (
             <div className="text-left font-mono">
               <div className="text-body-sm font-bold text-ink-heading">Go 1.22</div>
               <div className="text-body-sm text-ink-span">Goroutines & Canais</div>
+              {/* B64 — Go é trilha do radar: selo NO RADAR. */}
+              <span className="mt-1 inline-block text-[10px] font-mono font-black px-1.5 py-0.5 rounded border border-brand-amber/40 bg-brand-amber/10 text-brand-amber">NO RADAR</span>
             </div>
           </div>
 
@@ -57,7 +70,10 @@ export const StackSection: React.FC = () => (
             <span className="text-brand-amber group-hover:scale-110 transition-transform"><IconCode className="w-7 h-7" /></span>
             <div className="text-left font-mono">
               <div className="text-body-sm font-bold text-ink-heading">Python 3.12</div>
-              <div className="text-body-sm text-ink-span">IA & RAG Pipelines</div>
+              {/* B64 — "IA & RAG Pipelines" é a trilha Python & IA do
+                  RADAR; o Python de hoje na plataforma é o dos cursos
+                  introdutórios (funções, laços e listas, como no seed). */}
+              <div className="text-body-sm text-ink-span">Funções, Laços & Listas</div>
             </div>
           </div>
 

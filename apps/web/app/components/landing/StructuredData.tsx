@@ -44,12 +44,19 @@ const productJsonLd = (plan: PlanPrice, description: string) => ({
     url: `${SITE_URL}/#precos`,
     priceCurrency: 'BRL',
     price: plan.monthly.toFixed(2),
+    // B66 (Sprint 18 · Volta 3 · QA A8) — sem availability, o dado
+    // estruturado lia os planos como compráveis hoje, um passo atrás
+    // da página visível (que declara a cobrança inativa). PreOrder é
+    // o estado honesto: pré-venda anunciada, cobrança ainda não ativa.
+    availability: 'https://schema.org/PreOrder',
   },
 });
 
 const proProductJsonLd = productJsonLd(
   PLAN_PRICES.pro,
-  'Plano Pro da Nexus Code: acesso total a trilhas e níveis da plataforma, tutora de IA socrática e certificados com verificação pública por código SHA-256.',
+  // B66 — mesma formulação do card (B66/QA A6): trilhas e níveis
+  // DISPONÍVEIS, sem prometer o inventário do radar.
+  'Plano Pro da Nexus Code: acesso a todas as trilhas e níveis disponíveis na plataforma, tutora de IA socrática em todos os níveis e certificados com verificação pública por código SHA-256.',
 );
 
 // B55 (Sprint 17 · Volta 2) — a descrição do Staff repetia os três

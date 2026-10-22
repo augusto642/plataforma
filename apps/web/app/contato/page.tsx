@@ -3,11 +3,12 @@
 /**
  * /contato — página pública de contato (Sprint 6).
  *
- * É o destino REAL do CTA "Falar com Engenharia" do plano Staff: até a
- * Sprint 5, esse botão caía no /register — um cadastro disfarçado de
- * contato. Agora quem quer falar com a equipe encontra um formulário
- * de contato de verdade, que grava a mensagem pelo endpoint próprio
- * POST /contact (DTO validado na API; nenhum dado volta pela resposta).
+ * É o destino REAL do CTA de contato do plano Staff ("Falar com a
+ * equipe" desde a Sprint 18): até a Sprint 5, esse botão caía no
+ * /register — um cadastro disfarçado de contato. Agora quem quer
+ * falar com a equipe encontra um formulário de contato de verdade,
+ * que grava a mensagem pelo endpoint próprio POST /contact (DTO
+ * validado na API; nenhum dado volta pela resposta).
  */
 
 import React, { useEffect, useState } from 'react';

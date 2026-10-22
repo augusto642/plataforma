@@ -51,10 +51,13 @@ export const LandingFooter: React.FC = () => (
         {/* Colunas Curadas de Navegação */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-10 sm:gap-16 flex-1 max-w-2xl">
           
-          {/* Trilhas */}
+          {/* Trilhas — B64 (Sprint 18 · Volta 3 · QA A7): os 4 links
+              desta coluna são as trilhas do RADAR (a seção #trilhas as
+              rotula assim); a coluna agora diz isso no título, em vez
+              de apresentá-las como navegação de cursos abertos. */}
           <div>
             <h4 className="text-body-sm font-mono font-bold uppercase tracking-wider text-ink-heading mb-4">
-              Trilhas
+              Trilhas no radar
             </h4>
             <ul className="space-y-3 text-sm font-sans">
               <li>
