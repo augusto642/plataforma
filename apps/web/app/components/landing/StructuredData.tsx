@@ -49,12 +49,17 @@ const productJsonLd = (plan: PlanPrice, description: string) => ({
 
 const proProductJsonLd = productJsonLd(
   PLAN_PRICES.pro,
-  'Plano Pro da Nexus Code: acesso total a trilhas e níveis da plataforma, tutora de IA socrática e portfólio de evidências com verificação SHA-256.',
+  'Plano Pro da Nexus Code: acesso total a trilhas e níveis da plataforma, tutora de IA socrática e certificados com verificação pública por código SHA-256.',
 );
 
+// B55 (Sprint 17 · Volta 2) — a descrição do Staff repetia os três
+// recursos inexistentes do card antigo (painel de equipes, desafios
+// customizados, relatórios). Passa a descrever o módulo real:
+// empresas parceiras leem o ranking de talentos por curso, só de
+// alunos que optaram por visibilidade.
 const staffProductJsonLd = productJsonLd(
   PLAN_PRICES.staff,
-  'Plano Staff da Nexus Code, para times: tudo do plano Pro, painel de gestão de equipes, desafios customizados de empresa e relatórios de performance.',
+  'Plano Staff da Nexus Code, para times: tudo do plano Pro e acesso de empresas parceiras ao ranking de talentos por curso, com visibilidade apenas de alunos que optaram por aparecer.',
 );
 
 const faqJsonLd = {

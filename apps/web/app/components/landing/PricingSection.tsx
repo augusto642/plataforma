@@ -16,6 +16,15 @@ import { PLAN_PRICES, annualSavings, annualTotal, formatBRL } from './pricing-da
    anual ('annual') e o primeiro preço lido era R$ 29,90/mês,
    desencontrado da âncora do hero (Pro R$ 39,90/mês). O anual segue
    a um clique, com o total do ano exibido como sempre. */
+/* B54 (Sprint 17 · Volta 2) — aviso no ponto de decisão: os cards
+   pagos exibem junto ao CTA o estado real da cobrança, no MESMO texto
+   curto nos dois cards pagos. A intenção do clique tem destino: com
+   sessão ativa, ela vira a lista de interessados do plano no servidor
+   (POST /plan-interest) — e o selo do Pro diz exatamente isso, sem
+   "lote fundador" nem benefício indefinido. */
+export const PAID_PLAN_BILLING_NOTE =
+  'Cobrança ainda não ativa — hoje o cadastro é gratuito.';
+
 export const PricingSection: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
@@ -96,7 +105,7 @@ export const PricingSection: React.FC = () => {
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Sandbox Linux Piston</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Ranking por curso entre alunos matriculados</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio público com seus projetos</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio público e certificado com verificação por código SHA-256</li>
           </ul>
         </div>
         <Link href="/register" data-cta-id="pricing_explorer" onClick={() => { track('pricing_cta', 'pricing_explorer', { plan: 'explorer', cycle: billingCycle }); savePlanIntent({ plan: 'explorer', billingCycle }); }} className="w-full py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold text-center shadow-md shadow-brand-purple/25 transition-all active:scale-95">
@@ -125,7 +134,7 @@ export const PricingSection: React.FC = () => {
             <div className="mt-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-xs font-mono font-bold uppercase tracking-wider">
                 <IconRocket className="w-3.5 h-3.5" />
-                <span>Preço de lançamento · Lote fundador</span>
+                <span>Preço de lançamento · Lista de interessados aberta</span>
               </span>
             </div>
           </div>
@@ -138,12 +147,15 @@ export const PricingSection: React.FC = () => {
                 acesso a trilhas e níveis, tutora e portfólio verificável. */}
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as trilhas e níveis da plataforma</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Certificado de conclusão com verificação pública por código SHA-256</li>
           </ul>
         </div>
-        <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
-          <span className="inline-flex items-center gap-2">Começar grátis agora <IconBolt className="w-4 h-4" /></span>
-        </Link>
+        <div>
+          <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="block w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
+            <span className="inline-flex items-center gap-2">Começar grátis agora <IconBolt className="w-4 h-4" /></span>
+          </Link>
+          <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
+        </div>
       </div>
 
       {/* Card Staff / Enterprise */}
@@ -163,10 +175,17 @@ export const PricingSection: React.FC = () => {
             </span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Painel de Gestão de Equipes</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Desafios Customizados de Empresa</li>
+            {/* B55 (Sprint 17 · Volta 2) — Staff com lastro: "Painel de
+                Gestão de Equipes", "Desafios Customizados de Empresa" e
+                "Relatórios de Performance de Engenharia" NÃO existem no
+                módulo Company/talent (conferido no código: Company é
+                cadastro administrativo + token; a leitura real é o
+                ranking de talentos por curso, só de alunos que optaram
+                por visibilidade). O card passa a dizer o que existe. */}
             <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Tudo do plano Pro incluído</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Relatórios de Performance de Engenharia</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Ranking de talentos por curso para empresas parceiras</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Visibilidade só de alunos que optaram por aparecer</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Cadastro da empresa feito pela nossa equipe</li>
           </ul>
         </div>
         {/* Staff é contato comercial (ação genuinamente outra): cta_id e
@@ -175,9 +194,12 @@ export const PricingSection: React.FC = () => {
             Sprint 6 — o rótulo agora tem destino REAL: a página /contato
             (formulário próprio com endpoint na API), não mais o /register
             disfarçado de contato. */}
-        <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-body-sm font-mono font-bold text-center border border-brand-purple/60 transition-colors">
-          Falar com Engenharia
-        </Link>
+        <div>
+          <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="block w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-body-sm font-mono font-bold text-center border border-brand-purple/60 transition-colors">
+            Falar com Engenharia
+          </Link>
+          <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
+        </div>
       </div>
 
     </div>

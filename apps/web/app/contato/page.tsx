@@ -83,7 +83,7 @@ export default function ContatoPage() {
           Fale com a equipe Nexus Code
         </h1>
         <p className="text-base leading-relaxed text-ink-body mb-10">
-          Quer o plano Staff para o seu time, montar desafios próprios da sua empresa ou tirar uma
+          Quer o plano Staff para o seu time, cadastrar sua empresa como parceira ou tirar uma
           dúvida que a página de planos não respondeu? Escreva aqui — a mensagem chega direto para
           a equipe, e a resposta vai para o e-mail que você informar.
         </p>
