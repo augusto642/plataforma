@@ -10,10 +10,12 @@ describe('SocraticCatService', () => {
     get: jest.fn().mockReturnValue(''),
   };
 
-  // API Key vazia para testar o motor heurístico
+  // Sem provedor utilizável para testar o motor heurístico (Sprint 22)
   const mockLlmClient = {
-    hasApiKey: false,
-    apiKey: '',
+    isAvailable: false,
+    unavailableReason: 'no-provider' as string | null,
+    providerId: null as string | null,
+    model: null as string | null,
     complete: jest.fn(),
     stream: jest.fn(),
   };
@@ -28,7 +30,8 @@ describe('SocraticCatService', () => {
     }).compile();
 
     service = module.get<SocraticCatService>(SocraticCatService);
-    mockLlmClient.hasApiKey = false;
+    mockLlmClient.isAvailable = false;
+    mockLlmClient.unavailableReason = 'no-provider';
     mockLlmClient.complete.mockReset();
   });
 
