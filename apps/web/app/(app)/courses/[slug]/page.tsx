@@ -4,6 +4,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { apiFetch, API_BASE } from '../../../lib/apiClient';
+import { track } from '../../../lib/analytics';
+import {
+  mapApiCoursePath,
+  moduleStatusLabel,
+  type CoursePathView,
+} from '../utils';
 
 // B40/A3 (Sprint 13) — detalhe de curso HONESTO, ligado à API real.
 // Antes esta página era 100% estática (courseDetailsData.ts): instrutora
@@ -71,9 +77,14 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
   const { slug } = params;
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
+  // Sprint 21 — caminho de adaptação do aluno neste curso (módulos,
+  // test-out, próximo passo). null = sem camada de adaptação exibida
+  // (visitante sem sessão, curso sem espinha ou API indisponível).
+  const [path, setPath] = useState<CoursePathView | null>(null);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
+    setPath(null);
     try {
       const listRes = await apiFetch(`${API_BASE}/courses`);
       if (listRes.status === 401 || listRes.status === 403) {
@@ -102,6 +113,21 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
       }
       const detail: ApiCourseDetail = await detailRes.json();
       setState({ kind: 'ready', course: detail });
+
+      // O caminho é um enriquecimento: qualquer falha aqui (sem sessão,
+      // endpoint indisponível) apenas deixa a camada de fora.
+      try {
+        const pathRes = await apiFetch(
+          `${API_BASE}/adaptation/courses/${match.id}/path`,
+        );
+        if (pathRes.ok) {
+          setPath(mapApiCoursePath(await pathRes.json()));
+        } else {
+          setPath(null);
+        }
+      } catch {
+        setPath(null);
+      }
     } catch {
       setState({ kind: 'error', message: 'Erro de conexão com o servidor.' });
     }
@@ -269,6 +295,94 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                 </Link>
               </div>
             </div>
+
+            {/* Sprint 21 — caminho do aluno: o próximo passo é o da
+                derivação de adaptação (não a ordem linear crua) e cada
+                módulo mostra seu estado real, com o desafio de entrada
+                (test-out) para quem já domina o conteúdo. */}
+            {path && path.nextActivity && (
+              <div className="bg-[#0E1A12] border border-[#04D361]/40 rounded-2xl p-6 md:p-8">
+                <p className="text-[11px] font-mono font-bold tracking-widest text-[#04D361] mb-2">
+                  SEU PRÓXIMO PASSO
+                </p>
+                <h2 className="text-lg font-bold text-white font-heading">
+                  {path.nextActivity.title}
+                </h2>
+                {path.nextActivity.moduleTag && (
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Módulo:{' '}
+                    {path.modules.find((m) => m.tag === path.nextActivity?.moduleTag)
+                      ?.title ?? path.nextActivity.moduleTag}
+                  </p>
+                )}
+                <Link
+                  href={`/ide?course=${state.course.id}&activity=${path.nextActivity.id}`}
+                  className="inline-block mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00B37E] to-[#04D361] text-[#08080B] font-black text-xs transition-all"
+                >
+                  Continuar na IDE →
+                </Link>
+              </div>
+            )}
+
+            {path && path.isSyntaxTrack && path.modules.length > 0 && (
+              <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8">
+                <h2 className="text-base font-bold text-white font-heading mb-1">
+                  Módulos da trilha
+                </h2>
+                <p className="text-xs text-zinc-400 mb-5">
+                  Seu estado real em cada módulo da espinha de conceitos. Quem já
+                  domina um módulo pode provar pelo desafio de entrada
+                  (test-out) e seguir direto para o próximo.
+                </p>
+                <ol className="space-y-3">
+                  {path.modules.map((mod) => (
+                    <li
+                      key={mod.tag}
+                      className="flex flex-wrap items-center gap-3 bg-[#181820] border border-[#27272A] rounded-xl p-4"
+                    >
+                      <span className="text-xs font-mono font-black text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/30 rounded-lg px-2 py-1 shrink-0">
+                        {String(mod.order).padStart(2, '0')}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white">{mod.title}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          {mod.effectiveCompletedActivities} de {mod.totalActivities}{' '}
+                          atividades concluídas
+                        </p>
+                      </div>
+                      <span
+                        className={`ml-auto shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                          mod.status === 'completed' || mod.status === 'tested-out'
+                            ? 'bg-[#04D361]/10 text-[#04D361] border-[#04D361]/30'
+                            : mod.status === 'in-progress'
+                              ? 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/30'
+                              : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                        }`}
+                      >
+                        {moduleStatusLabel(mod.status)}
+                      </span>
+                      {mod.testOutActivity &&
+                        mod.totalActivities > 1 &&
+                        mod.status !== 'completed' &&
+                        mod.status !== 'tested-out' && (
+                          <Link
+                            href={`/ide?course=${state.course.id}&activity=${mod.testOutActivity.id}`}
+                            onClick={() =>
+                              track('test_out_started', undefined, {
+                                courseSlug: state.course.slug,
+                                moduleTag: mod.tag,
+                              })
+                            }
+                            className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#8257E5]/15 border border-[#8257E5]/40 text-[#B79CFF] hover:bg-[#8257E5]/25 transition-colors"
+                          >
+                            ⚡ Provar domínio (test-out)
+                          </Link>
+                        )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
 
             {/* Atividades reais do curso */}
             <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8">

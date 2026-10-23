@@ -11,6 +11,7 @@ import { SkillsRadarChart } from './components/SkillsRadarChart';
 import { AnnualHeatmap } from './components/AnnualHeatmap';
 import { CourseRankingTable } from './components/CourseRankingTable';
 import { SocraticCopilotBox } from './components/SocraticCopilotBox';
+import { ConceptsToReinforce } from './components/ConceptsToReinforce';
 import { CelebrationModal } from './components/CelebrationModal';
 import { TutorModal } from './components/TutorModal';
 import { CareerPetBanner } from './components/CareerPetBanner';
@@ -148,6 +149,10 @@ export default function StudentDashboardPage() {
             }}
           />
         </div>
+
+        {/* SECTION 2.5: CONCEITOS PARA REFORÇAR (Sprint 21 — só aparece
+            quando há conceito frágil derivado das submissões reais) */}
+        <ConceptsToReinforce />
 
         {/* SECTION 3: RADAR DE HABILIDADES + HEATMAP ANUAL */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">

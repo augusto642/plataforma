@@ -45,7 +45,12 @@ export type FunnelEvent =
   | 'onboarding_resumed'
   | 'signup_submit'
   | 'signup_success'
-  | 'first_activity_completed';
+  | 'first_activity_completed'
+  // Sprint 21 (adaptação v1) — ofertas de adaptação: clique no desafio
+  // de entrada (test-out) e oferta de remediação exibida/aceita.
+  | 'test_out_started'
+  | 'remediation_offer_shown'
+  | 'remediation_offer_accepted';
 
 export interface TrackProps {
   [key: string]: string | number | boolean;

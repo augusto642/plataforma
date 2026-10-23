@@ -47,6 +47,7 @@ interface Activity {
   description: string;
   instructions?: string;
   language: string;
+  conceptTags?: string[];
   initialCode?: string;
   testCode?: string;
   hiddenTests?: string;
@@ -96,6 +97,22 @@ export default function HomePage() {
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submission, setSubmission] = useState<Submission | null>(null);
+  // Sprint 21 — oferta de remediação por conceito (GET /adaptation/
+  // remediation): preenchida quando a atividade atual pertence a um
+  // conceito frágil (>= 3 falhas do aluno naquele conceito).
+  const [remediationOffer, setRemediationOffer] = useState<{
+    conceptTag: string;
+    moduleTitle: string;
+    failedAttempts: number;
+    reinforcement: {
+      id: string;
+      title: string;
+      courseId: string;
+      courseSlug: string;
+      source: 'library' | 'track';
+    } | null;
+  } | null>(null);
+  const remediationShownRef = useRef<Set<string>>(new Set());
   const [submissionHistory, setSubmissionHistory] = useState<Submission[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [streamingSubmissionId, setStreamingSubmissionId] = useState<string | null>(null);
@@ -199,6 +216,60 @@ export default function HomePage() {
     },
   );
 
+  // Sprint 21 — com uma submissão `failed` na tela, consulta os
+  // conceitos frágeis do aluno: se algum conceito DESTA atividade está
+  // frágil, a oferta de reforço aparece junto das ações da tutora.
+  useEffect(() => {
+    if (!submission || submission.status !== 'failed' || !selectedActivity) {
+      setRemediationOffer(null);
+      return;
+    }
+    const tags = selectedActivity.conceptTags ?? [];
+    if (tags.length === 0) {
+      setRemediationOffer(null);
+      return;
+    }
+    let cancelled = false;
+    apiFetch(`${API_BASE}/adaptation/remediation`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const fragile = (data.fragileConcepts ?? []).find(
+          (f: { conceptTag: string }) => tags.includes(f.conceptTag),
+        );
+        if (!fragile) {
+          setRemediationOffer(null);
+          return;
+        }
+        setRemediationOffer({
+          conceptTag: fragile.conceptTag,
+          moduleTitle: fragile.moduleTitle,
+          failedAttempts: fragile.failedAttempts,
+          reinforcement: fragile.reinforcement
+            ? {
+                id: fragile.reinforcement.id,
+                title: fragile.reinforcement.title,
+                courseId: fragile.reinforcement.courseId,
+                courseSlug: fragile.reinforcement.courseSlug,
+                source: fragile.reinforcement.source,
+              }
+            : null,
+        });
+        const key = `${selectedActivity.id}:${fragile.conceptTag}`;
+        if (!remediationShownRef.current.has(key)) {
+          remediationShownRef.current.add(key);
+          track('remediation_offer_shown', undefined, {
+            conceptTag: fragile.conceptTag,
+            source: fragile.reinforcement?.source ?? 'none',
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [submission, selectedActivity]);
+
   // Keyboard accessibility (Escape key to close modals)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -222,6 +293,28 @@ export default function HomePage() {
     };
   }, []);
 
+  // Sprint 21 — deep link da adaptação: /ide?course=<id>&activity=<id>
+  // (próximo passo e test-out da página do curso, oferta de remediação).
+  // Sem os parâmetros, o comportamento é exatamente o de antes.
+  const deepLinkRef = useRef<{
+    courseId: string | null;
+    activityId: string | null;
+  } | null>(null);
+  const getDeepLink = () => {
+    if (!deepLinkRef.current) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        deepLinkRef.current = {
+          courseId: params.get('course'),
+          activityId: params.get('activity'),
+        };
+      } catch {
+        deepLinkRef.current = { courseId: null, activityId: null };
+      }
+    }
+    return deepLinkRef.current;
+  };
+
   const loadCourses = async () => {
     if (!token && !user) return;
     try {
@@ -230,7 +323,10 @@ export default function HomePage() {
         const data = await res.json();
         setCourses(data);
         if (data.length > 0 && !selectedCourse) {
-          selectCourse(data[0]);
+          const linked = data.find(
+            (c: Course) => c.id === getDeepLink().courseId,
+          );
+          selectCourse(linked ?? data[0]);
         }
       }
     } catch (e) {
@@ -263,7 +359,10 @@ export default function HomePage() {
         const data = await res.json();
         setActivities(data);
         if (data.length > 0) {
-          selectActivity(data[0]);
+          const linked = (data as Activity[]).find(
+            (a) => a.id === getDeepLink().activityId,
+          );
+          selectActivity(linked ?? data[0]);
         }
         return data as Activity[];
       }
@@ -1042,6 +1141,54 @@ export default function HomePage() {
                       >
                         {isLoadingAi ? 'Consultando...' : '🤖 Dica Socrática'}
                       </button>
+                    </div>
+                  )}
+
+                  {/* Sprint 21 — oferta de remediação por conceito: aparece
+                      quando esta atividade é de um conceito em que o aluno
+                      já falhou >= 3 vezes (regra da API, não chute da UI). */}
+                  {remediationOffer && submission && submission.status === 'failed' && (
+                    <div style={{ padding: '12px 16px', background: '#141021', borderTop: '1px solid #2b2144' }}>
+                      <p style={{ margin: 0, fontSize: 12, color: '#c4b5fd', lineHeight: 1.5 }}>
+                        🎯 Você já tentou <strong>{remediationOffer.failedAttempts} vezes</strong> atividades
+                        de <strong>{remediationOffer.moduleTitle}</strong> sem concluir. Reforçar o
+                        conceito antes de tentar de novo costuma destravar.
+                      </p>
+                      {remediationOffer.reinforcement ? (
+                        <button
+                          onClick={() => {
+                            const r = remediationOffer.reinforcement;
+                            if (!r) return;
+                            track('remediation_offer_accepted', undefined, {
+                              conceptTag: remediationOffer.conceptTag,
+                              source: r.source,
+                            });
+                            window.location.href = `/ide?course=${r.courseId}&activity=${r.id}`;
+                          }}
+                          style={{
+                            marginTop: 8,
+                            padding: '6px 12px',
+                            background: 'rgba(139, 92, 246, 0.15)',
+                            color: '#c4b5fd',
+                            border: '1px solid #8b5cf6',
+                            borderRadius: 8,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reforçar com “{remediationOffer.reinforcement.title}”
+                          {remediationOffer.reinforcement.source === 'library'
+                            ? ' (Biblioteca)'
+                            : ' (sua trilha)'}
+                        </button>
+                      ) : (
+                        <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
+                          Não há atividade de reforço disponível para este conceito agora —
+                          a dica da tutora usa o exemplo análogo desta atividade, que trabalha
+                          o mesmo conceito.
+                        </p>
+                      )}
                     </div>
                   )}
 

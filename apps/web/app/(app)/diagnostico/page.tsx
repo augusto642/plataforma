@@ -8,6 +8,7 @@ import Logo from '../../components/Logo';
 // mede pageview + início/conclusão do quiz (B08 completo).
 import { captureUtmFromUrl } from '../../lib/attribution';
 import { track, trackPageview } from '../../lib/analytics';
+import { apiFetch } from '../../lib/apiClient';
 
 // B09 — Quiz diagnóstico público (sem cadastro): a API devolve as questões,
 // pontua 6 eixos, sugere um arquétipo e uma trilha. O sessionToken permite
@@ -46,6 +47,17 @@ type DiagnosticResult = {
   recommendedTrack: string;
   // Nome legível da trilha (a API o devolve junto do slug); preferir na exibição
   recommendedTrackName?: string;
+  // Sprint 21 (adaptação v1) — oferta REAL da API: o curso do catálogo
+  // para o qual a trilha recomendada aponta. Ausente/nulo quando o
+  // curso não existe — a página cai no rótulo de sempre, sem inventar.
+  recommendedCourse?: { slug: string; title: string } | null;
+  // Recomendação de test-out do módulo de entrada (só quando o aluno
+  // acertou todas as questões de conhecimento de código).
+  recommendedTestOut?: {
+    courseSlug: string;
+    moduleTag: string;
+    moduleTitle: string;
+  } | null;
 };
 
 type Answer = { questionId: string; optionId: string };
@@ -319,6 +331,47 @@ export default function DiagnosticoPage() {
     router.push('/register');
   };
 
+  const [startingCourse, setStartingCourse] = useState(false);
+
+  // Sprint 21 — a oferta é consumida de verdade: com sessão ativa,
+  // resolve o slug para o curso real, faz a matrícula do próprio aluno
+  // e abre a página do curso (onde o caminho apresenta o próximo passo
+  // e o test-out recomendado). Sem sessão, cai no fluxo de cadastro que
+  // já vincula o resultado à conta nova.
+  const startRecommendedCourse = async () => {
+    const slug = result?.recommendedCourse?.slug;
+    if (!slug || startingCourse) return;
+    setStartingCourse(true);
+    try {
+      const listRes = await apiFetch(`${API_BASE}/courses`);
+      if (listRes.status === 401 || listRes.status === 403) {
+        saveToAccount();
+        return;
+      }
+      if (!listRes.ok) throw new Error('courses unavailable');
+      const list: { id: string; slug: string }[] = await listRes
+        .json()
+        .catch(() => []);
+      const course = Array.isArray(list)
+        ? list.find((c) => c.slug === slug)
+        : undefined;
+      if (!course) throw new Error('course not found');
+      const enrollRes = await apiFetch(`${API_BASE}/courses/${course.id}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (enrollRes.status === 401 || enrollRes.status === 403) {
+        saveToAccount();
+        return;
+      }
+      // Matrícula já existente ou recém-criada: o destino é o curso.
+      router.push(`/courses/${slug}`);
+    } catch {
+      setStartingCourse(false);
+    }
+  };
+
   const question = questions[current];
   const answeredCount = Object.keys(answers).length;
   const progress =
@@ -549,6 +602,42 @@ export default function DiagnosticoPage() {
                     {result.recommendedTrackName || result.recommendedTrack}
                   </strong>
                 </p>
+              )}
+
+              {/* Sprint 21 — a recomendação vira oferta real: o curso do
+                  catálogo correspondente à trilha, com matrícula em 1 clique
+                  para quem já tem sessão (ou o cadastro que vincula o
+                  resultado, para quem ainda não tem). */}
+              {result.recommendedCourse && (
+                <div className="mt-6 rounded-2xl border border-border-brand bg-brand-purple-low p-6 text-center">
+                  <p className="text-sm text-ink-span">
+                    Na prática, sua trilha é o curso
+                  </p>
+                  <p className="mt-1 font-heading text-xl font-bold text-ink-heading">
+                    {result.recommendedCourse.title}
+                  </p>
+                  {result.recommendedTestOut && (
+                    <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-body">
+                      Você acertou todas as questões de código do diagnóstico.
+                      Ao entrar no curso, você pode provar o módulo{' '}
+                      <strong className="text-ink-heading">
+                        {result.recommendedTestOut.moduleTitle}
+                      </strong>{' '}
+                      direto pelo desafio de entrada (test-out) — sem precisar
+                      refazer o que você já sabe.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={startRecommendedCourse}
+                    disabled={startingCourse}
+                    className="mt-5 w-full rounded-xl bg-brand-green px-6 py-4 text-lg font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60 sm:w-auto"
+                  >
+                    {startingCourse
+                      ? 'Preparando seu curso…'
+                      : 'Começar nesta trilha'}
+                  </button>
+                </div>
               )}
 
               <button

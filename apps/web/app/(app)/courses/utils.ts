@@ -122,6 +122,101 @@ export function pickActiveProgress(
   return null;
 }
 
+/** Caminho de adaptação do aluno num curso (GET /adaptation/courses/:id/path). */
+export interface CoursePathModuleView {
+  tag: string;
+  title: string;
+  order: number;
+  status: string;
+  totalActivities: number;
+  passedActivities: number;
+  effectiveCompletedActivities: number;
+  testOutActivity: { id: string; slug: string; title: string } | null;
+}
+
+export interface CoursePathView {
+  courseId: string;
+  isSyntaxTrack: boolean;
+  modules: CoursePathModuleView[];
+  nextActivity: {
+    id: string;
+    slug: string;
+    title: string;
+    order: number;
+    moduleTag: string | null;
+  } | null;
+  entryModuleTag: string | null;
+}
+
+/**
+ * Converte a resposta bruta do caminho de adaptação. Retorna null se o
+ * payload não tiver a forma mínima — a página do curso simplesmente não
+ * mostra a camada de adaptação nesse caso (nada é inventado).
+ */
+export function mapApiCoursePath(raw: unknown): CoursePathView | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.courseId !== 'string' || !raw.courseId) return null;
+  const modulesRaw = Array.isArray(raw.modules) ? raw.modules : [];
+  const modules: CoursePathModuleView[] = [];
+  for (const item of modulesRaw) {
+    if (!isRecord(item)) continue;
+    if (typeof item.tag !== 'string' || typeof item.status !== 'string') continue;
+    const testOut = isRecord(item.testOutActivity)
+      ? item.testOutActivity
+      : null;
+    modules.push({
+      tag: item.tag,
+      title: typeof item.title === 'string' ? item.title : item.tag,
+      order: asCount(item.order),
+      status: item.status,
+      totalActivities: asCount(item.totalActivities),
+      passedActivities: asCount(item.passedActivities),
+      effectiveCompletedActivities: asCount(item.effectiveCompletedActivities),
+      testOutActivity:
+        testOut && typeof testOut.id === 'string'
+          ? {
+              id: testOut.id,
+              slug: typeof testOut.slug === 'string' ? testOut.slug : '',
+              title: typeof testOut.title === 'string' ? testOut.title : '',
+            }
+          : null,
+    });
+  }
+  const nextRaw = isRecord(raw.nextActivity) ? raw.nextActivity : null;
+  return {
+    courseId: raw.courseId,
+    isSyntaxTrack: raw.isSyntaxTrack === true,
+    modules,
+    nextActivity:
+      nextRaw && typeof nextRaw.id === 'string'
+        ? {
+            id: nextRaw.id,
+            slug: typeof nextRaw.slug === 'string' ? nextRaw.slug : '',
+            title: typeof nextRaw.title === 'string' ? nextRaw.title : '',
+            order: asCount(nextRaw.order),
+            moduleTag:
+              typeof nextRaw.moduleTag === 'string' ? nextRaw.moduleTag : null,
+          }
+        : null,
+    entryModuleTag:
+      typeof raw.entryModuleTag === 'string' ? raw.entryModuleTag : null,
+  };
+}
+
+/** Rótulo único do estado de um módulo da espinha na interface. */
+export function moduleStatusLabel(status: string): string {
+  switch (status) {
+    case 'completed':
+      return 'Concluído';
+    case 'tested-out':
+      return 'Concluído via test-out';
+    case 'in-progress':
+      return 'Em andamento';
+    default:
+      return 'Não iniciado';
+  }
+}
+
 /** Converte o detalhe bruto de GET /courses/:id para a ementa real. */
 export function mapApiCourseDetail(raw: unknown): CourseDetail | null {
   const base = mapApiCourse(raw);
