@@ -1,0 +1,2 @@
+export PATH=$PWD/jdk/bin:$PATH
+export PORTUGOL_HOME=$PWD

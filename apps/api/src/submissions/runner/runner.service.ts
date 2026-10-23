@@ -88,6 +88,7 @@ const PISTON_LANGUAGE: Partial<Record<Language, string>> = {
   typescript: 'typescript',
   python: 'python',
   java: 'java',
+  portugol: 'portugol',
 };
 
 const PISTON_FILE_NAME: Partial<Record<Language, string>> = {
@@ -95,6 +96,7 @@ const PISTON_FILE_NAME: Partial<Record<Language, string>> = {
   typescript: 'main.ts',
   python: 'main.py',
   java: 'Solution.java',
+  portugol: 'programa.por',
 };
 
 const DEFAULT_TIME_LIMIT_MS = 5_000;
@@ -103,6 +105,87 @@ const RUN_TIMEOUT_MIN_MS = 100;
 const RUN_TIMEOUT_MAX_MS = 15_000;
 const COMPILE_TIMEOUT_MS = 10_000;
 const ERROR_MESSAGE_MAX_CHARS = 2_000;
+
+/**
+ * ─── Portugol (Sprint 23): modo programa inteiro, entrada→saída ──────
+ *
+ * Portugol NÃO usa o modelo de expressão por linha das outras
+ * linguagens: um programa Portugol precisa estar completo
+ * (`programa { funcao inicio() { ... } }`). Cada caso de teste é uma
+ * execução inteira do programa do aluno, com o `stdin` do caso
+ * alimentando `leia` e o `stdout` comparado com o esperado.
+ *
+ * Formato dos casos em `testCode` (visíveis) e `hiddenTests`
+ * (ocultos): um array JSON de objetos
+ *   [{ "stdin": "3\n4\n", "expected": "Soma: 7" }, ...]
+ * - `expected` (string, obrigatório): o stdout esperado do programa.
+ * - `stdin` (string, opcional, default ""): a entrada do caso. No
+ *   console oficial, cada `leia` consome UMA LINHA inteira por
+ *   variável — um valor por linha (verificado no spike da Sprint 23).
+ *
+ * O executor é o `portugol-console` oficial (UNIVALI-LITE, LGPL-3.0)
+ * rodando como pacote próprio do nosso Piston
+ * (infra/piston/packages/portugol). Ele anexa ao stdout, ao final de
+ * TODA execução, o sufixo "\nPressione ENTER para continuar\n" — e,
+ * quando o programa termina com sucesso, "\nPrograma finalizado\n"
+ * antes dele. A comparação remove esse sufixo e ignora whitespace no
+ * FIM das duas saídas (o restante é comparação exata). Erros de
+ * compilação do console chegam pelo stderr prefixados com "ERRO:";
+ * erros de execução, com "Erro de execução:" — é assim que o modo
+ * distingue compile_error de runtime_error mesmo com tudo rodando no
+ * estágio `run` do Piston.
+ *
+ * Correção 23.1 (D1): em alguns erros de execução o console injeta o
+ * nome cru da exceção Java na mensagem (EOF do `leia` ⇒
+ * "java.util.NoSuchElementException: No line found"; `leia` de número
+ * com texto ⇒ "java.lang.NumberFormatException: ..."). As exceções
+ * conhecidas de PORTUGOL_KNOWN_EXCEPTION_MESSAGES viram frases em
+ * português na mensagem ao aluno (linha/coluna preservadas); as
+ * demais seguem com a primeira linha do console.
+ *
+ * Correção 23.1 (D3): na mensagem de divergência (Esperado×Obtido),
+ * caracteres de controle invisíveis da saída (ex.: o ESC que o
+ * `limpa()` injeta) são exibidos escapados (<ESC>, <0xNN>) e a
+ * mensagem ganha uma nota explicando a presença deles — a regra de
+ * comparação não muda (saída com controle continua divergindo).
+ */
+const PORTUGOL_SUCCESS_SUFFIX =
+  '\nPrograma finalizado\n\nPressione ENTER para continuar\n';
+const PORTUGOL_PROMPT_SUFFIX = '\nPressione ENTER para continuar\n';
+/**
+ * Piso de tempo por execução Portugol: a partida da JVM + a compilação
+ * interna do núcleo levam segundos (medido no spike: ~4s a quente,
+ * mais a frio), muito acima do default de 5s das outras linguagens.
+ * O teto continua sendo o clamp da plataforma em execute() (15s).
+ */
+const PORTUGOL_DEFAULT_TIME_LIMIT_MS = 12_000;
+
+/**
+ * Exceções Java conhecidas do console → frase em português para o
+ * aluno (Correção 23.1, D1). A chave é o nome simples da exceção,
+ * como ela aparece no início da linha após "Erro de execução:".
+ */
+const PORTUGOL_KNOWN_EXCEPTION_MESSAGES: Record<string, string> = {
+  NoSuchElementException:
+    'O programa tentou ler um valor, mas a entrada do caso acabou — não havia mais valores para ler.',
+  NumberFormatException:
+    'O programa tentou ler um número, mas o valor lido não é um número válido.',
+};
+
+/**
+ * Caracteres de controle invisíveis (C0 sem \n/\t, e DEL) — ex.: o
+ * ESC que o `limpa()` injeta no stdout (Correção 23.1, D3).
+ */
+const PORTUGOL_INVISIBLE_CONTROL_CHARS =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const PORTUGOL_INVISIBLE_CONTROL_TEST =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+
+interface PortugolTestCase {
+  stdin: string;
+  expected: string;
+  hidden: boolean;
+}
 
 const KIND_PRECEDENCE: SandboxResultKind[] = [
   'sandbox_unavailable',
@@ -154,26 +237,7 @@ export class PistonRunnerService implements RunnerService {
     const { language, code } = options;
 
     if (language === 'portugol') {
-      return {
-        status: 'failed',
-        kind: 'unsupported',
-        score: 0,
-        maxScore: 100,
-        durationMs: Date.now() - start,
-        errorMessage:
-          'Portugol ainda não é executado no sandbox da plataforma. Submeta o código em uma das linguagens suportadas (JavaScript, TypeScript, Python ou Java).',
-        logs: 'Caso de Teste 1: FAIL (linguagem não suportada)',
-        testCases: [
-          {
-            name: 'Verificação de Suporte',
-            passed: false,
-            durationMs: 0,
-            isHidden: false,
-            kind: 'unsupported',
-            errorMessage: UNSUPPORTED_LANGUAGE_MESSAGE,
-          },
-        ],
-      };
+      return this.executePortugolInSandbox(options, start);
     }
 
     const expressions = this.collectTestExpressions(options);
@@ -282,6 +346,24 @@ export class PistonRunnerService implements RunnerService {
       });
     }
 
+    return this.buildAggregatedResult(testCases, fatalKind, fatalMessage, start);
+  }
+
+  /**
+   * Agregação comum aos dois modos de teste (expressão por linha e
+   * Portugol programa-inteiro): status, score, kind agregado e a
+   * mensagem de erro da execução. Se o pior caso é oculto, a mensagem
+   * agregada NÃO herda o errorMessage dele (que pode carregar entrada/
+   * esperado do teste oculto). O detalhe fica apenas em testCases
+   * (persistido p/ instrutor/admin e mascarado na serialização para o
+   * aluno).
+   */
+  private buildAggregatedResult(
+    testCases: SandboxTestResult[],
+    fatalKind: SandboxResultKind | undefined,
+    fatalMessage: string | undefined,
+    start: number,
+  ): SandboxExecutionResult {
     const passedCount = testCases.filter((t) => t.passed).length;
     const status =
       fatalKind === 'sandbox_unavailable'
@@ -291,10 +373,6 @@ export class PistonRunnerService implements RunnerService {
           : 'failed';
     const kind = this.aggregateKind(testCases, fatalKind);
     const worstTest = testCases.find((t) => t.kind && t.kind !== 'passed');
-    // Se o pior caso é oculto, a mensagem agregada NÃO herda o errorMessage
-    // dele (stderr do harness = entrada/esperado do teste oculto). O detalhe
-    // fica apenas em testCases (persistido p/ instrutor/admin e mascarado na
-    // serialização para o aluno).
     const worstErrorMessage = worstTest
       ? worstTest.isHidden
         ? HIDDEN_TEST_FAILED_MESSAGE
@@ -316,6 +394,422 @@ export class PistonRunnerService implements RunnerService {
         (status === 'passed' ? undefined : worstErrorMessage) ||
         (status === 'failed' ? 'Os testes não passaram.' : undefined),
       testCases,
+    };
+  }
+
+  // ─── Portugol: programa inteiro, entrada→saída ─────────────────────
+
+  private parsePortugolCases(
+    options: SandboxExecutionOptions,
+  ): { cases: PortugolTestCase[] } | { error: string } {
+    const cases: PortugolTestCase[] = [];
+    const sources: Array<{ script: string | undefined; hidden: boolean; field: string }> = [
+      { script: options.testScript, hidden: false, field: 'testCode' },
+      { script: options.hiddenTests, hidden: true, field: 'hiddenTests' },
+    ];
+    for (const { script, hidden, field } of sources) {
+      if (!script || !script.trim()) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(script);
+      } catch {
+        return {
+          error: `Os casos de teste de Portugol (${field}) precisam ser um array JSON de objetos { "stdin", "expected" } — o conteúdo atual não é JSON válido.`,
+        };
+      }
+      if (!Array.isArray(parsed)) {
+        return {
+          error: `Os casos de teste de Portugol (${field}) precisam ser um array JSON de objetos { "stdin", "expected" }.`,
+        };
+      }
+      for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i] as Record<string, unknown> | null;
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return {
+            error: `Caso ${i + 1} de ${field}: cada caso de Portugol deve ser um objeto { "stdin", "expected" }.`,
+          };
+        }
+        if (typeof item.expected !== 'string') {
+          return {
+            error: `Caso ${i + 1} de ${field}: "expected" (a saída esperada do programa) é obrigatório e deve ser string.`,
+          };
+        }
+        if (item.stdin !== undefined && typeof item.stdin !== 'string') {
+          return {
+            error: `Caso ${i + 1} de ${field}: "stdin" deve ser string (um valor por linha para cada leia).`,
+          };
+        }
+        cases.push({
+          stdin: typeof item.stdin === 'string' ? item.stdin : '',
+          expected: item.expected,
+          hidden,
+        });
+      }
+    }
+    return { cases };
+  }
+
+  /** Remove o sufixo que o portugol-console anexa a TODA execução. */
+  private stripPortugolConsoleSuffix(stdout: string): string {
+    if (stdout.endsWith(PORTUGOL_SUCCESS_SUFFIX)) {
+      return stdout.slice(0, -PORTUGOL_SUCCESS_SUFFIX.length);
+    }
+    if (stdout.endsWith(PORTUGOL_PROMPT_SUFFIX)) {
+      return stdout.slice(0, -PORTUGOL_PROMPT_SUFFIX.length);
+    }
+    return stdout;
+  }
+
+  /** Comparação de saída: exata, exceto whitespace no fim (e CRLF). */
+  private normalizePortugolOutput(value: string): string {
+    return value
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/\s+$/, '');
+  }
+
+  private portugolOutputsMatch(actualStdout: string, expected: string): boolean {
+    const actual = this.normalizePortugolOutput(
+      this.stripPortugolConsoleSuffix(actualStdout),
+    );
+    return actual === this.normalizePortugolOutput(expected);
+  }
+
+  /**
+   * O console oficial reporta erro de COMPILAÇÃO no stderr com o
+   * prefixo "ERRO:" (ex.: "ERRO: ... Linha: 5, Coluna: 9"); erro de
+   * EXECUÇÃO usa "Erro de execução:". A distinção é por esse prefixo.
+   */
+  private isPortugolCompileError(execution: RunnerExecution): boolean {
+    const stderr = execution.stderr || '';
+    return stderr.split('\n').some((line) => line.startsWith('ERRO:'));
+  }
+
+  /**
+   * Se a primeira linha do erro de execução começa com o nome de uma
+   * exceção Java conhecida do console (ex.:
+   * "java.util.NoSuchElementException: No line found"), devolve a
+   * frase em português equivalente (Correção 23.1, D1). Exceções
+   * desconhecidas — e mensagens que já vêm em português do console —
+   * passam inalteradas.
+   */
+  private mapPortugolExceptionMessage(firstLine: string): string {
+    const match = firstLine.match(
+      /^(?:[a-zA-Z_$][\w$]*\.)*([A-Z][\w$]*(?:Exception|Error))\b/,
+    );
+    if (!match) return firstLine;
+    return PORTUGOL_KNOWN_EXCEPTION_MESSAGES[match[1]] ?? firstLine;
+  }
+
+  /** Extrai a linha legível de um erro de execução do console. */
+  private portugolRuntimeErrorMessage(execution: RunnerExecution): string {
+    const stderr = execution.stderr || '';
+    const lines = stderr.split('\n');
+    const idx = lines.findIndex((line) => line.startsWith('Erro de execução:'));
+    if (idx >= 0) {
+      const where = lines
+        .slice(idx + 1)
+        .find((line) => line.startsWith('Linha:'));
+      const firstLine = this.mapPortugolExceptionMessage(
+        lines[idx].replace(/^Erro de execução:\s*/, ''),
+      );
+      return this.sanitizeMessage(
+        where ? `${firstLine} (${where.trim()})` : firstLine,
+      );
+    }
+    return (
+      execution.errorMessage ||
+      'Erro em tempo de execução ao executar o programa Portugol.'
+    );
+  }
+
+  private async executePortugolInSandbox(
+    options: SandboxExecutionOptions,
+    start: number,
+  ): Promise<SandboxExecutionResult> {
+    const { language, code } = options;
+    // Piso de tempo do Portugol (partida da JVM); o teto é o clamp de
+    // execute() (15s). Um limite maior vindo da atividade é respeitado
+    // até esse teto.
+    const timeLimitMs = Math.max(
+      options.timeLimitMs ?? 0,
+      PORTUGOL_DEFAULT_TIME_LIMIT_MS,
+    );
+
+    const parsed = this.parsePortugolCases(options);
+    if ('error' in parsed) {
+      // Formato de casos inválido é defeito de AUTORIA da atividade,
+      // não do aluno: nenhum caso roda e a mensagem diz o que corrigir.
+      return {
+        status: 'failed',
+        kind: 'failed',
+        score: 0,
+        maxScore: 100,
+        durationMs: Date.now() - start,
+        errorMessage: parsed.error,
+        logs: 'Formato de Testes: FAIL (casos de Portugol inválidos)',
+        testCases: [
+          {
+            name: 'Formato de Testes',
+            passed: false,
+            durationMs: 0,
+            isHidden: false,
+            kind: 'failed',
+            errorMessage: parsed.error,
+          },
+        ],
+      };
+    }
+
+    const cases = parsed.cases;
+
+    if (cases.length === 0) {
+      return this.evaluatePortugolWithoutTests(code, timeLimitMs, start);
+    }
+
+    const testCases: SandboxTestResult[] = [];
+    let fatalKind: SandboxResultKind | undefined;
+    let fatalMessage: string | undefined;
+
+    for (let idx = 0; idx < cases.length; idx++) {
+      const testCase = cases[idx];
+      const tStart = Date.now();
+      const name = `Caso de Teste ${testCases.length + 1}${testCase.hidden ? ' (Oculto)' : ''}`;
+
+      let execution: RunnerExecution;
+      try {
+        execution = await this.execute(language, code, {
+          stdin: testCase.stdin,
+          timeLimitMs,
+          memoryLimitMb: options.memoryLimitMb,
+        });
+      } catch (err: any) {
+        this.logger.error(`Unexpected runner failure: ${err?.message}`);
+        execution = {
+          kind: 'sandbox_unavailable',
+          status: 'error',
+          durationMs: Math.max(1, Date.now() - tStart),
+          stdout: '',
+          stderr: '',
+          errorMessage: SANDBOX_UNAVAILABLE_MESSAGE,
+        };
+      }
+
+      const durationMs = Math.max(1, Date.now() - tStart);
+
+      if (
+        execution.kind === 'sandbox_unavailable' ||
+        execution.kind === 'unsupported'
+      ) {
+        fatalKind = execution.kind;
+        fatalMessage = execution.errorMessage;
+        testCases.push({
+          name,
+          passed: false,
+          durationMs,
+          isHidden: testCase.hidden,
+          kind: execution.kind,
+          errorMessage:
+            execution.kind === 'sandbox_unavailable'
+              ? SANDBOX_UNAVAILABLE_MESSAGE
+              : UNSUPPORTED_LANGUAGE_MESSAGE,
+        });
+        for (let rest = idx + 1; rest < cases.length; rest++) {
+          testCases.push({
+            name: `Caso de Teste ${testCases.length + 1}${cases[rest].hidden ? ' (Oculto)' : ''}`,
+            passed: false,
+            durationMs: 0,
+            isHidden: cases[rest].hidden,
+            kind: execution.kind,
+            errorMessage:
+              execution.kind === 'sandbox_unavailable'
+                ? 'Não executado: sandbox indisponível.'
+                : 'Não executado: linguagem não suportada.',
+          });
+        }
+        break;
+      }
+
+      // Erro de compilação é independente do caso (o programa é o
+      // mesmo): marca o caso e interrompe, como no modo por expressão.
+      if (execution.kind !== 'passed' && this.isPortugolCompileError(execution)) {
+        const detail = this.sanitizeMessage(
+          (execution.stderr || '')
+            .split('\n')
+            .find((line) => line.startsWith('ERRO:')) ||
+            execution.errorMessage ||
+            'Erro de compilação.',
+        );
+        testCases.push({
+          name,
+          passed: false,
+          durationMs,
+          isHidden: testCase.hidden,
+          kind: 'compile_error',
+          errorMessage: detail,
+          stdout: execution.stdout || undefined,
+          stderr: execution.stderr || undefined,
+        });
+        for (let rest = idx + 1; rest < cases.length; rest++) {
+          testCases.push({
+            name: `Caso de Teste ${testCases.length + 1}${cases[rest].hidden ? ' (Oculto)' : ''}`,
+            passed: false,
+            durationMs: 0,
+            isHidden: cases[rest].hidden,
+            kind: 'compile_error',
+            errorMessage: 'Não executado: erro de compilação.',
+          });
+        }
+        break;
+      }
+
+      if (execution.kind === 'passed') {
+        const matched = this.portugolOutputsMatch(
+          execution.stdout,
+          testCase.expected,
+        );
+        testCases.push({
+          name,
+          passed: matched,
+          durationMs,
+          stdout: execution.stdout || undefined,
+          stderr: execution.stderr || undefined,
+          errorMessage: matched
+            ? undefined
+            : this.portugolMismatchMessage(execution.stdout, testCase.expected),
+          isHidden: testCase.hidden,
+          kind: matched ? 'passed' : 'failed',
+        });
+        continue;
+      }
+
+      // timeout / output_limit / signal / runtime_error: a falha é do
+      // CASO (depende do stdin dele) — os demais casos ainda rodam.
+      testCases.push({
+        name,
+        passed: false,
+        durationMs,
+        stdout: execution.stdout || undefined,
+        stderr: execution.stderr || undefined,
+        errorMessage:
+          execution.kind === 'runtime_error'
+            ? this.portugolRuntimeErrorMessage(execution)
+            : execution.errorMessage,
+        isHidden: testCase.hidden,
+        kind: execution.kind,
+      });
+    }
+
+    return this.buildAggregatedResult(testCases, fatalKind, fatalMessage, start);
+  }
+
+  private hasInvisibleControlChars(value: string): boolean {
+    return PORTUGOL_INVISIBLE_CONTROL_TEST.test(value);
+  }
+
+  /** ESC vira <ESC>; os demais controles invisíveis, <0xNN>. */
+  private escapeControlChars(value: string): string {
+    return value.replace(PORTUGOL_INVISIBLE_CONTROL_CHARS, (ch) =>
+      ch === '\u001B'
+        ? '<ESC>'
+        : `<0x${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}>`,
+    );
+  }
+
+  private portugolMismatchMessage(actualStdout: string, expected: string): string {
+    const actual = this.normalizePortugolOutput(
+      this.stripPortugolConsoleSuffix(actualStdout),
+    );
+    const wanted = this.normalizePortugolOutput(expected);
+    const slice = (value: string) =>
+      value.length > 500 ? `${value.slice(0, 500)}[...]` : value;
+    const show = (value: string) => slice(this.escapeControlChars(value));
+    // A comparação NÃO muda (controle na saída continua divergindo);
+    // o que muda é a legibilidade: sem o escape, Esperado e Obtido
+    // pareciam idênticos ao aluno (Correção 23.1, D3).
+    const controlNote =
+      this.hasInvisibleControlChars(wanted) ||
+      this.hasInvisibleControlChars(actual)
+        ? '\nObservação: a saída contém caracteres de controle invisíveis (exibidos acima como <ESC> ou <0xNN>), que também contam na comparação. Comandos como limpa() geram esse tipo de caractere.'
+        : '';
+    return this.sanitizeMessage(
+      `A saída do programa foi diferente do esperado.\nEsperado: "${show(wanted)}"\nObtido: "${show(actual)}"${controlNote}`,
+    );
+  }
+
+  /** Sem casos de teste: uma execução com stdin vazio (checagem de sintaxe). */
+  private async evaluatePortugolWithoutTests(
+    code: string,
+    timeLimitMs: number,
+    start: number,
+  ): Promise<SandboxExecutionResult> {
+    if (!code.trim()) {
+      return {
+        status: 'failed',
+        kind: 'failed',
+        score: 0,
+        maxScore: 100,
+        durationMs: Date.now() - start,
+        errorMessage: 'O código submetido está vazio.',
+        logs: 'Verificação de Sintaxe: FAIL (código vazio)',
+        testCases: [
+          {
+            name: 'Verificação de Sintaxe',
+            passed: false,
+            durationMs: 0,
+            isHidden: false,
+            kind: 'failed',
+            errorMessage: 'O código submetido está vazio.',
+          },
+        ],
+      };
+    }
+
+    const execution = await this.execute('portugol', code, {
+      stdin: '',
+      timeLimitMs,
+    });
+
+    const compileError =
+      execution.kind !== 'passed' && this.isPortugolCompileError(execution);
+    const kind: SandboxResultKind = compileError
+      ? 'compile_error'
+      : execution.kind;
+    const passed = execution.kind === 'passed';
+    const testCase: SandboxTestResult = {
+      name: 'Verificação de Sintaxe',
+      passed,
+      durationMs: Math.max(1, execution.durationMs),
+      stdout: execution.stdout || undefined,
+      stderr: execution.stderr || undefined,
+      errorMessage: passed
+        ? undefined
+        : compileError
+          ? this.sanitizeMessage(
+              (execution.stderr || '')
+                .split('\n')
+                .find((line) => line.startsWith('ERRO:')) ||
+                execution.errorMessage ||
+                'Erro de compilação.',
+            )
+          : execution.kind === 'runtime_error'
+            ? this.portugolRuntimeErrorMessage(execution)
+            : execution.errorMessage,
+      isHidden: false,
+      kind,
+    };
+
+    return {
+      status: passed ? 'passed' : execution.status,
+      kind,
+      score: passed ? 100 : 0,
+      maxScore: 100,
+      durationMs: Date.now() - start,
+      logs: `Verificação de Sintaxe: ${passed ? 'PASS' : 'FAIL'}`,
+      errorMessage: passed
+        ? undefined
+        : testCase.errorMessage || 'Não foi possível verificar o código.',
+      testCases: [testCase],
     };
   }
 
