@@ -206,14 +206,28 @@ describe('PistonRunnerService.execute', () => {
     assert.match(result.errorMessage || '', /Compilation failed/);
   });
 
-  it('returns unsupported for portugol without hitting the network', async () => {
+  it('sends portugol to Piston as programa.por with stdin passthrough', async () => {
+    fetchStub = async () =>
+      okResponse({
+        run: runStage({
+          stdout: 'Olá Mundo\nPrograma finalizado\n\nPressione ENTER para continuar\n',
+        }),
+      });
     const runner = newRunner();
 
-    const result = await runner.execute('portugol', 'algoritmo "x"');
+    const result = await runner.execute('portugol', 'programa { }', {
+      stdin: '3\n4\n',
+    });
 
-    assert.equal(result.kind, 'unsupported');
-    assert.equal(result.status, 'failed');
-    assert.equal(calls.length, 0);
+    assert.equal(result.kind, 'passed');
+    const payload = assertExecutePayload(calls[0]);
+    assert.equal(payload.language, 'portugol');
+    assert.equal(payload.files[0].name, 'programa.por');
+    assert.equal(payload.files[0].content, 'programa { }');
+    assert.equal(payload.stdin, '3\n4\n');
+    // execute() NÃO remove o sufixo do console: a remoção é da
+    // comparação de saída (executeInSandbox), não da execução crua.
+    assert.match(result.stdout, /Pressione ENTER para continuar/);
   });
 
   it('maps network failure to sandbox_unavailable (never local fallback)', async () => {
@@ -298,21 +312,9 @@ describe('PistonRunnerService.execute', () => {
 });
 
 describe('PistonRunnerService.executeInSandbox', () => {
-  it('returns unsupported for portugol without calling the network', async () => {
-    const runner = newRunner();
-    const result = await runner.executeInSandbox({
-      language: 'portugol',
-      code: 'algoritmo "soma"',
-      testScript: 'escreva(1)',
-    });
-
-    assert.equal(result.kind, 'unsupported');
-    assert.equal(result.status, 'failed');
-    assert.equal(result.score, 0);
-    assert.equal(calls.length, 0);
-    assert.equal(result.testCases[0].kind, 'unsupported');
-    assert.ok(result.errorMessage);
-  });
+  // O teste que aqui travava o Portugol como `unsupported` foi
+  // substituído pela suíte dedicada mais abaixo (Sprint 23): Portugol
+  // agora executa de verdade, no modo programa inteiro entrada→saída.
 
   it('runs each test expression as a separate Piston execution and aggregates score', async () => {
     fetchStub = async () => okResponse({ run: runStage() });
@@ -517,5 +519,276 @@ describe('PistonRunnerService.executeInSandbox', () => {
     assert.equal(result.status, 'failed');
     assert.equal(calls.length, 0);
     assert.match(result.errorMessage || '', /vazio/);
+  });
+});
+
+// ─── Sprint 23: Portugol, programa inteiro entrada→saída ────────────
+// O executor fake abaixo simula o portugol-console OFICIAL (evidência
+// do spike): anexa ao stdout o sufixo "\nPrograma finalizado\n\n
+// Pressione ENTER para continuar\n" em sucesso, reporta erro de
+// compilação no stderr com prefixo "ERRO:" e erro de execução com
+// "Erro de execução:" — os dois com exit != 0.
+describe('PistonRunnerService Portugol mode (Sprint 23)', () => {
+  const CONSOLE_SUFFIX =
+    '\nPrograma finalizado\n\nPressione ENTER para continuar\n';
+  const PROMPT_ONLY = '\nPressione ENTER para continuar\n';
+
+  const SOMA_CODE = [
+    'programa',
+    '{',
+    '  funcao inicio()',
+    '  {',
+    '    inteiro a, b',
+    '    leia(a)',
+    '    leia(b)',
+    '    escreva("Soma: ", a + b)',
+    '  }',
+    '}',
+  ].join('\n');
+
+  function consoleStub(
+    behavior: (stdin: string, code: string) => Record<string, unknown>,
+  ) {
+    fetchStub = async (_url: string, init: any) => {
+      const payload = JSON.parse(init.body);
+      return okResponse({
+        run: runStage(behavior(payload.stdin ?? '', payload.files[0].content)),
+      });
+    };
+  }
+
+  it('passes a case comparing stdout without the console suffix', async () => {
+    consoleStub(() => ({ stdout: `Soma: 7${CONSOLE_SUFFIX}` }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '3\n4\n', expected: 'Soma: 7' }]),
+    });
+
+    assert.equal(result.status, 'passed');
+    assert.equal(result.score, 100);
+    assert.equal(calls.length, 1);
+    const payload = assertExecutePayload(calls[0]);
+    assert.equal(payload.language, 'portugol');
+    assert.equal(payload.files[0].name, 'programa.por');
+    assert.equal(payload.stdin, '3\n4\n');
+    // Piso de tempo do Portugol (partida da JVM): run_timeout = 12000.
+    assert.equal(payload.run_timeout, 12000);
+  });
+
+  it('ignores trailing whitespace differences on both sides', async () => {
+    consoleStub(() => ({ stdout: `Soma: 7\n\n\n${CONSOLE_SUFFIX}` }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '3\n4\n', expected: 'Soma: 7\n' }]),
+    });
+
+    assert.equal(result.status, 'passed');
+  });
+
+  it('runs visible and hidden cases as full executions and aggregates partial score', async () => {
+    consoleStub((stdin) => ({
+      stdout: `${stdin === 'ok' ? 'certo' : 'errado'}${CONSOLE_SUFFIX}`,
+    }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([
+        { stdin: 'ok', expected: 'certo' },
+        { stdin: 'x', expected: 'certo' },
+      ]),
+      hiddenTests: JSON.stringify([{ stdin: 'ok', expected: 'certo' }]),
+    });
+
+    assert.equal(result.status, 'failed');
+    assert.equal(result.score, 67);
+    assert.equal(result.testCases.length, 3);
+    assert.equal(result.testCases[2].isHidden, true);
+    assert.equal(calls.length, 3);
+  });
+
+  it('shows expected vs obtained on a visible mismatch and masks the aggregate when the worst case is hidden', async () => {
+    consoleStub(() => ({ stdout: `errado${CONSOLE_SUFFIX}` }));
+    const runner = newRunner();
+
+    const visibleOnly = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '', expected: 'certo' }]),
+    });
+    assert.match(visibleOnly.testCases[0].errorMessage || '', /Esperado: "certo"/);
+    assert.match(visibleOnly.testCases[0].errorMessage || '', /Obtido: "errado"/);
+
+    const withHidden = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '', expected: 'errado' }]),
+      hiddenTests: JSON.stringify([{ stdin: '', expected: 'certo' }]),
+    });
+    assert.equal(
+      withHidden.errorMessage,
+      'Um teste oculto não passou. Revise sua solução e tente novamente.',
+    );
+    // O detalhe (esperado/obtido) fica no caso oculto p/ instrutor/admin.
+    assert.match(withHidden.testCases[1].errorMessage || '', /Esperado: "certo"/);
+  });
+
+  it('classifies console compile errors as compile_error and skips remaining cases', async () => {
+    consoleStub(() => ({
+      code: 1,
+      signal: null,
+      stdout: PROMPT_ONLY,
+      stderr: 'ERRO: Era esperado um abre chaves "{" mas foi encontrado algo diferente. Linha: 3, Coluna: 1\n',
+    }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: 'programa { funcao inicio( { } }',
+      testScript: JSON.stringify([
+        { stdin: '', expected: 'x' },
+        { stdin: '', expected: 'y' },
+      ]),
+      hiddenTests: JSON.stringify([{ stdin: '', expected: 'z' }]),
+    });
+
+    assert.equal(result.kind, 'compile_error');
+    assert.equal(calls.length, 1);
+    assert.equal(result.testCases.length, 3);
+    assert.equal(result.testCases[0].kind, 'compile_error');
+    assert.match(result.testCases[0].errorMessage || '', /abre chaves/);
+    assert.equal(result.testCases[1].kind, 'compile_error');
+    assert.match(result.testCases[1].errorMessage || '', /Não executado/);
+    assert.equal(result.testCases[2].isHidden, true);
+  });
+
+  it('treats runtime errors as per-case failures and keeps running other cases', async () => {
+    consoleStub((stdin) =>
+      stdin === 'boom'
+        ? {
+            code: 1,
+            signal: null,
+            stdout: PROMPT_ONLY,
+            stderr:
+              '\nErro de execução: Foi efetuada uma divisão por zero.\nLinha: 6, Coluna: 14\n\nPressione ENTER para continuar\n',
+          }
+        : { stdout: `certo${CONSOLE_SUFFIX}` },
+    );
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([
+        { stdin: 'boom', expected: 'certo' },
+        { stdin: 'ok', expected: 'certo' },
+      ]),
+    });
+
+    assert.equal(result.kind, 'runtime_error');
+    assert.equal(result.testCases[0].kind, 'runtime_error');
+    assert.match(result.testCases[0].errorMessage || '', /divisão por zero/);
+    assert.match(result.testCases[0].errorMessage || '', /Linha: 6, Coluna: 14/);
+    assert.equal(result.testCases[1].passed, true);
+    assert.equal(calls.length, 2);
+  });
+
+  it('surfaces leia EOF (stdin shorter than the program reads) as runtime_error', async () => {
+    consoleStub(() => ({
+      code: 1,
+      signal: null,
+      stdout: PROMPT_ONLY,
+      stderr:
+        '\nErro de execução: java.util.NoSuchElementException: No line found\nLinha: 7, Coluna: 5\n\nPressione ENTER para continuar\n',
+    }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '3\n', expected: 'Soma: 7' }]),
+    });
+
+    assert.equal(result.testCases[0].kind, 'runtime_error');
+    assert.match(result.testCases[0].errorMessage || '', /NoSuchElementException/);
+  });
+
+  it('propagates timeout per case without stopping the suite', async () => {
+    consoleStub((stdin) =>
+      stdin === 'loop' ? { status: 'TO', code: null } : { stdout: `certo${CONSOLE_SUFFIX}` },
+    );
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([
+        { stdin: 'loop', expected: 'certo' },
+        { stdin: 'ok', expected: 'certo' },
+      ]),
+    });
+
+    assert.equal(result.kind, 'timeout');
+    assert.equal(result.testCases[0].kind, 'timeout');
+    assert.equal(result.testCases[1].passed, true);
+    assert.equal(calls.length, 2);
+  });
+
+  it('rejects malformed case JSON without calling the network', async () => {
+    const runner = newRunner();
+
+    const notJson = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: 'escreva(1)',
+    });
+    assert.equal(notJson.status, 'failed');
+    assert.match(notJson.errorMessage || '', /array JSON/);
+    assert.equal(calls.length, 0);
+
+    const missingExpected = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '3\n' }]),
+    });
+    assert.equal(missingExpected.status, 'failed');
+    assert.match(missingExpected.errorMessage || '', /"expected"/);
+    assert.equal(calls.length, 0);
+  });
+
+  it('falls back to a single syntax-check execution when there are no cases', async () => {
+    consoleStub(() => ({ stdout: `Olá Mundo${CONSOLE_SUFFIX}` }));
+    const runner = newRunner();
+
+    const ok = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: '',
+    });
+    assert.equal(ok.status, 'passed');
+    assert.equal(ok.testCases[0].name, 'Verificação de Sintaxe');
+    assert.equal(calls.length, 1);
+
+    consoleStub(() => ({
+      code: 1,
+      signal: null,
+      stdout: PROMPT_ONLY,
+      stderr: 'ERRO: Erro de sintaxe simulado. Linha: 1, Coluna: 1\n',
+    }));
+    const bad = await runner.executeInSandbox({
+      language: 'portugol',
+      code: 'programa }',
+      testScript: '[]',
+    });
+    assert.equal(bad.status, 'failed');
+    assert.equal(bad.kind, 'compile_error');
+    assert.match(bad.testCases[0].errorMessage || '', /Erro de sintaxe simulado/);
   });
 });
