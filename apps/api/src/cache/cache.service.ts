@@ -49,6 +49,25 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     await this.client.del(key);
   }
 
+  /**
+   * Incremento atômico (INCR). Se a chave é nova e `ttlSeconds` foi
+   * informado, aplica o TTL na criação — usado por contadores com janela
+   * (ex.: cota diária da tutora de IA, Sprint 22). Retorna o valor após
+   * o incremento.
+   */
+  async increment(key: string, ttlSeconds?: number): Promise<number> {
+    const value = await this.client.incr(key);
+    if (value === 1 && ttlSeconds && ttlSeconds > 0) {
+      await this.client.expire(key, ttlSeconds);
+    }
+    return value;
+  }
+
+  /** Decremento atômico (DECR) — estorno de uma reserva de contador. */
+  async decrement(key: string): Promise<number> {
+    return this.client.decr(key);
+  }
+
   async delPattern(pattern: string): Promise<void> {
     let cursor = '0';
     do {
