@@ -1,9 +1,9 @@
 /**
  * Sprint 22 — cota diária por plano + registro de uso (AiUsageService).
  *
- * Os defaults 20 (free) / 200 (pro) são os propostos pelo PM e seguem
- * PENDENTES de confirmação do Augusto (decisão Q5) — estes testes
- * fixam o comportamento, não a decisão.
+ * Os defaults 20 (free) / 200 (pro) foram propostos pelo PM e
+ * CONFIRMADOS pelo Augusto em 2026-10-23 (decisão Q5) — estes testes
+ * fixam os valores confirmados e o comportamento ao redor deles.
  */
 import { AiUsageService, DEFAULT_DAILY_QUOTA_FREE, DEFAULT_DAILY_QUOTA_PRO } from './ai-usage.service';
 
@@ -36,7 +36,7 @@ function makePrisma() {
 }
 
 describe('AiUsageService — cota', () => {
-  it('defaults pendentes de confirmação (Q5): free=20, pro=200', () => {
+  it('defaults confirmados (Q5, 2026-10-23): free=20, pro=200', () => {
     const service = new AiUsageService(makeConfig(), makePrisma(), makeCache() as any);
     expect(DEFAULT_DAILY_QUOTA_FREE).toBe(20);
     expect(DEFAULT_DAILY_QUOTA_PRO).toBe(200);

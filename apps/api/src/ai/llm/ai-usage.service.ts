@@ -11,9 +11,9 @@ import type { LlmUsage } from './llm-provider';
  * (props JSON), consultável por SQL — o mesmo padrão de agregação por
  * props que o funil já usa para campanhas.
  *
- * COTA (defaults PROPOSTOS pelo PM no plano B1/B6/B8, pergunta Q5 —
- * pendentes de confirmação do Augusto; são constantes de configuração,
- * não verdade gravada em pedra):
+ * COTA (defaults propostos pelo PM no plano B1/B6/B8, pergunta Q5 —
+ * CONFIRMADOS pelo Augusto em 2026-10-23; seguem constantes de
+ * configuração, ajustáveis por env, não verdade gravada em pedra):
  * - plano free: 20 chamadas LLM/dia por aluno (AI_DAILY_QUOTA_FREE)
  * - plano pro: 200 chamadas LLM/dia por aluno (AI_DAILY_QUOTA_PRO)
  * Acima da cota, a tutora degrada para a heurística ROTULADA — nunca
