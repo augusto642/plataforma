@@ -11,7 +11,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl unzip ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /pkg
-COPY metadata.json environment run build.sh ./
+# LICENSE.md/NOTICE.md entram no build de proposito: o estagio final
+# copia /pkg inteiro para o payload, e a arvore instalada no volume
+# do Piston precisa carregar a licenca LGPL-3.0 e a atribuicao
+# junto do pacote (Correcao 23.1, D2).
+COPY metadata.json environment run build.sh LICENSE.md NOTICE.md ./
 RUN chmod +x build.sh run && ./build.sh
 
 FROM debian:bookworm-slim
