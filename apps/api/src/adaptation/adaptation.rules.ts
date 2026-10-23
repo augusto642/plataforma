@@ -19,11 +19,16 @@
 //     caminho de verdade, nenhuma tabela nova.
 //  3. Remediação por conceito: conceito da espinha com >= 3 submissões
 //     `failed` em atividades ainda não concluídas pelo aluno é
-//     "frágil". O reforço é escolhido por pools ordenados (Biblioteca
-//     primeiro, com o mapa de aliases do vocabulário legado; depois
-//     outra atividade da trilha com o mesmo conceito, nunca uma que o
-//     aluno já tentou). Sem reforço disponível, a resposta declara
-//     `null` com o motivo — nunca inventa uma atividade.
+//     "frágil". A falha conta SÓ para o conceito PRIMÁRIO da atividade
+//     (primeira tag da espinha — a mesma convenção do test-out):
+//     contar para todas as tags afirmaria tentativas em conceitos que
+//     o aluno não praticou como foco. O reforço é escolhido por pools
+//     ordenados (Biblioteca primeiro, com o mapa de aliases do
+//     vocabulário legado; depois outra atividade da trilha com o
+//     mesmo conceito) e NENHUM pool oferece atividade que o aluno já
+//     tentou: repetir a atividade falhada seria a não-remediação que
+//     esta regra substitui. Sem reforço disponível, a resposta
+//     declara `null` com o motivo — nunca inventa uma atividade.
 
 import {
   QUESTIONS,
@@ -263,7 +268,12 @@ export interface FragileConcept {
   conceptTag: string;
   moduleTitle: string;
   spineOrder: number;
-  /** Submissões `failed` em atividades do conceito ainda não concluídas. */
+  /**
+   * Submissões `failed` em atividades cujo conceito PRIMÁRIO é este
+   * e que o aluno ainda não concluiu. É este número que a interface
+   * exibe ("tentativas sem concluir neste conceito") — ele só pode
+   * contar tentativas que de fato foram neste conceito.
+   */
   failedAttempts: number;
   reinforcement: (RemediationActivity & {
     source: 'library' | 'track';
@@ -307,20 +317,25 @@ export function computeFragileConcepts(args: {
     const activity = activitiesById.get(submission.activityId);
     if (!activity) continue;
     const at = toTime(submission.createdAt);
-    for (const tag of activity.conceptTags) {
-      if (!SPINE_TAG_SET.has(tag)) continue;
-      const entry = failures.get(tag) ?? {
-        count: 0,
-        latestFailedLanguage: null,
-        latestAt: -1,
-      };
-      entry.count += 1;
-      if (at >= entry.latestAt) {
-        entry.latestAt = at;
-        entry.latestFailedLanguage = activity.language;
-      }
-      failures.set(tag, entry);
+    // Correção 21.1 (sonda C do QA) — a falha conta SÓ para o conceito
+    // primário da atividade. Antes contava para TODAS as tags da
+    // espinha: 3 falhas em `contar-vogais-python` (primário
+    // entrada-e-strings; secundárias loops e condicionais) geravam 3
+    // conceitos frágeis de uma vez, e a copy afirmava tentativas em
+    // loops/condicionais que o aluno nunca praticou como foco.
+    const tag = primaryModuleTag(activity.conceptTags);
+    if (!tag) continue;
+    const entry = failures.get(tag) ?? {
+      count: 0,
+      latestFailedLanguage: null,
+      latestAt: -1,
+    };
+    entry.count += 1;
+    if (at >= entry.latestAt) {
+      entry.latestAt = at;
+      entry.latestFailedLanguage = activity.language;
     }
+    failures.set(tag, entry);
   }
 
   const attemptedActivityIds = new Set(
@@ -377,11 +392,18 @@ function pickReinforcement(args: {
   } = args;
 
   // Pool 1 — Biblioteca: mesma linguagem da última falha primeiro,
-  // depois a menor order. Atividade já concluída pelo aluno não reforça.
+  // depois a menor order. Atividade já concluída pelo aluno não
+  // reforça — e, desde a Correção 21.1 (sonda A do QA), atividade já
+  // TENTADA também não: sem este filtro, quem falhava 3× numa
+  // atividade da própria Biblioteca (ex.: `bib-tabuada-lista`)
+  // recebia ela mesma como "reforço", a não-remediação que o pool 2
+  // já evitava com o filtro de tentadas. Os dois pools aplicam a
+  // mesma régua.
   const aliases = LIBRARY_TAG_ALIASES[conceptTag] ?? [conceptTag];
   const libraryCandidates = libraryActivities
     .filter((a) => a.conceptTags.some((t) => aliases.includes(t)))
     .filter((a) => !passedActivityIds.has(a.id))
+    .filter((a) => !attemptedActivityIds.has(a.id))
     .sort((a, b) => {
       const langA = preferredLanguage && a.language === preferredLanguage ? 0 : 1;
       const langB = preferredLanguage && b.language === preferredLanguage ? 0 : 1;

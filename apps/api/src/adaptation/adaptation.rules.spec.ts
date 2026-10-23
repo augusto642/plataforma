@@ -372,3 +372,156 @@ describe('computeFragileConcepts', () => {
     expect(fragile).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Correção 21.1 — regressão das sondas A e C do QA da Sprint 21
+// ---------------------------------------------------------------------------
+
+describe('Correção 21.1 — sonda A: o reforço NÃO pode ser a atividade falhada', () => {
+  // Sonda do QA com os dados reais do catálogo: 3 falhas em
+  // `bib-tabuada-lista` (Biblioteca, tags reais ['loops']) geravam o
+  // reforço = a própria `bib-tabuada-lista`, porque o pool 1 filtrava
+  // só `passed` — o pool 2 já filtrava `attempted`.
+  const bibTabuada = remediationActivity({
+    id: 'bib-tabuada-lista',
+    conceptTags: ['loops'],
+    language: 'javascript',
+    order: 2,
+    courseId: 'bib',
+    courseSlug: 'biblioteca',
+  });
+  const bibLoopsOutra = remediationActivity({
+    id: 'bib-loops-outra',
+    conceptTags: ['loops'],
+    language: 'javascript',
+    order: 5,
+    courseId: 'bib',
+    courseSlug: 'biblioteca',
+  });
+  const trackLoopsNova = remediationActivity({
+    id: 't-loops-nova',
+    conceptTags: ['loops'],
+    language: 'python',
+    order: 7,
+    courseId: 'py',
+    courseSlug: 'introducao-python',
+  });
+  const probeMap = new Map(
+    [bibTabuada, bibLoopsOutra, trackLoopsNova].map((a) => [a.id, a]),
+  );
+  const failures = (activityId: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      activityId,
+      status: 'failed',
+      createdAt: new Date(2026, 0, 1, i),
+    }));
+
+  it('pool 1 oferece OUTRA atividade da Biblioteca, nunca a falhada', () => {
+    const fragile = computeFragileConcepts({
+      submissions: failures('bib-tabuada-lista', 3),
+      activitiesById: probeMap,
+      passedActivityIds: new Set<string>(),
+      libraryActivities: [bibTabuada, bibLoopsOutra],
+      enrolledActivities: [trackLoopsNova],
+    });
+    expect(fragile).toHaveLength(1);
+    expect(fragile[0].conceptTag).toBe('loops');
+    expect(fragile[0].failedAttempts).toBe(3);
+    expect(fragile[0].reinforcement?.id).toBe('bib-loops-outra');
+    expect(fragile[0].reinforcement?.source).toBe('library');
+  });
+
+  it('sem outra atividade na Biblioteca, cai para o pool 2 (trilha nunca tentada)', () => {
+    const fragile = computeFragileConcepts({
+      submissions: failures('bib-tabuada-lista', 3),
+      activitiesById: probeMap,
+      passedActivityIds: new Set<string>(),
+      libraryActivities: [bibTabuada],
+      enrolledActivities: [trackLoopsNova],
+    });
+    expect(fragile[0].reinforcement?.id).toBe('t-loops-nova');
+    expect(fragile[0].reinforcement?.source).toBe('track');
+  });
+
+  it('a falhada como único candidato nos dois pools: null honesto, não auto-reforço', () => {
+    const fragile = computeFragileConcepts({
+      submissions: failures('bib-tabuada-lista', 3),
+      activitiesById: probeMap,
+      passedActivityIds: new Set<string>(),
+      libraryActivities: [bibTabuada],
+      enrolledActivities: [],
+    });
+    expect(fragile[0].reinforcement).toBeNull();
+    expect(fragile[0].unavailableReason).toBe('no-reinforcement-available');
+  });
+});
+
+describe('Correção 21.1 — sonda C: fragilidade conta só o conceito primário', () => {
+  // Sonda do QA com os dados reais do catálogo: `contar-vogais-python`
+  // tem conceptTags ['entrada-e-strings', 'loops', 'condicionais'] e 3
+  // falhas nela geravam TRÊS conceitos frágeis (3, 3, 3), com a copy
+  // afirmando tentativas em loops/condicionais nunca praticados como
+  // foco. Convenção corrigida: primeira tag da espinha = conceito
+  // primário (a mesma do test-out).
+  const contarVogais = remediationActivity({
+    id: 'contar-vogais-python',
+    conceptTags: ['entrada-e-strings', 'loops', 'condicionais'],
+    language: 'python',
+    courseId: 'py',
+    courseSlug: 'introducao-python',
+  });
+  const trackLoops = remediationActivity({
+    id: 't-loops-primario',
+    conceptTags: ['loops'],
+    language: 'python',
+    courseId: 'py',
+    courseSlug: 'introducao-python',
+  });
+  const probeMap = new Map(
+    [contarVogais, trackLoops].map((a) => [a.id, a]),
+  );
+  const failures = (activityId: string, n: number, day = 1) =>
+    Array.from({ length: n }, (_, i) => ({
+      activityId,
+      status: 'failed',
+      createdAt: new Date(2026, 0, day, i),
+    }));
+
+  it('3 falhas na atividade multi-tag geram UM conceito frágil: o primário', () => {
+    const fragile = computeFragileConcepts({
+      submissions: failures('contar-vogais-python', 3),
+      activitiesById: probeMap,
+      passedActivityIds: new Set<string>(),
+      libraryActivities: [],
+      enrolledActivities: [contarVogais, trackLoops],
+    });
+    expect(fragile).toHaveLength(1);
+    expect(fragile[0].conceptTag).toBe('entrada-e-strings');
+    expect(fragile[0].failedAttempts).toBe(3);
+  });
+
+  it('tags secundárias não inflam: loops só fica frágil por atividade de primário loops', () => {
+    const fragile = computeFragileConcepts({
+      submissions: [
+        ...failures('contar-vogais-python', 3, 1),
+        ...failures('t-loops-primario', 3, 2),
+      ],
+      activitiesById: probeMap,
+      passedActivityIds: new Set<string>(),
+      libraryActivities: [],
+      enrolledActivities: [contarVogais, trackLoops],
+    });
+    expect(fragile.map((f) => f.conceptTag).sort()).toEqual([
+      'entrada-e-strings',
+      'loops',
+    ]);
+    // loops tem 3 (da atividade de primário loops), não 6: as falhas
+    // da multi-tag NÃO vazam para a contagem das secundárias.
+    expect(
+      fragile.find((f) => f.conceptTag === 'loops')?.failedAttempts,
+    ).toBe(3);
+    expect(
+      fragile.find((f) => f.conceptTag === 'condicionais'),
+    ).toBeUndefined();
+  });
+});
