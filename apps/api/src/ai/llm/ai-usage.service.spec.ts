@@ -153,3 +153,56 @@ describe('AiUsageService — registro de uso', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe('AiUsageService — evento de bloqueio (ai_llm_blocked)', () => {
+  it('persiste o bloqueio por cota com motivo, plano, uso e limite', async () => {
+    const prisma = makePrisma();
+    const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+    await service.recordBlocked({
+      userId: 'user-7',
+      reason: 'quota-exceeded',
+      plan: 'free',
+      purpose: 'hint',
+      used: 20,
+      limit: 20,
+    });
+    expect(prisma.analyticsEvent.create).toHaveBeenCalledTimes(1);
+    const arg = prisma.analyticsEvent.create.mock.calls[0][0];
+    expect(arg.data.event).toBe('ai_llm_blocked');
+    expect(arg.data.props).toMatchObject({
+      userId: 'user-7',
+      reason: 'quota-exceeded',
+      plan: 'free',
+      purpose: 'hint',
+      used: 20,
+      limit: 20,
+    });
+  });
+
+  it('bloqueio por kill switch: motivo disabled, sem uso/limite (nulos, não fabricados)', async () => {
+    const prisma = makePrisma();
+    const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+    await service.recordBlocked({ userId: 'user-8', reason: 'disabled', plan: 'pro' });
+    const arg = prisma.analyticsEvent.create.mock.calls[0][0];
+    expect(arg.data.event).toBe('ai_llm_blocked');
+    expect(arg.data.props).toMatchObject({ reason: 'disabled', plan: 'pro' });
+    expect(arg.data.props.used).toBeNull();
+    expect(arg.data.props.limit).toBeNull();
+  });
+
+  it('sem Prisma o registro de bloqueio é no-op seguro (nunca lança)', async () => {
+    const service = new AiUsageService(makeConfig(), undefined, makeCache() as any);
+    await expect(
+      service.recordBlocked({ reason: 'disabled' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('falha ao persistir NÃO propaga (telemetria não derruba a tutora)', async () => {
+    const prisma = makePrisma();
+    prisma.analyticsEvent.create.mockRejectedValue(new Error('db down'));
+    const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+    await expect(
+      service.recordBlocked({ userId: 'user-9', reason: 'quota-exceeded', plan: 'free' }),
+    ).resolves.toBeUndefined();
+  });
+});

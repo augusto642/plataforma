@@ -31,6 +31,7 @@ function makeUsage(reserveResult: { ok: boolean; used: number; limit: number } =
     reserve: jest.fn().mockResolvedValue(reserveResult),
     refund: jest.fn().mockResolvedValue(undefined),
     recordUsage: jest.fn().mockResolvedValue(undefined),
+    recordBlocked: jest.fn().mockResolvedValue(undefined),
     quotaLimitForPlan: jest.fn().mockReturnValue(20),
   } as any;
 }
@@ -241,5 +242,109 @@ describe('LlmClient — cota integrada', () => {
     };
     await expect(collect()).rejects.toBeInstanceOf(LlmQuotaExceededError);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('LlmClient — evento de bloqueio (ai_llm_blocked, consolidação 22+23)', () => {
+  it('bloqueio por cota gera o evento com motivo, plano, uso e limite — e NÃO gera registro de uso', async () => {
+    const usage = makeUsage({ ok: false, used: 20, limit: 20 });
+    const client = new LlmClient(makeConfig({ AI_API_KEY: 'AIza-x' }), usage, makePrisma('free'));
+    const err = await client
+      .complete({ messages: [{ role: 'user', content: 'oi' }], userId: 'user-1', purpose: 'hint' })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(LlmQuotaExceededError);
+    expect(usage.recordBlocked).toHaveBeenCalledTimes(1);
+    expect(usage.recordBlocked).toHaveBeenCalledWith({
+      userId: 'user-1',
+      reason: 'quota-exceeded',
+      plan: 'free',
+      purpose: 'hint',
+      used: 20,
+      limit: 20,
+    });
+    // Bloqueio não é uso: nenhum ai_llm_usage nasce dele
+    expect(usage.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it('bloqueio por cota no STREAM também gera o evento', async () => {
+    const usage = makeUsage({ ok: false, used: 200, limit: 200 });
+    const client = new LlmClient(makeConfig({ AI_API_KEY: 'AIza-x' }), usage, makePrisma('pro'));
+    const collect = async () => {
+      for await (const _delta of client.stream({
+        messages: [{ role: 'user', content: 'oi' }],
+        userId: 'user-4',
+        purpose: 'chat-stream',
+      })) {
+        // nunca chega aqui
+      }
+    };
+    await expect(collect()).rejects.toBeInstanceOf(LlmQuotaExceededError);
+    expect(usage.recordBlocked).toHaveBeenCalledTimes(1);
+    expect(usage.recordBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'quota-exceeded', plan: 'pro', userId: 'user-4' }),
+    );
+  });
+
+  it('kill switch (AI_TUTOR_ENABLED=false) gera o evento com motivo disabled e o plano do aluno', async () => {
+    const usage = makeUsage();
+    const client = new LlmClient(
+      makeConfig({ AI_TUTOR_ENABLED: 'false', AI_API_KEY: 'AIza-x' }),
+      usage,
+      makePrisma('pro'),
+    );
+    const err = await client
+      .complete({ messages: [{ role: 'user', content: 'oi' }], userId: 'user-5', purpose: 'chat' })
+      .catch((e) => e);
+    expect(err.kind).toBe('unavailable');
+    expect(usage.recordBlocked).toHaveBeenCalledTimes(1);
+    expect(usage.recordBlocked).toHaveBeenCalledWith({
+      userId: 'user-5',
+      reason: 'disabled',
+      plan: 'pro',
+      purpose: 'chat',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sem provedor configurado: evento com motivo no-provider (sem usuário, plano nulo)', async () => {
+    const usage = makeUsage();
+    const client = new LlmClient(makeConfig(), usage, makePrisma());
+    const err = await client
+      .complete({ messages: [{ role: 'user', content: 'oi' }], purpose: 'hint' })
+      .catch((e) => e);
+    expect(err.kind).toBe('unavailable');
+    expect(usage.recordBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'no-provider', purpose: 'hint' }),
+    );
+  });
+
+  it('chamada normal (sucesso) NÃO gera evento de bloqueio', async () => {
+    fetchMock.mockResolvedValue(geminiOk());
+    const usage = makeUsage();
+    const client = new LlmClient(makeConfig({ AI_API_KEY: 'AIza-x' }), usage, makePrisma('pro'));
+    await client.complete({
+      messages: [{ role: 'user', content: 'oi' }],
+      userId: 'user-2',
+      purpose: 'chat',
+    });
+    expect(usage.recordBlocked).not.toHaveBeenCalled();
+    expect(usage.recordUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it('erro do provedor NÃO é bloqueio: estorna, registra uso com erro e nenhum ai_llm_blocked', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: jest.fn(),
+      text: jest.fn().mockResolvedValue('{"error":{"message":"boom"}}'),
+      body: null,
+    });
+    const usage = makeUsage();
+    const client = new LlmClient(makeConfig({ AI_API_KEY: 'AIza-x' }), usage, makePrisma('pro'));
+    await client
+      .complete({ messages: [{ role: 'user', content: 'oi' }], userId: 'user-3', purpose: 'hint' })
+      .catch(() => undefined);
+    expect(usage.recordBlocked).not.toHaveBeenCalled();
+    expect(usage.recordUsage).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'error' }));
   });
 });
