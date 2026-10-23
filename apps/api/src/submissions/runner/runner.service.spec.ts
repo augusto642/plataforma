@@ -717,7 +717,102 @@ describe('PistonRunnerService Portugol mode (Sprint 23)', () => {
     });
 
     assert.equal(result.testCases[0].kind, 'runtime_error');
-    assert.match(result.testCases[0].errorMessage || '', /NoSuchElementException/);
+    // Correção 23.1 (D1): a exceção conhecida vira frase em português,
+    // sem o nome cru da exceção Java, mantendo linha/coluna do console.
+    assert.match(
+      result.testCases[0].errorMessage || '',
+      /a entrada do caso acabou/,
+    );
+    assert.match(result.testCases[0].errorMessage || '', /Linha: 7, Coluna: 5/);
+    assert.doesNotMatch(
+      result.testCases[0].errorMessage || '',
+      /NoSuchElementException|java\.util/,
+    );
+  });
+
+  it('maps leia of a non-numeric value (NumberFormatException) to a Portuguese message', async () => {
+    consoleStub(() => ({
+      code: 1,
+      signal: null,
+      stdout: PROMPT_ONLY,
+      stderr:
+        '\nErro de execução: java.lang.NumberFormatException: For input string: "abc"\nLinha: 5, Coluna: 3\n\nPressione ENTER para continuar\n',
+    }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: 'abc\n', expected: 'Soma: 7' }]),
+    });
+
+    assert.equal(result.testCases[0].kind, 'runtime_error');
+    assert.match(
+      result.testCases[0].errorMessage || '',
+      /não é um número válido/,
+    );
+    assert.match(result.testCases[0].errorMessage || '', /Linha: 5, Coluna: 3/);
+    assert.doesNotMatch(
+      result.testCases[0].errorMessage || '',
+      /NumberFormatException|java\.lang/,
+    );
+  });
+
+  it('keeps unknown Java exceptions as the console first line (D1 fallback)', async () => {
+    consoleStub(() => ({
+      code: 1,
+      signal: null,
+      stdout: PROMPT_ONLY,
+      stderr:
+        '\nErro de execução: java.lang.IllegalStateException: estado inválido simulado\nLinha: 4, Coluna: 2\n\nPressione ENTER para continuar\n',
+    }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: 'x\n', expected: 'Soma: 7' }]),
+    });
+
+    assert.equal(result.testCases[0].kind, 'runtime_error');
+    assert.match(
+      result.testCases[0].errorMessage || '',
+      /IllegalStateException: estado inválido simulado/,
+    );
+    assert.match(result.testCases[0].errorMessage || '', /Linha: 4, Coluna: 2/);
+  });
+
+  it('escapes invisible control chars (limpa() ESC) in the mismatch message without changing the verdict', async () => {
+    const ESC = String.fromCharCode(0x1b);
+    consoleStub(() => ({ stdout: `antes${ESC}cdepois${CONSOLE_SUFFIX}` }));
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '', expected: 'antesdepois' }]),
+    });
+
+    // A comparação não muda: saída com ESC continua divergindo…
+    assert.equal(result.testCases[0].passed, false);
+    const message = result.testCases[0].errorMessage || '';
+    // …mas a mensagem mostra o ESC escapado, sem o byte cru, e
+    // explica a presença de caracteres de controle (Correção 23.1, D3).
+    assert.match(message, /Obtido: "antes<ESC>cdepois"/);
+    assert.ok(!message.includes(ESC), 'mensagem não pode conter o byte ESC cru');
+    assert.match(message, /caracteres de controle invisíveis/);
+
+    // Divergência comum (sem controle) não ganha a observação.
+    consoleStub(() => ({ stdout: `errado${CONSOLE_SUFFIX}` }));
+    const plain = await runner.executeInSandbox({
+      language: 'portugol',
+      code: SOMA_CODE,
+      testScript: JSON.stringify([{ stdin: '', expected: 'certo' }]),
+    });
+    assert.doesNotMatch(
+      plain.testCases[0].errorMessage || '',
+      /caracteres de controle/,
+    );
   });
 
   it('propagates timeout per case without stopping the suite', async () => {

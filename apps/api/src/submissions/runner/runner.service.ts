@@ -134,6 +134,20 @@ const ERROR_MESSAGE_MAX_CHARS = 2_000;
  * erros de execução, com "Erro de execução:" — é assim que o modo
  * distingue compile_error de runtime_error mesmo com tudo rodando no
  * estágio `run` do Piston.
+ *
+ * Correção 23.1 (D1): em alguns erros de execução o console injeta o
+ * nome cru da exceção Java na mensagem (EOF do `leia` ⇒
+ * "java.util.NoSuchElementException: No line found"; `leia` de número
+ * com texto ⇒ "java.lang.NumberFormatException: ..."). As exceções
+ * conhecidas de PORTUGOL_KNOWN_EXCEPTION_MESSAGES viram frases em
+ * português na mensagem ao aluno (linha/coluna preservadas); as
+ * demais seguem com a primeira linha do console.
+ *
+ * Correção 23.1 (D3): na mensagem de divergência (Esperado×Obtido),
+ * caracteres de controle invisíveis da saída (ex.: o ESC que o
+ * `limpa()` injeta) são exibidos escapados (<ESC>, <0xNN>) e a
+ * mensagem ganha uma nota explicando a presença deles — a regra de
+ * comparação não muda (saída com controle continua divergindo).
  */
 const PORTUGOL_SUCCESS_SUFFIX =
   '\nPrograma finalizado\n\nPressione ENTER para continuar\n';
@@ -145,6 +159,27 @@ const PORTUGOL_PROMPT_SUFFIX = '\nPressione ENTER para continuar\n';
  * O teto continua sendo o clamp da plataforma em execute() (15s).
  */
 const PORTUGOL_DEFAULT_TIME_LIMIT_MS = 12_000;
+
+/**
+ * Exceções Java conhecidas do console → frase em português para o
+ * aluno (Correção 23.1, D1). A chave é o nome simples da exceção,
+ * como ela aparece no início da linha após "Erro de execução:".
+ */
+const PORTUGOL_KNOWN_EXCEPTION_MESSAGES: Record<string, string> = {
+  NoSuchElementException:
+    'O programa tentou ler um valor, mas a entrada do caso acabou — não havia mais valores para ler.',
+  NumberFormatException:
+    'O programa tentou ler um número, mas o valor lido não é um número válido.',
+};
+
+/**
+ * Caracteres de controle invisíveis (C0 sem \n/\t, e DEL) — ex.: o
+ * ESC que o `limpa()` injeta no stdout (Correção 23.1, D3).
+ */
+const PORTUGOL_INVISIBLE_CONTROL_CHARS =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const PORTUGOL_INVISIBLE_CONTROL_TEST =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 
 interface PortugolTestCase {
   stdin: string;
@@ -450,6 +485,22 @@ export class PistonRunnerService implements RunnerService {
     return stderr.split('\n').some((line) => line.startsWith('ERRO:'));
   }
 
+  /**
+   * Se a primeira linha do erro de execução começa com o nome de uma
+   * exceção Java conhecida do console (ex.:
+   * "java.util.NoSuchElementException: No line found"), devolve a
+   * frase em português equivalente (Correção 23.1, D1). Exceções
+   * desconhecidas — e mensagens que já vêm em português do console —
+   * passam inalteradas.
+   */
+  private mapPortugolExceptionMessage(firstLine: string): string {
+    const match = firstLine.match(
+      /^(?:[a-zA-Z_$][\w$]*\.)*([A-Z][\w$]*(?:Exception|Error))\b/,
+    );
+    if (!match) return firstLine;
+    return PORTUGOL_KNOWN_EXCEPTION_MESSAGES[match[1]] ?? firstLine;
+  }
+
   /** Extrai a linha legível de um erro de execução do console. */
   private portugolRuntimeErrorMessage(execution: RunnerExecution): string {
     const stderr = execution.stderr || '';
@@ -459,7 +510,9 @@ export class PistonRunnerService implements RunnerService {
       const where = lines
         .slice(idx + 1)
         .find((line) => line.startsWith('Linha:'));
-      const firstLine = lines[idx].replace(/^Erro de execução:\s*/, '');
+      const firstLine = this.mapPortugolExceptionMessage(
+        lines[idx].replace(/^Erro de execução:\s*/, ''),
+      );
       return this.sanitizeMessage(
         where ? `${firstLine} (${where.trim()})` : firstLine,
       );
@@ -650,6 +703,19 @@ export class PistonRunnerService implements RunnerService {
     return this.buildAggregatedResult(testCases, fatalKind, fatalMessage, start);
   }
 
+  private hasInvisibleControlChars(value: string): boolean {
+    return PORTUGOL_INVISIBLE_CONTROL_TEST.test(value);
+  }
+
+  /** ESC vira <ESC>; os demais controles invisíveis, <0xNN>. */
+  private escapeControlChars(value: string): string {
+    return value.replace(PORTUGOL_INVISIBLE_CONTROL_CHARS, (ch) =>
+      ch === '\u001B'
+        ? '<ESC>'
+        : `<0x${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}>`,
+    );
+  }
+
   private portugolMismatchMessage(actualStdout: string, expected: string): string {
     const actual = this.normalizePortugolOutput(
       this.stripPortugolConsoleSuffix(actualStdout),
@@ -657,8 +723,17 @@ export class PistonRunnerService implements RunnerService {
     const wanted = this.normalizePortugolOutput(expected);
     const slice = (value: string) =>
       value.length > 500 ? `${value.slice(0, 500)}[...]` : value;
+    const show = (value: string) => slice(this.escapeControlChars(value));
+    // A comparação NÃO muda (controle na saída continua divergindo);
+    // o que muda é a legibilidade: sem o escape, Esperado e Obtido
+    // pareciam idênticos ao aluno (Correção 23.1, D3).
+    const controlNote =
+      this.hasInvisibleControlChars(wanted) ||
+      this.hasInvisibleControlChars(actual)
+        ? '\nObservação: a saída contém caracteres de controle invisíveis (exibidos acima como <ESC> ou <0xNN>), que também contam na comparação. Comandos como limpa() geram esse tipo de caractere.'
+        : '';
     return this.sanitizeMessage(
-      `A saída do programa foi diferente do esperado.\nEsperado: "${slice(wanted)}"\nObtido: "${slice(actual)}"`,
+      `A saída do programa foi diferente do esperado.\nEsperado: "${show(wanted)}"\nObtido: "${show(actual)}"${controlNote}`,
     );
   }
 

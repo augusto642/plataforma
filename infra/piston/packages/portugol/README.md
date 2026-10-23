@@ -70,14 +70,23 @@ rode `docker compose up --build piston-portugol-init`.
 - **Erros**: sintaxe ⇒ stderr `ERRO: <mensagem>. Linha: X, Coluna: Y`,
   exit 1 (o runner classifica `compile_error`); execução ⇒ stderr
   `Erro de execução: <mensagem>` + `Linha: X, Coluna: Y`, exit 1
-  (`runtime_error`). Alguns erros de execução vazam o nome da
-  exceção Java na mensagem (ex.: entrada não numérica em `leia` de
-  `inteiro` ⇒ `NumberFormatException`) — é a mensagem do próprio
-  console oficial.
+  (`runtime_error`). Em alguns erros de execução, a `<mensagem>` do
+  console é o nome cru da exceção Java; o **runner traduz as
+  exceções conhecidas na mensagem ao aluno** (Correção 23.1, D1),
+  mantendo linha/coluna: fim da entrada no `leia`
+  (`java.util.NoSuchElementException`) ⇒ "o programa tentou ler um
+  valor, mas a entrada do caso acabou"; valor não numérico em `leia`
+  de número (`java.lang.NumberFormatException`) ⇒ "o valor lido não
+  é um número válido". Exceções fora desse mapa seguem com a primeira
+  linha do console.
 - **UTF-8**: garantido por `-Dfile.encoding=UTF-8` no `run` (sem a
   flag, acentos viram `?`).
 - **`limpa()`** injeta a sequência ESC `c` no stdout — autores de
-  atividades devem evitá-la em programas com saída comparada.
+  atividades devem evitá-la em programas com saída comparada. Se
+  aparecer na saída do aluno, a divergência é mantida (a regra de
+  comparação não muda), mas o runner exibe os caracteres de controle
+  escapados (`<ESC>`, `<0xNN>`) na mensagem de divergência, com uma
+  observação explicando a presença deles (Correção 23.1, D3).
 
 ## Tempo
 
