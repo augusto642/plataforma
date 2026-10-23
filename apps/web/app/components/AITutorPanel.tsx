@@ -7,6 +7,15 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /**
+   * Sprint 22 — proveniência da resposta (rótulo honesto vindo da API):
+   * 'llm' = um provedor de IA respondeu; 'heuristic' = modo offline
+   * (engine heurística local). Ausente em mensagens antigas/histórico.
+   */
+  source?: 'llm' | 'heuristic';
+  provider?: string;
+  model?: string;
+  fallbackReason?: string;
 }
 
 interface ComplexityResult {
@@ -156,6 +165,9 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
       const decoder = new TextDecoder();
       let streamBuffer = '';
       let accumulatedContent = '';
+      // Sprint 22 — metadados de proveniência (evento SSE sem `chunk`,
+      // emitido pela API antes do primeiro delta de conteúdo).
+      let streamSource: Pick<ChatMessage, 'source' | 'provider' | 'model' | 'fallbackReason'> | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -174,11 +186,22 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
             if (dataStr === '[DONE]') continue;
             try {
               const parsed = JSON.parse(dataStr);
-              if (parsed.chunk) {
+              if (parsed.source) {
+                streamSource = {
+                  source: parsed.source,
+                  provider: parsed.provider,
+                  model: parsed.model,
+                  fallbackReason: parsed.fallbackReason,
+                };
+                setChatMessages([
+                  ...baseMessages,
+                  { role: 'assistant', content: accumulatedContent, ...streamSource },
+                ]);
+              } else if (parsed.chunk) {
                 accumulatedContent += parsed.chunk;
                 setChatMessages([
                   ...baseMessages,
-                  { role: 'assistant', content: accumulatedContent },
+                  { role: 'assistant', content: accumulatedContent, ...(streamSource ?? {}) },
                 ]);
               }
             } catch {}
@@ -453,6 +476,17 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
                 <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⚡</span>
                 Digitando resposta...
               </span>
+            )}
+            {/* Sprint 22 — rótulo honesto de proveniência da resposta */}
+            {msg.role === 'assistant' && msg.source === 'heuristic' && (
+              <div style={{ marginTop: 8, fontSize: 10, color: '#FCD34D', fontFamily: 'monospace' }}>
+                ⚠ Modo offline — resposta gerada localmente (heurística), sem modelo de IA
+              </div>
+            )}
+            {msg.role === 'assistant' && msg.source === 'llm' && msg.model && (
+              <div style={{ marginTop: 8, fontSize: 10, color: '#71717A', fontFamily: 'monospace' }}>
+                Tutora de IA · {msg.model}
+              </div>
             )}
           </div>
         ))}

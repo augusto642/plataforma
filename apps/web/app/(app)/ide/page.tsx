@@ -157,7 +157,17 @@ export default function HomePage() {
 
   // AI Tutor State
   const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const [aiHints, setAiHints] = useState<{ summary: string; hints: string[]; suggestedConcept: string } | null>(null);
+  // Sprint 22 — a resposta da dica carrega a proveniência (source):
+  // 'llm' com provider/modelo, ou 'heuristic' no modo offline.
+  const [aiHints, setAiHints] = useState<{
+    summary: string;
+    hints: string[];
+    suggestedConcept: string;
+    source?: 'llm' | 'heuristic';
+    provider?: string;
+    model?: string;
+    fallbackReason?: string;
+  } | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const editorRef = useRef<any>(null);
   const submissionStreamAbortRef = useRef<AbortController | null>(null);
@@ -1227,6 +1237,17 @@ export default function HomePage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: '#c7d2fe', fontWeight: 700, fontSize: 12 }}>
                         <span>🤖 Tutor IA — {aiHints.suggestedConcept}</span>
                       </div>
+                      {/* Sprint 22 — rótulo honesto: heurística nunca se passa por IA */}
+                      {aiHints.source === 'heuristic' && (
+                        <div style={{ fontSize: 10, color: '#FCD34D', fontFamily: 'monospace', marginBottom: 6 }}>
+                          ⚠ Modo offline — dicas geradas localmente (heurística), sem modelo de IA
+                        </div>
+                      )}
+                      {aiHints.source === 'llm' && aiHints.model && (
+                        <div style={{ fontSize: 10, color: '#a5b4fc', fontFamily: 'monospace', marginBottom: 6 }}>
+                          Tutora de IA · {aiHints.model}
+                        </div>
+                      )}
                       <p style={{ fontSize: 12, color: '#e0e7ff', lineHeight: 1.4, margin: '0 0 10px 0' }}>
                         {aiHints.summary}
                       </p>
