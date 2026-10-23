@@ -50,6 +50,12 @@ export const FUNNEL_EVENTS = [
   'signup_submit',
   'signup_success',
   'first_activity_completed',
+  // Sprint 21 (adaptação v1) — medir o uso real das ofertas de
+  // adaptação: o clique no desafio de entrada (test-out) e a oferta
+  // de remediação exibida/aceita na IDE (props: conceptTag, source).
+  'test_out_started',
+  'remediation_offer_shown',
+  'remediation_offer_accepted',
 ] as const;
 
 export type FunnelEventName = (typeof FUNNEL_EVENTS)[number];

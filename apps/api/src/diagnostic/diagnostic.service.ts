@@ -6,6 +6,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
+import {
+  DIAGNOSTIC_TEST_OUT_MODULE_TAG,
+  TRACK_TO_COURSE_SLUG,
+  diagnosticShowsCodeKnowledge,
+  primaryModuleTag,
+} from '../adaptation/adaptation.rules';
+import { SPINE_MODULE_BY_TAG } from '../adaptation/data/concept-spine';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ARCHETYPES,
@@ -57,6 +64,24 @@ export interface DiagnosticResultView {
   recommendedTrack: TrackId;
   /** Nome legível da trilha recomendada (ver TRACK_NAMES em quiz-v1.ts). */
   recommendedTrackName: string;
+  /**
+   * Sprint 21 (adaptação v1) — a recomendação vira OFERTA REAL: o curso
+   * do catálogo para o qual o TrackId aponta (TRACK_TO_COURSE_SLUG).
+   * `null` quando o curso não existe no banco — nunca um slug fabricado.
+   */
+  recommendedCourse: { slug: string; title: string } | null;
+  /**
+   * Sprint 21 — ponto de entrada: preenchido apenas quando o aluno
+   * acertou TODAS as questões de conhecimento do eixo `codigo`
+   * (diagnosticShowsCodeKnowledge). É uma RECOMENDAÇÃO de provar o
+   * módulo pelo test-out; o crédito continua vindo de passar no
+   * desafio de entrada — o diagnóstico nunca conclui módulo sozinho.
+   */
+  recommendedTestOut: {
+    courseSlug: string;
+    moduleTag: string;
+    moduleTitle: string;
+  } | null;
 }
 
 interface ScoredProfile {
@@ -120,6 +145,7 @@ export class DiagnosticService {
     const answers = this.validateAnswers(dto.answers);
     const { scores, archetype } = this.score(answers);
     const userId = await this.optionalUserId(authorizationHeader);
+    const offer = await this.buildOffer(archetype.recommendedTrack, answers);
 
     const data = {
       quizVersion: QUIZ_VERSION,
@@ -141,20 +167,20 @@ export class DiagnosticService {
           where: { id: existing.id },
           data: { ...data, userId: existing.userId ?? userId },
         });
-        return this.toView(updated.sessionToken, scores, archetype);
+        return this.toView(updated.sessionToken, scores, archetype, offer);
       }
       if (!existing) {
         const created = await this.prisma.diagnosticResult.create({
           data: { ...data, sessionToken: dto.sessionToken, userId },
         });
-        return this.toView(created.sessionToken, scores, archetype);
+        return this.toView(created.sessionToken, scores, archetype, offer);
       }
     }
 
     const created = await this.prisma.diagnosticResult.create({
       data: { ...data, sessionToken: randomUUID(), userId },
     });
-    return this.toView(created.sessionToken, scores, archetype);
+    return this.toView(created.sessionToken, scores, archetype, offer);
   }
 
   async getResult(sessionToken: string): Promise<DiagnosticResultView> {
@@ -168,11 +194,65 @@ export class DiagnosticService {
     if (!archetype) {
       throw new NotFoundException('Resultado do diagnóstico não encontrado.');
     }
+    const answers = Array.isArray(found.answers)
+      ? (found.answers as { questionId: string; optionId: string }[])
+      : [];
+    const offer = await this.buildOffer(archetype.recommendedTrack, answers);
     return this.toView(
       found.sessionToken,
       found.scores as unknown as DiagnosticScores,
       archetype,
+      offer,
     );
+  }
+
+  /**
+   * Monta a oferta da adaptação v1 a partir do TrackId recomendado:
+   * resolve o curso REAL do catálogo e, quando o sinal de conhecimento
+   * de código está presente, a recomendação de test-out do módulo 1.
+   * Curso ausente no banco ⇒ oferta nula (a view cai no rótulo de hoje).
+   */
+  private async buildOffer(
+    recommendedTrack: TrackId,
+    answers: { questionId: string; optionId: string }[],
+  ): Promise<{
+    recommendedCourse: DiagnosticResultView['recommendedCourse'];
+    recommendedTestOut: DiagnosticResultView['recommendedTestOut'];
+  }> {
+    const slug = TRACK_TO_COURSE_SLUG[recommendedTrack];
+    const course = await this.prisma.course.findUnique({
+      where: { slug },
+      select: {
+        slug: true,
+        title: true,
+        activities: { select: { conceptTags: true } },
+      },
+    });
+    if (!course) {
+      return { recommendedCourse: null, recommendedTestOut: null };
+    }
+
+    let recommendedTestOut: DiagnosticResultView['recommendedTestOut'] = null;
+    if (diagnosticShowsCodeKnowledge(answers)) {
+      const hasEntryModule = course.activities.some(
+        (a) =>
+          primaryModuleTag(a.conceptTags) === DIAGNOSTIC_TEST_OUT_MODULE_TAG,
+      );
+      if (hasEntryModule) {
+        recommendedTestOut = {
+          courseSlug: course.slug,
+          moduleTag: DIAGNOSTIC_TEST_OUT_MODULE_TAG,
+          moduleTitle:
+            SPINE_MODULE_BY_TAG.get(DIAGNOSTIC_TEST_OUT_MODULE_TAG)?.title ??
+            DIAGNOSTIC_TEST_OUT_MODULE_TAG,
+        };
+      }
+    }
+
+    return {
+      recommendedCourse: { slug: course.slug, title: course.title },
+      recommendedTestOut,
+    };
   }
 
   /**
@@ -293,6 +373,10 @@ export class DiagnosticService {
     sessionToken: string,
     scores: DiagnosticScores,
     archetype: ArchetypeDef,
+    offer: {
+      recommendedCourse: DiagnosticResultView['recommendedCourse'];
+      recommendedTestOut: DiagnosticResultView['recommendedTestOut'];
+    },
   ): DiagnosticResultView {
     return {
       sessionToken,
@@ -305,6 +389,8 @@ export class DiagnosticService {
       },
       recommendedTrack: archetype.recommendedTrack,
       recommendedTrackName: TRACK_NAMES[archetype.recommendedTrack],
+      recommendedCourse: offer.recommendedCourse,
+      recommendedTestOut: offer.recommendedTestOut,
     };
   }
 }

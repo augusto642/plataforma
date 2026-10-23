@@ -74,6 +74,7 @@ describe('DiagnosticService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    course: { findUnique: jest.Mock };
   };
   let jwt: { verifyAsync: jest.Mock };
   let config: { get: jest.Mock };
@@ -86,6 +87,9 @@ describe('DiagnosticService', () => {
         create: jest.fn(async ({ data }: any) => ({ id: 'result-1', ...data })),
         update: jest.fn(async ({ data }: any) => ({ id: 'result-1', ...data })),
       },
+      // Sprint 21 — oferta da adaptação: por padrão o curso NÃO existe
+      // no banco de teste ⇒ oferta nula e a view é a de antes da sprint.
+      course: { findUnique: jest.fn().mockResolvedValue(null) },
     };
     jwt = { verifyAsync: jest.fn() };
     config = {
@@ -348,6 +352,93 @@ describe('DiagnosticService', () => {
       await expect(service.getResult('nao-existe')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('oferta da adaptação v1 (Sprint 21)', () => {
+    const pythonCourse = {
+      slug: 'introducao-python',
+      title: 'Sintaxe Python — Trilha Completa',
+      activities: [
+        { conceptTags: ['saida-e-variaveis'] },
+        { conceptTags: ['operadores', 'funcoes'] },
+      ],
+    };
+
+    /** Todas as questões de conhecimento corretas (inclui as de codigo). */
+    function allKnowledgeCorrect(): Answer[] {
+      return QUESTIONS.map((q) =>
+        q.type === 'knowledge'
+          ? { questionId: q.id, optionId: q.correctOptionId as string }
+          : { questionId: q.id, optionId: q.options[0].id },
+      );
+    }
+
+    /** Conhecimento todo errado: nenhum sinal de código. */
+    function allKnowledgeWrong(): Answer[] {
+      return QUESTIONS.map((q) =>
+        q.type === 'knowledge'
+          ? {
+              questionId: q.id,
+              optionId: q.options.find((o) => o.id !== q.correctOptionId)
+                ?.id as string,
+            }
+          : { questionId: q.id, optionId: q.options[0].id },
+      );
+    }
+
+    it('com o curso no banco, o submit devolve a oferta com slug e título REAIS', async () => {
+      prisma.course.findUnique.mockResolvedValue(pythonCourse);
+      const res = await service.submit({ answers: answersForAxis('automacao') });
+      // answersForAxis('automacao') → arquétipo de automação → track 'ai' → python
+      expect(res.recommendedCourse).toEqual({
+        slug: 'introducao-python',
+        title: 'Sintaxe Python — Trilha Completa',
+      });
+    });
+
+    it('sem o curso no banco, a oferta é nula (nunca um slug fabricado)', async () => {
+      prisma.course.findUnique.mockResolvedValue(null);
+      const res = await service.submit({ answers: answersForAxis('web') });
+      expect(res.recommendedCourse).toBeNull();
+      expect(res.recommendedTestOut).toBeNull();
+    });
+
+    it('test-out recomendado SÓ com todas as questões de conhecimento de código corretas', async () => {
+      prisma.course.findUnique.mockResolvedValue(pythonCourse);
+      const withSignal = await service.submit({
+        answers: allKnowledgeCorrect(),
+      });
+      expect(withSignal.recommendedTestOut).toEqual({
+        courseSlug: 'introducao-python',
+        moduleTag: 'saida-e-variaveis',
+        moduleTitle: 'Saída e variáveis',
+      });
+
+      const withoutSignal = await service.submit({
+        answers: allKnowledgeWrong(),
+      });
+      expect(withoutSignal.recommendedCourse?.slug).toBe('introducao-python');
+      expect(withoutSignal.recommendedTestOut).toBeNull();
+    });
+
+    it('getResult reconstrói a mesma oferta a partir das respostas gravadas', async () => {
+      prisma.course.findUnique.mockResolvedValue(pythonCourse);
+      const answers = allKnowledgeCorrect();
+      const { scores } = service.score(answers);
+      prisma.diagnosticResult.findUnique.mockResolvedValue({
+        id: 'result-1',
+        userId: null,
+        sessionToken: 'token-y',
+        quizVersion: 'v1',
+        answers,
+        scores,
+        archetype: 'explorador',
+        createdAt: new Date(),
+      });
+      const res = await service.getResult('token-y');
+      expect(res.recommendedCourse?.slug).toBe('introducao-python');
+      expect(res.recommendedTestOut?.moduleTag).toBe('saida-e-variaveis');
     });
   });
 });

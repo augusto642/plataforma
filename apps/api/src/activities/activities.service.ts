@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { computeCoursePath } from '../adaptation/adaptation.rules';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -246,6 +247,8 @@ export class ActivitiesService {
         language: true,
         description: true,
         order: true,
+        conceptTags: true,
+        courseId: true,
         course: { select: { id: true, title: true, slug: true } },
       },
     });
@@ -267,7 +270,33 @@ export class ActivitiesService {
       ).map((s) => s.activityId),
     );
 
-    const pending = activities.find((a) => !passedActivityIds.has(a.id));
+    // Sprint 21 — o desafio diário usa a MESMA derivação de conclusão
+    // do progresso (computeCoursePath): atividade de módulo concluído
+    // por test-out não é oferecida como pendente.
+    const effectiveCompletedIds = new Set<string>(passedActivityIds);
+    const byCourse = new Map<string, typeof activities>();
+    for (const activity of activities) {
+      const list = byCourse.get(activity.courseId) ?? [];
+      list.push(activity);
+      byCourse.set(activity.courseId, list);
+    }
+    for (const courseActivities of byCourse.values()) {
+      const path = computeCoursePath(
+        courseActivities.map((a) => ({
+          id: a.id,
+          slug: '',
+          title: a.title,
+          order: a.order,
+          conceptTags: a.conceptTags,
+        })),
+        passedActivityIds,
+      );
+      for (const id of path.effectiveCompletedIds) {
+        effectiveCompletedIds.add(id);
+      }
+    }
+
+    const pending = activities.find((a) => !effectiveCompletedIds.has(a.id));
     const chosen = pending ?? activities[activities.length - 1];
 
     return {

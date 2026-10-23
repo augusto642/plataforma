@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { computeCoursePath } from '../adaptation/adaptation.rules';
 import { GiteaService } from '../gitea/gitea.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
@@ -257,7 +258,7 @@ export class UsersService {
         course: {
           include: {
             activities: {
-              select: { id: true, title: true },
+              select: { id: true, title: true, order: true, conceptTags: true },
             },
           },
         },
@@ -278,9 +279,30 @@ export class UsersService {
       submissions.filter((s) => s.status === 'passed').map((s) => s.activityId),
     );
 
+    // Sprint 21 (adaptação v1) — a conclusão efetiva de cada curso vem
+    // da ÚNICA derivação do sistema (computeCoursePath): submissões
+    // `passed` ∪ módulos concluídos por test-out. Antes esta conta era
+    // "só passed"; o test-out passa a valer aqui porque é aqui que
+    // toda a interface lê progresso (courseProgressStatus no web).
+    const effectiveCompletedIds = new Set<string>(passedActivityIds);
     const coursesProgress = enrollments.map((enr) => {
       const totalActivities = enr.course.activities.length;
-      const completed = enr.course.activities.filter((a) => passedActivityIds.has(a.id)).length;
+      const path = computeCoursePath(
+        enr.course.activities.map((a) => ({
+          id: a.id,
+          slug: '',
+          title: a.title,
+          order: a.order,
+          conceptTags: a.conceptTags,
+        })),
+        passedActivityIds,
+      );
+      for (const id of path.effectiveCompletedIds) {
+        effectiveCompletedIds.add(id);
+      }
+      const completed = enr.course.activities.filter((a) =>
+        path.effectiveCompletedIds.has(a.id),
+      ).length;
       const progressPercent = totalActivities > 0 ? Math.round((completed / totalActivities) * 100) : 0;
       return {
         courseId: enr.course.id,
@@ -301,7 +323,10 @@ export class UsersService {
       level: user?.level || 1,
       streakDays: user?.streakDays || 0,
       badges: user?.badges || [],
-      completedActivitiesCount: passedActivityIds.size,
+      // Contagem global = passadas ∪ cobertas por test-out nos cursos
+      // matriculados (a mesma derivação dos cursos acima). XP não muda:
+      // XP nasce de submissão aprovada, nunca de módulo pulado.
+      completedActivitiesCount: effectiveCompletedIds.size,
       totalSubmissionsCount: totalSubmissions,
       averageScore,
       coursesProgress,
