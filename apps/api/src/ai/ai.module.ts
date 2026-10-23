@@ -5,13 +5,14 @@ import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { LineFeedbackService } from './line-feedback.service';
 import { LlmClient } from './llm-client';
+import { AiUsageService } from './llm/ai-usage.service';
 
 import { SocraticCatService } from './socratic-cat.service';
 
 @Module({
   imports: [CacheModule, PlansModule],
   controllers: [AiController],
-  providers: [AiService, LineFeedbackService, SocraticCatService, LlmClient],
-  exports: [AiService, LineFeedbackService, SocraticCatService, LlmClient],
+  providers: [AiService, LineFeedbackService, SocraticCatService, LlmClient, AiUsageService],
+  exports: [AiService, LineFeedbackService, SocraticCatService, LlmClient, AiUsageService],
 })
 export class AiModule {}
