@@ -2,7 +2,12 @@ import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { SocraticGuidanceDto } from './dto/socratic-guidance.dto';
-import { LlmClient } from './llm-client';
+import {
+  LlmClient,
+  LlmQuotaExceededError,
+  type LlmUnavailableReason,
+  type TutorResponseSource,
+} from './llm-client';
 import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prompt-guard';
 import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 import {
@@ -57,6 +62,27 @@ export interface PedagogicalFeedback {
   tier?: SocraticTier;
   /** Presente apenas quando o Tier 3 foi esgotado (escape pós-Tier 3). */
   escape?: TutorEscape;
+  /**
+   * Sprint 22 — proveniência da resposta (rótulo honesto): 'llm' quando
+   * um provedor de verdade respondeu; 'heuristic' quando a resposta é
+   * da engine heurística local, com o motivo em `fallbackReason`.
+   * Ausente apenas no cache de feedbacks persistidos antes desta
+   * sprint, cuja proveniência não é recuperável (sem migration).
+   */
+  source?: TutorResponseSource;
+  /** Provedor/modelo que respondeu, quando source='llm'. */
+  provider?: string;
+  model?: string;
+  /** Motivo do fallback, quando source='heuristic'. */
+  fallbackReason?: LlmUnavailableReason;
+}
+
+/** Sprint 22 — evento de proveniência emitido ao controller do chat/stream. */
+export interface TutorSourceInfo {
+  source: TutorResponseSource;
+  provider?: string;
+  model?: string;
+  fallbackReason?: LlmUnavailableReason;
 }
 
 export interface SocraticGuidanceResult {
@@ -222,6 +248,7 @@ export class AiService {
       submission.codeSnapshot || '',
       failedTests,
       tier,
+      userId,
     );
 
     // Persist AI feedback (só summary/hints: o escape é dinâmico, calculado
@@ -291,6 +318,7 @@ export class AiService {
     studentCode: string,
     failedTests: any[],
     tier: SocraticTier = 1,
+    userId?: string,
   ): Promise<PedagogicalFeedback> {
     const sanitizedStudentCode = this.sanitizePrompt(studentCode);
 
@@ -311,8 +339,13 @@ export class AiService {
       3: 'ESTÁGIO SOCRÁTICO TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS): O aluno persiste com dificuldades ou atingiu limites de tempo/memória. Discuta a ordem de complexidade O(N) vs O(N²), loops aninhados e uso de estruturas eficientes (Maps, Sets). Nunca entregue a resposta final.',
     };
 
-    // If external AI LLM API key is configured, call it
-    if (this.llm.hasApiKey) {
+    // Sprint 22: a pergunta não é mais "tem chave?" e sim "há um
+    // provedor de LLM utilizável?" (modelo local não tem chave). O
+    // motivo do fallback é rastreado para o rótulo honesto da resposta.
+    let fallbackReason: LlmUnavailableReason =
+      this.llm.unavailableReason ?? 'provider-error';
+
+    if (this.llm.isAvailable) {
       try {
         const failedSummary = safeFailedTests
           .map((t) => `- ${t.name}: ${t.errorMessage || 'Falha de asserção'}`)
@@ -339,10 +372,12 @@ export class AiService {
           '4. Responda em formato JSON com as chaves: summary (string), hints (array de strings), suggestedConcept (string).',
         ].join('\n');
 
-        // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
+        // Gateway LLM: timeout + retry no provedor, cota e uso no gateway
         const content = await this.llm.complete({
           messages: [{ role: 'user', content: prompt }],
           jsonMode: true,
+          userId,
+          purpose: 'hint',
         });
 
         const parsed = JSON.parse(content);
@@ -351,14 +386,23 @@ export class AiService {
           hints: parsed.hints || [],
           suggestedConcept: parsed.suggestedConcept || 'Lógica e Algoritmos',
           tier,
+          source: 'llm',
+          provider: this.llm.providerId ?? undefined,
+          model: this.llm.model ?? undefined,
         };
       } catch (err: any) {
+        fallbackReason =
+          err instanceof LlmQuotaExceededError ? 'quota-exceeded' : 'provider-error';
         this.logger.warn(`AI API call failed, falling back to heuristic tutor: ${err.message}`);
       }
     }
 
-    // Heuristic Socratic Engine (offline & default)
-    return this.generateHeuristicSocraticHints(studentCode, safeFailedTests, activityTitle, tier);
+    // Heuristic Socratic Engine (offline & default) — rotulada como tal
+    return {
+      ...this.generateHeuristicSocraticHints(studentCode, safeFailedTests, activityTitle, tier),
+      source: 'heuristic',
+      fallbackReason,
+    };
   }
 
   /**
@@ -513,6 +557,14 @@ export class AiService {
   async *streamChatWithTutor(
     dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
     userId?: string,
+    /**
+     * Sprint 22 — callback de proveniência: disparado UMA vez, antes do
+     * primeiro delta de conteúdo, quando a origem da resposta já é
+     * conhecida (o controller o traduz no evento SSE de metadados).
+     * Respostas de guardrail (jailbreak) não disparam: não são nem LLM
+     * nem heurística pedagógica.
+     */
+    onSource?: (info: TutorSourceInfo) => void,
   ): AsyncGenerator<string, void, unknown> {
     const activity = await this.prisma.activity.findUnique({
       where: { id: dto.activityId },
@@ -588,8 +640,15 @@ export class AiService {
       3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
     };
 
-    // If API key is available, call streaming endpoint
-    if (this.llm.hasApiKey) {
+    // Se há provedor de LLM utilizável, chama o endpoint de streaming.
+    // Sprint 22: o primeiro delta é puxado ANTES de qualquer yield —
+    // se o provedor falhar (ou a cota estourar) antes dele, quem
+    // responde é a heurística e o rótulo emitido é o dela, verdadeiro.
+    let streamFallbackReason: LlmUnavailableReason =
+      this.llm.unavailableReason ?? 'provider-error';
+    let sourceEmitted = false;
+
+    if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
         const systemPrompt = [
@@ -613,19 +672,38 @@ export class AiService {
           ...dto.messages.map((m) => ({ role: m.role, content: this.sanitizePrompt(m.content) })),
         ];
 
-        // LlmClient.stream: timeout + retry no handshake e idle-timeout no
-        // reader — a conexão SSE nunca pendura indefinidamente.
-        for await (const delta of this.llm.stream({ messages: apiMessages })) {
-          fullAssistantContent += delta;
-          yield delta;
+        // Gateway LLM: timeout + idle-timeout no provedor, cota e uso
+        // no gateway — a conexão SSE nunca pendura indefinidamente.
+        const iterator = this.llm
+          .stream({ messages: apiMessages, userId, purpose: 'chat-stream' })
+          [Symbol.asyncIterator]();
+        let next = await iterator.next();
+        if (!next.done) {
+          onSource?.({
+            source: 'llm',
+            provider: this.llm.providerId ?? undefined,
+            model: this.llm.model ?? undefined,
+          });
+          sourceEmitted = true;
+        }
+        while (!next.done) {
+          fullAssistantContent += next.value;
+          yield next.value;
+          next = await iterator.next();
         }
       } catch (err: any) {
+        streamFallbackReason =
+          err instanceof LlmQuotaExceededError ? 'quota-exceeded' : 'provider-error';
         this.logger.warn(`Streaming AI API call failed, falling back to heuristic streaming: ${err.message}`);
       }
     }
 
-    // Heuristic streaming fallback
+    // Heuristic streaming fallback — rotulado como tal
     if (!fullAssistantContent) {
+      if (!sourceEmitted) {
+        onSource?.({ source: 'heuristic', fallbackReason: streamFallbackReason });
+        sourceEmitted = true;
+      }
       const lower = lastUserMessage.toLowerCase();
       let reply = 'Estou aqui para te apoiar! Conte-me: qual parte do enunciado ou do código está te deixando com dúvida?';
 
@@ -665,7 +743,18 @@ export class AiService {
     }
   }
 
-  async chatWithTutor(dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> }, userId?: string) {
+  async chatWithTutor(
+    dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
+    userId?: string,
+  ): Promise<{
+    role: 'assistant';
+    content: string;
+    /** Sprint 22 — proveniência; ausente só nas respostas de guardrail. */
+    source?: TutorResponseSource;
+    provider?: string;
+    model?: string;
+    fallbackReason?: LlmUnavailableReason;
+  }> {
     const activity = await this.prisma.activity.findUnique({
       where: { id: dto.activityId },
     });
@@ -723,6 +812,9 @@ export class AiService {
     }
 
     let assistantContent = '';
+    // Sprint 22 — proveniência da resposta (rótulo honesto).
+    let source: TutorResponseSource | undefined;
+    let fallbackReason: LlmUnavailableReason | undefined;
     const tier = userId ? await this.calculateTier(userId, dto.activityId) : 1;
     const tierInstructions: Record<SocraticTier, string> = {
       1: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 1 (MODELO MENTAL & INVARIANTES). Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
@@ -730,7 +822,7 @@ export class AiService {
       3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
     };
 
-    if (this.llm.hasApiKey) {
+    if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
         const systemPrompt = [
@@ -754,15 +846,26 @@ export class AiService {
           ...dto.messages.map((m) => ({ role: m.role, content: this.sanitizePrompt(m.content) })),
         ];
 
-        // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
-        const content = await this.llm.complete({ messages: apiMessages });
+        // Gateway LLM: timeout + retry no provedor, cota e uso no gateway
+        const content = await this.llm.complete({
+          messages: apiMessages,
+          userId,
+          purpose: 'chat',
+        });
         assistantContent = this.applyAntiSpoilerGuardrail(content);
+        if (assistantContent) {
+          source = 'llm';
+        }
       } catch (err: any) {
+        fallbackReason =
+          err instanceof LlmQuotaExceededError ? 'quota-exceeded' : 'provider-error';
         this.logger.warn(`AI chat API call failed, falling back to heuristic reply: ${err.message}`);
       }
     }
 
     if (!assistantContent) {
+      source = 'heuristic';
+      fallbackReason = fallbackReason ?? this.llm.unavailableReason ?? 'provider-error';
       // Heuristic conversation reply
       const lower = lastUserMessage.toLowerCase();
       let reply = 'Estou aqui para te apoiar! Conte-me: qual parte do enunciado ou do código está te deixando com dúvida?';
@@ -795,7 +898,19 @@ export class AiService {
       });
     }
 
-    return { role: 'assistant', content: assistantContent };
+    return {
+      role: 'assistant',
+      content: assistantContent,
+      // Sprint 22 — rótulo honesto de proveniência (ver PedagogicalFeedback.source)
+      source,
+      ...(source === 'llm'
+        ? {
+            provider: this.llm.providerId ?? undefined,
+            model: this.llm.model ?? undefined,
+          }
+        : {}),
+      ...(source === 'heuristic' ? { fallbackReason } : {}),
+    };
   }
 
   async analyzeComplexity(code: string, activityId: string): Promise<ComplexityAnalysisResult> {
