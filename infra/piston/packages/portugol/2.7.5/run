@@ -1,0 +1,26 @@
+#!/bin/bash
+# Executa um programa Portugol (.por) com o console oficial headless
+# do Portugol Studio (br.univali.portugol.Console), lendo de stdin e
+# escrevendo em stdout — o contrato que o runner da plataforma usa no
+# modo entrada->saida da Sprint 23.
+#
+# Invocado pelo Piston como: bash <pkgdir>/run <arquivo.por>
+# (cwd = diretorio do job, gravavel; $1 = nome do arquivo submetido).
+PKG_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# O nucleo do Portugol compila o .por para Java chamando um `javac`
+# EXTERNO encontrado no PATH (verificado no spike da Sprint 23: sem
+# javac no PATH, toda execucao falha com "Cannot run program javac").
+# O JDK 8 embutido no pacote entra no PATH aqui tambem (o arquivo
+# `environment` faz o mesmo para o ambiente do job).
+export PATH="$PKG_DIR/jdk/bin:$PATH"
+
+# -Dfile.encoding=UTF-8: sem ela, acentos de entrada/saida quebram
+# (viram "?") — verificado no spike.
+# -Djava.io.tmpdir=$PWD: o nucleo gera o Java intermediario num
+# diretorio temporario; o cwd do job e gravavel dentro do isolate.
+exec java \
+    -Dfile.encoding=UTF-8 \
+    -Djava.io.tmpdir="$PWD" \
+    -jar "$PKG_DIR/portugol-console.jar" \
+    "$1"
