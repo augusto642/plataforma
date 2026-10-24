@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -19,12 +20,19 @@ import { AdminService } from './admin.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { Optional } from '@nestjs/common';
+import { KnowledgeService } from '../knowledge/knowledge.service';
+import { ResearchService } from '../knowledge/research/research.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.admin)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    @Optional() private readonly knowledge?: KnowledgeService,
+    @Optional() private readonly research?: ResearchService,
+  ) {}
 
   @Get('metrics')
   @Roles(Role.admin)
@@ -85,5 +93,52 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   getHealth() {
     return this.adminService.getHealth();
+  }
+
+  // ── Sistema de conhecimento (DESIGN §3.5) — mesmas guardas admin ──────
+  @Post('knowledge/research')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  createResearch(@Body() dto: { goal: string }) {
+    return this.research!.createResearch(dto.goal);
+  }
+
+  @Get('knowledge/research')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listResearch() {
+    return this.research!.list();
+  }
+
+  @Get('knowledge/research/:id')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getResearch(@Param('id') id: string) {
+    return this.research!.get(id);
+  }
+
+  @Post('knowledge/research/:id/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveResearch(@Param('id') id: string, @Req() req: any) {
+    // approvedBy é o admin autenticado (JwtAuthGuard) — nunca opcional:
+    // aprovar sem admin autenticado é impossível via API.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.research!.approve(id, adminId);
+  }
+
+  @Post('knowledge/research/:id/reject')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  rejectResearch(@Param('id') id: string, @Body() dto: { reason: string }) {
+    return this.research!.reject(id, dto.reason);
+  }
+
+  @Get('knowledge/registry')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getRegistryStats() {
+    return this.knowledge!.stats();
   }
 }

@@ -8,8 +8,9 @@ import {
   type LlmUnavailableReason,
   type TutorResponseSource,
 } from './llm-client';
-import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prompt-guard';
+import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext, formatKnowledgeSources, KNOWLEDGE_CITATION_RULES } from './prompt-guard';
 import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
+import { KnowledgeService } from '../knowledge/knowledge.service';
 import {
   AnalogousExample,
   ConceptReinforcement,
@@ -110,7 +111,18 @@ export class AiService {
     private readonly prisma: PrismaService,
     private readonly llm: LlmClient,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly knowledge?: KnowledgeService,
   ) {}
+
+  /**
+   * Encaixe da tutora com a base de conhecimento (DESIGN §6.1, D8).
+   * Base vazia => [] => comportamento Sprint 22 inalterado (regressão zero).
+   * Com lição aprovada, o resumo + citação entram no prompt antes do fallback.
+   */
+  async findKnowledgeForTopics(topics: string[]) {
+    if (!this.knowledge || !topics.length) return [];
+    return this.knowledge.findByTopics(topics, { limit: 3 });
+  }
 
   private tierFromSignals(failedCount: number, chatCount: number): SocraticTier {
     if (failedCount >= 3 || chatCount >= 6) return 3;
@@ -249,6 +261,7 @@ export class AiService {
       failedTests,
       tier,
       userId,
+      submission.activity.conceptTags || [],
     );
 
     // Persist AI feedback (só summary/hints: o escape é dinâmico, calculado
@@ -319,6 +332,7 @@ export class AiService {
     failedTests: any[],
     tier: SocraticTier = 1,
     userId?: string,
+    conceptTags: string[] = [],
   ): Promise<PedagogicalFeedback> {
     const sanitizedStudentCode = this.sanitizePrompt(studentCode);
 
@@ -351,12 +365,21 @@ export class AiService {
           .map((t) => `- ${t.name}: ${t.errorMessage || 'Falha de asserção'}`)
           .join('\n');
 
+        // Conhecimento (D8): antes do fallback heurístico, a tutora consulta
+        // a base por conceptTags; sem lição aprovada, nada é injetado e o
+        // prompt fica idêntico ao da Sprint 22.
+        const knowledgeLessons = await this.findKnowledgeForTopics(conceptTags);
+        const knowledgeBlock = knowledgeLessons.length
+          ? `\n${KNOWLEDGE_CITATION_RULES}\n${formatKnowledgeSources(knowledgeLessons)}\n`
+          : '';
+
         const prompt = [
           'Você é um tutor de programação socrático e rigoroso da NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activityTitle}".`,
           `Enunciado: ${instructions}`,
           '',
           tierPrompts[tier],
+          knowledgeBlock,
           '',
           UNTRUSTED_DATA_SYSTEM_NOTE,
           '',
@@ -381,8 +404,13 @@ export class AiService {
         });
 
         const parsed = JSON.parse(content);
+        // Citação estruturada (§6.2): se a resposta usou a base, a fonte vai
+        // junto — citação sem lição correspondente é erro de prompt.
+        const citation = knowledgeLessons.length
+          ? `\n\nFontes: ${knowledgeLessons.map((l) => `${l.courseName} — ${l.title} (referência; resumo em linguagem própria)`).join('; ')}`
+          : '';
         return {
-          summary: parsed.summary,
+          summary: `${parsed.summary}${citation}`,
           hints: parsed.hints || [],
           suggestedConcept: parsed.suggestedConcept || 'Lógica e Algoritmos',
           tier,
