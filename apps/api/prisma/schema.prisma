@@ -409,3 +409,51 @@ model PlanInterestLead {
   @@index([plan])
   @@map("plan_interest_leads")
 }
+
+// Sprint Conhecimento-Python (DESIGN §5.2) — migration SÓ como arquivo
+// (apps/api/prisma/migrations/20261024210000_knowledge_base/migration.sql).
+// NÃO rodar `prisma migrate deploy` em produção sem ordem explícita do
+// Augusto. Até lá, a tutora usa o adaptador de arquivo (KNOWLEDGE_STORE=file).
+model KnowledgeSource {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  kind      String   @default("drive-course") @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lessons   KnowledgeLesson[]
+
+  @@map("knowledge_sources")
+}
+
+model KnowledgeLesson {
+  id               String   @id @default(uuid()) @db.Uuid
+  stableId         String   @unique @map("stable_id")
+  sourceId         String   @map("source_id") @db.Uuid
+  driveFileId      String   @unique @map("drive_file_id")
+  title            String
+  summary          String   @db.Text
+  topics           String[]
+  prerequisites    String[]
+  difficulty       String   @db.VarChar(16)
+  reviewStatus     String   @default("draft") @map("review_status") @db.VarChar(16)
+  extractedAt      DateTime @map("extracted_at")
+  extractorVersion String   @map("extractor_version")
+  source           KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId])
+  @@map("knowledge_lessons")
+}
+
+model KnowledgeResearch {
+  id         String    @id @default(uuid()) @db.Uuid
+  stableId   String    @unique @map("stable_id")
+  goal       String
+  status     String    @default("draft") @db.VarChar(16)
+  payload    Json
+  approvedBy String?   @map("approved_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at")
+  collectedAt DateTime @map("collected_at")
+
+  @@map("knowledge_research")
+}
