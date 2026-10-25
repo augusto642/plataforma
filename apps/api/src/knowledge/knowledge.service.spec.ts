@@ -20,6 +20,25 @@ function fixtureDir() {
   return join(root, 'content');
 }
 
+function kmsFixtureDir() {
+  const root = join(tmpdir(), `know-kms-${Date.now()}`);
+  const entries = join(root, 'content', 'knowledge', 'entries');
+  mkdirSync(entries, { recursive: true });
+  const entry = (slug: string, status: string, currentVersion: number, versions: any[], topicIds: string[]) => ({
+    version: 1, slug, title: slug, topicIds, status, currentVersion,
+    supersededByEntry: null, supersededAt: null, supersedeReason: null, versions,
+  });
+  const v = (version: number, status: string) => ({
+    version, status, summary: 'Resumo próprio.', keyExamples: [],
+    contributions: [{ kind: 'drive', driveFileId: 'f1', lessonId: 'trilha-python/a', contributedAt: '2026-10-24T00:00:00.000Z', changeKind: 'created' }],
+    marketContext: [], createdAt: '2026-10-24T00:00:00.000Z', supersededBy: null, supersededAt: null, supersedeReason: null,
+  });
+  writeFileSync(join(entries, 'funcoes.json'), JSON.stringify(entry('funcoes', 'active', 2, [v(1, 'superseded'), v(2, 'active')], ['funcoes'])));
+  writeFileSync(join(entries, 'rascunho.json'), JSON.stringify(entry('rascunho', 'draft', 0, [v(1, 'draft')], ['funcoes'])));
+  writeFileSync(join(entries, 'antiga.json'), JSON.stringify(entry('antiga', 'superseded', 0, [v(1, 'superseded')], ['funcoes'])));
+  return join(root, 'content');
+}
+
 describe('FileKnowledgeRepository', () => {
   it('só approved por tópico; draft nunca vaza para a tutora', async () => {
     const repo = new FileKnowledgeRepository(fixtureDir());
@@ -32,5 +51,15 @@ describe('FileKnowledgeRepository', () => {
   it('base vazia => lista vazia (tutora Sprint 22 inalterada)', async () => {
     const repo = new FileKnowledgeRepository(join(tmpdir(), 'inexistente-xyz'));
     expect(await repo.findByTopics(['funcoes'])).toEqual([]);
+  });
+
+  it('KMS: só versão active de entrada active; draft e superseded invisíveis', async () => {
+    const repo = new FileKnowledgeRepository(kmsFixtureDir());
+    const found = await repo.findEntriesByTopics(['funcoes']);
+    expect(found.map((e) => e.slug)).toEqual(['funcoes']);
+    expect(found[0].version).toBe(2);
+    expect(await repo.findEntryBySlug('rascunho')).toBeNull();
+    expect(await repo.findEntryBySlug('antiga')).toBeNull();
+    expect((await repo.findEntryBySlug('funcoes'))?.version).toBe(2);
   });
 });

@@ -7,7 +7,7 @@
  *    migration de conhecimento for autorizada e aplicada.
  * Regra: só lições reviewStatus='approved' chegam à tutora (draft nunca).
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,10 +22,41 @@ export interface KnowledgeLessonView {
   difficulty: string;
 }
 
+export interface KnowledgeEntryView {
+  slug: string;
+  title: string;
+  version: number;
+  summary: string;
+  keyExamples: string[];
+  topicIds: string[];
+  /** Procedência da versão active (primeira contribuição drive, se houver). */
+  courseName: string;
+  lessonTitle: string;
+  lessonId: string | null;
+}
+
 export interface KnowledgeRepository {
   findByTopics(topics: string[], opts?: { limit?: number }): Promise<KnowledgeLessonView[]>;
   findById(id: string): Promise<KnowledgeLessonView | null>;
   stats(): Promise<{ lessonsApproved: number; lessonsDraft: number; sources: number }>;
+  /** KMS (§13.5): só a versão active de entradas active; ordem: nº de tópicos compartilhados desc, depois currentVersion desc. */
+  findEntriesByTopics(topics: string[], opts?: { limit?: number }): Promise<KnowledgeEntryView[]>;
+  findEntryBySlug(slug: string): Promise<KnowledgeEntryView | null>;
+}
+
+/**
+ * Resolução do diretório de conteúdo: KNOWLEDGE_CONTENT_DIR, ou content/
+ * na raiz do repo — a API roda com cwd apps/api, então content/ no cwd
+ * (ausente) cai para ../../content (raiz do repo). Sem checkout, devolve
+ * o cwd/content (adaptador file trata como base vazia, nunca erro).
+ */
+export function resolveKnowledgeContentDir(): string {
+  if (process.env.KNOWLEDGE_CONTENT_DIR) return process.env.KNOWLEDGE_CONTENT_DIR;
+  const fromCwd = join(process.cwd(), 'content');
+  if (existsSync(join(fromCwd, 'knowledge'))) return fromCwd;
+  const fromRepoRoot = join(process.cwd(), '..', '..', 'content');
+  if (existsSync(join(fromRepoRoot, 'knowledge'))) return fromRepoRoot;
+  return fromCwd;
 }
 
 function toView(raw: any): KnowledgeLessonView {
@@ -42,6 +73,56 @@ function toView(raw: any): KnowledgeLessonView {
 
 export class FileKnowledgeRepository implements KnowledgeRepository {
   constructor(private readonly contentDir: string) {}
+
+  private allEntries(): any[] {
+    const dir = join(this.contentDir, 'knowledge', 'entries');
+    const out: any[] = [];
+    if (!existsSync(dir)) return out;
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+      try { out.push(JSON.parse(readFileSync(join(dir, f), 'utf8'))); } catch { /* entrada inválida: o validador a reprova; o repositório a ignora */ }
+    }
+    return out;
+  }
+
+  private lessonIndex(): Map<string, any> {
+    const idx = new Map<string, any>();
+    for (const l of this.all()) idx.set(l.id, l);
+    return idx;
+  }
+
+  private toEntryView(entry: any, lessons: Map<string, any>): KnowledgeEntryView | null {
+    if (entry.status !== 'active' && entry.status !== 'draft') return null;
+    const active = (entry.versions || []).find((v: any) => v.version === entry.currentVersion && v.status === 'active');
+    if (!active) return null;
+    const drive = (active.contributions || []).find((c: any) => c.kind === 'drive');
+    const lesson = drive ? lessons.get(drive.lessonId) : undefined;
+    return {
+      slug: entry.slug,
+      title: entry.title,
+      version: active.version,
+      summary: active.summary,
+      keyExamples: active.keyExamples || [],
+      topicIds: entry.topicIds || [],
+      courseName: lesson?.courseName ?? '',
+      lessonTitle: lesson?.lessonTitle ?? drive?.lessonId ?? '',
+      lessonId: drive?.lessonId ?? null,
+    };
+  }
+
+  async findEntriesByTopics(topics: string[], opts?: { limit?: number }): Promise<KnowledgeEntryView[]> {
+    const wanted = new Set(topics);
+    const lessons = this.lessonIndex();
+    const scored = this.allEntries()
+      .map((e) => ({ view: this.toEntryView(e, lessons), shared: (e.topicIds || []).filter((t: string) => wanted.has(t)).length, currentVersion: e.currentVersion ?? 0 }))
+      .filter((s) => s.view && s.shared > 0)
+      .sort((a, b) => b.shared - a.shared || b.currentVersion - a.currentVersion);
+    return scored.slice(0, opts?.limit ?? 5).map((s) => s.view as KnowledgeEntryView);
+  }
+
+  async findEntryBySlug(slug: string): Promise<KnowledgeEntryView | null> {
+    const entry = this.allEntries().find((e) => e.slug === slug);
+    return entry ? this.toEntryView(entry, this.lessonIndex()) : null;
+  }
 
   private all(): any[] {
     const dir = join(this.contentDir, 'knowledge', 'lessons');
@@ -116,6 +197,42 @@ export class DbKnowledgeRepository implements KnowledgeRepository {
     ]);
     return { lessonsApproved, lessonsDraft, sources };
   }
+
+  async findEntriesByTopics(topics: string[], opts?: { limit?: number }): Promise<KnowledgeEntryView[]> {
+    const rows = await this.db.knowledgeEntry.findMany({
+      where: { status: 'active', topicIds: { hasSome: topics } },
+      include: { versions: { where: { status: 'active' } } },
+      take: opts?.limit ?? 5,
+    });
+    return rows
+      .map((r: any) => {
+        const active = (r.versions || [])[0];
+        if (!active || active.version !== r.currentVersion) return null;
+        const drive = (active.contributions || []).find((c: any) => c.kind === 'drive');
+        return {
+          slug: r.slug, title: r.title, version: active.version, summary: active.summary,
+          keyExamples: active.keyExamples || [], topicIds: r.topicIds || [],
+          courseName: '', lessonTitle: drive?.lessonId ?? '', lessonId: drive?.lessonId ?? null,
+        } as KnowledgeEntryView;
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => (b.topicIds.filter((t: string) => topics.includes(t)).length - a.topicIds.filter((t: string) => topics.includes(t)).length) || b.version - a.version);
+  }
+
+  async findEntryBySlug(slug: string): Promise<KnowledgeEntryView | null> {
+    const r = await this.db.knowledgeEntry.findUnique({
+      where: { slug }, include: { versions: { where: { status: 'active' } } },
+    });
+    if (!r) return null;
+    const active = (r.versions || [])[0];
+    if (!active || active.version !== r.currentVersion || r.status !== 'active') return null;
+    const drive = (active.contributions || []).find((c: any) => c.kind === 'drive');
+    return {
+      slug: r.slug, title: r.title, version: active.version, summary: active.summary,
+      keyExamples: active.keyExamples || [], topicIds: r.topicIds || [],
+      courseName: '', lessonTitle: drive?.lessonId ?? '', lessonId: drive?.lessonId ?? null,
+    };
+  }
 }
 
 @Injectable()
@@ -123,10 +240,10 @@ export class KnowledgeService implements KnowledgeRepository {
   private readonly logger = new Logger(KnowledgeService.name);
   private readonly repo: KnowledgeRepository;
 
-  constructor(prisma?: PrismaService) {
+  constructor(@Optional() prisma?: PrismaService) {
     // content/ fica na raiz do repo; em produção o checkout pode não existir —
     // nesse caso o adaptador file devolve base vazia (tutora inalterada), nunca erro.
-    const contentDir = process.env.KNOWLEDGE_CONTENT_DIR || join(process.cwd(), 'content');
+    const contentDir = resolveKnowledgeContentDir();
     if (process.env.KNOWLEDGE_STORE === 'db' && prisma) {
       this.repo = new DbKnowledgeRepository(prisma);
     } else {
@@ -143,6 +260,17 @@ export class KnowledgeService implements KnowledgeRepository {
 
   findById(id: string) {
     return this.repo.findById(id).catch(() => null);
+  }
+
+  findEntriesByTopics(topics: string[], opts?: { limit?: number }) {
+    return this.repo.findEntriesByTopics(topics, opts).catch((err) => {
+      this.logger.warn(`knowledge: findEntriesByTopics falhou, base tratada como vazia: ${err.message}`);
+      return [];
+    });
+  }
+
+  findEntryBySlug(slug: string) {
+    return this.repo.findEntryBySlug(slug).catch(() => null);
   }
 
   stats() {

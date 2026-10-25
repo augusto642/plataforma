@@ -89,6 +89,38 @@ export interface KnowledgeCitationLesson {
   summary: string;
 }
 
+export interface KnowledgeCitationEntry {
+  slug: string;
+  title: string;
+  version: number;
+  courseName: string;
+  lessonTitle: string;
+  summary: string;
+}
+
+/** Citação estendida KMS (§13.5): `Fontes: <entryTitle> (KMS v<n>) — <courseName> — <lessonTitle>`. */
+export function formatKmsSources(entries: KnowledgeCitationEntry[]): string {
+  if (!entries.length) return '';
+  const blocks = entries.map(
+    (e) => `- ${e.title} (KMS v${e.version}): ${e.summary}`,
+  );
+  const cite = (e: KnowledgeCitationEntry) =>
+    [`${e.title} (KMS v${e.version})`, e.courseName, e.lessonTitle].filter(Boolean).join(' — ');
+  return [
+    'CONHECIMENTO CURADO (KMS, resumos em linguagem própria):',
+    ...blocks,
+    '',
+    `Fontes: ${entries.map((e) => `${cite(e)} (referência; resumo em linguagem própria)`).join('; ')}`,
+  ].join('\n');
+}
+
+export function formatKmsCitation(entries: KnowledgeCitationEntry[]): string {
+  if (!entries.length) return '';
+  const cite = (e: KnowledgeCitationEntry) =>
+    [`${e.title} (KMS v${e.version})`, e.courseName, e.lessonTitle].filter(Boolean).join(' — ');
+  return entries.map((e) => `${cite(e)} (referência; resumo em linguagem própria)`).join('; ');
+}
+
 export const KNOWLEDGE_CITATION_RULES = [
   'Cite apenas lições que existem na base de conhecimento (lista abaixo).',
   'Nunca afirme ter assistido ao curso, nunca reproduza falas do instrutor e nunca invente minutagem.',

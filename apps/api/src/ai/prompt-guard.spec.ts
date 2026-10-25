@@ -3,7 +3,7 @@
  * integral/transcrição => recusa + resumo, sem entregar mais que o resumo;
  * citação só de lições existentes na base.
  */
-import { buildFullContentRefusal, formatKnowledgeSources, isFullContentRequest } from './prompt-guard';
+import { buildFullContentRefusal, formatKmsCitation, formatKmsSources, formatKnowledgeSources, isFullContentRequest } from './prompt-guard';
 
 const lesson = { id: 'trilha-python/aula-01', title: 'Aula 01', courseName: 'Trilha Python', summary: 'Resumo próprio curto.' };
 
@@ -25,5 +25,12 @@ describe('knowledge prompt-guard', () => {
     const block = formatKnowledgeSources([lesson]);
     expect(block).toMatch(/Fontes: Trilha Python — Aula 01 \(referência; resumo em linguagem própria\)/);
     expect(formatKnowledgeSources([])).toBe('');
+  });
+
+  it('citação KMS estendida: título (KMS v<n>) — curso — lição', () => {
+    const entry = { slug: 'funcoes', title: 'Funções em Python', version: 2, courseName: 'Trilha Python', lessonTitle: 'Funções', summary: 'Resumo próprio.' };
+    expect(formatKmsCitation([entry])).toBe('Funções em Python (KMS v2) — Trilha Python — Funções (referência; resumo em linguagem própria)');
+    expect(formatKmsSources([entry])).toMatch(/CONHECIMENTO CURADO \(KMS/);
+    expect(formatKmsSources([])).toBe('');
   });
 });

@@ -17,8 +17,15 @@
  *   node scripts/knowledge-extract.mjs --sample content/knowledge/checkpoint/sample.json
  *     [--only <driveFileId>] [--asr faster-whisper] [--model small]
  * Testes usam extractOne() com adaptadores injetados (sem Drive, sem ASR real).
+ *
+ * Resumo em produção (V3): `summarizeWithPipeline` delega ao CLI Nest
+ * `apps/api/dist/knowledge/pipeline/main.js` (KnowledgeSummarizeService sobre
+ * o LlmClient, sem userId, com ledger §6.3). NENHUM fetch direto a provedor
+ * de LLM existe em scripts/: o script só orquestra (download→ASR→resumo→
+ * lição) e o resumo vive no serviço da API.
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -63,10 +70,53 @@ export async function extractOne(entry, { download, transcribe, summarize, lesso
     const dest = join(dir, `${slugifyFileName(entry.fileName)}.json`);
     writeFileSync(tmp, `${JSON.stringify(lesson, null, 2)}\n`);
     renameSync(tmp, dest);
-    return { lesson, dest, asrDurationSeconds: asr.durationSeconds };
+    // M1 — o registro DEIXA de ser parâmetro morto: após extração validada,
+    // o registro do arquivo é atualizado (status + lessonId + summaryHash).
+    // entrySlugs[] (D14) NÃO é tocado aqui: só o merge o preenche, quando a
+    // lição alimenta uma entrada. Falha na atualização do registro preserva
+    // o estado anterior (escrita atômica; erro reportado, não silenciado).
+    let registryUpdated = false;
+    let registryError = null;
+    if (registryPath && existsSync(registryPath)) {
+      try {
+        const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+        const rec = (registry.records || []).find((r) => r.driveFileId === entry.driveFileId);
+        if (rec) {
+          rec.status = 'extracted';
+          rec.lessonId = lesson.id;
+          rec.summaryHash = `sha256:${createHash('sha256').update(readFileSync(dest)).digest('hex')}`;
+          if (!Array.isArray(rec.entrySlugs)) rec.entrySlugs = rec.entrySlugs ?? [];
+          registry.generatedAt = new Date().toISOString();
+          const rtmp = `${registryPath}.tmp`;
+          writeFileSync(rtmp, `${JSON.stringify(registry, null, 2)}\n`);
+          renameSync(rtmp, registryPath);
+          registryUpdated = true;
+        }
+      } catch (err) { registryError = err.message; }
+    }
+    return { lesson, dest, asrDurationSeconds: asr.durationSeconds, registryUpdated, registryError };
   } finally {
     rmSync(work, { recursive: true, force: true }); // transcrição descartada
   }
+}
+
+/**
+ * Adaptador de resumo em produção (V3): executa o pipeline CLI Nest com o
+ * texto da transcrição em stdin e devolve o JSON do resumo em stdout.
+ * `pipelineMain` é o caminho do main compilado (default: dist relativo a
+ * este script). A transcrição transitória vai só para o stdin do processo
+ * filho — nunca para arquivo versionado.
+ */
+export function summarizeWithPipeline(asrText, entry, { pipelineMain } = {}) {
+  const main = pipelineMain || resolve(new URL('../apps/api/dist/knowledge/pipeline/main.js', import.meta.url).pathname);
+  return new Promise((resolvePromise, reject) => {
+    const child = execFile('node', [main], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) { reject(new Error(`pipeline de resumo falhou: ${stderr || err.message}`)); return; }
+      try { resolvePromise(JSON.parse(stdout)); }
+      catch { reject(new Error(`pipeline de resumo devolveu saída inválida: ${stdout.slice(0, 200)}`)); }
+    });
+    child.stdin.end(JSON.stringify({ transcript: asrText, fileName: entry.fileName, courseName: entry.courseName || entry.courseSlug }));
+  });
 }
 
 export function checkAsrAvailable() {
