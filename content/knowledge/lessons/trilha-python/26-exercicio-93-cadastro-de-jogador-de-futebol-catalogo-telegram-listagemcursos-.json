@@ -1,0 +1,36 @@
+{
+  "id": "trilha-python/26-exercicio-93-cadastro-de-jogador-de-futebol-catalogo-telegram-listagemcursos-",
+  "driveFileId": "1oyusRM3rJEQIuZXmckBaXHHnEfqO0VBw",
+  "courseSlug": "trilha-python",
+  "courseName": "Trilha Python (Curso em Vídeo Mundo 1–3)",
+  "lessonTitle": "26. Exercício 93 - Cadastro de Jogador de Futebol - Catálogo Telegram @ListagemCursos @mestredoscursoss",
+  "summary": "A aula resolve o desafio 93 de Python, criando um programa que gerencia o aproveitamento de um jogador de futebol. Utilizando um dicionário, o algoritmo armazena o nome do jogador, uma lista com a quantidade de gols marcados em cada partida e o total de gols no campeonato. O professor demonstra como preencher os dados via teclado, manipular listas dentro de dicionários e exibir as informações formatadas de três maneiras diferentes.",
+  "topics": [
+    "dicionarios-e-estruturas",
+    "listas",
+    "loops",
+    "condicionais",
+    "entrada-e-strings",
+    "saida-e-variaveis"
+  ],
+  "prerequisites": [
+    "dicionarios-e-estruturas",
+    "listas",
+    "loops"
+  ],
+  "keyExamples": [
+    "jogador['gols'] = partidas",
+    "jogador['total'] = sum(partidas)"
+  ],
+  "difficulty": "intermediate",
+  "source": {
+    "type": "drive-course",
+    "courseName": "Trilha Python (Curso em Vídeo Mundo 1–3)",
+    "lessonTitle": "26. Exercício 93 - Cadastro de Jogador de Futebol - Catálogo Telegram @ListagemCursos @mestredoscursoss",
+    "driveFileId": "1oyusRM3rJEQIuZXmckBaXHHnEfqO0VBw",
+    "drivePath": "04. Trilha Python/03. M3 - Curso em Video Mundo 3/26. Exercício 93 - Cadastro de Jogador de Futebol - Catálogo Telegram @ListagemCursos @mestredoscursoss.mp4"
+  },
+  "extractedAt": "2026-10-25T17:09:24.370Z",
+  "extractorVersion": "knowledge-extractor@1",
+  "reviewStatus": "draft"
+}
