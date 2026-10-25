@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  buildSummaryPrompt, loadTopicTags, matchSampleToCopies, normalizeTitle,
+  applyFolderMatches, buildSummaryPrompt, loadTopicTags, matchSampleToCopies, normalizeTitle,
   summarizeWithGeminiHelper,
 } from '../knowledge-extract.mjs';
 
@@ -155,5 +155,26 @@ describe('matchSampleToCopies', () => {
       normalizeTitle('Cópia de 01. Aula 01 - Seja um Programador.mp4'),
       normalizeTitle('01. AULA 01 - Seja um Programador.mp4'),
     );
+  });
+});
+
+describe('applyFolderMatches', () => {
+  const kids = [
+    { id: 'copy-1', name: 'Cópia de 01. Aula 01 - Seja um Programador.mp4', size: '100' },
+  ];
+  it('fail-closed default: falta aborta antes de qualquer download', () => {
+    assert.throws(() => applyFolderMatches(sample, kids), /faltam 1 cópias/);
+  });
+  it('--partial: segue só com as casadas e lista as faltantes', () => {
+    const m = applyFolderMatches(sample, kids, { partial: true });
+    assert.equal(m.entries.length, 1);
+    assert.equal(m.entries[0].driveFileId, 'copy-1');
+    assert.deepEqual(m.missing, ['12. Exercício 05 - Antecessor e Sucessor.mp4']);
+  });
+  it('duplicata aborta mesmo com --partial', () => {
+    assert.throws(() => applyFolderMatches(sample, [
+      { id: 'copy-1', name: 'Cópia de 01. Aula 01 - Seja um Programador.mp4', size: '100' },
+      { id: 'copy-1b', name: 'Cópia de 01. Aula 01 - Seja um Programador.mp4', size: '100' },
+    ], { partial: true }), /duplicadas/);
   });
 });

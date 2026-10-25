@@ -79,6 +79,26 @@ export function matchSampleToCopies(sampleVideos, children) {
 }
 
 /**
+ * Aplica o casamento pasta→amostra ao fluxo principal. Default é
+ * fail-closed: qualquer cópia faltante ou duplicata aborta antes de
+ * qualquer download. Com --partial (rodada de TESTE com os vídeos
+ * disponíveis, decisão do Augusto 25/10), as faltantes são apenas
+ * listadas e a rodada segue com as casadas — sem redefinir a amostra
+ * e sem tocar no fail-closed default (a rodada posterior, com a pasta
+ * completa, faz os faltantes pelo registro idempotente).
+ */
+export function applyFolderMatches(sampleVideos, children, { partial = false } = {}) {
+  const m = matchSampleToCopies(sampleVideos, children);
+  if (m.duplicates.length > 0) {
+    throw new Error(`cópias duplicadas na pasta (resolver antes de rodar): ${m.duplicates.join(' | ')}`);
+  }
+  if (m.missing.length > 0 && !partial) {
+    throw new Error(`faltam ${m.missing.length} cópias na pasta (copiar antes de rodar): ${m.missing.join(' | ')}`);
+  }
+  return m;
+}
+
+/**
  * Extrai UMA lição com adaptadores injetáveis. `download` devolve o caminho
  * do vídeo; `transcribe` devolve { text, durationSeconds }; `summarize`
  * devolve { summary, topics, prerequisites, keyExamples, difficulty }.
@@ -266,11 +286,12 @@ if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
     console.log([
-      'Uso: node scripts/knowledge-extract.mjs --sample <json> [--folder <folderId>] [--only <driveFileId>] [--limit N] [--model small] [--asr-python <bin>] [--summarizer pipeline|gemini-helper]',
+      'Uso: node scripts/knowledge-extract.mjs --sample <json> [--folder <folderId>] [--only <driveFileId>] [--limit N] [--model small] [--asr-python <bin>] [--summarizer pipeline|gemini-helper] [--partial]',
       'Extração idempotente por registro: amostra (checkpoint) ou registro pending/changed.',
       'Sem Q1 (credencial Drive) ou Q4 (ASR) o comando recusa fail-closed e NENHUM vídeo é baixado.',
       'Extração em massa proibida antes de D3: rode sempre com --sample (checkpoint) ou --only.',
       '--folder: usa as CÓPIAS da pasta (Drive pessoal) em vez dos ids do sample.json, casando por título.',
+      '--partial: com --folder, segue só com as cópias casadas quando faltam cópias (rodada de TESTE); sem ele, falta aborta fail-closed.',
       'Nota: o diretório de trabalho transitório é os.tmpdir() — rode com TMPDIR fora de /tmp',
       '(tmpfs de 512MB nesta VM) para vídeos grandes, ex.: TMPDIR=$HOME/workspace/extract-tmp.',
     ].join('\n'));
@@ -308,12 +329,10 @@ if (isMain) {
     const folderId = get('--folder');
     if (folderId) {
       const children = await drive.listFolderChildren(folderId);
-      const m = matchSampleToCopies(entries, children);
-      if (m.duplicates.length > 0) {
-        throw new Error(`cópias duplicadas na pasta (resolver antes de rodar): ${m.duplicates.join(' | ')}`);
-      }
+      const partial = args.includes('--partial');
+      const m = applyFolderMatches(entries, children, { partial });
       if (m.missing.length > 0) {
-        throw new Error(`faltam ${m.missing.length} cópias na pasta (copiar antes de rodar): ${m.missing.join(' | ')}`);
+        console.error(`--partial: seguindo só com as cópias disponíveis; faltam ${m.missing.length} (a rodada posterior fará os faltantes): ${m.missing.join(' | ')}`);
       }
       for (const w of m.sizeMismatches) {
         console.error(`AVISO tamanho divergente (cópia ≠ amostra, segue com a cópia): ${w.fileName} amostra=${w.sampleSize} cópia=${w.copySize}`);

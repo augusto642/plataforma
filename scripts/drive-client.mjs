@@ -29,6 +29,8 @@
  */
 import { createWriteStream } from 'node:fs';
 import { sign } from 'node:crypto';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -125,21 +127,20 @@ export function createDriveClient(credentials) {
     },
     async downloadFile(fileId, destPath, expectedSize) {
       const res = await api(`/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, { acceptJson: false });
-      await new Promise((resolvePromise, reject) => {
-        const out = createWriteStream(destPath);
-        let bytes = 0;
-        res.body.on('data', (chunk) => { bytes += chunk.length; });
-        res.body.on('error', reject);
-        out.on('error', reject);
-        out.on('finish', () => {
-          if (expectedSize !== undefined && expectedSize !== null && Number(expectedSize) !== bytes) {
-            reject(new Error(`download incompleto de ${fileId}: esperado ${expectedSize} bytes, recebidos ${bytes}`));
-            return;
-          }
-          resolvePromise();
-        });
-        res.body.pipe(out);
+      // Node 24: o fetch global devolve um web ReadableStream (sem .on/.pipe).
+      // pipeline() converte via fromWeb, propaga erro de qualquer ponta e
+      // destrói os demais — uma falha de download vira rejeição (FALHOU por
+      // vídeo), nunca 'error' sem handler que derruba o processo. O bug
+      // anterior (res.body.on + handler preso depois do throw) travou a
+      // rodada de teste no primeiro vídeo com ENOENT após o cleanup.
+      let bytes = 0;
+      const counter = new Transform({
+        transform(chunk, _encoding, callback) { bytes += chunk.length; callback(null, chunk); },
       });
+      await pipeline(Readable.fromWeb(res.body), counter, createWriteStream(destPath));
+      if (expectedSize !== undefined && expectedSize !== null && Number(expectedSize) !== bytes) {
+        throw new Error(`download incompleto de ${fileId}: esperado ${expectedSize} bytes, recebidos ${bytes}`);
+      }
       return destPath;
     },
     async listFiles({ q, pageSize = 100 } = {}) {
