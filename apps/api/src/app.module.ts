@@ -33,6 +33,7 @@ import { InterviewModule } from './interview/interview.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { CommunityModule } from './community/community.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 import { CommonModule } from './common/common.module';
 import { PlansModule } from './plans/plans.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
@@ -106,6 +107,12 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     ReviewsModule,
     ChallengesModule,
     CommunityModule,
+    OrganizationsModule,
+    // Fase 4 premium — correção de defeito pré-existente: TalentModule era
+    // importado aqui desde o início mas nunca registrado, então as rotas
+    // /talent/* não existiam no boot (404). Sem o registro, nenhuma rota
+    // nova da Fase 4 funcionaria.
+    TalentModule,
     CommonModule,
     HousekeepingModule,
   ],
