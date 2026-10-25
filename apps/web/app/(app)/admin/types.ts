@@ -12,7 +12,8 @@ export type AdminTab =
   | 'instructors'
   | 'courses'
   | 'system'
-  | 'audit';
+  | 'audit'
+  | 'knowledge';
 
 export type AdminRole = 'student' | 'instructor' | 'admin';
 export type AdminPlan = 'free' | 'pro';

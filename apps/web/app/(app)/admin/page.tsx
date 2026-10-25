@@ -23,6 +23,7 @@ import { AdminInstructorsTab } from './components/AdminInstructorsTab';
 import { AdminCoursesTab } from './components/AdminCoursesTab';
 import { AdminSystemHealthTab } from './components/AdminSystemHealthTab';
 import { AdminAuditLogsTab } from './components/AdminAuditLogsTab';
+import { AdminKnowledgeTab } from './components/AdminKnowledgeTab';
 
 // B40/A4 (Sprint 13) — painel admin ligado à API REAL.
 // Antes esta página era uma simulação completa no navegador: usuários,
@@ -340,6 +341,8 @@ export default function AdminDashboardPage() {
           )}
 
           {currentTab === 'audit' && <AdminAuditLogsTab />}
+
+          {currentTab === 'knowledge' && <AdminKnowledgeTab />}
         </main>
       </div>
 
