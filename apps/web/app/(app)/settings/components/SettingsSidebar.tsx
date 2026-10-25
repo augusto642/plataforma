@@ -11,7 +11,9 @@ interface SettingsSidebarProps {
    * via AuthContext). É a única fonte de selo da sidebar: o selo de
    * Assinatura exibe o plano de verdade ou não exibe nada.
    */
-  plan?: 'free' | 'pro';
+  // Fase 2 (resíduo da Fase 1): AuthContext já expõe 'career' desde a
+  // Fase 1, mas o tipo daqui não — o build do web falhava nisso.
+  plan?: 'free' | 'pro' | 'career';
 }
 
 export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
@@ -28,7 +30,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   // conta: 'pro' → "PRO", 'free' → "Explorer" (os mesmos nomes da
   // BillingTab); sem plano identificado, nenhum selo aparece.
   const planBadge =
-    plan === 'pro' ? 'PRO' : plan === 'free' ? 'Explorer' : undefined;
+    plan === 'pro' ? 'PRO' : plan === 'free' ? 'Explorer' : plan === 'career' ? 'Carreira' : undefined;
 
   const tabs: { id: SettingsTab; label: string; icon: string; badge?: string }[] = [
     { id: 'profile', label: 'Perfil Público', icon: '👤' },
