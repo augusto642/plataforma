@@ -16,8 +16,12 @@ import { UpdateTalentProfileDto } from './dto/talent-phase4.dto';
  * - `skillsProven` é DERIVADO (conceptTags de atividades com submissão
  *   `passed` + títulos de certificados emitidos, quando mapeáveis para
  *   tags — na v1, só conceptTags, para não inventar skill a partir de
- *   título livre). O DTO de update nem aceita o campo: o que o aluno
- *   enviar é ignorado, não persistido.
+ *   título livre). O DTO de update nem aceita o campo: o ValidationPipe
+ *   global (whitelist + forbidNonWhitelisted, main.ts) REJEITA o request
+ *   com 400 quando o campo vem no corpo — ele NÃO é ignorado em silêncio
+ *   (fix D2: o comentário anterior dizia "ignorado") e nada do request
+ *   é persistido nesse caso. Rejeição explícita é a semântica honesta:
+ *   nunca fazer strip silencioso de um campo que o aluno tentou declarar.
  * - Nenhuma resposta deste serviço inclui e-mail.
  */
 

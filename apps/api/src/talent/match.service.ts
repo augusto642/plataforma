@@ -58,11 +58,17 @@ export class MatchService {
   async matchesForUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { careerTier: true, talentProfile: true },
+      select: { careerTier: true },
     });
     if (!user) return [];
-    const skillsProven =
-      user.talentProfile?.skillsProven ?? (await this.profiles.deriveProvenSkills(userId));
+    // Fase 4 fix D3 — derivar SEMPRE na leitura: o valor armazenado em
+    // TalentProfile.skillsProven só é recalculado no refresh manual ou
+    // na criação do perfil, então usá-lo aqui exibia matches defasados
+    // após nova atividade aprovada. A derivação é a mesma query de
+    // submissões `passed` que o fallback já fazia quando não havia
+    // perfil — custo de leitura inalterado em ordem de grandeza, sem
+    // semântica nova: /vagas (que consome este método) nunca é defasada.
+    const skillsProven = await this.profiles.deriveProvenSkills(userId);
     const now = new Date();
     const jobs = await this.prisma.jobPosting.findMany({
       where: { expiresAt: { gt: now } },

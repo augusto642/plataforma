@@ -341,11 +341,22 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { talentVisible },
       select: { id: true, talentVisible: true },
     });
+    // Fase 4 fix D1 — espelho settings→perfil: o sentido perfil→settings
+    // já existia em TalentProfileService.updateMe, mas este endpoint não
+    // tocava em TalentProfile.visible, então settings-off deixava
+    // profile.visible=true divergente de talentVisible=false. O espelho
+    // agora vale nos dois sentidos. updateMany: sem perfil, nada a
+    // sincronizar (count 0, sem erro); com perfil, visible acompanha.
+    await this.prisma.talentProfile.updateMany({
+      where: { userId },
+      data: { visible: talentVisible },
+    });
+    return updated;
   }
 
   async updateCareerTier(userId: string, careerTier: string) {

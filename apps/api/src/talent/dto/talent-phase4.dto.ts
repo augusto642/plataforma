@@ -56,7 +56,10 @@ export class UpdateTalentProfileDto {
    * Consentimento opt-in explícito. `visible` aqui espelha
    * `User.talentVisible`: ligar/desligar um desliga/liga o outro, e a
    * listagem de candidatos exige os dois — desligar tem efeito imediato.
-   * `skillsProven` NÃO aceito aqui: é derivado, nunca autodeclarado.
+   * `skillsProven` NÃO aceito aqui: é derivado, nunca autodeclarado —
+   * e o ValidationPipe global (whitelist + forbidNonWhitelisted) REJEITA
+   * o request com 400 se o campo vier no corpo. Não é ignorado em
+   * silêncio: rejeição explícita, sem persistir nada do request (fix D2).
    */
   @IsOptional()
   @IsBoolean()

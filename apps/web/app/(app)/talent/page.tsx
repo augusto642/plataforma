@@ -91,11 +91,12 @@ export default function TalentPage() {
       <div className="max-w-[720px] mx-auto">
         <h1 className="text-2xl font-bold">Talent Match</h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Seu perfil fica visível para empresas parceiras, com consentimento.
+          Seu perfil visível para empresas parceiras, com consentimento.
           O match usa só skills comprovadas (atividades concluídas e
           certificados) — nunca o que você declarou. Seu e-mail nunca é
-          exposto às empresas: o contato acontece por introdução mediada,
-          que você aceita ou recusa.
+          exposto às empresas, nem após o aceite: aceitar uma introdução
+          apenas sinaliza interesse mútuo; um canal de contato dentro da
+          plataforma é trabalho futuro.
         </p>
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
         {notice && <p className="mt-4 text-sm text-[#04D361]">{notice}</p>}

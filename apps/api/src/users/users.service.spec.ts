@@ -70,6 +70,7 @@ describe('UsersService', () => {
       },
       refreshToken: { deleteMany: jest.fn() },
       activity: { findMany: jest.fn().mockResolvedValue([]) },
+      talentProfile: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     gitea = {
       propagateDeletion: jest.fn().mockResolvedValue({
@@ -347,6 +348,50 @@ describe('UsersService', () => {
       await expect(service.updateCareerTier('user-1', 'senior')).rejects.toThrow(
         'Patente bloqueada: conclua o nível Iniciante primeiro',
       );
+    });
+  });
+
+  describe('updateTalentVisibility (Fase 4 fix D1 — espelho settings→perfil)', () => {
+    it('espelha visible=false no perfil quando settings desliga', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', talentVisible: false });
+
+      const res = await service.updateTalentVisibility('user-1', false);
+      expect(res).toEqual({ id: 'user-1', talentVisible: false });
+      expect(prisma.talentProfile.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { visible: false },
+      });
+    });
+
+    it('espelha visible=true no perfil quando settings liga', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', talentVisible: true });
+
+      await service.updateTalentVisibility('user-1', true);
+      expect(prisma.talentProfile.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { visible: true },
+      });
+    });
+
+    it('sem perfil, nada a sincronizar e o update de settings segue válido', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', talentVisible: false });
+      prisma.talentProfile.updateMany.mockResolvedValue({ count: 0 });
+
+      const res = await service.updateTalentVisibility('user-1', false);
+      expect(res.talentVisible).toBe(false);
+      expect(prisma.talentProfile.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('usuário inexistente dá 404 sem tocar no perfil', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.updateTalentVisibility('missing', true)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.talentProfile.updateMany).not.toHaveBeenCalled();
     });
   });
 

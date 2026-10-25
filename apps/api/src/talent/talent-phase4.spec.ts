@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ValidationPipe } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../plans/entitlements.service';
 import { computeMatch, MatchService } from './match.service';
 import { parseResearchJobs, JobPostingService } from './job-posting.service';
 import { TalentProfileService } from './talent-profile.service';
 import { IntroductionService } from './introduction.service';
+import { UpdateTalentProfileDto } from './dto/talent-phase4.dto';
 import { OrganizationsService } from '../organizations/organizations.service';
 
 /**
@@ -224,6 +226,89 @@ describe('MatchService.candidatesForCompany', () => {
         where: { visible: true, user: { talentVisible: true } },
       }),
     );
+  });
+});
+
+describe('MatchService.matchesForUser (Fase 4 fix D3 — /vagas sempre fresca)', () => {
+  it('deriva skills na leitura: ignora o skillsProven armazenado defasado', async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          careerTier: 'junior',
+          // Valor armazenado DEFASADO (perfil criado antes da aprovação):
+          // se o match o usasse, a vaga de javascript teria score 0.
+          talentProfile: { skillsProven: ['python'] },
+        }),
+      },
+      jobPosting: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'job-1',
+            title: 'Dev JS',
+            skills: ['javascript'],
+            level: 'junior',
+            source: 'partner',
+            externalUrl: null,
+            postedAt: new Date('2026-10-24T10:00:00Z'),
+            expiresAt: new Date('2026-11-23T10:00:00Z'),
+          },
+        ]),
+      },
+    });
+    const profiles = {
+      deriveProvenSkills: jest.fn().mockResolvedValue(['javascript']),
+    } as unknown as TalentProfileService;
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MatchService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: TalentProfileService, useValue: profiles },
+      ],
+    }).compile();
+    const service = module.get<MatchService>(MatchService);
+    const result = await service.matchesForUser('user-1');
+    expect(profiles.deriveProvenSkills).toHaveBeenCalledWith('user-1');
+    expect(result).toHaveLength(1);
+    expect(result[0].job.id).toBe('job-1');
+    expect(result[0].match.score).toBe(1);
+    expect(result[0].match.matchedSkills).toEqual(['javascript']);
+  });
+});
+
+describe('PUT /talent/profile/me com skillsProven (Fase 4 fix D2 — 400, sem strip)', () => {
+  it('o ValidationPipe global (mesma config do main.ts) rejeita o campo com 400', async () => {
+    const pipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    });
+    let error: any;
+    try {
+      await pipe.transform(
+        { headline: 'Dev', skillsProven: ['javascript'] },
+        { type: 'body', metatype: UpdateTalentProfileDto },
+      );
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeDefined();
+    // 400 com o nome do campo no corpo ("property skillsProven should
+    // not exist") — é esse corpo que o cliente HTTP vê, não a mensagem
+    // genérica da exceção.
+    expect(error.getStatus()).toBe(400);
+    expect(JSON.stringify(error.getResponse())).toMatch(/skillsProven/);
+  });
+
+  it('corpo sem o campo passa normalmente', async () => {
+    const pipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    });
+    const result = await pipe.transform({ headline: 'Dev' }, { type: 'body', metatype: UpdateTalentProfileDto });
+    expect(result.headline).toBe('Dev');
   });
 });
 
