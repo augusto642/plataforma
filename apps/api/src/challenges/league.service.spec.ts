@@ -17,9 +17,9 @@ describe('LeagueService', () => {
   const mockPrisma = {
     user: { findUnique: jest.fn() },
     userBadge: { findUnique: jest.fn(), create: jest.fn() },
-    challenge: { findUnique: jest.fn() },
+    challenge: { findUnique: jest.fn(), findFirst: jest.fn() },
     submission: { findMany: jest.fn() },
-    leagueSeason: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
+    leagueSeason: { findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
     leagueEntry: { findMany: jest.fn(), update: jest.fn() },
   };
 
@@ -124,6 +124,8 @@ describe('LeagueService', () => {
     mockPrisma.leagueSeason.findMany.mockResolvedValue([
       { id: 's1', tier: 'bronze', entries: [{ userId: 'winner' }, { userId: 'u2' }] },
     ]);
+    // Sem desafio na janela: fallback para os pontos armazenados.
+    mockPrisma.challenge.findFirst.mockResolvedValue(null);
     mockPrisma.userBadge.findUnique.mockResolvedValue(null);
     mockPrisma.userBadge.create.mockResolvedValue({ id: 'b1' });
     const closed = await service.closeExpiredSeasons();
@@ -133,5 +135,66 @@ describe('LeagueService', () => {
     mockPrisma.userBadge.findUnique.mockResolvedValue({ id: 'b1' });
     await service.closeExpiredSeasons();
     expect(mockPrisma.userBadge.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('D1: fechamento SEM visita prévia ao ranking premia o líder verdadeiro', async () => {
+    // Reprodução do QA: pontos armazenados defasados — X=50 na frente
+    // de Y=0 — mas Y tem passed 95 na janela (verdadeiro 105), e
+    // ninguém chamou o leaderboard antes do fechamento. O fechamento
+    // deve recalcular e premiar Y, não X.
+    const startsAt = new Date('2026-10-20');
+    const endsAt = new Date('2026-10-27');
+    mockPrisma.leagueSeason.findMany.mockResolvedValue([
+      {
+        id: 's1',
+        tier: 'bronze',
+        startsAt,
+        endsAt,
+        entries: [
+          { id: 'e-x', userId: 'user-x' },
+          { id: 'e-y', userId: 'user-y' },
+        ],
+      },
+    ]);
+    mockPrisma.challenge.findFirst.mockResolvedValue({ id: 'ch-1' });
+    // refreshEntriesForChallenge + computePoints: mesma janela/atividade
+    // em ambas as leituras do desafio.
+    mockPrisma.challenge.findUnique.mockResolvedValue({
+      id: 'ch-1',
+      activityId: 'act-1',
+      startsAt,
+      endsAt,
+    });
+    mockPrisma.submission.findMany.mockImplementation(({ where }: any) =>
+      Promise.resolve(
+        where.userId === 'user-y'
+          ? [{ status: 'passed', score: 95 }]
+          : [{ status: 'passed', score: 40 }],
+      ),
+    );
+    mockPrisma.leagueEntry.update.mockResolvedValue({});
+    // Entradas relidas após o refresh, já ordenadas pelos pontos novos.
+    mockPrisma.leagueSeason.findUnique.mockResolvedValue({
+      id: 's1',
+      entries: [{ userId: 'user-y' }, { userId: 'user-x' }],
+    });
+    mockPrisma.userBadge.findUnique.mockResolvedValue(null);
+    mockPrisma.userBadge.create.mockResolvedValue({ id: 'b1' });
+
+    const closed = await service.closeExpiredSeasons();
+
+    expect(closed).toEqual([{ seasonId: 's1', tier: 'bronze', winnerId: 'user-y' }]);
+    expect(mockPrisma.userBadge.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: 'user-y', badgeCode: 'league_champion' }),
+      }),
+    );
+    // O refresh recalculou ambas as entradas (X: 10+40=50, Y: 10+95=105).
+    expect(mockPrisma.leagueEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'e-x' }, data: { points: 50 } }),
+    );
+    expect(mockPrisma.leagueEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'e-y' }, data: { points: 105 } }),
+    );
   });
 });

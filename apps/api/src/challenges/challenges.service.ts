@@ -138,6 +138,11 @@ export class ChallengesService {
 
     let leagueEntry = null;
     if (await this.hasLeagueAccess(userId)) {
+      // D2 (documentado, semântica preservada): resolveTier ajusta
+      // ±1 a partir da liga BASE do CareerTier, não da liga anterior
+      // — vitórias consecutivas não acumulam degraus (teto base+1).
+      // Escada cumulativa é decisão de produto pendente; não mudar
+      // aqui por conta própria.
       const tier = await this.league.resolveTier(userId);
       const season = await this.league.getOrCreateSeason(
         tier,

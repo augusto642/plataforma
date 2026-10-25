@@ -54,6 +54,17 @@ export class LeagueService {
   /**
    * Liga do aluno para a próxima season: base do CareerTier, ajustada
    * pela season encerrada mais recente (promoção/rebaixamento).
+   *
+   * REGRA DOCUMENTADA — comportamento atual, intencionalmente NÃO
+   * alterado aqui (decisão de produto pendente do Augusto; ver
+   * relatório da correção Fase 3): o ajuste é sempre de ±1 a partir
+   * da liga BASE do CareerTier, nunca a partir da liga da season
+   * anterior. Vitórias (ou derrotas) consecutivas NÃO acumulam:
+   * o teto é base+1 e o piso é base−1, então duas vitórias seguidas
+   * nunca sobem dois degraus — o resultado é sempre base±1, não
+   * base±2. Mudar isso para uma escada cumulativa (liga anterior
+   * ±1) exige decisão explícita de produto, pois altera a
+   * progressão de todos os alunos.
    */
   async resolveTier(userId: string): Promise<LeagueTier> {
     const user = await this.prisma.user.findUnique({
@@ -204,6 +215,16 @@ export class LeagueService {
    * sem scheduler novo, desenho §4.1). Idempotente: o badge de campeão
    * é único por usuário, então reexecutar não duplica nada; só o
    * primeiro lugar de cada season é premiado.
+   *
+   * CORREÇÃO D1: os pontos são RECALCULADOS das submissões antes de
+   * ordenar (via refreshEntriesForChallenge, o mesmo cálculo do
+   * ranking do desafio), e as entradas são relidas já ordenadas.
+   * Antes, o fechamento premiava pelos pontos ARMAZENADOS — que
+   * podem estar defasados se ninguém visitou o ranking desde a
+   * última submissão aprovada — e o badge ia para o líder errado.
+   * Sem desafio na janela da season (season órfã), não há fonte de
+   * verdade para recalcular: mantém-se os pontos armazenados e o
+   * caso é logado como warning, em vez de premiar às cegas.
    */
   async closeExpiredSeasons() {
     const now = new Date();
@@ -218,7 +239,32 @@ export class LeagueService {
     });
     const closed: Array<{ seasonId: string; tier: LeagueTier; winnerId: string | null }> = [];
     for (const season of seasons) {
-      const winnerId = season.entries[0]?.userId ?? null;
+      // A season é chaveada por (tier, janela); o desafio da mesma
+      // janela é a fonte das submissões que geram os pontos.
+      const challenge = await this.prisma.challenge.findFirst({
+        where: { startsAt: season.startsAt, endsAt: season.endsAt },
+        select: { id: true },
+      });
+      let entries = season.entries;
+      if (challenge) {
+        await this.refreshEntriesForChallenge(challenge.id);
+        const refreshed = await this.prisma.leagueSeason.findUnique({
+          where: { id: season.id },
+          include: {
+            entries: {
+              orderBy: [{ points: 'desc' }, { id: 'asc' }],
+              select: { userId: true },
+            },
+          },
+        });
+        if (refreshed) entries = refreshed.entries;
+      } else {
+        this.logger.warn(
+          `Fechamento de liga sem desafio na janela: season ${season.id} ` +
+            `mantém pontos armazenados (sem fonte para recalcular).`,
+        );
+      }
+      const winnerId = entries[0]?.userId ?? null;
       if (winnerId) {
         const existing = await this.prisma.userBadge.findUnique({
           where: { userId_badgeCode: { userId: winnerId, badgeCode: LEAGUE_CHAMPION_BADGE } },
