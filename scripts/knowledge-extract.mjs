@@ -162,6 +162,76 @@ export function summarizeWithPipeline(asrText, entry, { pipelineMain } = {}) {
   });
 }
 
+/**
+ * Adaptador de resumo via helper do conector custom.gemini (checkpoint
+ * 25/10): o pipeline Nest falha neste ambiente ("LLM provider
+ * unavailable") porque a API não tem provedor configurado — e a chave
+ * Gemini NÃO pode ir para env, log ou código. O helper resolve a
+ * credencial pelo cofre (surrogate) e só ele toca na API do Gemini.
+ * O resumo segue as mesmas regras do pipeline: linguagem própria, teto
+ * 1200 chars, e tópicos/pré-requisitos restritos ao universo da espinha
+ * (validate-knowledge reprova qualquer tag fora dele).
+ */
+export function loadTopicTags(spinePath) {
+  const p = spinePath || resolve(new URL('../content/concept-spine.json', import.meta.url).pathname);
+  const spine = JSON.parse(readFileSync(p, 'utf8'));
+  const tags = (spine.modules || []).map((m) => m.tag).filter(Boolean);
+  if (tags.length === 0) throw new Error(`espinha de tópicos vazia ou ilegível: ${p}`);
+  return tags;
+}
+
+export function buildSummaryPrompt(asrText, entry, topicTags) {
+  const tags = topicTags.join(', ');
+  return [
+    'Você resume transcrições de aulas de Python para um sistema de trilhas de estudo.',
+    'Responda SOMENTE com um objeto JSON, sem markdown e sem texto fora do JSON, com as chaves:',
+    '- "summary": resumo da aula com as próprias palavras, em português, no máximo 1200 caracteres. Nunca copie trechos longos da transcrição.',
+    `- "topics": até 8 tópicos, escolhidos SOMENTE desta lista: ${tags}.`,
+    '- "prerequisites": tópicos prévios necessários, SOMENTE da mesma lista (pode ser vazio).',
+    '- "keyExamples": até 2 exemplos curtos da aula (título ou frase).',
+    '- "difficulty": "beginner", "intermediate" ou "advanced".',
+    `Aula: ${entry.fileName.replace(/\.mp4$/i, '')}.`,
+    'Transcrição:',
+    asrText,
+  ].join('\n');
+}
+
+function stripJsonFences(text) {
+  const t = (text || '').trim();
+  const m = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  return m ? m[1].trim() : t;
+}
+
+export function summarizeWithGeminiHelper(asrText, entry, { helperPath, model = 'gemini-3.5-flash-lite', maxTokens = 1024, topicTags, pythonBin = 'python3' } = {}) {
+  const tags = topicTags || loadTopicTags();
+  const helper = helperPath || process.env.GEMINI_HELPER || resolve(new URL('../../custom-connectors/custom.gemini/bin/gemini.py', import.meta.url).pathname);
+  const prompt = buildSummaryPrompt(asrText, entry, tags);
+  return new Promise((resolvePromise, reject) => {
+    execFile(pythonBin, [helper, 'generate', '--prompt', prompt, '--model', model, '--max-tokens', String(maxTokens)], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) { reject(new Error(`resumo via Gemini falhou: ${stderr?.toString().slice(0, 300) || err.message}`)); return; }
+      try {
+        const out = JSON.parse(stdout);
+        if (out.http_status !== 200) throw new Error(`Gemini devolveu HTTP ${out.http_status}`);
+        const parsed = JSON.parse(stripJsonFences(out.text));
+        if (!parsed.summary || typeof parsed.summary !== 'string' || !parsed.summary.trim()) throw new Error('resumo Gemini vazio');
+        if (parsed.summary.length > 1200) throw new Error(`resumo Gemini >1200 chars (${parsed.summary.length})`);
+        const allowed = new Set(tags);
+        const topics = (Array.isArray(parsed.topics) ? parsed.topics : []).filter((t) => allowed.has(t)).slice(0, 8);
+        if (topics.length === 0) throw new Error('resumo Gemini sem nenhum tópico do universo da espinha');
+        const prerequisites = (Array.isArray(parsed.prerequisites) ? parsed.prerequisites : []).filter((t) => allowed.has(t));
+        const difficulty = ['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty) ? parsed.difficulty : 'beginner';
+        resolvePromise({
+          summary: parsed.summary, topics, prerequisites,
+          keyExamples: (Array.isArray(parsed.keyExamples) ? parsed.keyExamples : []).slice(0, 2),
+          difficulty, usage: out.usage || null,
+        });
+      } catch (e) {
+        reject(new Error(`resumo Gemini inválido: ${e.message}`));
+      }
+    });
+  });
+}
+
 export function checkAsrAvailable(pythonBin = 'python3') {
   try {
     execFileSync(pythonBin, ['-c', 'import faster_whisper'], { stdio: 'ignore', timeout: 30000 });
@@ -196,7 +266,7 @@ if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
     console.log([
-      'Uso: node scripts/knowledge-extract.mjs --sample <json> [--folder <folderId>] [--only <driveFileId>] [--limit N] [--model small] [--asr-python <bin>]',
+      'Uso: node scripts/knowledge-extract.mjs --sample <json> [--folder <folderId>] [--only <driveFileId>] [--limit N] [--model small] [--asr-python <bin>] [--summarizer pipeline|gemini-helper]',
       'Extração idempotente por registro: amostra (checkpoint) ou registro pending/changed.',
       'Sem Q1 (credencial Drive) ou Q4 (ASR) o comando recusa fail-closed e NENHUM vídeo é baixado.',
       'Extração em massa proibida antes de D3: rode sempre com --sample (checkpoint) ou --only.',
@@ -294,6 +364,9 @@ if (isMain) {
       const started = Date.now();
       try {
         let asrTiming = null;
+        let summaryUsage = null;
+        const summarizerKind = get('--summarizer') || process.env.SUMMARIZER || 'pipeline';
+        if (!['pipeline', 'gemini-helper'].includes(summarizerKind)) throw new Error(`--summarizer inválido: ${summarizerKind} (use pipeline ou gemini-helper)`);
         const download = async (e, work) => {
           const dest = join(work, 'video.mp4');
           await drive.downloadFile(e.driveFileId, dest, e.sizeBytes ?? null);
@@ -304,7 +377,13 @@ if (isMain) {
           asrTiming = { transcribeSeconds: out.transcribeSeconds, durationSeconds: out.durationSeconds };
           return { text: out.text, durationSeconds: out.durationSeconds };
         };
-        const summarize = (text, e) => summarizeWithPipeline(text, e);
+        const summarize = async (text, e) => {
+          const s = summarizerKind === 'gemini-helper'
+            ? await summarizeWithGeminiHelper(text, e)
+            : await summarizeWithPipeline(text, e);
+          summaryUsage = s.usage || null;
+          return s;
+        };
         const r = await extractOne(entry, { download, transcribe, summarize, lessonsDir, registryPath });
         const totalSeconds = (Date.now() - started) / 1000;
         const transcribeSeconds = asrTiming?.transcribeSeconds ?? null;
@@ -314,7 +393,7 @@ if (isMain) {
           driveFileId: entry.driveFileId, fileName: entry.fileName,
           sizeBytes: entry.sizeBytes ?? null, durationSeconds: r.asrDurationSeconds,
           transcribeSeconds, rtf: rtf !== null ? Number(rtf.toFixed(3)) : null,
-          totalSeconds: Number(totalSeconds.toFixed(1)), lesson: r.dest, registryUpdated: r.registryUpdated,
+          totalSeconds: Number(totalSeconds.toFixed(1)), lesson: r.dest, registryUpdated: r.registryUpdated, summaryUsage,
         };
         console.log(`OK ${JSON.stringify(line)}`);
         results.push({ entry, ...line });
@@ -330,7 +409,7 @@ if (isMain) {
     console.log(`knowledge-extract: concluídos=${done.length} falhos=${failed.length} ignorados=${results.filter((r) => r.skipped).length} duraçãoTotal=${totalDuration.toFixed(1)}s tempoTotal=${totalTime.toFixed(1)}s`);
     // Validação final da base (lições + registro); falhas não apagam o feito.
     try {
-      const v = validateKnowledge();
+      const v = validateKnowledge(join(repoRoot, 'content'));
       console.log(`validate-knowledge: falhas=${v.failures.length} avisos=${v.warnings.length}`);
       if (v.failures.length > 0) {
         for (const f of v.failures.slice(0, 20)) console.error(`  VALIDAÇÃO: ${f}`);
