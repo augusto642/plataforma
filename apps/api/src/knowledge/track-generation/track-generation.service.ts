@@ -270,6 +270,49 @@ export class TrackGenerationService {
     return { action: 'queued', state: 'geração do próximo segmento enfileirada', jobId };
   }
 
+  /**
+   * T1 — conclusão de segmento (complemento rodada 3, conclusão): o ponto
+   * de disparo programático do gatilho T1. Deriva o progresso do aluno
+   * (Submission passed, §I1.3) e enfileira o PRIMEIRO segmento `planned`
+   * cujos anteriores estão todos concluídos (ou superados). No-op quando
+   * o próximo já é draft/active, quando o anterior ainda não completou,
+   * ou quando não há próximo planned — nunca gera à toa, nunca pula etapa.
+   * A pesquisa fresca acontece no worker (collectFreshResearch), não aqui:
+   * o job carrega só o esqueleto; o `collectedAt` novo é do documento do
+   * segmento. NOTA: a chamada automática deste método a partir do fluxo
+   * de submissão (pós-passed) ainda NÃO está ligada — é integração a
+   * decidir pelo PM (o método está pronto e testado; ligar no hot path de
+   * submissão sem decisão seria tocar o fluxo de XP). Até lá, T1 é
+   * disparado por este método (operador/admin) ou pela rota de progresso.
+   */
+  async triggerNextAfterCompletion(opts: { goalSlug: string; courseSlug: string; userId: string }): Promise<{
+    action: 'noop' | 'queued'; state: string; completedStageSlug?: string; nextStageSlug?: string; jobId?: string;
+  }> {
+    const progress = await this.segmentProgress(opts.userId, opts.courseSlug);
+    const completed = new Set(progress.segments.filter((s) => s.completed).map((s) => s.stageSlug));
+    const stages = this.listSegments(opts.goalSlug);
+    const track = JSON.parse(readFileSync(join(this.tracksDir(), opts.goalSlug, 'track.json'), 'utf8'));
+    const topicsOf = new Map<string, string[]>((track.stages || []).map((s: { stageSlug: string; topics?: string[] }) => [s.stageSlug, s.topics || []]));
+    for (let i = 0; i < stages.length; i++) {
+      if (stages[i].status !== 'planned') continue;
+      const previous = stages.slice(0, i);
+      const previousDone = previous.every((s) => s.status === 'superseded' || completed.has(s.stageSlug));
+      if (!previousDone) {
+        return { action: 'noop', state: 'segmento anterior ainda não concluído — próximo passo aguarda' };
+      }
+      const lastCompleted = [...previous].reverse().find((s) => completed.has(s.stageSlug));
+      const { jobId } = await this.enqueueSegment({
+        goal: opts.goalSlug, goalSlug: opts.goalSlug, stageSlug: stages[i].stageSlug, stageTitle: stages[i].title,
+        topics: topicsOf.get(stages[i].stageSlug) || [], stageOrder: stages[i].order, trigger: 'T1',
+      });
+      return {
+        action: 'queued', state: 'geração do próximo segmento enfileirada (T1, pesquisa fresca no worker)',
+        completedStageSlug: lastCompleted?.stageSlug, nextStageSlug: stages[i].stageSlug, jobId,
+      };
+    }
+    return { action: 'noop', state: 'nenhum próximo segmento planned após segmento concluído' };
+  }
+
   /** Geração determinística do segmento (mesma regra do CLI, sem LLM). */
   buildSegmentDraft(data: SegmentJobData, research: { id?: string; collectedAt?: string; sourcesUnavailable?: string[]; market?: { skills?: Array<Record<string, unknown>> } } | null, generatedAt?: string): { segment: Record<string, unknown>; report: Record<string, unknown> } {
     const genAt = generatedAt || new Date().toISOString();

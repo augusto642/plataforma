@@ -268,6 +268,16 @@ async function createBotToken() {
 }
 
 async function main() {
+  // D6 (rodada 3, complemento): --help sai 0 com o uso, sem tocar no Gitea
+  // (antes, --help era ignorado e o seed executava de verdade).
+  if (process.argv.slice(2).includes('--help') || process.argv.slice(2).includes('-h')) {
+    console.log([
+      'Uso: node scripts/seed-gitea.mjs [--help]',
+      'Semeia a instância Gitea local (instalação, org, service account, token).',
+      'Sem --help, executa o seed; com --help, só imprime este uso e sai 0.',
+    ].join('\n'));
+    return;
+  }
   await waitReady();
 
   if (!(await isInstalled())) {

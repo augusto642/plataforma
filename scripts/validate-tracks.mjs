@@ -457,6 +457,16 @@ function validateSpine() {
 
 // ── Rodada ──────────────────────────────────────────────────────────
 
+// D6 (rodada 3, complemento): --help sai 0 com o uso, sem rodar o default
+// (antes, --help era ignorado e a validação do catálogo rodava).
+if (process.argv.slice(2).includes('--help') || process.argv.slice(2).includes('-h')) {
+  console.log([
+    'Uso: node scripts/validate-tracks.mjs [--help]',
+    'Valida o catálogo de trilhas (tags, testes, solução de referência, exemplo análogo, reviewStatus).',
+    'Exit 0 = APROVADO; exit 1 = pelo menos uma reprovação. Não escreve no banco.',
+  ].join('\n'));
+  process.exit(0);
+}
 validateSpine();
 for (const activity of CATALOG_TRACK_ACTIVITIES) {
   validateActivity(activity);

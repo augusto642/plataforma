@@ -11,7 +11,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -264,7 +264,10 @@ test('D4: realTestExpressions com hiddenTests não-string dá erro claro; gate l
 });
 
 test('D6: --help em todos os CLIs do sistema de conhecimento sai 0 com uso', () => {
-  for (const cli of ['kms-apply', 'kms-merge', 'kms-backfill', 'validate-knowledge', 'knowledge-generate-track', 'knowledge-extract', 'drive-rescan', 'import-knowledge', 'kms-calibration', 'track-generate-segment', 'seed-track-instance', 'pipeline-budget']) {
+  // Complemento rodada 3 (conclusão): os CLIs pré-existentes do repo também
+  // respeitam --help — antes, validate-tracks validava, seed-data semeava e
+  // seed-gitea tocava o Gitea mesmo com --help (defaults executados).
+  for (const cli of ['kms-apply', 'kms-merge', 'kms-backfill', 'validate-knowledge', 'knowledge-generate-track', 'knowledge-extract', 'drive-rescan', 'import-knowledge', 'kms-calibration', 'track-generate-segment', 'seed-track-instance', 'pipeline-budget', 'validate-tracks', 'seed-data', 'seed-gitea']) {
     const out = execFileSync('node', [`scripts/${cli}.mjs`, '--help'], { cwd: REPO_ROOT, encoding: 'utf8' });
     assert.match(out, /Uso:/, cli);
   }
@@ -288,6 +291,21 @@ test('R4: teto diário pausa sem furar cota; ledger sem userId; lote default 10'
   assert.equal(lines.length, 1);
   assert.equal(JSON.parse(lines[0]).purpose, 'knowledge-generation');
   assert.ok(!('userId' in JSON.parse(lines[0])));
+});
+
+test('R4 (complemento): knowledge-extract com teto esgotado PAUSA (exit 0) antes de Q1; sem teto, segue fail-closed Q1 (exit 2)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'extract-budget-'));
+  const paused = execFileSync('node', ['scripts/knowledge-extract.mjs'], {
+    cwd: REPO_ROOT, encoding: 'utf8',
+    env: { ...process.env, PIPELINE_BUDGET_DIR: dir, PIPELINE_LLM_DAILY_CAP: '0' },
+  });
+  assert.match(paused, /PAUSADO — orçamento do pipeline esgotado/);
+  const q1 = spawnSync('node', ['scripts/knowledge-extract.mjs'], {
+    cwd: REPO_ROOT, encoding: 'utf8',
+    env: { ...process.env, PIPELINE_BUDGET_DIR: dir, GOOGLE_DRIVE_CREDENTIALS: '' },
+  });
+  assert.equal(q1.status, 2);
+  assert.match(q1.stderr, /BLOQUEADOR Q1/);
 });
 
 // ---------- Gates 10–11 no validador ----------

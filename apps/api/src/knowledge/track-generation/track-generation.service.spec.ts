@@ -202,6 +202,54 @@ describe('TrackGenerationService — fila, aprovação e progresso', () => {
     expect(() => svc.approveSegment('desenvolvedor-java', 'java-basico', 'admin-1')).toThrow(/NÃO ATIVÁVEL/);
   });
 
+  it('T1 (complemento): concluir seg. 1 enfileira seg. 2 planned; anterior incompleto ⇒ no-op', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'track-t1-'));
+    const content = join(root, 'content');
+    const dir = join(content, 'knowledge', 'tracks', 'desenvolvedor-java');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'track.json'), JSON.stringify({
+      goalSlug: 'desenvolvedor-java', goal: 'desenvolvedor Java',
+      stages: [
+        { order: 1, stageSlug: 'java-basico', title: 'Java básico', topics: ['sintaxe'], status: 'active' },
+        { order: 2, stageSlug: 'spring-boot', title: 'Spring Boot', topics: ['spring-boot'], status: 'planned' },
+      ],
+    }));
+    const fakePrisma = {
+      course: {
+        findUnique: async () => ({
+          id: 'course-1',
+          activities: [
+            { id: 'a1', slug: 'jb-ex1', order: 1, lessonPayload: { segment: { stageSlug: 'java-basico' } } },
+            { id: 'a2', slug: 'jb-ex2', order: 2, lessonPayload: { segment: { stageSlug: 'java-basico' } } },
+          ],
+        }),
+      },
+      submission: { findMany: async () => [{ activityId: 'a1' }, { activityId: 'a2' }] },
+    };
+    const added: Array<unknown> = [];
+    const fakeQueue = { getJob: async () => null, add: async (...a: unknown[]) => { added.push(a); return {}; } };
+    const svc = new TrackGenerationService(fakeQueue as never, undefined, undefined, undefined, content, fakePrisma as never);
+    const res = await svc.triggerNextAfterCompletion({ goalSlug: 'desenvolvedor-java', courseSlug: 'curso-x', userId: 'user-1' });
+    expect(res.action).toBe('queued');
+    expect(res.completedStageSlug).toBe('java-basico');
+    expect(res.nextStageSlug).toBe('spring-boot');
+    expect(res.jobId).toBe('track:desenvolvedor-java:seg:2');
+    expect((added[0] as Array<unknown>)[1]).toMatchObject({ trigger: 'T1', stageSlug: 'spring-boot' });
+    // Anterior incompleto ⇒ no-op, sem job.
+    const fakePrisma2 = {
+      course: { findUnique: async () => ({
+        id: 'course-1',
+        activities: [{ id: 'a1', slug: 'jb-ex1', order: 1, lessonPayload: { segment: { stageSlug: 'java-basico' } } }],
+      }) },
+      submission: { findMany: async () => [] },
+    };
+    const added2: Array<unknown> = [];
+    const svc2 = new TrackGenerationService({ getJob: async () => null, add: async (...a: unknown[]) => { added2.push(a); return {}; } } as never, undefined, undefined, undefined, content, fakePrisma2 as never);
+    const res2 = await svc2.triggerNextAfterCompletion({ goalSlug: 'desenvolvedor-java', courseSlug: 'curso-x', userId: 'user-1' });
+    expect(res2.action).toBe('noop');
+    expect(added2.length).toBe(0);
+  });
+
   it('segmentProgress deriva completed de Submission passed (sem campo novo)', async () => {
     const fakePrisma = {
       course: {

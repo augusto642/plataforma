@@ -24,6 +24,7 @@
  * de LLM existe em scripts/: o script só orquestra (download→ASR→resumo→
  * lição) e o resumo vive no serviço da API.
  */
+import { loadBudget, resolveBudgetDir } from './pipeline-budget.mjs';
 import { execFileSync, execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, renameSync } from 'node:fs';
@@ -142,6 +143,15 @@ if (isMain) {
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   const repoRoot = resolve(new URL('..', import.meta.url).pathname);
   try {
+    // R4 (rodada 3, complemento): o orçamento do pipeline é consultado
+    // ANTES de qualquer bloqueador (Q1/Q4) — teto esgotado ⇒ PAUSA com
+    // saída 0 e relatório, sem extrair, sem furar cota de aluno. Retomar
+    // = rodar de novo após o teto renovar (o registro pula o já feito).
+    const budget = loadBudget(resolveBudgetDir());
+    if (budget.used >= budget.cap) {
+      console.log(`knowledge-extract: PAUSADO — orçamento do pipeline esgotado (${budget.used}/${budget.cap} chamadas em ${budget.date}); nada extraído, nenhuma cota de aluno usada. Retome após o teto renovar ou ser aprovado novo teto (Q7).`);
+      process.exit(0);
+    }
     if (!process.env.GOOGLE_DRIVE_CREDENTIALS) {
       throw new Error('BLOQUEADOR Q1: GOOGLE_DRIVE_CREDENTIALS ausente — download do Drive impossível sem credencial fornecida pelo Augusto. Nenhum vídeo foi baixado, nenhuma credencial foi improvisada.');
     }
