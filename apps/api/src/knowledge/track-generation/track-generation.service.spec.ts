@@ -175,6 +175,8 @@ describe('TrackGenerationService — fila, aprovação e progresso', () => {
     });
     expect(res2.queued).toBe(true);
     expect(res2.jobId).toBe('track:g:seg:1');
+    // H2 (complemento): o job é criado com retry até 3 + backoff exponencial.
+    expect((added[0] as Array<unknown>)[2]).toMatchObject({ jobId: 'track:g:seg:1', attempts: 3, backoff: { type: 'exponential' } });
   });
 
   it('approveSegment: draft com testes autorados ativa; com PENDENTE recusa', () => {

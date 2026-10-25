@@ -240,7 +240,10 @@ export class TrackGenerationService {
         return { jobId, queued: false, deduped: true };
       }
     }
-    await this.queue.add('generate-segment', data, { jobId });
+    // H2 (complemento conclusão): retry de verdade — até 3 tentativas com
+    // backoff exponencial. Antes, o processor comentava "até 3", mas o add
+    // não passava attempts (default BullMQ = 1: falha era definitiva).
+    await this.queue.add('generate-segment', data, { jobId, attempts: 3, backoff: { type: 'exponential', delay: 1000 } });
     return { jobId, queued: true, deduped: false };
   }
 
