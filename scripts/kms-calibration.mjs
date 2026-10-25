@@ -99,6 +99,13 @@ export function runCalibration(cases = CALIBRATION_CASES) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/kms-calibration.mjs [--out <json>]',
+      'Relatório de precisão do matching KMS (limiares 70/40, versão 1) sobre fixtures rotulados.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const outIdx = args.indexOf('--out');
   const report = runCalibration();
   console.log(`kms-calibration: versão=${report.matchVersion} limiares=${report.thresholds.enrichMin}/${report.thresholds.newMax} casos=${report.cases} acertos=${report.correct} acurácia=${report.accuracy}`);

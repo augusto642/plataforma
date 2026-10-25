@@ -131,6 +131,14 @@ export function checkAsrAvailable() {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/knowledge-extract.mjs [--batch-size N] [--limit N]',
+      'Extração idempotente por registro (pending/changed); sem Q1 (credencial Drive) ou Q4 (ASR) o',
+      'comando recusa fail-closed e NENHUM vídeo é baixado. Extração em massa proibida antes de D3.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   const repoRoot = resolve(new URL('..', import.meta.url).pathname);
   try {

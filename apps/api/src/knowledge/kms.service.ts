@@ -184,9 +184,13 @@ export class KmsService {
           },
         });
       }
+      // D1 (laudo QA2): espelhar o kms-apply — a versão ativada no banco
+      // também zera os 3 campos de supersessão. Sem isso, o sync-db ativaria
+      // o arquivo limpo e o re-import divergiria da linha do banco (versão
+      // imutável divergente), travando o loop sync→re-import pelo outro lado.
       await tx.knowledgeEntryVersion.update({
         where: { entryId_version: { entryId: entry.id, version: versionNum } },
-        data: { status: 'active' },
+        data: { status: 'active', supersededBy: null, supersededAt: null, supersedeReason: null },
       });
       await tx.knowledgeEntry.update({
         where: { slug }, data: { status: 'active', currentVersion: versionNum },

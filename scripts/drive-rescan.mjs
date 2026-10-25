@@ -87,6 +87,13 @@ export function atomicWrite(path, text) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/drive-rescan.mjs --scope python [--state <json>] [--registry <json>] [--fixture <json>]',
+      'Revarredura fail-closed: descobre novos/alterados, NUNCA extrai; erro no meio = cursor não avança.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag, dflt) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : dflt; };
   const repoRoot = resolve(new URL('..', import.meta.url).pathname);
   const scope = get('--scope', 'python');

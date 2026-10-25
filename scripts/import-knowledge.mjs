@@ -38,6 +38,41 @@ function hashJson(obj) {
   };
   return `sha256:${createHash('sha256').update(stable(obj)).digest('hex')}`;
 }
+/**
+ * D2 (laudo QA2, MÉDIO): comparação de payload do changelog no upsert por
+ * seq. HTTP approve cria no banco seq=N com actor admin:<id>; o sync-db
+ * cria no arquivo o mesmo seq=N com actor kms-apply e detail diferente —
+ * o upsert antigo contava `inalterados` sem avisar e o payload do arquivo
+ * se perdia no espelho. Agora a divergência é listada no relatório (mesmo
+ * padrão da fila de revisão) e o arquivo continua canônico: a linha do
+ * banco nunca é sobrescrita silenciosamente. Normaliza occurredAt para
+ * ISO porque o Prisma devolve Date e o arquivo, string.
+ */
+export function changelogPayloadOf(row) {
+  if (!row) return null;
+  const occurredAt = row.occurredAt instanceof Date ? row.occurredAt.toISOString()
+    : row.occurredAt ? new Date(row.occurredAt).toISOString() : null;
+  return {
+    entrySlug: row.entrySlug, changeType: row.changeType, version: row.version ?? null,
+    source: row.source ?? null, actor: row.actor, occurredAt, detail: row.detail || '',
+  };
+}
+// Rodada 3 — resolvedBy do arquivo é um ator ('kms-apply' ou
+// 'admin:<uuid>'), mas o espelho exige uuid ou null: prefixo 'admin:'
+// é removido quando o resto é uuid válido; qualquer outro ator vira
+// null (a decisão em si vive no JSON `decision` + changelog `actor`).
+// Sem isso, importar fila resolvida via arquivo abortava a transação
+// inteira com erro de uuid inválido.
+export function toUuidOrNull(value) {
+  if (typeof value !== 'string') return null;
+  const raw = value.startsWith('admin:') ? value.slice('admin:'.length) : value;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw) ? raw : null;
+}
+
+export function changelogPayloadsEqual(existing, payload) {
+  return hashJson(changelogPayloadOf(existing)) === hashJson(changelogPayloadOf(payload));
+}
+
 function walkLessons(dir, out = []) {
   if (!existsSync(dir)) return out;
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -144,7 +179,7 @@ if (isMain) {
     try {
       const missing = await checkTables(prisma, only);
       if (missing.length) throw new Error(`tabelas de conhecimento ausentes (${missing.join(', ')}); a migration está só como arquivo — importação real bloqueada até ordem do Augusto`);
-      const report = { inserted: 0, updated: 0, unchanged: 0, orphaned: 0, resolvedPreserved: 0, divergences: [], errors: [] };
+      const report = { inserted: 0, updated: 0, unchanged: 0, orphaned: 0, resolvedPreserved: 0, changelogDivergences: 0, divergences: [], errors: [] };
       await prisma.$transaction(async (tx) => {
         for (const lesson of plan.lessons) {
           const source = await tx.knowledgeSource.upsert({
@@ -207,6 +242,9 @@ if (isMain) {
           }
         }
         // ── Changelog (upsert por seq; seq existente nunca é reescrito) ──
+        // D2: seq igual com payload diferente = divergência LISTADA (o
+        // arquivo é canônico; o espelho mantém o payload do admin até o
+        // operador reconciliar — nunca sobrescrito em silêncio).
         for (const it of plan.changelogItems) {
           const payload = {
             entrySlug: it.entrySlug, changeType: it.changeType, version: it.version ?? null, source: it.source,
@@ -216,6 +254,9 @@ if (isMain) {
           if (!existingC) {
             await tx.knowledgeChangelog.create({ data: { seq: it.seq, ...payload } });
             report.inserted++;
+          } else if (!changelogPayloadsEqual(existingC, payload)) {
+            report.changelogDivergences++;
+            report.divergences.push(`changelog seq=${it.seq}: payload do arquivo (actor ${payload.actor}) diverge do espelho no banco (actor ${existingC.actor}) — arquivo canônico, espelho preservado, reconcilie manualmente`);
           } else report.unchanged++;
         }
         // ── Fila de revisão (decisão resolved no banco nunca sobrescrita) ──
@@ -224,7 +265,7 @@ if (isMain) {
           const payload = {
             kind: item.kind, sourceRef: item.sourceRef || {}, candidates: item.candidates || [],
             confidence: item.confidence ?? 0, status: item.status,
-            decision: item.decision || null, resolvedBy: item.resolvedBy || null,
+            decision: item.decision || null, resolvedBy: toUuidOrNull(item.resolvedBy),
             resolvedAt: item.resolvedAt ? new Date(item.resolvedAt) : null,
             createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
           };
@@ -253,7 +294,7 @@ if (isMain) {
           report.orphaned += dbItems.filter((i) => !fileIds.has(i.stableId)).length;
         }
       });
-      console.log(`import-knowledge: inseridos=${report.inserted} atualizados=${report.updated} inalterados=${report.unchanged} órfãos=${report.orphaned} resolved-preservados=${report.resolvedPreserved} erros=${report.errors.length}`);
+      console.log(`import-knowledge: inseridos=${report.inserted} atualizados=${report.updated} inalterados=${report.unchanged} órfãos=${report.orphaned} resolved-preservados=${report.resolvedPreserved} changelog-divergências=${report.changelogDivergences} erros=${report.errors.length}`);
       for (const d of report.divergences) console.log(`  divergência: ${d}`);
     } finally { await prisma.$disconnect(); }
   } catch (err) {

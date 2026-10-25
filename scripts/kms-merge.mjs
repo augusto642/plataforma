@@ -285,6 +285,14 @@ function proposeResearch(paths, { research, dryRun, entries, lessonsById, before
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/kms-merge.mjs --lesson <lessonId> | --research <researchId> [--content dir]',
+      '       [--supersede-reason outdated|corrected|merged] [--dry-run]',
+      'Só conteúdo APROVADO alimenta o KMS; o merge só propõe (draft ou fila), nunca ativa.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   const contentDir = resolve(get('--content') || join(new URL('..', import.meta.url).pathname, 'content'));
   const paths = kmsPaths(contentDir);
