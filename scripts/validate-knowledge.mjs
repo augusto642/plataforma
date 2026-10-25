@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Validador do sistema de conhecimento (DESIGN §6.4 + §13) — 9 gates.
+ * Validador do sistema de conhecimento (DESIGN §6.4 + §13 + §4.5) — 11 gates.
  * Gates 6–9 (KMS, Fase G): entradas, versões, fila de revisão e changelog.
+ * Gates 10–11 (incremental, Fase H): vagas ≤ 730 dias + piso de exercícios
+ * e gate de ativação de segmento.
  * Uso: node scripts/validate-knowledge.mjs [--content content] [--accept-manual-edit]
  *   --accept-manual-edit: ato consciente do operador — reescreve o summaryHash
  *     do registro quando a lição foi editada à mão (o desenho exige que a
@@ -61,24 +63,41 @@ export function forbiddenFieldsDeep(value, path = '$', out = []) {
  * passe por este validador; ver DESIGN §4).
  */
 export function realTestExpressions(testCode, hiddenTests) {
-  const parse = (script) => {
-    if (!script || !script.trim()) return [];
+  // D4 (laudo QA2, BAIXO): hiddenTests/testCode não-string (ex.: []) antes
+  // explodia com TypeError cru (`script.trim is not a function`) e abortava
+  // o validador com stack. Agora o erro é claro e nomeia o campo e o tipo
+  // recebido; o gate 4 o converte em falha listada (ver
+  // assertGeneratedActivitySeedable), nunca em crash.
+  const parse = (script, field) => {
+    if (script == null) return [];
+    if (typeof script !== 'string') {
+      throw new TypeError(`realTestExpressions: ${field} deve ser string (recebido ${Array.isArray(script) ? 'array' : typeof script}) — testCode/hiddenTests fora do formato reprova o gate, não aborta o validador`);
+    }
+    if (!script.trim()) return [];
     if (script.includes('---TEST---') || script.includes('\n---\n')) {
       const delimiter = script.includes('---TEST---') ? /---TEST---/g : /\n---\n/g;
       return script.split(delimiter).map((b) => b.trim()).filter((b) => b.length > 0);
     }
     return script.split('\n').map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith('//') && !l.startsWith('#'));
   };
-  return [...parse(testCode), ...parse(hiddenTests)];
+  return [...parse(testCode, 'testCode'), ...parse(hiddenTests, 'hiddenTests')];
 }
 
 /** Gate de seed de trilha gerada: testes reais + referenceSolution não vazio. */
 export function assertGeneratedActivitySeedable(activity) {
   const problems = [];
-  if (realTestExpressions(activity.testCode, activity.hiddenTests).length === 0) {
+  let expressions;
+  try {
+    expressions = realTestExpressions(activity.testCode, activity.hiddenTests);
+  } catch (err) {
+    // D4: tipo inválido vira falha listada do gate, não abort do validador.
+    problems.push(err.message);
+    expressions = null;
+  }
+  if (expressions !== null && expressions.length === 0) {
     problems.push('testCode/hiddenTests sem nenhuma expressão real de teste (só comentários/placeholder) — cairia em evaluateWithoutTests e daria 100 por qualquer código que rode');
   }
-  if (!activity.referenceSolution || !activity.referenceSolution.trim()) {
+  if (typeof activity.referenceSolution !== 'string' || !activity.referenceSolution.trim()) {
     problems.push('referenceSolution vazio — sem solução de referência não há como provar que os testes passam');
   }
   return problems;
@@ -338,8 +357,11 @@ export function validateKnowledge(contentDir) {
     let doc;
     try { doc = loadJson(changelogPath); } catch (e) { fail(`changelog.json inválido: ${e.message}`); }
     if (doc) {
+      // Rodada 3 — changelog malformado (entries ausente ou não-lista)
+      // virava TypeError cru; agora é falha listada, nunca stack cru.
+      if (!Array.isArray(doc.entries)) fail('changelog.json: entries ausente ou não é lista');
       let prevSeq = 0;
-      for (const it of doc.entries || []) {
+      for (const it of (Array.isArray(doc.entries) ? doc.entries : [])) {
         const label = `changelog seq=${it.seq}`;
         if (typeof it.seq !== 'number' || it.seq <= prevSeq) fail(`${label}: seq não único e crescente`);
         prevSeq = it.seq;
@@ -385,6 +407,114 @@ export function validateKnowledge(contentDir) {
     } catch (e) { fail(`topics.json ilegível: ${e.message}`); }
   }
 
+  // Gates 10–11 — trilhas incrementais (DESIGN §4.5, delta §§I4/I6).
+  // Gate 10 (vagas): pesquisa com amostras desagregadas (samples/jobSamples)
+  // tem sampleSize == nº de amostras VÁLIDAS em 730 dias da collectedAt;
+  // segmento com marketAligned=true exige jobs available + amostra válida;
+  // marketSkills de atividade só com sampleSize > 0; techVersions confirmed
+  // exige version+source, unconfirmed exige version null (rótulo, não número).
+  // Gate 11 (piso): segmento draft/active com ≥ 50% exercise/project E
+  // ≥ 3 exercícios por tópico; segmento active com exercise/project sem
+  // teste autorado reprova (gate de ativação §I6.3 — sem ele, o exercício
+  // nunca dá passed e o gatilho T1 nunca dispara).
+  // Árvore sem tracks/ ⇒ passa em vacuo (base pré-incremental).
+  {
+    const RESEARCH_COLLECTED = new Map();
+    if (existsSync(researchDir)) {
+      for (const f of readdirSync(researchDir).filter((x) => x.endsWith('.json'))) {
+        try {
+          const d = loadJson(join(researchDir, f));
+          if (d.id) RESEARCH_COLLECTED.set(d.id, d);
+          for (const s of (d.market && d.market.skills) || []) {
+            const samples = s.samples || s.jobSamples;
+            if (!samples) continue; // sem desagregação, não sustenta selo (o relatório lista)
+            const genAt = d.collectedAt || null;
+            if (!genAt) { fail(`research ${d.id}: skill ${s.skill} com amostras desagregadas sem collectedAt (base do filtro de 730 dias)`); continue; }
+            const valid = samples.filter((x) => {
+              if (!x || !x.postedAt) return false;
+              const diff = Math.floor((Date.parse(genAt) - Date.parse(x.postedAt)) / 86400000);
+              return diff >= 0 && diff <= 730;
+            });
+            if (s.sampleSize !== valid.length) fail(`research ${d.id}: skill ${s.skill} sampleSize=${s.sampleSize} diverge das amostras válidas em 730 dias (${valid.length}) — gate 10`);
+            if (typeof s.staleSamples === 'number' && s.staleSamples !== samples.length - valid.length - samples.filter((x) => !x || !x.postedAt).length) fail(`research ${d.id}: skill ${s.skill} staleSamples inconsistente — gate 10`);
+            if (typeof s.undatedSamples === 'number' && s.undatedSamples !== samples.filter((x) => !x || !x.postedAt).length) fail(`research ${d.id}: skill ${s.skill} undatedSamples inconsistente — gate 10`);
+          }
+        } catch { /* gate 3 já reprova JSON inválido */ }
+      }
+    }
+    const tracksDir = join(kdir, 'tracks');
+    if (existsSync(tracksDir)) {
+      const walkTracks = (dir) => {
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+          const p = join(dir, e.name);
+          if (e.isDirectory()) walkTracks(p);
+          else if (e.name.endsWith('.json')) {
+            let doc;
+            try { doc = loadJson(p); } catch (err) { fail(`trilha incremental ${p}: JSON inválido (${err.message})`); continue; }
+            const forbidden = forbiddenFieldsDeep(doc);
+            if (forbidden.length) fail(`trilha incremental ${p}: campo PROIBIDO presente (${forbidden.join(', ')})`);
+            if (e.name.endsWith('.report.json')) {
+              const label = `relatório ${p}`;
+              if (!doc.sources || !doc.sources.web || !doc.sources.kms || !doc.sources.jobs) fail(`${label}: sources com os 3 status é obrigatório (web/kms/jobs) — gate 10/§I7`);
+              else {
+                for (const k of ['web', 'kms', 'jobs']) if (!['available', 'unavailable', 'reused', 'empty'].includes(doc.sources[k].status)) fail(`${label}: sources.${k}.status inválido: ${doc.sources[k].status}`);
+                if (doc.marketAligned === true) {
+                  if (doc.sources.jobs.status !== 'available') fail(`${label}: marketAligned=true com jobs=${doc.sources.jobs.status} — selo de mercado proibido sem amostra válida`);
+                  const skills = doc.sources.jobs.skills || [];
+                  if (!skills.length || skills.some((s) => typeof s.sampleSize !== 'number' || s.sampleSize <= 0)) fail(`${label}: marketAligned=true sem skill com sampleSize > 0`);
+                }
+                if (typeof doc.marketAligned !== 'boolean') fail(`${label}: marketAligned obrigatório (boolean)`);
+              }
+              if (doc.exerciseFloor && typeof doc.exerciseFloor.exercises !== 'number') fail(`${label}: exerciseFloor sem contagem`);
+            } else if (doc.activities) {
+              // Segmento gerado (não relatório).
+              const label = `segmento ${doc.trackSlug || '?'} / ${doc.stageSlug || p}`;
+              if (!doc.trackSlug || !doc.stageSlug) fail(`${label}: trackSlug + stageSlug obrigatórios`);
+              if (!['planned', 'draft', 'active', 'superseded'].includes(doc.status)) fail(`${label}: status inválido: ${doc.status} (completed é derivado, nunca gravado)`);
+              if (!doc.generatedAt) fail(`${label}: generatedAt obrigatório (base do filtro de vagas)`);
+              for (const a of doc.activities) {
+                const kind = a.lessonPayload?.activityKind;
+                if (!kind) fail(`${label}/${a.slug}: activityKind obrigatório em segmento gerado`);
+                else if (!['theory', 'exercise', 'project', 'video-reference'].includes(kind)) fail(`${label}/${a.slug}: activityKind inválido: ${kind}`);
+                if (!a.lessonPayload?.segment || a.lessonPayload.segment.stageSlug !== doc.stageSlug || a.lessonPayload.segment.trackSlug !== doc.trackSlug) fail(`${label}/${a.slug}: lessonPayload.segment divergente do segmento`);
+                for (const ms of a.lessonPayload?.marketSkills || []) {
+                  if (typeof ms.sampleSize !== 'number' || ms.sampleSize <= 0) fail(`${label}/${a.slug}: marketSkill sem amostra válida: ${ms.skill} — gate 10`);
+                }
+                const tv = a.lessonPayload?.techVersions || {};
+                for (const [tech, v] of Object.entries(tv)) {
+                  if (v.status === 'confirmed' && (!v.version || !v.source)) fail(`${label}/${a.slug}: techVersions.${tech} confirmed sem version/source`);
+                  if (v.status === 'unconfirmed' && v.version != null) fail(`${label}/${a.slug}: techVersions.${tech} unconfirmed com version (deve ser null + lastKnown rotulado)`);
+                  if (!['confirmed', 'unconfirmed'].includes(v.status)) fail(`${label}/${a.slug}: techVersions.${tech} status inválido: ${v.status}`);
+                }
+                if ((kind === 'exercise' || kind === 'project') && doc.status === 'active') {
+                  for (const pr of assertGeneratedActivitySeedable(a)) fail(`${label}/${a.slug}: NÃO ATIVÁVEL (gate §I6.3) — ${pr}`);
+                  if ((a.testCode || '').includes('PENDENTE-AUTORIA-ADMIN')) fail(`${label}/${a.slug}: NÃO ATIVÁVEL — testCode com PENDENTE-AUTORIA-ADMIN`);
+                }
+              }
+              // Gate 11 — piso duplo, para segmentos draft/active.
+              if (doc.status === 'draft' || doc.status === 'active') {
+                const total = doc.activities.length;
+                const ex = doc.activities.filter((a) => a.lessonPayload?.activityKind === 'exercise' || a.lessonPayload?.activityKind === 'project');
+                const ratio = total ? ex.length / total : 0;
+                if (total === 0) fail(`${label}: segmento sem atividades`);
+                else {
+                  if (ratio < 0.5) fail(`${label}: piso de exercícios violado — ${ex.length}/${total} exercícios (razão ${ratio.toFixed(2)} < 0,50) — gate 11`);
+                  const perTopic = {};
+                  for (const a of ex) for (const t of a.conceptTags || []) perTopic[t] = (perTopic[t] || 0) + 1;
+                  const topics = [...new Set(doc.activities.flatMap((a) => a.conceptTags || []))];
+                  for (const t of topics) {
+                    if ((perTopic[t] || 0) < 3) fail(`${label}: piso por tópico violado — tópico ${t} com ${perTopic[t] || 0} exercício(s) (< 3) — gate 11`);
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+      walkTracks(tracksDir);
+    }
+  }
+
   // Gate 4 — trilhas geradas.
   const genDir = join(kdir, 'generated-tracks');
   if (existsSync(genDir)) {
@@ -415,6 +545,14 @@ export function validateKnowledge(contentDir) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/validate-knowledge.mjs [--content dir] [--accept-manual-edit]',
+      'Valida a árvore de conhecimento: gates 1–9 (KMS) + gates 10–11 (trilhas incrementais).',
+      'Exit 0 = APROVADO; exit 1 = pelo menos uma reprovação listada (nunca stack cru).',
+    ].join('\n'));
+    process.exit(0);
+  }
   const contentIdx = args.indexOf('--content');
   const contentDir = contentIdx >= 0 ? resolve(args[contentIdx + 1]) : resolve(new URL('../content', import.meta.url).pathname);
   const acceptManual = args.includes('--accept-manual-edit');
@@ -443,5 +581,5 @@ if (isMain) {
     console.log(`validate-knowledge: REPROVADO (${realFails.length} falha(s))`);
     process.exit(1);
   }
-  console.log('validate-knowledge: APROVADO (9 gates)');
+  console.log('validate-knowledge: APROVADO (11 gates)');
 }
