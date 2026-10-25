@@ -14,8 +14,8 @@ import {
 
 /**
  * Fase 4 premium (desenho §5.1) — perfil do aluno no Talent Match.
- * Consentimento opt-in explícito, texto exato do posicionamento:
- * "perfil visível para empresas parceiras, com consentimento".
+ * Consentimento opt-in explícito; o copy mantém como substring a frase
+ * do desenho ("visível para empresas parceiras, com consentimento").
  * Desligar o toggle remove o perfil de todas as listagens na hora.
  * Destaque (spotlight) é Carreira — sem promessa de contratação.
  */
@@ -91,7 +91,7 @@ export default function TalentPage() {
       <div className="max-w-[720px] mx-auto">
         <h1 className="text-2xl font-bold">Talent Match</h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Seu perfil visível para empresas parceiras, com consentimento.
+          Seu perfil fica visível para empresas parceiras, com consentimento.
           O match usa só skills comprovadas (atividades concluídas e
           certificados) — nunca o que você declarou. Seu e-mail nunca é
           exposto às empresas, nem após o aceite: aceitar uma introdução

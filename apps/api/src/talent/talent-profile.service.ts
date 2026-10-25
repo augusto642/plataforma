@@ -44,6 +44,45 @@ export class TalentProfileService {
     private readonly entitlements: EntitlementsService,
   ) {}
 
+  /**
+   * Derivação em lote (Fase 4 fix R1, mesmo padrão do D3): uma ÚNICA
+   * query de submissões `passed` para todos os `userIds`, agrupada em
+   * memória — nunca uma query por candidato (sem N+1). Mesmo
+   * ordenamento de deriveProvenSkills (mais comprovada primeiro,
+   * empate alfabético). Usuários sem submissão passed não entram no
+   * mapa: o chamador trata ausência como lista vazia.
+   */
+  async deriveProvenSkillsBatch(userIds: string[]): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (userIds.length === 0) return result;
+    const passed = await this.prisma.submission.findMany({
+      where: { userId: { in: userIds }, status: 'passed' },
+      select: { userId: true, activity: { select: { conceptTags: true } } },
+    });
+    const counts = new Map<string, Map<string, number>>();
+    for (const submission of passed) {
+      let perUser = counts.get(submission.userId);
+      if (!perUser) {
+        perUser = new Map<string, number>();
+        counts.set(submission.userId, perUser);
+      }
+      for (const tag of submission.activity?.conceptTags ?? []) {
+        const normalized = tag.trim().toLowerCase();
+        if (!normalized) continue;
+        perUser.set(normalized, (perUser.get(normalized) ?? 0) + 1);
+      }
+    }
+    for (const [userId, perUser] of counts) {
+      result.set(
+        userId,
+        [...perUser.entries()]
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .map(([tag]) => tag),
+      );
+    }
+    return result;
+  }
+
   /** Skills comprovadas, derivadas — sem persistir, para o match usar. */
   async deriveProvenSkills(userId: string): Promise<string[]> {
     const passed = await this.prisma.submission.findMany({

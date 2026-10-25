@@ -203,7 +203,9 @@ describe('MatchService.candidatesForCompany', () => {
         ]),
       },
     });
-    const profiles = { deriveProvenSkills: jest.fn() } as unknown as TalentProfileService;
+    const profiles = {
+      deriveProvenSkillsBatch: jest.fn().mockResolvedValue(new Map([['aaaabbbb1111', ['javascript']]])),
+    } as unknown as TalentProfileService;
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MatchService,
@@ -226,6 +228,121 @@ describe('MatchService.candidatesForCompany', () => {
         where: { visible: true, user: { talentVisible: true } },
       }),
     );
+  });
+
+  it('R1: skill recém-comprovada aparece SEM refresh — ignora o armazenado defasado, uma query em lote', async () => {
+    const prisma = makePrisma({
+      talentProfile: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            userId: 'aaaabbbb1111',
+            headline: 'Dev QA',
+            // Armazenado DEFASADO (perfil criado antes da aprovação):
+            // filtrar por ele faria a empresa perder o candidato.
+            skillsProven: ['python'],
+            projectUrls: [],
+            spotlight: false,
+            user: { id: 'aaaabbbb1111', name: 'Maria Silva', careerTier: 'junior', xp: 100, level: 2 },
+          },
+          {
+            userId: 'ccccdddd2222',
+            headline: 'Dev JS',
+            skillsProven: ['javascript'],
+            projectUrls: [],
+            spotlight: false,
+            user: { id: 'ccccdddd2222', name: 'João Souza', careerTier: 'junior', xp: 50, level: 1 },
+          },
+        ]),
+      },
+    });
+    const deriveProvenSkillsBatch = jest
+      .fn()
+      .mockResolvedValue(
+        new Map([
+          ['aaaabbbb1111', ['qa-skill-nova']],
+          ['ccccdddd2222', ['javascript']],
+        ]),
+      );
+    const profiles = { deriveProvenSkillsBatch } as unknown as TalentProfileService;
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MatchService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: TalentProfileService, useValue: profiles },
+      ],
+    }).compile();
+    const service = module.get<MatchService>(MatchService);
+    const result = await service.candidatesForCompany({ skill: 'qa-skill-nova' });
+    expect(result).toHaveLength(1);
+    expect(result[0].candidateId).toBe('cand_aaaabbbb');
+    // Exibe a skill derivada, não a armazenada defasada.
+    expect(result[0].skillsProven).toEqual(['qa-skill-nova']);
+    // Uma única chamada em lote com os dois userIds visíveis (sem N+1).
+    expect(deriveProvenSkillsBatch).toHaveBeenCalledTimes(1);
+    expect(deriveProvenSkillsBatch).toHaveBeenCalledWith(['aaaabbbb1111', 'ccccdddd2222']);
+  });
+
+  it('R1: sem perfis visíveis, não há query de derivação', async () => {
+    const prisma = makePrisma({
+      talentProfile: { findMany: jest.fn().mockResolvedValue([]) },
+    });
+    const deriveProvenSkillsBatch = jest.fn();
+    const profiles = { deriveProvenSkillsBatch } as unknown as TalentProfileService;
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MatchService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: TalentProfileService, useValue: profiles },
+      ],
+    }).compile();
+    const service = module.get<MatchService>(MatchService);
+    expect(await service.candidatesForCompany({ skill: 'qa-skill-nova' })).toEqual([]);
+    expect(deriveProvenSkillsBatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('TalentProfileService.deriveProvenSkillsBatch (R1)', () => {
+  it('uma única query passed para N usuários, agrupada em memória, mesmo ordenamento', async () => {
+    const prisma = makePrisma({
+      submission: {
+        findMany: jest.fn().mockResolvedValue([
+          { userId: 'u1', activity: { conceptTags: ['React', 'javascript'] } },
+          { userId: 'u1', activity: { conceptTags: ['javascript'] } },
+          { userId: 'u2', activity: { conceptTags: ['python'] } },
+          { userId: 'u2', activity: null },
+        ]),
+      },
+    });
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        TalentProfileService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EntitlementsService, useValue: { assertFeature: jest.fn() } },
+      ],
+    }).compile();
+    const service = module.get<TalentProfileService>(TalentProfileService);
+    const result = await service.deriveProvenSkillsBatch(['u1', 'u2', 'u3']);
+    expect(prisma.submission.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.submission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: { in: ['u1', 'u2', 'u3'] }, status: 'passed' } }),
+    );
+    expect(result.get('u1')).toEqual(['javascript', 'react']);
+    expect(result.get('u2')).toEqual(['python']);
+    expect(result.has('u3')).toBe(false);
+  });
+
+  it('lista vazia não consulta o banco', async () => {
+    const prisma = makePrisma();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        TalentProfileService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EntitlementsService, useValue: { assertFeature: jest.fn() } },
+      ],
+    }).compile();
+    const service = module.get<TalentProfileService>(TalentProfileService);
+    expect(await service.deriveProvenSkillsBatch([])).toEqual(new Map());
+    expect(prisma.submission.findMany).not.toHaveBeenCalled();
   });
 });
 

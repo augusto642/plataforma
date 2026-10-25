@@ -97,6 +97,14 @@ export class MatchService {
    * `TalentProfile.visible` E `User.talentVisible`. `level` aqui é o
    * nível de carreira do aluno (beginner | junior | mid | senior).
    * Saída anonimizada — sem e-mail, sem nome completo, sem userId.
+   *
+   * Fase 4 fix R1 (mesma classe do D3): `skillsProven` é DERIVADO na
+   * leitura, nunca o valor armazenado — o armazenado só é recalculado
+   * no refresh manual, então filtrar/exibir por ele deixava a empresa
+   * sem ver um candidato recém-qualificado (falso negativo, sem aviso).
+   * Uma única query adicional de submissões `passed` dos userIds
+   * visíveis, agrupada em memória (deriveProvenSkillsBatch) — empresa
+   * e aluno veem o mesmo match, sem divergência e sem N+1.
    */
   async candidatesForCompany(filters: { skill?: string; level?: string }) {
     const profiles = await this.prisma.talentProfile.findMany({
@@ -109,19 +117,24 @@ export class MatchService {
       },
       orderBy: [{ spotlight: 'desc' }, { userId: 'asc' }],
     });
+    if (profiles.length === 0) return [];
+    const derived = await this.profiles.deriveProvenSkillsBatch(
+      profiles.map((profile) => profile.user.id),
+    );
     const skill = filters.skill?.trim().toLowerCase();
     const level = filters.level?.trim().toLowerCase();
     return profiles
       .filter((profile) => {
         if (level && profile.user.careerTier !== level) return false;
-        if (skill && !profile.skillsProven.some((s) => s.toLowerCase() === skill)) return false;
+        const skillsProven = derived.get(profile.user.id) ?? [];
+        if (skill && !skillsProven.some((s) => s.toLowerCase() === skill)) return false;
         return true;
       })
       .map((profile) => ({
         candidateId: candidateIdFor(profile.user.id),
         initials: getInitials(profile.user.name),
         headline: profile.headline,
-        skillsProven: profile.skillsProven,
+        skillsProven: derived.get(profile.user.id) ?? [],
         projectUrls: profile.projectUrls,
         spotlight: profile.spotlight,
         careerTier: profile.user.careerTier,
