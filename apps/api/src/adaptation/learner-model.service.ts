@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CONCEPT_SPINE_MODULES } from './data/concept-spine';
-import { calibrateSkill } from './skill-calibration';
+import { calibrateSkill, meanRubricScore } from './skill-calibration';
 
 /**
  * Fase 5 premium (desenho §6.4) — INTERFACE do tutor adaptativo.
@@ -58,7 +58,16 @@ export class LearnerModelService {
       }),
       this.prisma.submission.findMany({
         where: { userId, status: { in: ['passed', 'failed'] } },
-        select: { id: true, activityId: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          activityId: true,
+          status: true,
+          createdAt: true,
+          // D1 (QA Fase 5): a mesma mistura 0,6/0,4 do diagnóstico —
+          // sem ler codeReviews o modelo passava rubricMean: null e
+          // divergia do mapa sempre que havia revisão.
+          codeReviews: { select: { rubric: true } },
+        },
       }),
       this.prisma.learnerSkillMastery.findMany({
         where: { userId },
@@ -75,7 +84,13 @@ export class LearnerModelService {
       const passed = tagSubs.filter((s) => s.status === 'passed').length;
       const calibrated =
         tagSubs.length > 0
-          ? calibrateSkill({ passed, failed: tagSubs.length - passed, rubricMean: null })
+          ? calibrateSkill({
+              passed,
+              failed: tagSubs.length - passed,
+              rubricMean: meanRubricScore(
+                tagSubs.flatMap((s) => s.codeReviews ?? []),
+              ),
+            })
           : null;
       const lastSeen =
         tagSubs.length > 0

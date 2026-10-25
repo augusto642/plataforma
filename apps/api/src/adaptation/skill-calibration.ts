@@ -49,5 +49,28 @@ export function calibrateSkill(evidence: SkillEvidence): CalibratedSkill {
   return { score, level, weakSpot, evidenceCount: attempts };
 }
 
+/**
+ * Média dos critérios da rubrica de todas as revisões dadas.
+ * Extraída para cá (e não duplicada em cada serviço) para que mapa
+ * (`SkillDiagnosticService`) e modelo (`LearnerModelService`) usem
+ * EXATAMENTE a mesma leitura da rubrica — divergência aqui é o defeito
+ * D1 do QA da Fase 5. Critérios sem `score` numérico são ignorados;
+ * sem nenhum critério válido, devolve null (vale só a taxa de acerto).
+ */
+export function meanRubricScore(
+  reviews: { rubric: unknown }[],
+): number | null {
+  const values: number[] = [];
+  for (const r of reviews) {
+    const rubric = r.rubric as Record<string, { score?: unknown }> | null;
+    if (!rubric) continue;
+    for (const criterion of Object.values(rubric)) {
+      if (typeof criterion?.score === 'number') values.push(criterion.score);
+    }
+  }
+  if (!values.length) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
 /** Limiar de evidência abaixo do qual o mapa é "estimativa" (§6.1). */
 export const SKILL_MAP_ESTIMATE_THRESHOLD = 10;

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CONCEPT_SPINE_MODULES } from '../adaptation/data/concept-spine';
 import {
   calibrateSkill,
+  meanRubricScore,
   SKILL_MAP_ESTIMATE_THRESHOLD,
   type SkillLevel,
 } from '../adaptation/skill-calibration';
@@ -124,18 +125,9 @@ export class SkillDiagnosticService {
       submissions.filter((s) => s.status === 'passed').map((s) => s.activityId),
     );
     const activityTags = new Map(activities.map((a) => [a.id, a.conceptTags]));
-    const rubricMean = (rubrics: { rubric: unknown }[]): number | null => {
-      const values: number[] = [];
-      for (const r of rubrics) {
-        const rubric = r.rubric as Record<string, { score?: unknown }> | null;
-        if (!rubric) continue;
-        for (const criterion of Object.values(rubric)) {
-          if (typeof criterion?.score === 'number') values.push(criterion.score);
-        }
-      }
-      if (!values.length) return null;
-      return values.reduce((a, b) => a + b, 0) / values.length;
-    };
+    // Mesma leitura da rubrica que o modelo do aluno (skill-calibration):
+    // nunca duplicar esta lógica aqui — ver D1 do QA da Fase 5.
+    const rubricMean = meanRubricScore;
 
     let evidenceTotal = 0;
     const skills: SkillGapEntry[] = CONCEPT_SPINE_MODULES.map((module) => {

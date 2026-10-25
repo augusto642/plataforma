@@ -10,6 +10,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
+/** Mesmo padrão de `SubmissionsService`: P2002 por duck-typing (code). */
+function isPrismaP2002(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: string }).code === 'P2002'
+  );
+}
+
 @Injectable()
 export class ActivitiesService {
   constructor(private readonly prisma: PrismaService) {}  async create(dto: CreateActivityDto, userId?: string, userRole?: string) {
@@ -374,6 +383,10 @@ export class ActivitiesService {
    * Idempotência: `commitSha = review-sync:<clientId>` + a unique
    * (activityId, userId, commitSha) de Submission — reenvio do mesmo
    * item devolve o registro existente (`deduped: true`), sem duplicar.
+   * Corrida (D2, QA Fase 5): dois envios CONCORRENTES passam ambos
+   * pelo `findFirst` antes de qualquer `create`; o perdedor bate no
+   * P2002 da unique e, em vez de 500, volta com o registro vencedor
+   * (`deduped: true`) — o mesmo padrão de `SubmissionsService.create`.
    * Sem tabela nova (reusa Submission) e SEM XP: a sincronização nunca
    * chama a gamificação — revisar offline não minta XP nem streak, só
    * registra o resultado para o mapa de gaps e o modelo do aluno.
@@ -406,17 +419,32 @@ export class ActivitiesService {
     if (existing) {
       return { synced: true, deduped: true, submissionId: existing.id };
     }
-    const created = await this.prisma.submission.create({
-      data: {
-        activityId,
-        userId,
-        commitSha,
-        status: dto.passed ? 'passed' : 'failed',
-        score: dto.score,
-        maxScore: 100,
-        xpAwarded: false,
-      },
-    });
-    return { synced: true, deduped: false, submissionId: created.id };
+    try {
+      const created = await this.prisma.submission.create({
+        data: {
+          activityId,
+          userId,
+          commitSha,
+          status: dto.passed ? 'passed' : 'failed',
+          score: dto.score,
+          maxScore: 100,
+          xpAwarded: false,
+        },
+      });
+      return { synced: true, deduped: false, submissionId: created.id };
+    } catch (error: unknown) {
+      if (isPrismaP2002(error)) {
+        // Corrida: o outro envio venceu e criou o registro. Devolve-o
+        // como dedupado — nunca 500, nunca duplicata.
+        const winner = await this.prisma.submission.findFirst({
+          where: { activityId, userId, commitSha },
+          select: { id: true },
+        });
+        if (winner) {
+          return { synced: true, deduped: true, submissionId: winner.id };
+        }
+      }
+      throw error;
+    }
   }
 }

@@ -36,6 +36,8 @@ describe('ActivitiesService', () => {
     },
     submission: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
     },
   };
 
@@ -184,6 +186,61 @@ describe('ActivitiesService', () => {
         activity: null,
       });
       expect(mockPrismaService.activity.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('syncReview (Fase 5, §6.2 — D2, QA Fase 5)', () => {
+    const dto = { clientId: 'offline-1', score: 80, passed: true };
+
+    beforeEach(() => {
+      mockPrismaService.activity.findUnique.mockResolvedValue({ id: 'activity-1' });
+      jest.clearAllMocks();
+      mockPrismaService.activity.findUnique.mockResolvedValue({ id: 'activity-1' });
+    });
+
+    it('replay sequencial devolve o registro existente (deduped: true)', async () => {
+      mockPrismaService.submission.findFirst.mockResolvedValue({ id: 'sub-1' });
+      await expect(service.syncReview('student-1', 'activity-1', dto)).resolves.toEqual({
+        synced: true, deduped: true, submissionId: 'sub-1',
+      });
+      expect(mockPrismaService.submission.create).not.toHaveBeenCalled();
+    });
+
+    it('dois syncs CONCORRENTES com o mesmo clientId: ambos com sucesso, um único registro', async () => {
+      // Simula a corrida real: ambos passam pelo findFirst (null) antes
+      // de qualquer create; o segundo create bate no P2002 da unique
+      // (activityId, userId, commitSha) e o fallback busca o vencedor.
+      let winner: { id: string } | null = null;
+      mockPrismaService.submission.findFirst.mockImplementation(() =>
+        Promise.resolve(winner),
+      );
+      mockPrismaService.submission.create.mockImplementation(() => {
+        if (winner) return Promise.reject({ code: 'P2002', message: 'unique' });
+        winner = { id: 'sub-winner' };
+        return Promise.resolve(winner);
+      });
+
+      const [first, second] = await Promise.all([
+        service.syncReview('student-1', 'activity-1', dto),
+        service.syncReview('student-1', 'activity-1', dto),
+      ]);
+      expect(first).toEqual({ synced: true, deduped: expect.any(Boolean), submissionId: 'sub-winner' });
+      expect(second).toEqual({ synced: true, deduped: expect.any(Boolean), submissionId: 'sub-winner' });
+      expect([first.deduped, second.deduped].sort()).toEqual([false, true]);
+      expect(mockPrismaService.submission.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('erro diferente de P2002 no create continua propagando (não vira dedupe)', async () => {
+      mockPrismaService.submission.findFirst.mockResolvedValue(null);
+      mockPrismaService.submission.create.mockRejectedValue(new Error('banco fora'));
+      await expect(service.syncReview('student-1', 'activity-1', dto)).rejects.toThrow('banco fora');
+    });
+
+    it('P2002 sem registro vencedor (ex.: apagado na corrida) propaga o erro', async () => {
+      mockPrismaService.submission.findFirst.mockResolvedValue(null);
+      const p2002 = Object.assign(new Error('unique'), { code: 'P2002' });
+      mockPrismaService.submission.create.mockRejectedValue(p2002);
+      await expect(service.syncReview('student-1', 'activity-1', dto)).rejects.toBe(p2002);
     });
   });
 });

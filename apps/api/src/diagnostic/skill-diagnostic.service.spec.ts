@@ -84,6 +84,22 @@ describe('LearnerModelService (Fase 5, §6.4 — interface, não motor)', () => 
     await expect(empty.buildTutorPromptBlock('user-1')).resolves.toBe('');
   });
 
+  it('D1 (QA Fase 5): mapa e modelo concordam com rubrica 5 — exemplo do QA', async () => {
+    // Mesmo prisma mockado dos demais testes: loops = 3 falhas + 1 acerto
+    // com rubrica 5/5. Sem a rubrica o modelo daria 0,333 (missing);
+    // com a mistura 0,6/0,4, mapa e modelo dão 0,6 (developing).
+    const prisma = buildPrisma();
+    const map = await new SkillDiagnosticService(prisma as any).getSkillMap('user-1');
+    const model = await new LearnerModelService(prisma as any).getLearnerModel('user-1');
+    const mapLoops = map.skills.find((s) => s.skillTag === 'loops')!;
+    const modelLoops = model.skills.find((s) => s.skillTag === 'loops')!;
+    expect(mapLoops.level).toBe('developing');
+    expect(mapLoops.score).toBeCloseTo(0.6, 5);
+    expect(modelLoops.mastery).toBeCloseTo(0.6, 5);
+    expect(modelLoops.mastery).toBeCloseTo(mapLoops.score!, 5);
+    expect(modelLoops.weakSpot).toBe(mapLoops.weakSpot);
+  });
+
   it('falha de leitura do modelo nunca quebra o prompt (fail-open)', async () => {
     const prisma = buildPrisma();
     prisma.submission.findMany.mockRejectedValue(new Error('banco fora'));
