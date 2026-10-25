@@ -15,6 +15,7 @@ import { ConceptsToReinforce } from './components/ConceptsToReinforce';
 import { CelebrationModal } from './components/CelebrationModal';
 import { TutorModal } from './components/TutorModal';
 import { CareerPetBanner } from './components/CareerPetBanner';
+import PwaInstallBanner from './components/PwaInstallBanner';
 import { PetEvolutionModal } from '../game/components/PetEvolutionModal';
 import { DEFAULT_DASHBOARD_DATA, fetchDashboardData } from './utils/api';
 import { fireConfetti } from './utils/confetti';
@@ -123,7 +124,9 @@ export default function StudentDashboardPage() {
 
       {/* 2. MAIN BENTO GRID */}
       <main ref={mainRef} className="flex-1 max-w-[1520px] w-full mx-auto p-4 md:p-8 space-y-6">
-        
+        {/* Fase 5 premium (§6.2) — banner de instalação do PWA. */}
+        <PwaInstallBanner />
+
         {/* SECTION 0: CARREIRA & PET COMPANION STATUS BANNER */}
         <CareerPetBanner />
 

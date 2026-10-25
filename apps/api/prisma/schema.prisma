@@ -108,6 +108,10 @@ model User {
   talentProfile        TalentProfile?
   talentIntroductions  TalentIntroduction[]
   orgMemberships       OrgMember[]
+  // Fase 5 premium (desenho §6): diagnóstico por skill, modelo do aluno, cert-prep.
+  diagnosticSkillResults DiagnosticSkillResult[]
+  learnerSkillMastery    LearnerSkillMastery[]
+  certAttempts           CertAttempt[]
   chatMessages      AiChatMessage[]
   studentRepos      StudentRepo[]
 
@@ -362,6 +366,77 @@ model DiagnosticResult {
 
   @@index([userId])
   @@map("diagnostic_results")
+}
+
+// Fase 5 premium (desenho §6.1) — diagnóstico por skill, segunda camada
+// sobre o quiz B09 (que permanece INTACTO). Uma linha por (aluno, skill
+// da espinha de conceitos): score calibrado por nível, não só
+// certo/errado. Recomputada a partir de DiagnosticResult + Submission +
+// CodeReview.rubric — nunca digitada à mão. O mapa é marcado como
+// "estimativa" na API até haver volume de evidência.
+model DiagnosticSkillResult {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  skillTag   String   @map("skill_tag") // concept-spine tag
+  score      Float    // 0..1, calibrado por nível
+  level      String   @db.VarChar(16) // missing | developing | proficient
+  assessedAt DateTime @default(now()) @map("assessed_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, skillTag])
+  @@map("diagnostic_skill_results")
+}
+
+// Fase 5 premium (desenho §6.4) — INTERFACE do tutor adaptativo, não o
+// motor. Tabela DERIVADA (recomputada a partir das fontes existentes:
+// DiagnosticSkillResult + Submission + CodeReview) — não é segunda fonte
+// de verdade. O motor adaptativo completo (ajuste em tempo real,
+// repetição espaçada com meia-vida, grafo próprio de pré-requisitos)
+// está DEFERIDO: duplicaria KMS/Adaptation e só volta após diagnóstico
+// calibrado + gerador de trilhas do KMS. O que existe aqui alimenta o
+// prompt da tutora (o que o aluno domina, onde erra sempre, o que já
+// revisou), com ajuste de dificuldade e volta a pré-requisitos via
+// prompt — nada além disso.
+model LearnerSkillMastery {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  skillTag  String   @map("skill_tag")
+  mastery   Float    // 0..1, derivado das fontes existentes
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillTag])
+  @@map("learner_skill_mastery")
+}
+
+// Fase 5 premium (desenho §6.3) — módulo FINO de preparação para
+// certificações. CertExam descreve o formato (provedor, nome, domínios);
+// as questões do simulado são Activities com lessonPayload — questões
+// PRÓPRIAS, no formato da prova, nunca reprodução de provas reais
+// (direito autoral das certificadoras). CertAttempt registra o score por
+// domínio e a prontidão derivada; não guarda gabarito nem questão.
+model CertExam {
+  id       String       @id @default(uuid()) @db.Uuid
+  provider String       @db.VarChar(32) // aws | azure | gcp
+  name     String
+  domains  String[]     @default([]) // domínios do formato da prova
+  attempts CertAttempt[]
+
+  @@map("cert_exams")
+}
+
+model CertAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  examId    String   @map("exam_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  scores    Json     // por domínio: { dominio: { correct, total, score } }
+  readiness Float    // 0..1
+  createdAt DateTime @default(now()) @map("created_at")
+  exam      CertExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, examId])
+  @@map("cert_attempts")
 }
 
 // B08 (mínimo) — eventos do funil da landing (visita → clique → cadastro),

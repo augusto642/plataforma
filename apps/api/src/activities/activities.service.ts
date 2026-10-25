@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -364,5 +365,58 @@ export class ActivitiesService {
       throw new ForbiddenException('Apenas o instrutor responsável ou administradores podem excluir esta atividade');
     }
     await this.prisma.activity.delete({ where: { id } });
+  }
+
+  /**
+   * Fase 5 premium (desenho §6.2) — sincronização da fila offline de
+   * revisão do PWA. O cliente guarda respostas de revisão (flashcards/
+   * quiz) em localStorage/IndexedDB sem rede e as envia ao voltar online.
+   * Idempotência: `commitSha = review-sync:<clientId>` + a unique
+   * (activityId, userId, commitSha) de Submission — reenvio do mesmo
+   * item devolve o registro existente (`deduped: true`), sem duplicar.
+   * Sem tabela nova (reusa Submission) e SEM XP: a sincronização nunca
+   * chama a gamificação — revisar offline não minta XP nem streak, só
+   * registra o resultado para o mapa de gaps e o modelo do aluno.
+   * Execução de código (Piston) NÃO passa por aqui e fica sempre online.
+   */
+  async syncReview(
+    userId: string,
+    activityId: string,
+    dto: { clientId: string; score: number; passed: boolean },
+  ) {
+    const activity = await this.prisma.activity.findUnique({
+      where: { id: activityId },
+      select: { id: true },
+    });
+    if (!activity) throw new NotFoundException('Atividade não encontrada.');
+    if (!dto.clientId || typeof dto.clientId !== 'string') {
+      throw new BadRequestException('clientId é obrigatório para idempotência.');
+    }
+    if (typeof dto.score !== 'number' || dto.score < 0 || dto.score > 100) {
+      throw new BadRequestException('score deve ser um número entre 0 e 100.');
+    }
+    if (typeof dto.passed !== 'boolean') {
+      throw new BadRequestException('passed deve ser booleano.');
+    }
+    const commitSha = `review-sync:${dto.clientId}`;
+    const existing = await this.prisma.submission.findFirst({
+      where: { activityId, userId, commitSha },
+      select: { id: true },
+    });
+    if (existing) {
+      return { synced: true, deduped: true, submissionId: existing.id };
+    }
+    const created = await this.prisma.submission.create({
+      data: {
+        activityId,
+        userId,
+        commitSha,
+        status: dto.passed ? 'passed' : 'failed',
+        score: dto.score,
+        maxScore: 100,
+        xpAwarded: false,
+      },
+    });
+    return { synced: true, deduped: false, submissionId: created.id };
   }
 }

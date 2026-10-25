@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import './globals.css';
+import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -35,6 +36,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
   description: DESCRIPTION,
+  // Fase 5 premium (§6.2) — PWA: manifest + cor do tema (roxo Nexus).
+  manifest: '/manifest.webmanifest',
+  themeColor: '#8257E5',
   alternates: {
     canonical: '/',
   },
@@ -79,6 +83,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-[#09090A] text-[#F4F4F5] antialiased">
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>
