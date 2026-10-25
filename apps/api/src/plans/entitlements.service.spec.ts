@@ -40,6 +40,10 @@ describe('EntitlementsService', () => {
     user: {
       findUnique: jest.fn(),
     },
+    // Fase 1 premium — resolução única: assinatura ativa vence User.plan.
+    subscription: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   };
 
   beforeEach(async () => {
@@ -65,6 +69,26 @@ describe('EntitlementsService', () => {
   it('getUserPlan lança NotFound para usuário inexistente', async () => {
     mockPrismaService.user.findUnique.mockResolvedValue(null);
     await expect(service.getUserPlan('ghost')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('getUserPlan: assinatura ativa vence o User.plan (resolução única Fase 1)', async () => {
+    mockPrismaService.user.findUnique.mockResolvedValue({ plan: Plan.free });
+    mockPrismaService.subscription.findFirst.mockResolvedValue({ plan: Plan.pro });
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
+    mockPrismaService.subscription.findFirst.mockResolvedValue(null);
+  });
+
+  it('assertFeature bloqueia free no simulador de entrevista e libera pro', async () => {
+    mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.student, plan: Plan.free });
+    mockPrismaService.subscription.findFirst.mockResolvedValue(null);
+    await expect(
+      service.assertFeature('user-1', 'interview-simulator'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.student, plan: Plan.pro });
+    await expect(
+      service.assertFeature('user-1', 'interview-simulator'),
+    ).resolves.toBeUndefined();
   });
 
   it('assertAiTutorAccess libera free no Iniciante (a promessa do plano gratuito)', async () => {

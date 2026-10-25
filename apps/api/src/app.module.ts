@@ -28,7 +28,9 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AdminModule } from './admin/admin.module';
+import { BillingModule } from './billing/billing.module';
 import { CommonModule } from './common/common.module';
+import { PlansModule } from './plans/plans.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
@@ -94,6 +96,8 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     AiModule,
     MetricsModule,
     AdminModule,
+    PlansModule,
+    BillingModule,
     CommonModule,
     HousekeepingModule,
   ],

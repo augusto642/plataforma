@@ -1,0 +1,97 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Post,
+  Query,
+  Req,
+  ServiceUnavailableException,
+  UseGuards,
+} from '@nestjs/common';
+import { Role } from '@prisma/client';
+import type { Request } from 'express';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { BILLING_PROVIDER_TOKEN, type BillingProvider } from './billing-provider.interface';
+import { BillingService } from './billing.service';
+import { CreateCheckoutDto, ListSubscriptionsQueryDto } from './dto/billing.dto';
+import { TestModeGuard } from './test-mode.guard';
+
+/**
+ * Fase 1 premium (desenho §2.3) — rotas de billing.
+ * Webhook com corpo bruto (`rawBody`, como o webhook do Gitea) para
+ * verificação de assinatura — rota fora do JWT, com segredo próprio
+ * do provedor. Nunca persiste dado de cartão (nenhum PAN em nenhuma
+ * tabela: só plano, ciclo, status e período).
+ */
+@Controller('billing')
+export class BillingController {
+  constructor(
+    private readonly billing: BillingService,
+    @Inject(BILLING_PROVIDER_TOKEN) private readonly provider: BillingProvider,
+  ) {}
+
+  @Post('checkout')
+  @UseGuards(TestModeGuard)
+  createCheckout(@CurrentUser() user: JwtPayload, @Body() dto: CreateCheckoutDto) {
+    return this.billing.createCheckout(user.sub, dto.plan, dto.billingCycle);
+  }
+
+  @Get('subscription/me')
+  getMySubscription(@CurrentUser() user: JwtPayload) {
+    return this.billing.getMySubscription(user.sub);
+  }
+
+  @Post('cancel')
+  @UseGuards(TestModeGuard)
+  cancel(@CurrentUser() user: JwtPayload) {
+    return this.billing.cancelMySubscription(user.sub);
+  }
+
+  /**
+   * Webhook do provedor. Sem JWT; autenticado pela assinatura do
+   * provedor (quando configurada). Resposta 200 rápida; a aplicação
+   * é assíncrona via fila `billing-events`. Provedor desativado
+   * (ex.: mercadopago) responde 503 — nunca processa pela metade.
+   */
+  @Public()
+  @Post('webhooks/:provider')
+  @HttpCode(HttpStatus.OK)
+  async webhook(
+    @Param('provider') providerName: string,
+    @Req() req: Request,
+  ) {
+    if (providerName !== this.provider.name) {
+      throw new ServiceUnavailableException(
+        `Provedor '${providerName}' desativado ou desconhecido em modo teste.`,
+      );
+    }
+    const rawBody = (req as unknown as { rawBody?: unknown }).rawBody;
+    if (!Buffer.isBuffer(rawBody) || rawBody.length === 0) {
+      throw new BadRequestException('Corpo do webhook ausente');
+    }
+    const signature =
+      (req.headers['x-signature'] as string | undefined) ??
+      (req.headers['x-hub-signature-256'] as string | undefined);
+    const event = this.provider.parseWebhook(rawBody, signature);
+    const result = await this.billing.recordWebhook(providerName, event, rawBody);
+    return { received: true, ...result };
+  }
+
+  @Get('admin/subscriptions')
+  @Roles(Role.admin)
+  listAdmin(@Query() query: ListSubscriptionsQueryDto) {
+    return this.billing.listAdminSubscriptions({
+      status: query.status,
+      plan: query.plan,
+      userId: query.userId,
+    });
+  }
+}

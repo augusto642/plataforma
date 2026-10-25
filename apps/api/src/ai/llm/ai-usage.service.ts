@@ -43,6 +43,13 @@ export const AI_BLOCKED_EVENT = 'ai_llm_blocked';
 
 export const DEFAULT_DAILY_QUOTA_FREE = 20;
 export const DEFAULT_DAILY_QUOTA_PRO = 200;
+/**
+ * Fase 1 premium — cota do tier Carreira.
+ * PROPOSTA do desenho (§1.1), NÃO fato Q5: Q5 confirmou só free=20 e
+ * pro=200. O valor 200 (igual ao Pro) vale até decisão contrária do
+ * Augusto; ajustável por env (AI_DAILY_QUOTA_CAREER) sem mudar código.
+ */
+export const DEFAULT_DAILY_QUOTA_CAREER = 200;
 
 export interface QuotaReservation {
   ok: boolean;
@@ -89,11 +96,19 @@ export class AiUsageService {
   ) {}
 
   quotaLimitForPlan(plan: string | null | undefined): number {
-    const isPro = plan === 'pro';
-    const raw = this.config.get<string>(
-      isPro ? 'AI_DAILY_QUOTA_PRO' : 'AI_DAILY_QUOTA_FREE',
-    );
-    const fallback = isPro ? DEFAULT_DAILY_QUOTA_PRO : DEFAULT_DAILY_QUOTA_FREE;
+    const envKey =
+      plan === 'pro'
+        ? 'AI_DAILY_QUOTA_PRO'
+        : plan === 'career'
+          ? 'AI_DAILY_QUOTA_CAREER'
+          : 'AI_DAILY_QUOTA_FREE';
+    const fallback =
+      plan === 'pro'
+        ? DEFAULT_DAILY_QUOTA_PRO
+        : plan === 'career'
+          ? DEFAULT_DAILY_QUOTA_CAREER
+          : DEFAULT_DAILY_QUOTA_FREE;
+    const raw = this.config.get<string>(envKey);
     const value = raw !== undefined && raw !== '' ? Number(raw) : NaN;
     return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
   }

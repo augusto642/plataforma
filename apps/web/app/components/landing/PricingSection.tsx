@@ -24,8 +24,11 @@ import { PlanInterestForm } from './PlanInterestForm';
    sessão ativa, ela vira a lista de interessados do plano no servidor
    (POST /plan-interest) — e o selo do Pro diz exatamente isso, sem
    "lote fundador" nem benefício indefinido. */
+/* Fase 1 premium (desenho §2.4) — o CTA de plano pago passa da lista
+   de interessados para o checkout (em modo de testes). A lista de
+   interessados segue válida só para o Carreira, sem preço definido. */
 export const PAID_PLAN_BILLING_NOTE =
-  'Cobrança ainda não ativa — hoje o cadastro é gratuito.';
+  'Checkout em modo de testes — nenhuma cobrança real é feita.';
 
 export const PricingSection: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
@@ -172,8 +175,8 @@ export const PricingSection: React.FC = () => {
               agora diz a ação verdadeira do seu card: o Pro é entrar
               na lista de interessados (o destino real do clique,
               via cadastro + registro no servidor). */}
-          <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="block w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
-            <span className="inline-flex items-center gap-2">Entrar na lista de interessados <IconBolt className="w-4 h-4" /></span>
+          <Link href="/checkout/pro" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="block w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
+            <span className="inline-flex items-center gap-2">Assinar o Pro (modo de testes) <IconBolt className="w-4 h-4" /></span>
           </Link>
           <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
           {/* B71 (Sprint 18 · Volta 3 · Growth M1) — captura só-e-mail
