@@ -24,6 +24,7 @@ import { Optional } from '@nestjs/common';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 import { KmsService } from '../knowledge/kms.service';
 import { ResearchService } from '../knowledge/research/research.service';
+import { TrackGenerationService } from '../knowledge/track-generation/track-generation.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,6 +35,7 @@ export class AdminController {
     @Optional() private readonly knowledge?: KnowledgeService,
     @Optional() private readonly research?: ResearchService,
     @Optional() private readonly kms?: KmsService,
+    @Optional() private readonly tracks?: TrackGenerationService,
   ) {}
 
   @Get('metrics')
@@ -220,5 +222,54 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   getKmsEvolutionReport() {
     return this.kms!.evolutionReport();
+  }
+
+  // ── Trilhas incrementais (DESIGN §4.5) — mesmas guardas admin ───────
+  // T3 = ação do admin (força geração/regeneração de um segmento). NÃO é
+  // endpoint de geração para o aluno (R12): o aluno só vê o mapa e o botão
+  // "próximos passos" informa o estado; a geração por aluno (T2) segue
+  // pendente da decisão de entitlement/cota do Augusto (Q13).
+  @Get('knowledge/tracks/:goal/segments')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listTrackSegments(@Param('goal') goal: string) {
+    return this.tracks!.listSegments(goal);
+  }
+
+  @Post('knowledge/tracks/:goal/segments/:stage/generate')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  generateTrackSegment(
+    @Param('goal') goal: string,
+    @Param('stage') stage: string,
+    @Body() dto: { title: string; topics: string[]; stageOrder: number; language?: string },
+  ) {
+    return this.tracks!.enqueueSegment({
+      goal, goalSlug: goal, stageSlug: stage, stageTitle: dto.title, topics: dto.topics,
+      stageOrder: dto.stageOrder, language: dto.language || 'python', trigger: 'T3',
+    });
+  }
+
+  @Post('knowledge/tracks/:goal/segments/:stage/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveTrackSegment(@Param('goal') goal: string, @Param('stage') stage: string, @Req() req: any) {
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.tracks!.approveSegment(goal, stage, adminId);
+  }
+
+  @Get('knowledge/tracks/:goal/segments/:stage/progress')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getSegmentProgress(@Param('goal') goal: string, @Query('courseSlug') courseSlug: string, @Query('userId') userId: string) {
+    return this.tracks!.segmentProgress(userId, courseSlug || goal);
+  }
+
+  @Get('knowledge/pipeline-budget')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getPipelineBudget() {
+    return this.tracks!.pipelineBudgetStatus();
   }
 }
