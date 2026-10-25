@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisLockService } from '../cache/redis-lock.service';
+import { LeagueService } from '../challenges/league.service';
 
 @Injectable()
 export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
@@ -14,6 +15,9 @@ export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly lockService: RedisLockService,
     @InjectQueue('submissions') private readonly submissionsQueue: Queue,
+    // Fase 3 premium (desenho §4.1): fechamento de seasons vencidas
+    // (badge do campeão) no job existente — sem scheduler novo.
+    private readonly league: LeagueService,
   ) {}
 
   onModuleInit() {
@@ -111,10 +115,21 @@ export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
           errored += 1;
         }
 
+        // Fechamento de seasons de liga vencidas — isolado em try/catch
+        // para nunca quebrar a limpeza principal (o fechamento é
+        // idempotente e roda de novo no próximo ciclo).
+        let closedSeasons = 0;
+        try {
+          closedSeasons = (await this.league.closeExpiredSeasons()).length;
+        } catch (err: any) {
+          this.logger.warn(`Fechamento de ligas falhou: ${err.message}`);
+        }
+
         this.logger.log(
           `Limpeza concluída: ${deletedTokens.count} tokens expirados, ` +
             `${deletedWebhooks.count} webhooks antigos expurgados, ` +
-            `${requeued} submissões zumbis re-enfileiradas, ${errored} marcadas como erro.`,
+            `${requeued} submissões zumbis re-enfileiradas, ${errored} marcadas como erro, ` +
+            `${closedSeasons} seasons de liga vencidas fechadas.`,
         );
       },
       async () => {

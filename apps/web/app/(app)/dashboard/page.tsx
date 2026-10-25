@@ -167,6 +167,44 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
+        {/* SECTION 3.5: DESAFIO DA SEMANA + COMUNIDADE (Fase 3 premium) */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-6 flex flex-col">
+            <a
+              href="/desafios"
+              className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5 hover:border-[#8257E5]/60 transition-colors"
+            >
+              <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
+                Desafio da semana
+              </span>
+              <span className="block font-bold text-white mt-2">
+                Participe, suba na liga e ganhe pontos
+              </span>
+              <span className="block text-sm text-zinc-400 mt-1">
+                Um problema curto por semana, com ranking por nível — iniciante compete com
+                iniciante. Participar já rende pontos.
+              </span>
+            </a>
+          </div>
+          <div className="lg:col-span-6 flex flex-col">
+            <a
+              href="/comunidade"
+              className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5 hover:border-[#8257E5]/60 transition-colors"
+            >
+              <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
+                Comunidade
+              </span>
+              <span className="block font-bold text-white mt-2">
+                Fórum, galeria de soluções e revisão por pares
+              </span>
+              <span className="block text-sm text-zinc-400 mt-1">
+                Discuta o desafio da semana, compartilhe sua solução aprovada e revise o
+                código de colegas.
+              </span>
+            </a>
+          </div>
+        </section>
+
         {/* SECTION 4: RANKING DO CURSO + TUTOR SOCRÁTICO */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 flex flex-col">
