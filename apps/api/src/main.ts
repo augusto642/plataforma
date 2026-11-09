@@ -52,7 +52,9 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-metrics-token'],
+    // M15 (Lote 4) — sem 'Authorization': a API é cookie-only e não aceita
+    // Bearer (ver JwtStrategy); o front nunca envia o header.
+    allowedHeaders: ['Content-Type', 'x-metrics-token'],
   });
 
   app.useGlobalPipes(
