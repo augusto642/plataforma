@@ -3,19 +3,40 @@
 /**
  * CodeBattleModal.tsx
  * NEXUS CODE - Arena de Batalha Pokémon com Editor Monaco Embutido (v2.0)
- * 
+ *
  * Layout e Mecânica Clássica de RPG Pokémon:
  * - Boss / Bug no canto superior direito com Barra de HP e Ghost Bar de dano
  * - Starter do Aluno no canto inferior esquerdo com HP dinâmico e XP
  * - Editor Monaco embutido com syntax highlighting da trilha
- * - Botão "Executar Ataque de Código" com integração a POST /submissions/battle-run (e fallback local)
- * - Animação de screen shake, dano numérico flutuante e disparo do modal de evolução ao vencer
+ * - Botão "Executar Ataque de Código" com integração a POST /submissions/battle-run
+ *
+ * CONTRATO ASSÍNCRONO (Lote 1, C7 — correção D2, 07/11):
+ * - POST /submissions/battle-run responde 202 { submissionId, status:'queued', jobId }
+ *   com o DTO { activityId, companionId, code, language }. O 202 NÃO é resultado:
+ *   o modal aguarda o battleResult real via polling de GET /submissions/:id/battle
+ *   (ver app/game/engine/battleRunClient.ts) e só então decide vitória/derrota
+ *   com dano, HP e recompensas AUTORITATIVOS do servidor — que já persiste
+ *   XP/bits na transação do job. O front NUNCA soma XP/bits localmente aqui.
+ * - Sem activityId (o caso de hoje: os desafios locais `challenge_*` não são
+ *   Activities no banco e não há lookup skill→activity), o modal roda em
+ *   MODO TREINO: avaliação offline via CodeSandboxEvaluator apenas para
+ *   animar a batalha local, SEM registro e SEM nenhuma recompensa.
+ * - Em erro de servidor/rede/timeout: erro honesto na tela, sem avaliação
+ *   local substituta, sem dano de recuo e sem prêmio. Nada é inventado.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { BattleChallenge, getChallengeForSkill } from '../engine/BattleChallenges';
 import { CodeSandboxEvaluator, ExecutionOutcome } from '../engine/CodeSandboxEvaluator';
+import {
+  BattleRunError,
+  battleResultToOutcome,
+  buildBattleRunBody,
+  pollBattleResult,
+  resolveCompanionId,
+  submitBattleRun,
+} from '../engine/battleRunClient';
 import { Skill, useGameStore } from '../stores/useGameStore';
 import { AudioSynthesizer } from '../engine/AudioSynthesizer';
 import { apiFetch } from '../../lib/apiClient';
@@ -35,6 +56,20 @@ interface CodeBattleModalProps {
   onAttackSuccess: (damage: number, logMsg: string) => void;
   onAttackFailed: (damageReceived: number, errorLog: string) => void;
   onClose: () => void;
+  /**
+   * UUID da Activity no servidor (BattleRunDto.activityId). OBRIGATÓRIO para
+   * a batalha registrada: sem ele o modal roda em MODO TREINO (avaliação
+   * local, sem registro, sem recompensa). Hoje a página do jogo não tem esse
+   * valor — os desafios locais (`challenge_*`) não são Activities no banco e
+   * não existe endpoint de lookup skill→activity (ver battleRunClient.ts).
+   */
+  activityId?: string;
+  /**
+   * UUID do UserCompanion (BattleRunDto.companionId). Quando omitido, o modal
+   * resolve via GET /users/me (`companion.id`, 1 por usuário). Se o usuário
+   * não adotou companion, a batalha registrada é recusada com erro honesto.
+   */
+  companionId?: string;
 }
 
 export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
@@ -42,20 +77,29 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
   onAttackSuccess,
   onAttackFailed,
   onClose,
+  activityId,
+  companionId,
 }) => {
   const challenge: BattleChallenge = getChallengeForSkill(skill.id);
   const [code, setCode] = useState<string>(challenge.starterCode);
   const [outcome, setOutcome] = useState<ExecutionOutcome | null>(null);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [showHint, setShowHint] = useState<boolean>(false);
+  // Erro honesto de servidor/rede (D2): exibido no painel, sem fallback que premie.
+  const [serverError, setServerError] = useState<string | null>(null);
+  // true enquanto o 202 está sendo aguardado via polling de GET :id/battle.
+  const [isWaitingServer, setIsWaitingServer] = useState<boolean>(false);
+  // Recompensas JÁ persistidas pelo servidor — apenas exibidas, nunca somadas aqui.
+  const [serverRewards, setServerRewards] = useState<{ xp: number; bits: number } | null>(null);
+
+  // MODO TREINO = sem activityId: avaliação local sem registro e sem recompensa.
+  const isTrainingMode = !activityId;
 
   // Estados dinâmicos de batalha na arena
   const selectedStarter = useGameStore((s) => s.selectedStarter);
   const currentBattle = useGameStore((s) => s.currentBattle);
   const currentHp = useGameStore((s) => s.currentHp);
   const maxHp = useGameStore((s) => s.maxHp);
-  const addBits = useGameStore((s) => s.addBits);
-  const addPetXp = useGameStore((s) => s.addPetXp);
   const setCatMood = useGameStore((s) => s.setCatMood);
   const setCatMessage = useGameStore((s) => s.setCatMessage);
 
@@ -94,97 +138,165 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
     }
   }, [enemyHp, enemyGhostHp]);
 
+  /**
+   * Executa o ataque de código.
+   *
+   * Caminho registrado (activityId presente): POST com o DTO correto →
+   * 202 enfileirado → polling de GET :id/battle até o resultado real →
+   * vitória/derrota decidida com dano, HP e recompensas DO SERVIDOR.
+   * Erro em qualquer etapa = erro honesto na tela; sem avaliação local
+   * substituta, sem recuo e sem prêmio.
+   *
+   * Caminho treino (sem activityId): avaliação offline via
+   * CodeSandboxEvaluator APENAS para animar a batalha local. Não registra
+   * nada no servidor e NÃO concede XP/bits — é prática, não progresso.
+   */
   const handleRunCode = async () => {
     if (isExecuting || isVictorious) return;
     setIsExecuting(true);
+    setServerError(null);
+    setServerRewards(null);
     void audio.playTone({ frequency: 800, duration: 0.08, type: 'square' });
 
-    let finalOutcome: ExecutionOutcome;
+    // ---- Caminho registrado: DTO correto + 202 + polling do resultado real ----
+    if (!isTrainingMode && activityId) {
+      try {
+        const resolvedCompanionId =
+          companionId ?? (await resolveCompanionId(apiFetch));
+        if (!resolvedCompanionId) {
+          throw new BattleRunError(
+            'Você ainda não adotou um companion. Adote um starter antes de registrar batalhas — ou jogue no modo treino, sem registro de XP/Bits.',
+          );
+        }
 
-    // 1. Tenta submissão ao backend /submissions/battle-run
-    try {
-      const response = await apiFetch('/submissions/battle-run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          language: challenge.language,
-          challengeId: challenge.id,
-          skillId: skill.id,
-        }),
-      });
+        const enqueued = await submitBattleRun(
+          apiFetch,
+          buildBattleRunBody(activityId, resolvedCompanionId, code, challenge.language),
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        finalOutcome = {
-          allPassed: data.allPassed,
-          testsPassed: data.testsPassed || (data.allPassed ? challenge.testCases.length : 0),
-          totalTests: challenge.testCases.length,
-          executionTimeMs: data.durationMs || 45,
-          testResults: data.testResults || [],
-          stdout: data.stdout || '',
-          syntaxError: data.syntaxError,
-        };
-      } else {
-        // Fallback local caso a API retorne status não 2xx
-        finalOutcome = await CodeSandboxEvaluator.evaluateAsync(code, challenge, 1500);
+        setIsWaitingServer(true);
+        const result = await pollBattleResult(apiFetch, enqueued.submissionId);
+        setIsWaitingServer(false);
+        const mapped = battleResultToOutcome(result, challenge);
+
+        setOutcome(mapped.outcome);
+        setIsExecuting(false);
+        // Recompensas já persistidas pelo servidor — só exibição.
+        setServerRewards({ xp: mapped.xpGained, bits: mapped.bitsGained });
+
+        applyBattleOutcome({
+          allPassed: mapped.outcome.allPassed,
+          testsPassed: mapped.outcome.testsPassed,
+          totalTests: mapped.outcome.totalTests,
+          syntaxError: mapped.outcome.syntaxError,
+          damageDealt: mapped.damageDealt,
+          recoilDamage: mapped.recoilDamage,
+          remainingBossHp: mapped.remainingBossHp,
+          isVictory: mapped.isVictory,
+          logMsg: mapped.combatLog,
+          rewardSuffix: ` (+${mapped.xpGained} XP, +${mapped.bitsGained} Bits registrados no servidor)`,
+        });
+        return;
+      } catch (err) {
+        setIsWaitingServer(false);
+        setIsExecuting(false);
+        setServerError(
+          err instanceof BattleRunError
+            ? err.message
+            : 'Erro inesperado na batalha registrada. Nada foi aplicado — tente novamente.',
+        );
+        setCatMood('alert');
+        setCatMessage('A batalha não pôde ser registrada no servidor. Tente novamente.');
+        return;
       }
-    } catch {
-      // Fallback transparente para o sandbox local offline
-      finalOutcome = await CodeSandboxEvaluator.evaluateAsync(code, challenge, 1500);
     }
 
-    setOutcome(finalOutcome);
+    // ---- Caminho treino: avaliação offline, sem registro e sem recompensa ----
+    const trainingOutcome = await CodeSandboxEvaluator.evaluateAsync(code, challenge, 1500);
+    setOutcome(trainingOutcome);
     setIsExecuting(false);
 
-    if (finalOutcome.allPassed) {
-      // Dano Crítico de Código
-      const baseDamage = Math.round(skill.power * challenge.damageMultiplier);
-      const newHp = Math.max(0, enemyHp - baseDamage);
+    const baseDamage = Math.round(skill.power * challenge.damageMultiplier);
+    applyBattleOutcome({
+      allPassed: trainingOutcome.allPassed,
+      testsPassed: trainingOutcome.testsPassed,
+      totalTests: trainingOutcome.totalTests,
+      syntaxError: trainingOutcome.syntaxError,
+      damageDealt: trainingOutcome.allPassed ? baseDamage : 0,
+      recoilDamage: 8,
+      remainingBossHp: trainingOutcome.allPassed
+        ? Math.max(0, enemyHp - baseDamage)
+        : enemyHp,
+      isVictory: trainingOutcome.allPassed && enemyHp - baseDamage <= 0,
+      logMsg: '',
+      rewardSuffix: ' (modo treino — sem registro de XP/Bits)',
+    });
+  };
+
+  /**
+   * Aplica o desfecho da batalha na arena (efeitos visuais + callbacks).
+   * Recebe dano/HP já decididos — pelo servidor no caminho registrado, pelo
+   * cálculo local no modo treino. NÃO concede XP/bits em nenhum caminho:
+   * no registrado, o servidor já persistiu; no treino, não há recompensa.
+   */
+  const applyBattleOutcome = (params: {
+    allPassed: boolean;
+    testsPassed: number;
+    totalTests: number;
+    syntaxError?: string;
+    damageDealt: number;
+    recoilDamage: number;
+    remainingBossHp: number;
+    isVictory: boolean;
+    logMsg: string;
+    rewardSuffix: string;
+  }) => {
+    if (params.allPassed) {
+      // Dano Crítico de Código (valor autoritativo: servidor, ou local no treino)
+      const newHp = Math.max(0, params.remainingBossHp);
       setEnemyHp(newHp);
 
       // Gatilho de Screen Shake e Dano Flutuante
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
-      setFloatingDamage({ amount: baseDamage, isCrit: true });
+      setFloatingDamage({ amount: params.damageDealt, isCrit: true });
       setTimeout(() => setFloatingDamage(null), 1200);
 
-      addBits(35);
       void audio.playHit();
       setCatMood('celebrate');
 
-      if (newHp <= 0) {
+      if (params.isVictory) {
         // Boss Derrotado!
         setIsVictorious(true);
         void audio.playEvolutionFanfare();
-        setCatMessage(`INCRÍVEL! ${currentBattle?.enemy.name || 'O Bug'} foi derrotado! Você conquistou 150 XP!`);
+        setCatMessage(
+          `INCRÍVEL! ${currentBattle?.enemy.name || 'O Bug'} foi derrotado!${params.rewardSuffix}`,
+        );
 
-        // Concede XP e dispara evolução se atingir o limiar
         setTimeout(() => {
-          addPetXp(150);
           onAttackSuccess(
-            baseDamage,
-            `VITÓRIA TOTAL! ${skill.name} aniquilou ${currentBattle?.enemy.name || 'o Bug'} com ${baseDamage} de dano crítico! (+35 Bits / +150 XP)`
+            params.damageDealt,
+            `${params.logMsg || `VITÓRIA TOTAL! ${skill.name} aniquilou ${currentBattle?.enemy.name || 'o Bug'} com ${params.damageDealt} de dano crítico!`}${params.rewardSuffix}`,
           );
         }, 1200);
       } else {
         onAttackSuccess(
-          baseDamage,
-          `COMPILAÇÃO IMPECÁVEL! ${skill.name} desferiu um GOLPE CRÍTICO de ${baseDamage} de dano! (+35 Bits)`
+          params.damageDealt,
+          `${params.logMsg || `COMPILAÇÃO IMPECÁVEL! ${skill.name} desferiu um GOLPE CRÍTICO de ${params.damageDealt} de dano!`}${params.rewardSuffix}`,
         );
       }
     } else {
-      // Falha: Contra-ataque
-      const recoilDamage = 8;
+      // Falha: Contra-ataque (dano de recuo do servidor, ou 8 no treino)
+      const recoilDamage = params.recoilDamage;
       void audio.playTone({ frequency: 220, duration: 0.2, type: 'sawtooth' });
       setCatMood('alert');
       setCatMessage('Fsssh! Ocorreu um erro de sintaxe ou falha de teste! Inspecione os casos de teste com calma!');
 
       onAttackFailed(
         recoilDamage,
-        finalOutcome.syntaxError
+        params.syntaxError
           ? `ERRO DE COMPILAÇÃO: O bug adversário aproveitou o erro e causou ${recoilDamage} de contra-ataque!`
-          : `FALHA DE TESTES: ${finalOutcome.testsPassed}/${finalOutcome.totalTests} passaram. O bug causou ${recoilDamage} de dano!`
+          : `${params.logMsg || `FALHA DE TESTES: ${params.testsPassed}/${params.totalTests} passaram. O bug causou ${recoilDamage} de dano!`}${params.rewardSuffix}`,
       );
     }
   };
@@ -214,6 +326,23 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
                 <span className="rounded-md bg-cyan-950 px-2 py-0.5 font-mono text-[10px] font-bold text-[#00E5FF] border border-cyan-800">
                   {skill.type} &bull; PWR {skill.power}
                 </span>
+                {isTrainingMode ? (
+                  <span
+                    title="Sem activityId ligada a esta batalha: a avaliação é só local, não registra nada no servidor e não vale XP/Bits."
+                    className="rounded-md bg-amber-950 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400 border border-amber-800"
+                  >
+                    MODO TREINO &bull; SEM REGISTRO
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-emerald-950 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400 border border-emerald-800">
+                    BATALHA REGISTRADA
+                  </span>
+                )}
+                {serverRewards && (
+                  <span className="rounded-md bg-emerald-950 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300 border border-emerald-800">
+                    +{serverRewards.xp} XP &bull; +{serverRewards.bits} BITS (SERVIDOR)
+                  </span>
+                )}
               </div>
               <p className="font-mono text-[11px] text-slate-400">{challenge.title}</p>
             </div>
@@ -385,12 +514,30 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
 
                   {!t.passed && (
                     <div className="text-[10px] text-slate-400 mt-1 border-t border-white/5 pt-1 space-y-0.5">
-                      <div>Esperado: <code className="text-emerald-400">{JSON.stringify(t.expected)}</code></div>
-                      <div>Recebido: <code className="text-red-400">{JSON.stringify(t.actual)}</code></div>
+                      {t.expected !== undefined && (
+                        <div>Esperado: <code className="text-emerald-400">{JSON.stringify(t.expected)}</code></div>
+                      )}
+                      {t.actual !== undefined && (
+                        <div>Recebido: <code className="text-red-400">{JSON.stringify(t.actual)}</code></div>
+                      )}
+                      {/* Resultado do servidor não traz expected/actual — exibe a mensagem do servidor. */}
+                      {t.expected === undefined && t.actual === undefined && t.error && (
+                        <div>{t.error}</div>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
+
+              {serverError && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 p-2.5 text-amber-200">
+                  <div className="font-bold text-[11px] mb-1">BATALHA NÃO REGISTRADA:</div>
+                  <p className="whitespace-pre-wrap text-[10px] font-mono">{serverError}</p>
+                  <p className="mt-1 text-[10px] text-amber-300/80">
+                    Nada foi avaliado nem premiado. Corrija a conexão e clique novamente para tentar.
+                  </p>
+                </div>
+              )}
 
               {outcome?.syntaxError && (
                 <div className="rounded-xl border border-red-500/40 bg-red-950/40 p-2.5 text-red-300">
@@ -407,13 +554,19 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
         {/* 3. RODAPÉ COM BOTÃO DE ATAQUE */}
         <div className="flex flex-col sm:flex-row items-center justify-between border-t border-cyan-900/60 bg-[#0A1428] px-6 py-3.5 gap-3">
           <div className="font-mono text-xs text-slate-300">
-            {outcome?.allPassed ? (
+            {serverError ? (
+              <span className="text-amber-400 font-bold">
+                Batalha não registrada — tente novamente.
+              </span>
+            ) : outcome?.allPassed ? (
               <span className="text-[#04D361] font-bold">
                 ✓ Testes validados! Clique para desferir o ataque de código do {selectedStarter.name}!
+                {isTrainingMode && ' (modo treino — sem registro de XP/Bits)'}
               </span>
             ) : (
               <span className="text-amber-400">
                 Corrija a lógica do código para compilar e desferir o golpe.
+                {isTrainingMode && ' (modo treino — sem registro de XP/Bits)'}
               </span>
             )}
           </div>
@@ -436,8 +589,10 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
               <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
             )}
             <span>
-              {isExecuting
-                ? 'AVALIANDO SANDBOX...'
+              {isWaitingServer
+                ? 'AGUARDANDO SERVIDOR...'
+                : isExecuting
+                ? 'AVALIANDO...'
                 : isVictorious
                 ? '🏆 BOSS DERROTADO!'
                 : '⚡ EXECUTAR ATAQUE DE CÓDIGO'}

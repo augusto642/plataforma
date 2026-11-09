@@ -20,7 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
-  register: (dto: { email: string; name: string; password: string; role?: string }) => Promise<{ success: boolean; error?: string }>;
+  register: (dto: { email: string; name: string; password: string; role?: string }) => Promise<{ success: boolean; error?: string; emailVerificationRequired?: boolean }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string;
     password: string;
     role?: string;
-  }): Promise<{ success: boolean; error?: string }> => {
+  }): Promise<{ success: boolean; error?: string; emailVerificationRequired?: boolean }> => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -139,6 +139,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         setIsLoading(false);
         return { success: false, error: data.message || 'Erro ao realizar cadastro.' };
+      }
+
+      // C5 (Lote 1): o cadastro NÃO cria sessão — a conta nasce não
+      // verificada e o wizard mostra o passo de digitação do código. Não há
+      // usuário a hidratar aqui (não há cookies de sessão).
+      if ((data as any).emailVerificationRequired) {
+        setIsLoading(false);
+        return { success: true, emailVerificationRequired: true };
       }
 
       // Corpo agora é { user }; sessão vive nos cookies httpOnly.

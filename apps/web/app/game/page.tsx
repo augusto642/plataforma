@@ -51,6 +51,10 @@ export default function GamePage(): JSX.Element {
   const consumeItem = useGameStore((s) => s.useItem);
   const currentBattle = useGameStore((s) => s.currentBattle);
   const attackEnemy = useGameStore((s) => s.attackEnemy);
+  // D2: o modal de código aplica o dano já decidido (servidor ou treino) sem
+  // rolar dano novo e sem conceder XP/bits — attackEnemy NÃO serve aqui
+  // (rola dano aleatório e premia na vitória; segue só no QUICK STRIKE).
+  const applyCodeBattleOutcome = useGameStore((s) => s.applyCodeBattleOutcome);
   const fleeBattle = useGameStore((s) => s.fleeBattle);
   const isMuted = useGameStore((s) => s.isMuted);
   const toggleMute = useGameStore((s) => s.toggleMute);
@@ -854,8 +858,12 @@ export default function GamePage(): JSX.Element {
       {activeCodeSkill && (
         <CodeBattleModal
           skill={activeCodeSkill}
+          // D2: sem activityId ligada a esta batalha (os desafios locais não
+          // são Activities no servidor) o modal roda em modo treino. Quando
+          // houver uma Activity real com testCode/bossMetadata, passar
+          // activityId={...} aqui para ativar a batalha registrada.
           onAttackSuccess={(damage, logMsg) => {
-            attackEnemy(activeCodeSkill.id);
+            applyCodeBattleOutcome(damage);
             setActiveCodeSkill(null);
             setBattleSubMenu('main');
           }}

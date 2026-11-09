@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Language } from '@prisma/client';
 import { buildRunnerConfig, RunnerConfig } from '../../config/runner.config';
+import { PistonCircuitBreaker } from './circuit-breaker';
 
 export type SandboxResultKind =
   | 'passed'
@@ -99,10 +100,57 @@ const PISTON_FILE_NAME: Partial<Record<Language, string>> = {
 
 const DEFAULT_TIME_LIMIT_MS = 5_000;
 const DEFAULT_MEMORY_LIMIT_MB = 256;
+/**
+ * A3 — teto de execuções Piston simultâneas no lado da API.
+ *
+ * Sem este limite, cada job do worker dispara 1 HTTP por caso de teste e
+ * nada impede N jobs de baterem no Piston ao mesmo tempo. O número é
+ * CASADO com o `concurrency: 4` do worker (`submission.processor.ts`):
+ * 4 jobs em paralelo x 1 execução Piston por vez cada = no máximo 4
+ * HTTPs simultâneos no Piston. Para mudar o teto, troque os DOIS juntos:
+ * `PISTON_MAX_CONCURRENT` (aqui, via env) e o `concurrency` do @Processor.
+ * Default 4. Valores inválidos (< 1 / não numéricos) caem para 4.
+ */
+const DEFAULT_PISTON_MAX_CONCURRENT = 4;
+
+/**
+ * Semáforo FIFO em-processo (sem dependência nova: `p-limit` é só
+ * transitiva no lockfile, não é dependência direta da API).
+ */
+export class PistonConcurrencyLimiter {
+  private running = 0;
+  private readonly waiters: Array<() => void> = [];
+
+  constructor(private readonly max: number) {}
+
+  get maxConcurrency(): number {
+    return this.max;
+  }
+
+  get currentConcurrency(): number {
+    return this.running;
+  }
+
+  async acquire(): Promise<() => void> {
+    if (this.running < this.max) {
+      this.running++;
+      return () => this.release();
+    }
+    await new Promise<void>((resolve) => this.waiters.push(resolve));
+    this.running++;
+    return () => this.release();
+  }
+
+  private release(): void {
+    this.running--;
+    const next = this.waiters.shift();
+    if (next) next();
+  }
+}
 const RUN_TIMEOUT_MIN_MS = 100;
-const RUN_TIMEOUT_MAX_MS = 15_000;
-const COMPILE_TIMEOUT_MS = 10_000;
 const ERROR_MESSAGE_MAX_CHARS = 2_000;
+const CIRCUIT_BREAKER_OPEN_MESSAGE =
+  'O sandbox de execução está temporariamente indisponível (circuit breaker aberto após falhas consecutivas no Piston). Tente novamente mais tarde.';
 
 const KIND_PRECEDENCE: SandboxResultKind[] = [
   'sandbox_unavailable',
@@ -125,6 +173,8 @@ const SANDBOX_UNAVAILABLE_MESSAGE =
 export class PistonRunnerService implements RunnerService {
   private readonly logger = new Logger(PistonRunnerService.name);
   private readonly config: RunnerConfig;
+  private readonly pistonLimiter: PistonConcurrencyLimiter;
+  private readonly breaker: PistonCircuitBreaker;
 
   constructor(configService: ConfigService) {
     this.config = buildRunnerConfig({
@@ -133,7 +183,57 @@ export class PistonRunnerService implements RunnerService {
       PISTON_MAX_OUTPUT_CHARS: configService.get<string>(
         'PISTON_MAX_OUTPUT_CHARS',
       ),
+      PISTON_BREAKER_FAILURE_THRESHOLD: configService.get<string>(
+        'PISTON_BREAKER_FAILURE_THRESHOLD',
+      ),
+      PISTON_BREAKER_OPEN_MS: configService.get<string>(
+        'PISTON_BREAKER_OPEN_MS',
+      ),
+      PISTON_HTTP_GRACE_MS: configService.get<string>('PISTON_HTTP_GRACE_MS'),
     });
+    // A3: lê PISTON_MAX_CONCURRENT (default 4, casado com o worker).
+    const rawMax = Number(configService.get<string>('PISTON_MAX_CONCURRENT'));
+    const maxConcurrent =
+      Number.isFinite(rawMax) && rawMax >= 1
+        ? Math.floor(rawMax)
+        : DEFAULT_PISTON_MAX_CONCURRENT;
+    this.pistonLimiter = new PistonConcurrencyLimiter(maxConcurrent);
+    // M7: circuit breaker em-processo (mesma limitação do semáforo A3:
+    // cada réplica da API tem o seu).
+    this.breaker = new PistonCircuitBreaker(
+      this.config.breakerFailureThreshold,
+      this.config.breakerOpenMs,
+    );
+  }
+
+  /** Teto de execuções Piston simultâneas (para testes/monitoramento). */
+  get maxPistonConcurrency(): number {
+    return this.pistonLimiter.maxConcurrency;
+  }
+
+  /** Execuções Piston em voo neste instante (para testes/monitoramento). */
+  get currentPistonConcurrency(): number {
+    return this.pistonLimiter.currentConcurrency;
+  }
+
+  /** M7 — timeout canônico de execução do Piston (PISTON_TIMEOUT_MS). */
+  get executionTimeoutMs(): number {
+    return this.config.timeoutMs;
+  }
+
+  /** M7 — timeout HTTP efetivo (canônico + folga de transporte). */
+  get pistonHttpTimeoutMs(): number {
+    return this.config.timeoutMs + this.config.httpGraceMs;
+  }
+
+  /** M7 — estado atual do circuit breaker (para testes/monitoramento). */
+  get circuitBreakerState(): 'closed' | 'open' | 'half-open' {
+    return this.breaker.state;
+  }
+
+  /** M7 — falhas consecutivas acumuladas no breaker. */
+  get circuitBreakerFailureCount(): number {
+    return this.breaker.failureCount;
   }
 
   async executeInSandbox(options: SandboxExecutionOptions): Promise<SandboxExecutionResult> {
@@ -316,9 +416,14 @@ export class PistonRunnerService implements RunnerService {
       };
     }
 
+    // M7 — timeout único: o teto do run_timeout por execução é o valor
+    // canônico (config.timeoutMs, PISTON_TIMEOUT_MS). Antes, o teto era
+    // um fixo de 15 s divergente do HTTP (30 s) e do compile (10 s).
+    // O default por atividade continua 5 s (DEFAULT_TIME_LIMIT_MS); só
+    // o TETO mudou — atividades existentes não mudam de comportamento.
     const rawTimeLimit = options.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS;
     const timeLimitMs = Math.min(
-      RUN_TIMEOUT_MAX_MS,
+      this.config.timeoutMs,
       Math.max(RUN_TIMEOUT_MIN_MS, Number.isFinite(rawTimeLimit) ? rawTimeLimit : DEFAULT_TIME_LIMIT_MS),
     );
     const rawMemoryMb = options.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB;
@@ -328,14 +433,16 @@ export class PistonRunnerService implements RunnerService {
         : DEFAULT_MEMORY_LIMIT_MB;
     const memoryBytes = memoryMb * 1024 * 1024;
 
+    // M7 — timeout único: run E compile usam o valor canônico
+    // (config.timeoutMs). Antes: compile_timeout fixo de 10 s.
     const payload = {
       language: pistonLanguage,
       version: '*',
       files: [{ name: PISTON_FILE_NAME[language], content: code }],
       stdin: options.stdin ?? '',
-      compile_timeout: COMPILE_TIMEOUT_MS,
+      compile_timeout: this.config.timeoutMs,
       run_timeout: timeLimitMs,
-      compile_cpu_time: COMPILE_TIMEOUT_MS,
+      compile_cpu_time: this.config.timeoutMs,
       run_cpu_time: timeLimitMs,
       compile_memory_limit: memoryBytes,
       run_memory_limit: memoryBytes,
@@ -349,9 +456,32 @@ export class PistonRunnerService implements RunnerService {
     httpStatus: number;
     body: PistonExecuteResponse | null;
     errorDetail: string | null;
+    breakerOpen?: boolean;
   }> {
+    // M7 — circuito aberto: falha rápido SEM chamar o Piston (e sem
+    // ocupar um slot do semáforo A3). O erro explícito chega ao aluno
+    // via mapPistonResponse (kind sandbox_unavailable + mensagem do
+    // breaker) em vez de um timeout de 30 s por tentativa.
+    if (!this.breaker.allowRequest()) {
+      this.logger.warn('Piston circuit breaker open — failing fast without calling Piston');
+      return {
+        httpStatus: 0,
+        body: null,
+        errorDetail: CIRCUIT_BREAKER_OPEN_MESSAGE,
+        breakerOpen: true,
+      };
+    }
+    // A3: o HTTP ao Piston só sai com um slot livre no semáforo — no
+    // máximo PISTON_MAX_CONCURRENT execuções simultâneas por processo.
+    const release = await this.pistonLimiter.acquire();
+    // M7 — timeout HTTP = canônico + folga de transporte (ver
+    // runner.config.ts): sem a folga, o abort poderia cortar a resposta
+    // do Piston no instante em que ele mata a execução.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const timer = setTimeout(
+      () => controller.abort(),
+      this.config.timeoutMs + this.config.httpGraceMs,
+    );
     try {
       const res = await globalThis.fetch(
         `${this.config.url}/api/v2/execute`,
@@ -369,6 +499,14 @@ export class PistonRunnerService implements RunnerService {
         } catch {
           detail = null;
         }
+        // M7 — só 5xx conta como falha do Piston: 4xx é o Piston no ar
+        // respondendo (ex.: runtime não encontrado). Qualquer resposta
+        // não-5xx zera o contador de falhas consecutivas.
+        if (res.status >= 500) {
+          this.breaker.recordFailure();
+        } else {
+          this.breaker.recordSuccess();
+        }
         return { httpStatus: res.status, body: null, errorDetail: detail };
       }
       let body: PistonExecuteResponse | null = null;
@@ -377,8 +515,12 @@ export class PistonRunnerService implements RunnerService {
       } catch {
         body = null;
       }
+      this.breaker.recordSuccess();
       return { httpStatus: res.status, body, errorDetail: null };
     } catch (err: any) {
+      // M7 — erro de transporte (incl. abort por timeout) conta como
+      // falha consecutiva do breaker.
+      this.breaker.recordFailure();
       if (err?.name === 'AbortError') {
         this.logger.warn('Piston execute timed out (network timeout)');
         return {
@@ -395,13 +537,27 @@ export class PistonRunnerService implements RunnerService {
       };
     } finally {
       clearTimeout(timer);
+      release();
     }
   }
 
   private mapPistonResponse(
-    http: { httpStatus: number; body: PistonExecuteResponse | null; errorDetail: string | null },
+    http: { httpStatus: number; body: PistonExecuteResponse | null; errorDetail: string | null; breakerOpen?: boolean },
     durationMs: number,
   ): RunnerExecution {
+    // M7 — circuito aberto: erro explícito (não a mensagem genérica de
+    // indisponibilidade), para o aluno e os logs distinguirem "Piston
+    // fora do ar há N falhas" de "falha isolada".
+    if (http.breakerOpen) {
+      return {
+        kind: 'sandbox_unavailable',
+        status: 'error',
+        durationMs,
+        stdout: '',
+        stderr: '',
+        errorMessage: CIRCUIT_BREAKER_OPEN_MESSAGE,
+      };
+    }
     if (!http.body) {
       if (
         http.httpStatus >= 400 &&

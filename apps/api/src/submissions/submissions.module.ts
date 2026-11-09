@@ -4,6 +4,7 @@ import { CacheModule } from '../cache/cache.module';
 import { GamificationModule } from '../gamification/gamification.module';
 import { EvaluatorService } from './evaluator/evaluator.service';
 import { PistonRunnerService } from './runner/runner.service';
+import { SubmissionEventsService } from './submission-events.service';
 import { SubmissionProcessor } from './submission.processor';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionsService } from './submissions.service';
@@ -26,7 +27,8 @@ import { SubmissionsService } from './submissions.service';
     EvaluatorService,
     PistonRunnerService,
     SubmissionProcessor,
+    SubmissionEventsService,
   ],
-  exports: [SubmissionsService, EvaluatorService, PistonRunnerService],
+  exports: [SubmissionsService, EvaluatorService, PistonRunnerService, SubmissionEventsService],
 })
 export class SubmissionsModule {}

@@ -19,6 +19,8 @@ describe('AuthController (cookie-only auth)', () => {
     login: jest.Mock;
     refresh: jest.Mock;
     logout: jest.Mock;
+    verifyEmail: jest.Mock;
+    resendCode: jest.Mock;
   };
   let res: { cookie: jest.Mock; clearCookie: jest.Mock };
   let req: { headers: Record<string, string | undefined> };
@@ -31,10 +33,14 @@ describe('AuthController (cookie-only auth)', () => {
 
   beforeEach(() => {
     auth = {
-      register: jest.fn().mockResolvedValue(tokens),
+      register: jest
+        .fn()
+        .mockResolvedValue({ user: tokens.user, emailVerificationRequired: true }),
       login: jest.fn().mockResolvedValue(tokens),
       refresh: jest.fn().mockResolvedValue(tokens),
       logout: jest.fn().mockResolvedValue(undefined),
+      verifyEmail: jest.fn().mockResolvedValue(tokens),
+      resendCode: jest.fn().mockResolvedValue({ message: 'ok' }),
     };
     controller = new AuthController(auth as unknown as AuthService);
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
@@ -67,14 +73,39 @@ describe('AuthController (cookie-only auth)', () => {
     expect(cookies[ACCESS_TOKEN_COOKIE].options.sameSite).toBeDefined();
   });
 
-  it('register sets httpOnly cookies and returns ONLY the user profile', async () => {
+  /**
+   * C5: o cadastro NÃO cria sessão — nenhum cookie é emitido e o corpo traz
+   * emailVerificationRequired. A sessão só nasce em POST /auth/verify-email.
+   */
+  it('register returns NO cookies and flags emailVerificationRequired', async () => {
     const body = await controller.register(
       { email: 'a@b.com', password: 'pass', name: 'A' } as any,
+    );
+
+    expect(body).toEqual({ user: tokens.user, emailVerificationRequired: true });
+    expect(res.cookie).not.toHaveBeenCalled();
+    expect(JSON.stringify(body)).not.toContain(tokens.accessToken);
+  });
+
+  it('verify-email sets httpOnly cookies and returns ONLY the user profile', async () => {
+    const body = await controller.verifyEmail(
+      { email: 'a@b.com', code: '123456' } as any,
       res as any,
     );
 
+    expect(auth.verifyEmail).toHaveBeenCalledWith('a@b.com', '123456');
     expect(body).toEqual({ user: tokens.user });
     expect(cookiesSet()[REFRESH_TOKEN_COOKIE].value).toBe(tokens.refreshToken);
+    expect(cookiesSet()[ACCESS_TOKEN_COOKIE].options.httpOnly).toBe(true);
+    expect(JSON.stringify(body)).not.toContain(tokens.accessToken);
+  });
+
+  it('resend-code returns the service message and sets no cookies', async () => {
+    const body = await controller.resendCode({ email: 'a@b.com' } as any);
+
+    expect(auth.resendCode).toHaveBeenCalledWith('a@b.com');
+    expect(body).toEqual({ message: 'ok' });
+    expect(res.cookie).not.toHaveBeenCalled();
   });
 
   it('refresh reads the token from the cookie, not from the body', async () => {

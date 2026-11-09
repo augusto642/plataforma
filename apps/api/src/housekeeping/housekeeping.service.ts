@@ -71,13 +71,29 @@ export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
 
         const zombies = await this.prisma.submission.findMany({
           where: zombieWhere,
-          select: { id: true, requeueCount: true },
+          select: { id: true, requeueCount: true, isBattleRun: true },
         });
 
         let requeued = 0;
         let errored = 0;
 
         for (const zombie of zombies) {
+          // C7: submissão de battle travada NUNCA volta como job 'evaluate' —
+          // o evaluator premiaria XP normal por cima do prêmio do boss
+          // (XP em dobro). O retry do battle é o attempts:2 do próprio job
+          // 'battle-run'; aqui a travada vai direto para 'error'.
+          if ((zombie as any).isBattleRun) {
+            await this.prisma.submission.updateMany({
+              where: { id: zombie.id, status: { in: ['queued', 'running'] } },
+              data: {
+                status: 'error',
+                errorMessage:
+                  'A batalha excedeu o tempo limite de execução. Reenvie a batalha.',
+              },
+            });
+            errored += 1;
+            continue;
+          }
           if (zombie.requeueCount < 1) {
             // CAS: incrementa requeueCount condicional para evitar que duas
             // réplicas re-enfileirem a mesma submissão.

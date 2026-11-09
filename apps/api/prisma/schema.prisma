@@ -43,6 +43,7 @@ model User {
   name         String
   passwordHash String    @map("password_hash")
   role         Role      @default(student)
+  emailVerifiedAt DateTime? @map("email_verified_at")
   careerTier   CareerTier @default(beginner) @map("career_tier")
   giteaUserId  Int?      @unique @map("gitea_user_id")
   xp           Int       @default(0)
@@ -57,6 +58,7 @@ model User {
 
   companion         UserCompanion?
   refreshTokens     RefreshToken[]
+  emailVerificationCodes EmailVerificationCode[]
   instructedCourses Course[]        @relation("InstructedCourses")
   enrollments       Enrollment[]
   submissions       Submission[]
@@ -64,6 +66,8 @@ model User {
   chatMessages      AiChatMessage[]
   studentRepos      StudentRepo[]
 
+  @@index([role])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -108,7 +112,24 @@ model AiChatMessage {
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
   @@index([userId, activityId])
+  @@index([createdAt])
   @@map("ai_chat_messages")
+}
+
+model EmailVerificationCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0)
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("email_verification_codes")
 }
 
 model RefreshToken {
@@ -188,6 +209,7 @@ model Activity {
   studentRepos StudentRepo[]
 
   @@unique([courseId, slug])
+  @@index([courseId, order])
   @@map("activities")
 }
 
@@ -207,6 +229,8 @@ model Submission {
   aiHints      String?          @map("ai_hints")
   aiLineFeedback String?        @map("ai_line_feedback")
   xpAwarded    Boolean          @default(false) @map("xp_awarded")
+  isBattleRun  Boolean          @default(false) @map("is_battle_run")
+  battleResult Json?            @map("battle_result")
   requeueCount Int              @default(0) @map("requeue_count")
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
@@ -220,6 +244,7 @@ model Submission {
   @@index([userId, status])
   @@index([userId, createdAt])
   @@index([activityId, status])
+  @@index([status])
   @@index([commitSha])
   @@map("submissions")
 }

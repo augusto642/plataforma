@@ -9,6 +9,7 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
   let runner: any;
   let queue: any;
   let redisLock: any;
+  let cache: any;
   let heldLocks: string[];
 
   const activity = { id: 'act-1', language: 'javascript' };
@@ -45,7 +46,13 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
         }
       }),
     };
-    service = new SubmissionsService(prisma, evaluator, runner, queue, redisLock);
+    cache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+      delPattern: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new SubmissionsService(prisma, evaluator, runner, queue, redisLock, cache);
   });
 
   describe('create (enqueue dedupe + idempotency)', () => {
