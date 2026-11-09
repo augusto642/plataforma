@@ -338,7 +338,7 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
 
     async function awardWithUser(lastActiveAt: Date | null, streakDays: number) {
       const scenarioUser = {
-        id: mockUser.id,
+        id: 'user-1',
         xp: 0,
         level: 1,
         streakDays,

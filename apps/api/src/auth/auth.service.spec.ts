@@ -121,7 +121,16 @@ describe('AuthService register — UTMs (B07)', () => {
         return def;
       }),
     };
-    const svc = new AuthService(prismaReg, jwtReg, configReg);
+    const mailerReg: any = { sendVerificationCode: jest.fn().mockResolvedValue(undefined) };
+    prismaReg.$transaction = jest.fn(async (fn: any) =>
+      fn({
+        emailVerificationCode: {
+          deleteMany: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue({}),
+        },
+      }),
+    );
+    const svc = new AuthService(prismaReg, jwtReg, configReg, mailerReg);
     const res = await svc.register({
       email: 'Novo@Example.com',
       name: ' Novo Aluno ',
@@ -169,7 +178,16 @@ describe('AuthService register — vínculo do quiz diagnóstico (B09)', () => {
         return def;
       }),
     };
-    return { svc: new AuthService(prismaReg, jwtReg, configReg), create };
+    const mailerReg: any = { sendVerificationCode: jest.fn().mockResolvedValue(undefined) };
+    prismaReg.$transaction = jest.fn(async (fn: any) =>
+      fn({
+        emailVerificationCode: {
+          deleteMany: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue({}),
+        },
+      }),
+    );
+    return { svc: new AuthService(prismaReg, jwtReg, configReg, mailerReg), create };
   }
 
   const dto = {
@@ -247,7 +265,16 @@ describe('AuthService register — escolhas da porta fria (Sprint 8)', () => {
         return def;
       }),
     };
-    return { svc: new AuthService(prismaReg, jwtReg, configReg), create };
+    const mailerReg: any = { sendVerificationCode: jest.fn().mockResolvedValue(undefined) };
+    prismaReg.$transaction = jest.fn(async (fn: any) =>
+      fn({
+        emailVerificationCode: {
+          deleteMany: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue({}),
+        },
+      }),
+    );
+    return { svc: new AuthService(prismaReg, jwtReg, configReg, mailerReg), create };
   }
 
   it('persiste o nível declarado como careerTier da conta', async () => {

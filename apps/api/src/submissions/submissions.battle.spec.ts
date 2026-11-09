@@ -306,8 +306,8 @@ describe('SubmissionsService - Battle Run (async, C7)', () => {
 
       const res = await service.executeBattleRun(jobData());
 
-      const visible = res.testResults.find((t) => !t.isHidden) as any;
-      const hidden = res.testResults.find((t) => t.isHidden) as any;
+      const visible = res.testResults.find((t: any) => !t.isHidden) as any;
+      const hidden = res.testResults.find((t: any) => t.isHidden) as any;
       expect(visible.errorMessage).toBe('Expected 2 but got 1');
       expect(hidden.errorMessage).toBe(HIDDEN_TEST_FAILED_MESSAGE);
       expect(JSON.stringify(res.testResults)).not.toContain('esperado 42');

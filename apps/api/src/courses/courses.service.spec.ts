@@ -361,6 +361,8 @@ describe('CoursesService analytics + enrollments (M2)', () => {
     expect(prisma.enrollment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 0, take: 50 }),
     );
+  });
+});
 
 /**
  * Specs de fumaça do CoursesService (B04) — antes este módulo tinha zero
