@@ -343,4 +343,102 @@ describe('UsersService', () => {
       expect(res.currentStage).toBe(1);
     });
   });
+
+  /**
+   * M2 (Lote 4) — `getUserProgress` agrega no banco: um único `groupBy`
+   * por (atividade, status) com `_count`/`_sum` em vez de `findMany` de
+   * TODAS as submissões + Set/soma/média em JS. Mesmos números.
+   */
+  describe('getUserProgress (M2)', () => {
+    function buildProgressHarness() {
+      const localPrisma: any = {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            xp: 120,
+            level: 1,
+            streakDays: 2,
+            badges: [{ id: 'b1', badgeCode: 'first_step' }],
+          }),
+        },
+        enrollment: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              course: {
+                id: 'c1',
+                title: 'Lógica',
+                slug: 'logica',
+                activities: [
+                  { id: 'a1', title: 'Soma' },
+                  { id: 'a2', title: 'Laço' },
+                ],
+              },
+            },
+            {
+              course: {
+                id: 'c2',
+                title: 'Web',
+                slug: 'web',
+                activities: [
+                  { id: 'a3', title: 'HTML' },
+                  { id: 'a4', title: 'CSS' },
+                ],
+              },
+            },
+          ]),
+        },
+        submission: {
+          // a1: 2 passed (100 + 80); a2: 1 failed (40); a3: 1 passed sem score.
+          groupBy: jest.fn().mockResolvedValue([
+            { activityId: 'a1', status: 'passed', _count: { _all: 2, score: 2 }, _sum: { score: 180 } },
+            { activityId: 'a2', status: 'failed', _count: { _all: 1, score: 1 }, _sum: { score: 40 } },
+            { activityId: 'a3', status: 'passed', _count: { _all: 1, score: 0 }, _sum: { score: null } },
+          ]),
+        },
+      };
+      const localService = new UsersService(localPrisma, {} as any);
+      return { service: localService, prisma: localPrisma };
+    }
+
+    it('returns the same totals as the old in-memory aggregation', async () => {
+      const { service, prisma } = buildProgressHarness();
+
+      const result = await service.getUserProgress('user-1');
+
+      expect(prisma.submission.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['activityId', 'status'],
+          where: { userId: 'user-1' },
+          _count: { _all: true, score: true },
+          _sum: { score: true },
+        }),
+      );
+      expect(prisma.submission.findMany).toBeUndefined();
+      expect(result.xp).toBe(120);
+      expect(result.level).toBe(1);
+      expect(result.streakDays).toBe(2);
+      expect(result.badges).toHaveLength(1);
+      // 2 passed em a1 contam 1 atividade; a3 conta 1; total 2.
+      expect(result.completedActivitiesCount).toBe(2);
+      expect(result.totalSubmissionsCount).toBe(4);
+      // Média só dos scores não nulos: (100+80+40)/3 = 73,33 -> 73.
+      expect(result.averageScore).toBe(73);
+      expect(result.coursesProgress).toEqual([
+        { courseId: 'c1', courseTitle: 'Lógica', slug: 'logica', totalActivities: 2, completedActivities: 1, progressPercent: 50 },
+        { courseId: 'c2', courseTitle: 'Web', slug: 'web', totalActivities: 2, completedActivities: 1, progressPercent: 50 },
+      ]);
+    });
+
+    it('returns zeros when the user has no submissions', async () => {
+      const { service, prisma } = buildProgressHarness();
+      prisma.submission.groupBy.mockResolvedValue([]);
+
+      const result = await service.getUserProgress('user-1');
+
+      expect(result.completedActivitiesCount).toBe(0);
+      expect(result.totalSubmissionsCount).toBe(0);
+      expect(result.averageScore).toBe(0);
+      expect(result.coursesProgress[0].completedActivities).toBe(0);
+      expect(result.coursesProgress[0].progressPercent).toBe(0);
+    });
+  });
 });
