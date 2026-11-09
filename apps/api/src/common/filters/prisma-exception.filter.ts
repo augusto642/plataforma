@@ -8,6 +8,7 @@ import {
 import { Response, Request } from 'express';
 import { Prisma } from '@prisma/client';
 import { RequestContextService } from '../context/request-context.service';
+import { ErrorCodes } from '../errors/error-codes';
 
 @Catch(Prisma.PrismaClientKnownRequestError, Prisma.PrismaClientValidationError)
 export class PrismaExceptionFilter implements ExceptionFilter {
@@ -27,6 +28,9 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Erro interno no banco de dados.';
     let errorType = 'DatabaseError';
+    // M9 (Lote 4) — mesmo formato do filtro global: o corpo inclui
+    // `errorCode` estável para o cliente (o front lê `message`).
+    let errorCode: string = ErrorCodes.INTERNAL_ERROR;
     let logDetail: unknown = undefined;
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
@@ -34,6 +38,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         case 'P2002': {
           status = HttpStatus.CONFLICT;
           errorType = 'Conflict';
+          errorCode = 'DATABASE_CONFLICT';
           // Finding BAIXA — AppSec: NÃO ecoar o campo único (target) no corpo
           // da resposta — isso revela o schema e facilita enumeração (ex.:
           // descobrir que 'email' é único). O detalhe vai só para o log.
@@ -44,24 +49,28 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         case 'P2025': {
           status = HttpStatus.NOT_FOUND;
           errorType = 'NotFound';
+          errorCode = 'DATABASE_NOT_FOUND';
           message = 'Registro solicitado não foi encontrado para atualização ou exclusão.';
           break;
         }
         case 'P2003': {
           status = HttpStatus.BAD_REQUEST;
           errorType = 'ForeignKeyConstraintViolation';
+          errorCode = 'DATABASE_FOREIGN_KEY';
           message = 'Operação viola integridade referencial com outro registro dependente.';
           break;
         }
         case 'P2024': {
           status = HttpStatus.SERVICE_UNAVAILABLE;
           errorType = 'DatabaseConnectionTimeout';
+          errorCode = 'DATABASE_TIMEOUT';
           message = 'Tempo limite de conexão com o banco de dados excedido.';
           break;
         }
         default: {
           status = HttpStatus.BAD_REQUEST;
           errorType = 'DatabaseOperationError';
+          errorCode = 'DATABASE_ERROR';
           message = `Falha na operação de banco de dados (Código ${exception.code}).`;
           break;
         }
@@ -69,6 +78,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     } else {
       status = HttpStatus.BAD_REQUEST;
       errorType = 'ValidationError';
+      errorCode = 'DATABASE_VALIDATION';
       message = 'Erro de validação nos dados fornecidos para o schema do banco.';
     }
 
@@ -87,6 +97,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       error: errorType,
+      errorCode,
       message,
       correlationId,
       timestamp: new Date().toISOString(),
