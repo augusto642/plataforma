@@ -273,12 +273,41 @@ const createMockCtx = (): CanvasRenderingContext2D => {
     fillText: (...args: unknown[]) => calls.push({ name: 'fillText', args }),
     moveTo: (...args: unknown[]) => calls.push({ name: 'moveTo', args }),
     lineTo: (...args: unknown[]) => calls.push({ name: 'lineTo', args }),
+    // A8 (Lote 3): o mock não implementava métodos do Canvas 2D que o
+    // código de produção usa (MinimapRadar.draw, InteractiveProp.draw).
+    // Sem eles, `engine.render()` e `radar.draw()` quebravam com
+    // `ctx.arc is not a function` — falha do mock, não do engine.
+    arc: (...args: unknown[]) => calls.push({ name: 'arc', args }),
+    arcTo: (...args: unknown[]) => calls.push({ name: 'arcTo', args }),
+    clip: () => calls.push({ name: 'clip', args: [] }),
+    closePath: () => calls.push({ name: 'closePath', args: [] }),
+    createRadialGradient: (...args: unknown[]) => {
+      calls.push({ name: 'createRadialGradient', args });
+      return { addColorStop: () => undefined };
+    },
+    createLinearGradient: (...args: unknown[]) => {
+      calls.push({ name: 'createLinearGradient', args });
+      return { addColorStop: () => undefined };
+    },
+    setLineDash: (...args: unknown[]) => calls.push({ name: 'setLineDash', args }),
+    roundRect: (...args: unknown[]) => calls.push({ name: 'roundRect', args }),
+    measureText: (...args: unknown[]) => {
+      calls.push({ name: 'measureText', args });
+      return { width: 0 };
+    },
+    quadraticCurveTo: (...args: unknown[]) => calls.push({ name: 'quadraticCurveTo', args }),
+    bezierCurveTo: (...args: unknown[]) => calls.push({ name: 'bezierCurveTo', args }),
+    scale: (...args: unknown[]) => calls.push({ name: 'scale', args }),
+    rect: (...args: unknown[]) => calls.push({ name: 'rect', args }),
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
     globalAlpha: 1,
     font: '',
     textAlign: 'left',
+    shadowBlur: 0,
+    shadowColor: '',
+    textBaseline: 'alphabetic',
   } as unknown as CanvasRenderingContext2D;
 };
 
@@ -842,6 +871,14 @@ suiteDescribe('Game State Management - Zustand Store Integrity', () => {
     });
   });
 
+  // A8 (Lote 3): os testes de HP fixavam 45 como HP inicial — o HP do
+  // Byte-Drake (`starter_pyro_bug`), não do starter ativo após `resetGame()`
+  // (Pythox, `INITIAL_STARTERS[0]`, 100/100). O store estava correto
+  // (`updateHp` limita em [0, maxHp], `restoreHpFull` volta a `maxHp`);
+  // os números esperados é que estavam defasados do balanceamento.
+  // Os valores abaixo derivam de `INITIAL_STARTERS[0]` para não apodrecerem
+  // de novo quando o balanceamento mudar; a semântica testada (dano, clamp
+  // em 0, teto em maxHp, restauração total, cura da poção) é a mesma.
   suiteDescribe('Gestão de Starters e Saúde (HP)', () => {
     suiteIt('deve trocar o Starter ativo e sincronizar HP / maxHp com o novo espécime', () => {
       const { setStarter } = useGameStore.getState();
@@ -857,10 +894,11 @@ suiteDescribe('Game State Management - Zustand Store Integrity', () => {
 
     suiteIt('updateHp deve aplicar dano e impedir HP menor que 0', () => {
       const { updateHp } = useGameStore.getState();
+      const maxHp = INITIAL_STARTERS[0].maxHp;
 
       // Dano parcial
       updateHp(-20);
-      suiteExpect(useGameStore.getState().currentHp).toBe(25);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp - 20);
 
       // Dano fatal: clamp em 0
       updateHp(-100);
@@ -869,23 +907,25 @@ suiteDescribe('Game State Management - Zustand Store Integrity', () => {
 
     suiteIt('updateHp deve impedir cura acima do maxHp (overheal prevention)', () => {
       const { updateHp } = useGameStore.getState();
+      const maxHp = INITIAL_STARTERS[0].maxHp;
 
       updateHp(-15);
-      suiteExpect(useGameStore.getState().currentHp).toBe(30);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp - 15);
 
-      // Cura excessiva de +50 (maxHp = 45) -> deve limitar em 45
+      // Cura excessiva de +50 -> deve limitar em maxHp
       updateHp(50);
-      suiteExpect(useGameStore.getState().currentHp).toBe(45);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp);
     });
 
     suiteIt('restoreHpFull deve restaurar a vida completa instantaneamente', () => {
       const { updateHp, restoreHpFull } = useGameStore.getState();
+      const maxHp = INITIAL_STARTERS[0].maxHp;
 
       updateHp(-40);
-      suiteExpect(useGameStore.getState().currentHp).toBe(5);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp - 40);
 
       restoreHpFull();
-      suiteExpect(useGameStore.getState().currentHp).toBe(45);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp);
     });
   });
 
@@ -933,16 +973,17 @@ suiteDescribe('Game State Management - Zustand Store Integrity', () => {
 
     suiteIt('useItem deve aplicar cura de poção e decrementar quantidade consumida', () => {
       const { updateHp, useItem } = useGameStore.getState();
+      const maxHp = INITIAL_STARTERS[0].maxHp;
 
-      // Reduz vida para 10
+      // Reduz vida para maxHp - 35
       updateHp(-35);
-      suiteExpect(useGameStore.getState().currentHp).toBe(10);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp - 35);
 
       // Consome Espresso (+25 HP)
       const success = useItem('item_espresso_potion');
       suiteExpect(success).toBe(true);
 
-      suiteExpect(useGameStore.getState().currentHp).toBe(35);
+      suiteExpect(useGameStore.getState().currentHp).toBe(maxHp - 10);
 
       // Verifica que quantidade caiu de 3 para 2
       const potion = useGameStore.getState().inventory.find((i) => i.id === 'item_espresso_potion');

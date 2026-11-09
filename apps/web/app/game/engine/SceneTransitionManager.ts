@@ -58,7 +58,11 @@ export class SceneTransitionManager {
     this.currentRequest = request;
     this.onSwapCallback = onSwap;
     this.onCompleteCallback = onComplete;
-    this.durationMs = request.durationMs || 250;
+    // A8 (Lote 3): a duração default vem do construtor (default 250 ms).
+    // Antes: `request.durationMs || 250` sobrescrevia o default do construtor
+    // sempre que a requisição não trazia duração — `new SceneTransitionManager(200)`
+    // transicionava em 250 ms e `update(100)` rendia alpha 0.4, não 0.5.
+    this.durationMs = request.durationMs ?? this.durationMs;
     this.alpha = 0;
     this.state = 'FADING_OUT';
   }
