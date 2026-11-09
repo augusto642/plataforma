@@ -91,6 +91,16 @@ export interface BattleState {
   winner?: 'player' | 'enemy';
 }
 
+// Sprint 6 (Fase 1 do plano nota 10) — resultado da Missão 1 jogada no
+// prólogo /onboarding, ANTES da etapa de conta: é a "primeira vitória"
+// que o cadastro passa a salvar (não um teatro — a batalha é a real,
+// com a mesma engine/inimigo/skills do /game).
+export interface FirstMissionResult {
+  completed: boolean;
+  xpEarned: number;
+  bitsEarned: number;
+}
+
 export interface AvatarConfig {
   skinColor: string;
   hairStyle: string;
@@ -208,6 +218,10 @@ export interface GameStoreState {
   // Matriz de Níveis de Carreira
   careerTier: CareerTier;
   setCareerTier: (tier: CareerTier) => void;
+
+  // Missão 1 do prólogo (Sprint 6): resultado da primeira batalha real
+  firstMission: FirstMissionResult | null;
+  setFirstMission: (result: FirstMissionResult | null) => void;
 
   // Sistema de Pet Companion e Evolução
   petLevel: number;
@@ -805,6 +819,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   careerTier: 'beginner',
   setCareerTier: (tier) => set({ careerTier: tier }),
 
+  // Missão 1 do prólogo (Sprint 6)
+  firstMission: null,
+  setFirstMission: (firstMission) => set({ firstMission }),
+
   // Sistema de Pet Companion e Evolução
   petLevel: 1,
   petXp: 0,
@@ -1301,5 +1319,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       streakFreezes: 0,
       gitRepo: null,
       currentBiome: 'circuit_valley',
+      careerTier: 'beginner',
+      firstMission: null,
     })),
 }));

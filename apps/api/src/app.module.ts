@@ -12,6 +12,9 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { CacheModule } from './cache/cache.module';
 import { CoursesModule } from './courses/courses.module';
+import { DiagnosticModule } from './diagnostic/diagnostic.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { ContactModule } from './contact/contact.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { GiteaModule } from './gitea/gitea.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -77,6 +80,9 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     AuthModule,
     UsersModule,
     CoursesModule,
+    DiagnosticModule,
+    AnalyticsModule,
+    ContactModule,
     GamificationModule,
     ActivitiesModule,
     SubmissionsModule,

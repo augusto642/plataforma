@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Role } from '@prisma/client';
+import { CareerTier, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomInt, createHash, timingSafeEqual } from 'crypto';
 import { ConfigError } from '../config/secrets.validation';
@@ -89,6 +89,16 @@ export class AuthService {
           name: dto.name.trim(),
           passwordHash,
           role: Role.student,
+          utmSource: dto.utmSource?.trim() || null,
+          utmMedium: dto.utmMedium?.trim() || null,
+          utmCampaign: dto.utmCampaign?.trim() || null,
+          // Sprint 8 — o nível declarado na porta fria vira o
+          // careerTier da conta; sem declaração, o default do modelo
+          // (beginner) se aplica. Trilha/tempo/objetivo não têm coluna
+          // no User: vivem nas props dos eventos signup_* (ver DTO).
+          ...(dto.experienceLevel
+            ? { careerTier: dto.experienceLevel as CareerTier }
+            : {}),
         },
       });
       // Usuário nasce NÃO verificado: nenhum token é emitido aqui. O login
@@ -103,6 +113,9 @@ export class AuthService {
             `Failed to send verification code to ${user.email}: ${err.message}. The code can be resent via /auth/resend-code.`,
           );
         });
+      // Sprint 10 (B09) — vincula o resultado anônimo do quiz diagnóstico
+      // à conta nova, se houver sessão de diagnóstico no cadastro.
+      await this.linkDiagnosticResult(dto.diagnosticSessionToken, user.id);
       return {
         user: { id: user.id, email: user.email, name: user.name, role: user.role },
         emailVerificationRequired: true,
@@ -283,6 +296,32 @@ export class AuthService {
       });
     });
     return code;
+  }
+
+  /**
+   * Vincula o resultado anônimo do quiz diagnóstico (B09) à conta nova.
+   * É um vínculo de conveniência: se qualquer passo falhar (token
+   * inexistente, resultado já vinculado a outra conta, erro de banco),
+   * o cadastro NÃO pode quebrar por causa dele — por isso o try/catch.
+   */
+  private async linkDiagnosticResult(
+    sessionToken: string | undefined,
+    userId: string,
+  ): Promise<void> {
+    if (!sessionToken) return;
+    try {
+      const result = await this.prisma.diagnosticResult.findUnique({
+        where: { sessionToken },
+      });
+      if (result && result.userId === null) {
+        await this.prisma.diagnosticResult.update({
+          where: { id: result.id },
+          data: { userId },
+        });
+      }
+    } catch {
+      // Silencioso de propósito: ver o comentário do método.
+    }
   }
 
   async login(email: string, password: string): Promise<AuthTokens> {

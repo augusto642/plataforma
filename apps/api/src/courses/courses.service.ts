@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { GiteaService } from '../gitea/gitea.service';
 import { ConfigError } from '../config/secrets.validation';
-import { buildCertificateCode } from './certificate-code';
+import { buildCertificateCode, verifyCertificateCode } from './certificate-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -520,7 +520,7 @@ export class CoursesService {
 
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { userId_courseId: { userId, courseId } },
-      select: { id: true },
+      select: { id: true, certificateCode: true },
     });
     if (!enrollment) {
       throw new ForbiddenException('Você precisa estar matriculado neste curso para emitir o certificado');
@@ -572,6 +572,17 @@ export class CoursesService {
       completedAt,
     });
 
+    // B30 (Sprint 10) — persiste o código na matrícula na primeira
+    // emissão: é esse registro que a verificação pública consulta.
+    // Sem persistir, o código só existia no ato da emissão e a página
+    // /verify não tinha fonte real para conferir.
+    if (!enrollment.certificateCode) {
+      await this.prisma.enrollment.update({
+        where: { userId_courseId: { userId, courseId } },
+        data: { certificateCode: verificationCode, certificateIssuedAt: completedAt },
+      });
+    }
+
     const student = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { name: true },
@@ -583,6 +594,54 @@ export class CoursesService {
       courseSlug: course.slug,
       completedAt,
       verificationCode,
+    };
+  }
+
+  /**
+   * B30 (Sprint 10) — verificação pública de certificado, integrada ao
+   * formato v2 (A11, Lote 3).
+   *
+   * O código v2 é auto-contido e assinado (HMAC-SHA256 + expiração):
+   * `verifyCertificateCode` valida formato, assinatura e expiração sem
+   * tocar o banco. Só depois da assinatura válida, o registro é buscado
+   * por (userId, courseId) extraídos do código verificado — e a matrícula
+   * precisa ter um código persistido na emissão (prova de que o
+   * certificado foi emitido de verdade). Qualquer falha responde 404
+   * genérico, sem vazar o motivo (formato, assinatura, expiração ou
+   * ausência de registro). Códigos v1 (64 hex) são rejeitados como
+   * legado: nenhum código v1 jamais foi verificável.
+   */
+  async verifyCertificateByCode(rawCode: string) {
+    const secret = this.config.get<string>('CERTIFICATE_HMAC_SECRET');
+    if (!secret) {
+      throw new ConfigError('CERTIFICATE_HMAC_SECRET is required');
+    }
+    const checked = verifyCertificateCode(secret, rawCode ?? '');
+    if (!checked.valid) {
+      throw new NotFoundException('Certificado não encontrado');
+    }
+
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: checked.userId, courseId: checked.courseId } },
+      select: {
+        certificateCode: true,
+        certificateIssuedAt: true,
+        user: { select: { name: true } },
+        course: { select: { title: true, slug: true } },
+      },
+    });
+
+    if (!enrollment || !enrollment.certificateCode) {
+      throw new NotFoundException('Certificado não encontrado');
+    }
+
+    return {
+      valid: true,
+      studentName: enrollment.user.name,
+      courseTitle: enrollment.course.title,
+      courseSlug: enrollment.course.slug,
+      completedAt: enrollment.certificateIssuedAt,
+      verificationCode: enrollment.certificateCode,
     };
   }
 

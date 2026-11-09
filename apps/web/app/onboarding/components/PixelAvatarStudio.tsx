@@ -661,7 +661,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                   void audio.playTone({ frequency: 880, duration: 0.1, type: 'square' });
                   onComplete();
                 }}
-                className="flex items-center space-x-2 rounded-xl border border-[#04D361] bg-[#04D361] px-8 py-3 font-mono text-xs font-bold text-black shadow-lg shadow-emerald-950/50 transition hover:bg-emerald-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                className="flex items-center space-x-2 rounded-xl border border-brand-purple bg-brand-purple px-8 py-3 font-mono text-xs font-bold text-white shadow-lg shadow-brand-purple/30 transition hover:bg-brand-purple-dark active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               >
                 <span>{submitLabel || 'FINALIZAR & ENTRAR NO JOGO →'}</span>
               </button>

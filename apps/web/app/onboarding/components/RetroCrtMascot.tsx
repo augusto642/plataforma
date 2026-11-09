@@ -242,12 +242,12 @@ export const RetroCrtMascot: React.FC<RetroCrtMascotProps> = ({
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="flex items-center space-x-2 rounded-lg border border-[#04D361] bg-[#04D361]/20 px-5 py-2 font-mono text-xs font-bold text-[#04D361] shadow-lg shadow-emerald-950/50 transition hover:bg-[#04D361] hover:text-black active:scale-95"
+                    className="flex items-center space-x-2 rounded-lg border border-brand-purple bg-brand-purple/20 px-5 py-2 font-mono text-xs font-bold text-brand-purple-light shadow-lg shadow-brand-purple/30 transition hover:bg-brand-purple hover:text-white active:scale-95"
                   >
                     <span>
                       {currentLineIndex < dialogueLines.length - 1
                         ? 'CONTINUAR [ENTER]'
-                        : 'CONFIGURAR AVATAR →'}
+                        : 'IR PARA A MISSÃO 1 →'}
                     </span>
                   </button>
                 </div>

@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { NotFoundException } from '@nestjs/common';
 import { SubmissionsService } from './submissions.service';
 import { BattleRunDto } from './dto/battle-run.dto';
+import { HIDDEN_TEST_FAILED_MESSAGE } from './runner/runner.service';
 
 /**
  * C7 (Lote 1) — battleRun assíncrono via BullMQ.
@@ -292,6 +293,26 @@ describe('SubmissionsService - Battle Run (async, C7)', () => {
       ...overrides,
     });
 
+    it('masks hidden test errorMessage in the battle response (B01: no hidden stderr leak)', async () => {
+      runner.executeInSandbox.mockResolvedValue({
+        status: 'failed',
+        errorMessage: 'AssertionError: esperado 42 para a entrada secreta 7',
+        testCases: [
+          { name: 'Test 1', passed: false, durationMs: 10, errorMessage: 'Expected 2 but got 1' },
+          { name: 'Hidden Test 2', passed: false, durationMs: 10, isHidden: true, errorMessage: 'AssertionError: esperado 42 para a entrada secreta 7' },
+        ],
+        durationMs: 20,
+      });
+
+      const res = await service.executeBattleRun(jobData());
+
+      const visible = res.testResults.find((t) => !t.isHidden) as any;
+      const hidden = res.testResults.find((t) => t.isHidden) as any;
+      expect(visible.errorMessage).toBe('Expected 2 but got 1');
+      expect(hidden.errorMessage).toBe(HIDDEN_TEST_FAILED_MESSAGE);
+      expect(JSON.stringify(res.testResults)).not.toContain('esperado 42');
+      expect(JSON.stringify(res.testResults)).not.toContain('secreta');
+    });
     beforeEach(() => {
       dbSubmission = { id: 'sub-1', status: 'queued', isBattleRun: true };
     });

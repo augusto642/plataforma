@@ -20,9 +20,50 @@ const spaceGrotesk = Space_Grotesk({
   display: 'swap',
 });
 
+// B33 (Sprint 10) — pacote SEO: antes o metadata era só title +
+// description do posicionamento antigo ("Engenharia de Elite",
+// "correção em Git nativo"), sem OpenGraph/Twitter/canonical, e o
+// og-image.svg órfão nunca era referenciado (e SVG nem é aceito como
+// imagem de compartilhamento). Agora: proposta atual da página +
+// og-image.png real (1200×630) + robots/sitemap próprios.
+const SITE_URL = 'https://nexuscode.dev';
+const TITLE = 'Nexus Code — Aprenda a programar de verdade, jogando';
+const DESCRIPTION =
+  'Aprenda programação escrevendo código desde o primeiro exercício: missões em formato de jogo, IDE completa no navegador, correção por testes reais e uma tutora de IA socrática que ensina você a pensar. Grátis para começar, 100% em português.';
+
 export const metadata: Metadata = {
-  title: 'NEXUS CODE — Plataforma de Desenvolvimento & Engenharia de Elite',
-  description: 'Aprenda programação com sandbox isolada, correção em Git nativo e mentoria socrática de IA.',
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    url: '/',
+    siteName: 'Nexus Code',
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Nexus Code — Aprenda a programar de verdade. Do primeiro exercício ao mercado de tecnologia.',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 import { AuthProvider } from './context/AuthContext';

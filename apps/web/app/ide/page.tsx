@@ -19,6 +19,8 @@ import { LeaderboardEntry, UserProgress, CourseProgress, UserBadge, LineFeedback
 import { fireConfetti } from '../dashboard/utils/confetti';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch, API_BASE } from '../lib/apiClient';
+// Sprint 5 — fundo do funil: primeira atividade concluída (B08 completo)
+import { track } from '../lib/analytics';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NEXUS CODE';
 const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_BRAND_LOGO_URL;
@@ -167,6 +169,22 @@ export default function HomePage() {
       if (['passed', 'failed', 'error'].includes(updated.status)) {
         setIsSubmitting(false);
         if (updated.status === 'passed') {
+          // Sprint 5 — primeira atividade concluída DE VERDADE: o stream
+          // da submissão confirmou 'passed' (testes verdes no sandbox).
+          // Emite uma única vez por visitante (flag persistente); as
+          // conclusões seguintes são retenção, não ativação do funil.
+          try {
+            if (!localStorage.getItem('nexus_first_activity_tracked')) {
+              localStorage.setItem('nexus_first_activity_tracked', 'true');
+              track('first_activity_completed', undefined, {
+                activityId: (updated as { activityId?: string }).activityId ?? 'unknown',
+              });
+            }
+          } catch {
+            // sem storage, emite sem a guarda (melhor um duplicado raro
+            // do que perder a ativação)
+            track('first_activity_completed');
+          }
           fireConfetti({ particleCount: 120, spread: 80 });
           apiFetch(`${API_BASE}/users/me/progress`, {})
             .then((r) => r.ok ? r.json() : null)

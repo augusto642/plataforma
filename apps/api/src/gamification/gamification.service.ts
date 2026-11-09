@@ -66,12 +66,11 @@ export class GamificationService {
     // battleRun — `executeBattleRunInner` — que calcula o nível a partir
     // do `updatedUser.xp` retornado pelo increment).
     //
-    // Streak: deriva de `lastActiveAt` lido ANTES do update (o "último
-    // dia ativo" anterior a esta concessão). Sob concorrência as duas
-    // corridas leem o mesmo lastActiveAt e computam o mesmo streak — o
-    // que é correto por desenho: duas submissões no mesmo dia contam 1
-    // dia de streak, não 2. Regra intacta: +1 entre 20h e 48h, reset
-    // para 1 após 48h (1 dia de descanso perdoado), 1 na 1ª atividade.
+    // Streak (B15, Sprint 10): deriva de `lastActiveAt` lido ANTES do
+    // update, via computeStreakDays (dias de calendário UTC, 1 dia de
+    // descanso perdoado). Sob concorrência as duas corridas leem o mesmo
+    // lastActiveAt e computam o mesmo streak — o que é correto por
+    // desenho: duas submissões no mesmo dia contam 1 dia de streak, não 2.
     const now = new Date();
     const updated = await tx.user.update({
       where: { id: userId },
@@ -84,17 +83,7 @@ export class GamificationService {
     const newXp = updated.xp;
     const newLevel = Math.floor(newXp / 200) + 1;
 
-    let newStreak = user.streakDays || 0;
-    if (user.lastActiveAt) {
-      const diffHours = (now.getTime() - new Date(user.lastActiveAt).getTime()) / (1000 * 60 * 60);
-      if (diffHours >= 20 && diffHours <= 48) {
-        newStreak += 1;
-      } else if (diffHours > 48) {
-        newStreak = 1;
-      }
-    } else {
-      newStreak = 1;
-    }
+    const newStreak = this.computeStreakDays(user.streakDays || 0, user.lastActiveAt, now);
 
     // Segunda escrita só se o nível e/ou o streak mudaram (o XP e o
     // lastActiveAt já foram gravados no update acima): evita um UPDATE
@@ -113,6 +102,37 @@ export class GamificationService {
     await this.evaluateBadges(tx, finalUser, user.badges, passed, score, newStreak);
 
     return { xpGained: totalXpDelta, totalXp: newXp, level: newLevel, streak: newStreak };
+  }
+
+  /**
+   * Regra de streak com dia de descanso (padrão Rocketseat — B15):
+   * meta semanal de 6 dias de atividade com 1 dia de descanso perdoado.
+   *
+   * A conta é por DIAS DE CALENDÁRIO (UTC), não por janela de horas — a
+   * regra antiga (20–48h) quebrava a sequência de quem estuda em horários
+   * diferentes a cada dia e perdoava folgas diferentes conforme o relógio.
+   *
+   * - sem atividade anterior: hoje é o dia 1;
+   * - mesmo dia (ou relógio adiantado): sequência intacta;
+   * - dia seguinte: +1;
+   * - 1 dia sem atividade entre a última e hoje (o dia de descanso da
+   *   semana): sequência PRESERVADA e hoje soma +1;
+   * - 2 ou mais dias sem atividade: quebra — hoje recomeça em 1.
+   *
+   * Como só olhamos os dias corridos entre as duas atividades, a virada
+   * de semana não quebra nada por si só: pular o domingo e voltar na
+   * segunda (ou pular a segunda e voltar na terça) mantém a sequência.
+   */
+  private computeStreakDays(currentStreak: number, lastActiveAt: Date | null, now: Date): number {
+    if (!lastActiveAt) return 1;
+
+    const dayIndex = (d: Date) =>
+      Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86_400_000);
+    const gap = dayIndex(now) - dayIndex(new Date(lastActiveAt));
+
+    if (gap <= 0) return Math.max(currentStreak, 1);
+    if (gap <= 2) return currentStreak + 1;
+    return 1;
   }
 
   private async evaluateBadges(tx: any, user: any, existingBadges: any[], passed: boolean, score: number, streak: number) {

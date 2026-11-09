@@ -11,11 +11,49 @@ import { StepTracks, TrackId } from './components/StepTracks';
 import { StepGoals, ExpLevel, TimeCommitment, CareerGoal } from './components/StepGoals';
 import { StepTerminalProvision } from './components/StepTerminalProvision';
 import { useAuth } from '../context/AuthContext';
+// B11 — atribuição (UTMs B07 + token do diagnóstico B09) vive na lib
+// compartilhada: a landing e o /onboarding capturam na chegada e TODA porta
+// de cadastro lê daí, para nenhuma porta perder o contexto do funil.
+import {
+  captureUtmFromUrl,
+  readAttributionProps,
+  readPlanIntentProps,
+  readStoredUtm,
+  readStoredDiagnosticToken,
+  clearStoredDiagnosticToken,
+} from '../lib/attribution';
+// B08 — eventos do funil (signup_submit / signup_success)
+// Sprint 5 — + pageview e contexto (intenção de plano + campanha) nos signups
+import { track, trackPageview } from '../lib/analytics';
+// Sprint 6 — cadastro concluído por esta porta também aposenta o
+// espelho local das escolhas do prólogo (a conta vira a fonte)
+import { clearOnboardingChoices } from '../lib/onboardingChoices';
+// Sprint 8 — a trilha clicada na landing chega por ?track= e pré-
+// seleciona a etapa 2 (antes o clique se perdia na porta)
+import { resolveRegisterTrackParam } from '../lib/deepLinks';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
+  // Sprint 8 — trilha de origem (landing): o valor cru viaja nas props
+  // do funil (sourceTrack) mesmo quando o mapeamento o aproxima de
+  // outra especialização na etapa 2
+  const [landingTrack, setLandingTrack] = useState<string | null>(null);
+
+  // B07 — captura as UTMs da URL de chegada uma única vez, na montagem
+  // Sprint 8 — e o ?track= da landing: pré-seleciona a etapa 2 com a
+  // especialização correspondente à trilha clicada
+  useEffect(() => {
+    captureUtmFromUrl();
+    trackPageview();
+    const rawTrack = new URLSearchParams(window.location.search).get('track');
+    const resolvedTrack = resolveRegisterTrackParam(rawTrack);
+    if (resolvedTrack) {
+      setSelectedTrack(resolvedTrack);
+      setLandingTrack(rawTrack);
+    }
+  }, []);
 
   // Form State (Step 1)
   const [role, setRole] = useState<RoleType>('student');
@@ -64,6 +102,22 @@ export default function RegisterPage() {
   const handleStep3Next = useCallback(async () => {
     setIsRegistering(true);
     setRegisterError(null);
+    // B08 — o funil mede a tentativa e a conversão do cadastro.
+    // Sprint 5 — a intenção de plano (escolha nos preços) e a campanha
+    // acompanham o cadastro nas props, para a leitura do funil fechar.
+    // Sprint 8 — as escolhas das etapas 2–3 (trilha/nível/tempo/objetivo)
+    // entram nas props: até aqui eram coletadas e descartadas.
+    const signupProps = {
+      ...readPlanIntentProps(),
+      ...readAttributionProps(),
+      source: 'register',
+      track: selectedTrack,
+      expLevel,
+      timeCommitment,
+      careerGoal,
+      ...(landingTrack ? { sourceTrack: landingTrack } : {}),
+    };
+    track('signup_submit', 'register_submit', signupProps);
 
     try {
       const result = await authRegister({
@@ -71,6 +125,16 @@ export default function RegisterPage() {
         password,
         name: name.trim(),
         role: 'student',
+        // B07 — inclui as UTMs capturadas; sem UTM, nenhum campo é enviado
+        ...readStoredUtm(),
+        // B09 — inclui o token do diagnóstico; quem não fez o quiz não envia nada
+        ...readStoredDiagnosticToken(),
+        // Sprint 8 — as escolhas da porta fria valem de verdade: a API
+        // persiste o nível como careerTier da conta (ver RegisterDto)
+        preferredTrack: selectedTrack,
+        experienceLevel: expLevel,
+        weeklyTimeCommitment: timeCommitment,
+        careerGoal,
       });
 
       if (!result.success) {
@@ -82,6 +146,13 @@ export default function RegisterPage() {
       // C5: conta criada mas não verificada — o passo 4 pede o código.
       setNeedsEmailVerification(result.emailVerificationRequired === true);
       setEmailVerified(false);
+
+      track('signup_success', 'register_submit', signupProps);
+
+      // B09 — resultado vinculado à conta: o token não é mais necessário
+      clearStoredDiagnosticToken();
+      // Sprint 6 — idem para as escolhas persistidas do prólogo (D3)
+      clearOnboardingChoices();
     } catch {
       // C4 (Lote 1): falha de rede/exceção no cadastro é erro honesto e
       // NÃO avança ao passo 4. Antes o catch era vazio ("fallback
@@ -97,7 +168,7 @@ export default function RegisterPage() {
     // Só avança após 2xx real da API (conta criada de fato).
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [email, password, name, authRegister]);
+  }, [email, password, name, authRegister, selectedTrack, expLevel, timeCommitment, careerGoal, landingTrack]);
 
   const handleProvisionFinished = useCallback(() => {
     confettiRef.current?.fire();

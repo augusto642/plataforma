@@ -36,6 +36,14 @@ enum CareerTier {
   senior
 }
 
+// B32 (Sprint 10) — o plano vira entidade: antes o User não tinha campo
+// de plano e a distinção free × Pro da landing era ficcional (zero
+// gating). Default free preserva a experiência atual de todos.
+enum Plan {
+  free
+  pro
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   email        String    @unique
@@ -44,6 +52,7 @@ model User {
   passwordHash String    @map("password_hash")
   role         Role      @default(student)
   emailVerifiedAt DateTime? @map("email_verified_at")
+  plan         Plan      @default(free)
   careerTier   CareerTier @default(beginner) @map("career_tier")
   giteaUserId  Int?      @unique @map("gitea_user_id")
   xp           Int       @default(0)
@@ -53,12 +62,16 @@ model User {
   streakFreezes Int      @default(0) @map("streak_freezes")
   talentVisible Boolean  @default(false) @map("talent_visible")
   lastActiveAt DateTime? @map("last_active_at")
+  utmSource    String?   @map("utm_source") @db.VarChar(255)
+  utmMedium    String?   @map("utm_medium") @db.VarChar(255)
+  utmCampaign  String?   @map("utm_campaign") @db.VarChar(255)
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   companion         UserCompanion?
   refreshTokens     RefreshToken[]
   emailVerificationCodes EmailVerificationCode[]
+  diagnosticResults DiagnosticResult[]
   instructedCourses Course[]        @relation("InstructedCourses")
   enrollments       Enrollment[]
   submissions       Submission[]
@@ -171,6 +184,13 @@ model Enrollment {
   userId    String   @map("user_id") @db.Uuid
   courseId  String   @map("course_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
+
+  // B30 (Sprint 10) — código de verificação do certificado emitido.
+  // Persistido na primeira emissão para a verificação pública consultar
+  // um registro REAL (antes o código era só recomputado sob demanda e a
+  // página /verify fabricava o resultado para qualquer hash).
+  certificateCode     String?   @unique @map("certificate_code")
+  certificateIssuedAt DateTime? @map("certificate_issued_at")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -303,4 +323,53 @@ model Company {
   tokenHash String   @unique @map("token_hash")
   createdAt DateTime @default(now()) @map("created_at")
   @@map("companies")
+}
+model DiagnosticResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  quizVersion  String   @map("quiz_version") @db.VarChar(16)
+  answers      Json
+  scores       Json
+  archetype    String   @db.VarChar(32)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("diagnostic_results")
+}
+
+// B08 (mínimo) — eventos do funil da landing (visita → clique → cadastro),
+// gravados pelo endpoint público POST /analytics/events. Sem provedor
+// externo: a análise é consulta direta nesta tabela. props carrega o
+// envelope (schemaVersion + propriedades do evento).
+model AnalyticsEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  event     String   @db.VarChar(32)
+  ctaId     String?  @map("cta_id") @db.VarChar(64)
+  sessionId String?  @map("session_id") @db.VarChar(64)
+  visitorId String?  @map("visitor_id") @db.VarChar(64)
+  path      String?  @db.VarChar(512)
+  props     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([event, createdAt])
+  @@index([visitorId])
+  @@map("analytics_events")
+}
+
+// Sprint 6 — mensagens do formulário público /contato (destino real do
+// CTA "Falar com Engenharia" do plano Staff). Tabela própria, escrita
+// apenas pelo endpoint POST /contact; nenhuma leitura pública — a
+// mensagem (e o e-mail de quem escreveu) nunca volta pela API.
+model ContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(120)
+  email     String   @db.VarChar(254)
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("contact_messages")
 }

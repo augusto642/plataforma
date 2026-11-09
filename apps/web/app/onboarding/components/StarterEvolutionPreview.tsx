@@ -171,8 +171,14 @@ export const StarterEvolutionPreview: React.FC<StarterEvolutionPreviewProps> = (
 }) => {
   const startersCatalog = useGameStore((s) => s.startersCatalog);
   const setStarter = useGameStore((s) => s.setStarter);
+  const storeStarterId = useGameStore((s) => s.selectedStarter.id);
 
-  const [selectedStarterId, setSelectedStarterId] = useState<string>('pythox');
+  // Sprint 8 — a etapa abre com o starter que a store já traz (escolha
+  // retomada do espelho ou ?starter= do card TCG), quando ele faz parte
+  // da grade canônica desta etapa; senão, o padrão de sempre.
+  const [selectedStarterId, setSelectedStarterId] = useState<string>(() =>
+    CANONICAL_STARTERS.some((s) => s.id === storeStarterId) ? storeStarterId : 'pythox',
+  );
   const [selectedStage, setSelectedStage] = useState<1 | 2 | 3>(1);
   const [customPetName, setCustomPetName] = useState<string>('');
 
@@ -392,7 +398,7 @@ export const StarterEvolutionPreview: React.FC<StarterEvolutionPreviewProps> = (
         <button
           type="button"
           onClick={handleConfirm}
-          className="w-full md:w-auto flex items-center justify-center gap-2 rounded-xl border border-[#04D361] bg-[#04D361] hover:bg-emerald-400 px-8 py-3.5 font-heading font-black text-xs text-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-950/50 active:scale-95 cursor-pointer"
+          className="w-full md:w-auto flex items-center justify-center gap-2 rounded-xl border border-brand-purple bg-brand-purple hover:bg-brand-purple-dark px-8 py-3.5 font-heading font-black text-xs text-white uppercase tracking-wider transition-all shadow-lg shadow-brand-purple/30 active:scale-95 cursor-pointer"
         >
           <span>ADOTAR {activeStarter.name.toUpperCase()} & INICIAR AVENTURA →</span>
         </button>

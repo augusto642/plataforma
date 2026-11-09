@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch, API_BASE } from '../lib/apiClient';
+import { AdminFunnelTab } from './components/AdminFunnelTab';
 
 /**
  * Painel admin — Lote 1 / C6 (reescrito).
@@ -94,7 +95,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
 
-  const [tab, setTab] = useState<'overview' | 'users'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'funnel'>('overview');
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [health, setHealth] = useState<AdminHealth | null>(null);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
@@ -311,6 +312,13 @@ export default function AdminDashboardPage() {
             className={`px-4 py-2 rounded-xl text-sm font-semibold ${tab === 'users' ? 'bg-[#8257E5] text-white' : 'bg-[#18181B] text-zinc-300 border border-[#27272A]'}`}
           >
             Usuários
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('funnel')}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold ${tab === 'funnel' ? 'bg-[#8257E5] text-white' : 'bg-[#18181B] text-zinc-300 border border-[#27272A]'}`}
+          >
+            Funil
           </button>
         </nav>
       </header>
@@ -559,6 +567,8 @@ export default function AdminDashboardPage() {
             </section>
           </>
         )}
+
+        {tab === 'funnel' && <AdminFunnelTab />}
       </main>
 
       {toast && (

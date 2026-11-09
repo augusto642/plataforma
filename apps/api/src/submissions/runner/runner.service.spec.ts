@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Language } from '@prisma/client';
 import type { ConfigService } from '@nestjs/config';
 import { PistonRunnerService } from './runner.service';
+import { HIDDEN_TEST_FAILED_MESSAGE } from './runner.service';
 import type { SandboxExecutionResult } from './runner.service';
 
 interface FetchCall {
@@ -364,6 +365,62 @@ describe('PistonRunnerService.executeInSandbox', () => {
     assert.equal(result.testCases[0].passed, true);
     assert.equal(result.testCases[1].passed, false);
     assert.equal(result.testCases[1].kind, 'timeout');
+  });
+
+  it('masks the aggregated errorMessage when the failing test is hidden (no hidden stderr leak)', async () => {
+    let idx = 0;
+    fetchStub = async () => {
+      idx += 1;
+      if (idx === 2) {
+        // Teste oculto: stderr do harness carrega entrada e valor esperado.
+        return okResponse({
+          run: runStage({
+            status: 'RE',
+            message: 'AssertionError: esperado 42 para a entrada secreta 7',
+          }),
+        });
+      }
+      return okResponse({ run: runStage() });
+    };
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'javascript',
+      code: 'function soma(a, b) { return a + b; }',
+      testScript: 'console.log(soma(1, 2))',
+      hiddenTests: 'console.log(soma(35, 7))',
+    });
+
+    assert.equal(result.status, 'failed');
+    assert.equal(result.score, 50);
+    // Agregado (vai para Submission.errorMessage e respostas ao aluno):
+    // apenas a mensagem genérica, sem rastro do assert oculto.
+    assert.equal(result.errorMessage, HIDDEN_TEST_FAILED_MESSAGE);
+    assert.doesNotMatch(result.errorMessage || '', /42|secreta/);
+    // O detalhe por caso continua disponível internamente (persistido para
+    // instrutor/admin; a serialização ao aluno é quem mascara).
+    assert.match(result.testCases[1].errorMessage || '', /esperado 42/);
+    assert.equal(result.testCases[1].isHidden, true);
+  });
+
+  it('keeps the detailed aggregated errorMessage when the failing test is visible', async () => {
+    fetchStub = async () =>
+      okResponse({
+        run: runStage({
+          status: 'RE',
+          message: 'ReferenceError: soma is not defined',
+        }),
+      });
+    const runner = newRunner();
+
+    const result = await runner.executeInSandbox({
+      language: 'javascript',
+      code: 'soma(1, 2)',
+      testScript: 'console.log(soma(1, 2))',
+    });
+
+    assert.equal(result.status, 'failed');
+    assert.match(result.errorMessage || '', /ReferenceError/);
   });
 
   it('stops and marks remaining tests on compile_error', async () => {

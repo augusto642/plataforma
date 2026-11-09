@@ -188,6 +188,314 @@ describe('AiService', () => {
     });
   });
 
+  describe('B01b — testes ocultos não vazam para o tutor', () => {
+    it('dica heurística com apenas teste oculto falho não contém o stderr bruto', async () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(2);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(2);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-hidden',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          {
+            passed: false,
+            isHidden: true,
+            name: 'caso oculto',
+            errorMessage: 'AssertionError: expected 42 got undefined [hidden-stderr-marker]',
+          },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-hidden', 'user-1');
+
+      expect(feedback.tier).toBe(2);
+      const serialized = JSON.stringify(feedback);
+      expect(serialized).not.toContain('hidden-stderr-marker');
+      expect(serialized).not.toContain('expected 42');
+      expect(serialized).toContain('Um teste oculto não passou');
+
+      // A dica persistida (aiHints, exposta via findProgress) também sai limpa.
+      const updateCalls = mockPrismaService.submission.update.mock.calls;
+      const updateArgs = updateCalls[updateCalls.length - 1]?.[0];
+      expect(JSON.stringify(updateArgs?.data)).not.toContain('hidden-stderr-marker');
+    });
+
+    it('dica heurística referencia o teste visível pelo NOME e nunca expõe valores esperados (B01b + B03)', async () => {
+      // ATUALIZADO no B03: o fallback offline não cita mais errorMessage de
+      // teste nenhum — a mensagem de asserção de um teste visível também
+      // carrega valores esperados ("expected 7 got 8"), que são meio
+      // gabarito. O teste visível agora é referenciado só pelo nome.
+      mockPrismaService.submission.count.mockResolvedValueOnce(2);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(2);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-mixed',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          { passed: false, isHidden: true, name: 'caso oculto', errorMessage: 'AssertionError [mixed-hidden-stderr]' },
+          { passed: false, isHidden: false, name: 'caso visível', errorMessage: 'expected 7 got 8' },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a + b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-mixed', 'user-1');
+
+      const serialized = JSON.stringify(feedback);
+      expect(feedback.hints.join(' ')).toContain('caso visível');
+      expect(serialized).not.toContain('mixed-hidden-stderr');
+      expect(serialized).not.toContain('expected 7 got 8');
+    });
+
+    it('prompt do LLM não contém errorMessage de teste oculto (e mantém o visível)', async () => {
+      mockLlmClient.hasApiKey = true;
+      mockLlmClient.complete.mockResolvedValue(
+        JSON.stringify({ summary: 'Resumo do tutor', hints: ['dica 1'], suggestedConcept: 'Lógica' }),
+      );
+      mockPrismaService.submission.count.mockResolvedValueOnce(1);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(0);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-llm',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          { passed: false, isHidden: false, name: 'caso visível', errorMessage: 'expected 5 got undefined' },
+          { passed: false, isHidden: true, name: 'caso oculto', errorMessage: 'AssertionError [llm-hidden-stderr]' },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a - b; }',
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-llm', 'user-1');
+
+      expect(feedback.summary).toBe('Resumo do tutor');
+      expect(mockLlmClient.complete).toHaveBeenCalledTimes(1);
+      const prompt = (mockLlmClient.complete as jest.Mock).mock.calls[0][0].messages[0].content as string;
+      expect(prompt).not.toContain('llm-hidden-stderr');
+      expect(prompt).not.toContain('AssertionError');
+      expect(prompt).toContain('expected 5 got undefined');
+    });
+  });
+
+  describe('B03 — fallback offline nunca entrega a solução', () => {
+    // Solução de referência do exercício-fixture ("Soma de Dois Números"):
+    // nenhuma saída do fallback pode contê-la, nem seus fragmentos
+    // distintivos, nem os valores esperados embutidos nas mensagens de teste.
+    const REFERENCE_SOLUTION = 'function somar(a, b) {\n  return a + b;\n}';
+
+    const fallback = (code: string, failedTests: any[], tier: 1 | 2 | 3 = 2) =>
+      (service as any).generateHeuristicSocraticHints(
+        code,
+        failedTests.map((t: any) =>
+          t.isHidden
+            ? { ...t, errorMessage: 'Um teste oculto não passou. Revise sua solução e tente novamente.' }
+            : t,
+        ),
+        'Soma de Dois Números',
+        tier,
+      );
+
+    const battery: Array<{
+      caso: string;
+      code: string;
+      failedTests: any[];
+      padraoEsperado: string;
+      proibidos: string[];
+    }> = [
+      {
+        caso: 'erro de sintaxe',
+        code: 'function somar(a, b { const x = a + b; }',
+        failedTests: [{ passed: false, name: 'caso base', errorMessage: 'SyntaxError: Unexpected token }' }],
+        padraoEsperado: 'sintaxe',
+        proibidos: [REFERENCE_SOLUTION, 'Unexpected token'],
+      },
+      {
+        caso: 'índice fora do limite',
+        code: 'function somar(a, b) { return lista[10]; }',
+        failedTests: [{ passed: false, name: 'caso limite', errorMessage: 'TypeError: Cannot read properties of undefined (reading length)' }],
+        padraoEsperado: 'índice',
+        proibidos: [REFERENCE_SOLUTION, 'Cannot read properties'],
+      },
+      {
+        caso: 'tipo/NaN em operação',
+        code: 'function somar(a, b) { return a + b; }',
+        failedTests: [{ passed: false, name: 'caso zero', errorMessage: 'expected 0 got NaN' }],
+        padraoEsperado: 'tipo',
+        proibidos: [REFERENCE_SOLUTION, 'expected 0 got'],
+      },
+      {
+        caso: 'lógica (asserção diverge)',
+        code: 'function somar(a, b) { return a - b; }',
+        failedTests: [{ passed: false, name: 'caso visível', errorMessage: 'expected 7 got 8' }],
+        padraoEsperado: 'lógica',
+        proibidos: [REFERENCE_SOLUTION, 'expected 7', 'got 8', 'return a + b'],
+      },
+      {
+        caso: 'retorno ausente',
+        code: 'function somar(a, b) { const x = a + b; }',
+        failedTests: [{ passed: false, name: 'caso 1', errorMessage: 'expected 5 got undefined' }],
+        padraoEsperado: 'não entrega',
+        proibidos: [REFERENCE_SOLUTION, 'expected 5', 'return a + b'],
+      },
+      {
+        caso: 'timeout',
+        code: 'function somar(a, b) { while (true) {} }',
+        failedTests: [{ passed: false, name: 'tempo limite', errorMessage: 'Time limit exceeded after 5000ms' }],
+        padraoEsperado: 'tempo',
+        proibidos: [REFERENCE_SOLUTION, 'Time limit exceeded'],
+      },
+      {
+        caso: 'padrão não reconhecido cai na pergunta socrática do tier',
+        code: 'function somar(a, b) { return a + b; }',
+        failedTests: [{ passed: false, name: 'caso estranho', errorMessage: 'falhou miseravelmente' }],
+        padraoEsperado: 'teste de mesa',
+        proibidos: [REFERENCE_SOLUTION, 'falhou miseravelmente'],
+      },
+      {
+        caso: 'somente teste oculto falho',
+        code: 'function somar(a, b) { return a + b; }',
+        failedTests: [{ passed: false, isHidden: true, name: 'caso oculto', errorMessage: 'AssertionError: expected 42 [b03-hidden-marker]' }],
+        padraoEsperado: 'Um teste oculto não passou',
+        proibidos: [REFERENCE_SOLUTION, 'b03-hidden-marker', 'expected 42'],
+      },
+    ];
+
+    it.each(battery.map((b) => [b.caso, b] as const))(
+      'caso %s: dicas por padrão, sem solução nem valores esperados',
+      (_nome, b) => {
+        const feedback = fallback(b.code, b.failedTests);
+        const output = `${feedback.summary}\n${feedback.hints.join('\n')}`;
+
+        expect(output).toContain(b.padraoEsperado);
+        for (const proibido of b.proibidos) {
+          expect(output).not.toContain(proibido);
+        }
+        // Nenhum bloco de código em dica do fallback: dica é pergunta/direção.
+        expect(output).not.toContain('```');
+      },
+    );
+  });
+
+  describe('B03 — escape pós-Tier 3 (exemplo análogo / reforço conceitual)', () => {
+    const REFERENCE_SOLUTION = 'function somar(a, b) { return a + b; }';
+
+    const setupHint = ({
+      failedCount,
+      chatCount = 0,
+      activityExtra = {},
+      submissionExtra = {},
+    }: {
+      failedCount: number;
+      chatCount?: number;
+      activityExtra?: Record<string, any>;
+      submissionExtra?: Record<string, any>;
+    }) => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(failedCount);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(chatCount);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-escape',
+        activityId: 'act-1',
+        activity: {
+          title: 'Soma de Dois Números',
+          description: 'Retorne a + b',
+          referenceSolution: REFERENCE_SOLUTION,
+          ...activityExtra,
+        },
+        testResults: [{ passed: false, name: 'tempo limite', errorMessage: 'Time limit exceeded' }],
+        codeSnapshot: 'function somar(a, b) { for (let i = 0; i < 999999; i++) {} return a + b; }',
+        ...submissionExtra,
+      });
+    };
+
+    it('NÃO dispara em Tier 3 ainda não esgotado (3 falhas)', async () => {
+      setupHint({ failedCount: 3, activityExtra: { conceptTags: ['loops'] } });
+
+      const feedback = await service.generatePedagogicalHint('sub-escape', 'user-1');
+
+      expect(feedback.tier).toBe(3);
+      expect(feedback.escape).toBeUndefined();
+    });
+
+    it('NÃO dispara fora do Tier 3, mesmo com muitas mensagens de chat', async () => {
+      setupHint({ failedCount: 1, chatCount: 2, activityExtra: { conceptTags: ['loops'] } });
+
+      const feedback = await service.generatePedagogicalHint('sub-escape', 'user-1');
+
+      expect(feedback.tier).toBe(1);
+      expect(feedback.escape).toBeUndefined();
+    });
+
+    it('dispara com exemplo análogo do registro por conceito ao esgotar o Tier 3 (5 falhas)', async () => {
+      setupHint({ failedCount: 5, activityExtra: { conceptTags: ['loops'] } });
+
+      const feedback = await service.generatePedagogicalHint('sub-escape', 'user-1');
+
+      expect(feedback.tier).toBe(3);
+      expect(feedback.escape?.unlocked).toBe(true);
+      expect(feedback.escape?.kind).toBe('analogous-example');
+      expect(feedback.escape?.note).toContain('EXEMPLO ANÁLOGO');
+
+      const example = feedback.escape?.analogousExample;
+      expect(example).toBeDefined();
+      expect(example?.title).toBe('Contar as vogais de uma palavra');
+      // O análogo resolve OUTRO problema: a solução dele não é a do exercício.
+      expect(example?.solution).not.toContain('somar');
+      expect(example?.solution).not.toBe(REFERENCE_SOLUTION);
+      expect(example?.solution).not.toContain(REFERENCE_SOLUTION);
+    });
+
+    it('exemplo autoral da atividade (lessonPayload) tem precedência sobre o registro', async () => {
+      setupHint({
+        failedCount: 6,
+        activityExtra: {
+          conceptTags: ['loops'],
+          lessonPayload: {
+            analogousExample: {
+              title: 'Somar os degraus de uma escada',
+              statement: 'Some os degraus de 1 até n.',
+              solution: 'function degraus(n) { let s = 0; for (let i = 1; i <= n; i++) { s += i; } return s; }',
+              explanation: 'Mesmo esqueleto de acumulador do seu exercício.',
+              concept: 'Acumulador em laço',
+            },
+          },
+        },
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-escape', 'user-1');
+
+      expect(feedback.escape?.kind).toBe('analogous-example');
+      expect(feedback.escape?.analogousExample?.title).toBe('Somar os degraus de uma escada');
+    });
+
+    it('sem exemplo disponível, o escape é o reforço conceitual — também sem spoiler', async () => {
+      setupHint({ failedCount: 5, activityExtra: { conceptTags: ['topico-sem-registro'] } });
+
+      const feedback = await service.generatePedagogicalHint('sub-escape', 'user-1');
+
+      expect(feedback.escape?.kind).toBe('concept-reinforcement');
+      expect(feedback.escape?.analogousExample).toBeUndefined();
+      expect(feedback.escape?.note).toContain('REFORÇO CONCEITUAL');
+      expect(feedback.escape?.reinforcement?.guidingQuestions.length).toBeGreaterThan(0);
+      expect(JSON.stringify(feedback.escape)).not.toContain(REFERENCE_SOLUTION);
+    });
+
+    it('escape é anexado mesmo quando o feedback vem do cache persistido', async () => {
+      setupHint({
+        failedCount: 5,
+        activityExtra: { conceptTags: ['arrays'] },
+        submissionExtra: {
+          aiFeedback: 'Resumo cacheado de uma tentativa anterior.',
+          aiHints: JSON.stringify(['dica cacheada']),
+        },
+      });
+
+      const feedback = await service.generatePedagogicalHint('sub-escape', 'user-1');
+
+      expect(feedback.summary).toBe('Resumo cacheado de uma tentativa anterior.');
+      expect(feedback.escape?.kind).toBe('analogous-example');
+      expect(feedback.escape?.analogousExample?.title).toBe('Primeira e última letra de uma palavra');
+    });
+  });
+
   describe('generateSocraticGuidance', () => {
     it('should return contextual socratic question for bug and error inquiries', async () => {
       const result = await service.generateSocraticGuidance({

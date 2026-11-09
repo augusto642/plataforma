@@ -1,7 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+// Frente 3 — ícones SVG únicos da landing
+import { IconChat } from './icons';
+// Sprint 7 (D4) — loops da seção só com função/estado e sob
+// prefers-reduced-motion: a preferência do sistema desliga a animação
+import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
 
 interface SocraticPrompt {
   tag: string;
@@ -12,22 +17,22 @@ interface SocraticPrompt {
 
 const SOCRATIC_ITEMS: SocraticPrompt[] = [
   {
-    tag: 'CONCORRÊNCIA & DEADLOCK',
-    question: 'Como conserto um Deadlock em concorrência?',
-    response: '✨ Observe quem está retendo o lock! Se duas threads disputam recursos em ordens opostas, que tal definir uma ordem global de aquisição ou utilizar um `defer mutex.Unlock()` garantido?',
-    insight: 'Taxonomia de Bloom: Análise de Causa Raiz',
+    tag: 'PRIMEIROS PASSOS',
+    question: 'O que é uma variável?',
+    response: 'Imagine uma caixa com uma etiqueta. Se você guarda o número 7 numa caixa chamada "pontos", o que acontece com a caixa quando o jogo soma +10 — ela muda, ou nasce outra caixa?',
+    insight: 'Conceito: Variáveis & Memória',
   },
   {
-    tag: 'RECURSÃO & PILHA',
-    question: 'Meu código estourou a pilha (Stack Overflow). E agora?',
-    response: '✨ Toda jornada recursiva precisa de um ponto de repouso. Onde está o seu caso base (condição de parada) e você tem certeza de que seus parâmetros caminham em direção a ele a cada chamada?',
-    insight: 'Taxonomia de Bloom: Modelo Mental de Pilha',
+    tag: 'LAÇOS DE REPETIÇÃO',
+    question: 'Por que meu laço não para nunca?',
+    response: 'Boa pergunta para investigar: se o laço repete enquanto uma condição é verdadeira, o que precisa mudar dentro dele a cada volta para um dia ela virar falsa? Seu contador está andando em direção ao fim?',
+    insight: 'Taxonomia de Bloom: Condição de Parada',
   },
   {
-    tag: 'MEMORY SAFETY',
-    question: 'O compilador Rust barrou meu ponteiro mutável!',
-    response: '✨ O Borrow Checker está te protegendo de uma corrida de dados! Se você já tem uma referência mutável exclusiva, por que outra parte do código precisaria ler o mesmo endereço ao mesmo tempo?',
-    insight: 'Taxonomia de Bloom: Propriedade e Exclusividade',
+    tag: 'LÓGICA & ERROS',
+    question: 'Deu erro e não sei onde. Por onde começo?',
+    response: 'Todo erro conta uma história. Qual é a primeira linha da mensagem? Ela mostra onde o programa parou — o que aquela linha estava tentando fazer com os valores que recebeu?',
+    insight: 'Habilidade: Leitura de Erros',
   },
 ];
 
@@ -36,15 +41,20 @@ export const LumiMascotHero: React.FC = () => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [lumiEmotion, setLumiEmotion] = useState<'thinking' | 'speaking' | 'insight'>('speaking');
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const currentItem = SOCRATIC_ITEMS[activeIndex];
-  const audioRef = useRef<AudioSynthesizer | null>(null);
 
   useEffect(() => {
-    audioRef.current = AudioSynthesizer.getInstance();
-  }, []);
+    // Movimento reduzido: sem digitação — a resposta aparece inteira e
+    // estática, e nenhum loop da seção é ligado (isTyping fica falso).
+    if (prefersReducedMotion) {
+      setDisplayedText(currentItem.response);
+      setIsTyping(false);
+      setLumiEmotion('speaking');
+      return;
+    }
 
-  useEffect(() => {
     setDisplayedText('');
     setIsTyping(true);
     setLumiEmotion('thinking');
@@ -60,12 +70,6 @@ export const LumiMascotHero: React.FC = () => {
     const interval = setInterval(() => {
       if (charIndex < fullText.length) {
         setDisplayedText(fullText.slice(0, charIndex + 1));
-        
-        // Emite chirp sonoro sutil a cada 10 caracteres
-        if (charIndex % 10 === 0 && audioRef.current) {
-          audioRef.current.playLumiChirp();
-        }
-
         charIndex++;
       } else {
         setIsTyping(false);
@@ -78,110 +82,115 @@ export const LumiMascotHero: React.FC = () => {
       clearTimeout(emotionTimeout);
       clearInterval(interval);
     };
-  }, [activeIndex, currentItem.response]);
+  }, [activeIndex, currentItem.response, prefersReducedMotion]);
 
-  // Ícone da expressão baseado no estado de reflexão
-  const getEmotionIcon = () => {
+  // Sprint 7 — a expressão da tutora agora é ARTE (ilustrações próprias
+  // em public/landing/tutora), não mais emoji: os emojis focais da
+  // seção foram substituídos. Cada estado do diálogo usa a sua expressão.
+  const getEmotionImage = () => {
     switch (lumiEmotion) {
       case 'thinking':
-        return '🧐';
+        return { src: '/landing/tutora/tutora-pensativa.webp', alt: 'Tutora de IA refletindo sobre a pergunta' };
       case 'speaking':
-        return '🦊';
+        return { src: '/landing/tutora/tutora-principal.webp', alt: 'Tutora de IA explicando com uma pergunta' };
       case 'insight':
-        return '💡';
+        return { src: '/landing/tutora/tutora-comemorando.webp', alt: 'Tutora de IA celebrando a descoberta' };
       default:
-        return '🦊';
+        return { src: '/landing/tutora/tutora-principal.webp', alt: 'Tutora de IA' };
     }
   };
 
   const handleSelectQuestion = (idx: number) => {
     if (idx === activeIndex && isTyping) return;
-    if (audioRef.current) {
-      void audioRef.current.resume();
-      audioRef.current.playTone({
-        frequency: 620,
-        pitchBendTo: 780,
-        duration: 0.05,
-        type: 'sine',
-        volume: 0.2,
-      });
-    }
     setActiveIndex(idx);
   };
 
   return (
     <section className="relative my-20 max-w-5xl mx-auto px-4">
-      {/* Moldura com 1px Specular Border */}
-      <div className="relative rounded-[28px] p-[1px] bg-gradient-to-r from-purple-500/30 via-cyan-500/20 to-purple-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-        <div className="relative rounded-[27px] bg-gradient-to-br from-[#0C1024]/95 via-[#060815]/95 to-[#120E26]/95 p-6 sm:p-9 backdrop-blur-2xl">
+      {/* Sprint 9 — a moldura especular (anel em gradiente roxo→ciano)
+          foi aposentada: borda sólida de token + sombra da escala */}
+      <div className="relative rounded-[28px] border border-border-2 bg-surface-1 shadow-elev-md">
+        <div className="relative rounded-[27px] bg-gradient-to-br from-surface-1/95 via-background/95 to-surface-1/95 p-6 sm:p-9 backdrop-blur-2xl">
           {/* Ambient Top Glow */}
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-16 bg-brand-purple/15 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col md:flex-row items-center md:items-start gap-7">
-            {/* Avatar Pixel Art Lumi com Aura Mística & Expressões */}
+            {/* Arte da tutora em ESCALA EDITORIAL — Sprint 9 (item 1 do
+                Designer): a ilustração saiu do avatar de 96px e virou
+                protagonista da seção, ao lado do diálogo */}
             <div className="relative shrink-0 flex flex-col items-center">
-              {/* Aura Radiante Expansiva quando Lumi está Raciocinando/Digitando */}
-              {isTyping && (
-                <>
-                  <div className="absolute -inset-3 rounded-3xl bg-gradient-to-r from-purple-500/40 via-cyan-500/30 to-emerald-500/40 blur-xl animate-pulse -z-10" />
-                  <div className="absolute -inset-1.5 rounded-2xl border border-cyan-400/50 animate-ping opacity-40 pointer-events-none -z-10" />
-                </>
-              )}
-
-              <div className={`relative w-24 h-24 rounded-2xl bg-gradient-to-tr from-[#8257E5] via-[#A855F7] to-[#00E5FF] p-[2px] shadow-[0_0_35px_rgba(130,87,229,0.35)] transition-all duration-300 ${
-                isTyping ? 'scale-105 shadow-[0_0_45px_rgba(0,229,255,0.45)]' : 'hover:scale-102'
-              }`}>
-                <div className="w-full h-full bg-[#050814] rounded-[14px] flex items-center justify-center text-4xl select-none transition-transform">
-                  <span className={isTyping ? 'animate-pulse' : ''}>{getEmotionIcon()}</span>
+              {/* Sprint 9 (item 5) — o cluster de animação da digitação
+                  foi enxutado: aura pulsante + ping + badge pulsante
+                  saíram. Durante o isTyping, os únicos elementos
+                  animados são o cursor e o equalizador (os dois que
+                  comunicam "está falando"); com prefers-reduced-motion,
+                  isTyping nunca liga e a seção fica estática */}
+              <div className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-3xl bg-gradient-to-tr from-brand-purple via-brand-purple to-brand-cyan-neon p-[2px] shadow-glow-purple">
+                <div className="w-full h-full bg-background rounded-[22px] overflow-hidden select-none">
+                  <Image
+                    src={getEmotionImage().src}
+                    alt={getEmotionImage().alt}
+                    width={208}
+                    height={208}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
 
-                {/* Badge de Status de Lumi */}
-                <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black border border-black shadow transition-all ${
+                {/* Badge de Status da tutora — Sprint 7 (honestidade):
+                    o rótulo antigo era claim de status ao vivo sem fonte;
+                    o badge agora descreve o estado do DIÁLOGO (refletindo /
+                    resposta pronta), que é o que ele de fato mostra.
+                    Sprint 9: estático também durante a digitação (item 5) */}
+                <span className={`absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full text-xs font-mono font-black border border-black shadow ${
                   isTyping
-                    ? 'bg-[#00E5FF] text-black animate-pulse'
-                    : 'bg-[#04D361] text-black'
+                    ? 'bg-brand-cyan-neon text-black'
+                    : 'bg-brand-green-neon text-black'
                 }`}>
-                  {isTyping ? 'REFLETINDO' : 'IA ONLINE'}
+                  {isTyping ? 'REFLETINDO' : 'PRONTA'}
                 </span>
               </div>
 
               {/* Equalizador de Voz Socrática */}
               <div className="flex items-center gap-1 mt-3.5 h-3">
-                <span className={`w-1 bg-[#00E5FF] rounded-full transition-all duration-150 ${isTyping ? 'h-3 animate-bounce' : 'h-1.5 opacity-40'}`} />
-                <span className={`w-1 bg-[#A855F7] rounded-full transition-all duration-150 delay-75 ${isTyping ? 'h-4 animate-bounce' : 'h-2 opacity-40'}`} />
-                <span className={`w-1 bg-[#04D361] rounded-full transition-all duration-150 delay-150 ${isTyping ? 'h-2.5 animate-bounce' : 'h-1.5 opacity-40'}`} />
-                <span className={`w-1 bg-[#00E5FF] rounded-full transition-all duration-150 delay-100 ${isTyping ? 'h-3.5 animate-bounce' : 'h-2 opacity-40'}`} />
+                <span className={`w-1 bg-brand-cyan-neon rounded-full transition-all duration-150 ${isTyping ? 'h-3 animate-bounce' : 'h-1.5 opacity-40'}`} />
+                <span className={`w-1 bg-brand-purple rounded-full transition-all duration-150 delay-75 ${isTyping ? 'h-4 animate-bounce' : 'h-2 opacity-40'}`} />
+                <span className={`w-1 bg-brand-green-neon rounded-full transition-all duration-150 delay-150 ${isTyping ? 'h-2.5 animate-bounce' : 'h-1.5 opacity-40'}`} />
+                <span className={`w-1 bg-brand-cyan-neon rounded-full transition-all duration-150 delay-100 ${isTyping ? 'h-3.5 animate-bounce' : 'h-2 opacity-40'}`} />
               </div>
 
-              <span className="mt-1 text-xs font-mono font-black text-purple-300">LUMI v2.4</span>
-              <span className="text-[10px] font-mono text-zinc-500">Mentora Socrática</span>
+              <span className="mt-1 text-xs font-mono font-black text-brand-purple-light">TUTORA DE IA</span>
+              <span className="text-body-sm font-mono text-ink-span">Mentora Socrática</span>
             </div>
 
             {/* Diálogo Socrático & Balão Retrô de Luxo */}
             <div className="flex-1 w-full text-left">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="font-heading font-black text-white text-base sm:text-lg tracking-tight">
+                  <span className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
                     Mentoria Socrática em Tempo Real
                   </span>
-                  <span className="text-[10px] font-mono text-purple-300 bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-500/30">
+                  <span className="text-xs font-mono text-brand-purple-light bg-brand-purple-low px-2.5 py-0.5 rounded-full border border-brand-purple/30">
                     Zero Resposta Pronta • 100% Reflexão
                   </span>
                 </div>
-                <span className="text-xs font-mono text-[#00E5FF] font-semibold">{currentItem.insight}</span>
+                <span className="text-xs font-mono text-brand-cyan-neon font-semibold">{currentItem.insight}</span>
               </div>
 
               {/* Caixa de Texto com Acabamento de Luxo */}
-              <div className="relative min-h-[96px] p-5 rounded-2xl bg-[#030612]/90 border border-white/[0.08] text-zinc-200 text-sm sm:text-base font-sans leading-relaxed shadow-inner">
-                <p className="text-zinc-100 font-medium">
+              <div className="relative min-h-[96px] p-5 rounded-2xl bg-background/90 border border-border-1 text-ink-body text-sm sm:text-base font-sans leading-relaxed shadow-inner">
+                <p className="text-ink-heading font-medium">
                   {displayedText}
-                  <span className="inline-block w-2 h-4 ml-1 bg-[#00E5FF] animate-pulse align-middle" />
+                  {/* Cursor de digitação: só existe ENQUANTO digita (função/estado) —
+                      Sprint 7 (D4): antes ele pulsava para sempre, mesmo com o texto pronto */}
+                  {isTyping && (
+                    <span className="inline-block w-2 h-4 ml-1 bg-brand-cyan-neon animate-pulse align-middle" />
+                  )}
                 </p>
               </div>
 
               {/* Pílulas Interativas de Perguntas */}
-              <div className="mt-4 pt-3 border-t border-white/[0.06]">
-                <span className="text-xs font-mono text-zinc-400 block mb-2 font-medium">
+              <div className="mt-4 pt-3 border-t border-border-1">
+                <span className="text-xs font-mono text-ink-span block mb-2 font-medium">
                   Clique para testar o método socrático:
                 </span>
                 <div className="flex flex-wrap gap-2.5">
@@ -190,13 +199,13 @@ export const LumiMascotHero: React.FC = () => {
                       key={idx}
                       type="button"
                       onClick={() => handleSelectQuestion(idx)}
-                      className={`text-xs font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                      className={`text-body-sm font-mono px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${
                         activeIndex === idx
-                          ? 'border-[#00E5FF] bg-cyan-950/60 text-[#00E5FF] shadow-[0_0_20px_rgba(0,229,255,0.25)] font-bold scale-[1.02]'
-                          : 'border-white/[0.08] bg-white/[0.02] text-zinc-400 hover:text-white hover:border-white/20'
+                          ? 'border-brand-cyan-neon bg-brand-cyan/15 text-brand-cyan-neon shadow-glow-cyan font-bold scale-[1.02]'
+                          : 'border-border-1 bg-surface-1 text-ink-span hover:text-ink-heading hover:border-border-2'
                       }`}
                     >
-                      💬 {item.question}
+                      <span className="inline-flex items-center gap-2"><IconChat className="w-4 h-4" /> {item.question}</span>
                     </button>
                   ))}
                 </div>

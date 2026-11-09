@@ -1,14 +1,51 @@
-'use client';
-
-import React, { useState } from 'react';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
-import { getAuditRecordByHash } from './certificateData';
-import { CertificateCard } from './components/CertificateCard';
-import { AuditMetadataCard } from './components/AuditMetadataCard';
-import { LedgerProofCard } from './components/LedgerProofCard';
-import { VerificationActions } from './components/VerificationActions';
-import { MerkleProofModal } from './components/MerkleProofModal';
+
+/**
+ * B30 (Sprint 10) — verificação pública de certificados, sem fabricação.
+ *
+ * Antes esta página era client-side e consultava `certificateData.ts`,
+ * que GERAVA um certificado "válido" para qualquer hash digitado (aluno
+ * fixo, altura de bloco aleatória, "blockchain", "Quantum-Resistant
+ * Merkle Tree"). Agora é um Server Component que consulta o registro
+ * real da API: GET /courses/certificates/verify/:code só confirma
+ * códigos SHA-256 persistidos na emissão do certificado
+ * (Enrollment.certificateCode). Código desconhecido = não encontrado.
+ */
+
+const API_BASE =
+  process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+interface VerifiedCertificate {
+  valid: true;
+  studentName: string;
+  courseTitle: string;
+  courseSlug: string;
+  completedAt: string | null;
+  verificationCode: string;
+}
+
+type VerifyResult =
+  | { kind: 'found'; record: VerifiedCertificate }
+  | { kind: 'not-found' }
+  | { kind: 'unavailable' };
+
+async function fetchCertificate(code: string): Promise<VerifyResult> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/courses/certificates/verify/${encodeURIComponent(code)}`,
+      { cache: 'no-store' },
+    );
+    if (res.status === 404) return { kind: 'not-found' };
+    if (!res.ok) return { kind: 'unavailable' };
+    const record = (await res.json()) as VerifiedCertificate;
+    return { kind: 'found', record };
+  } catch {
+    return { kind: 'unavailable' };
+  }
+}
+
+export const dynamic = 'force-dynamic';
 
 interface VerifyPageProps {
   params: {
@@ -16,69 +53,16 @@ interface VerifyPageProps {
   };
 }
 
-export default function VerifyCertificatePage({ params }: VerifyPageProps) {
-  const record = getAuditRecordByHash(params.hash);
-  const [isMerkleModalOpen, setIsMerkleModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((curr) => (curr === msg ? null : curr));
-    }, 4000);
-  };
-
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined') {
-      const url = window.location.href;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).catch(() => {});
-      }
-    }
-    showToast('🔗 Link de verificação pública copiado para a área de transferência!');
-  };
-
-  const handleDownloadPdf = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  };
-
-  const handleShareLinkedIn = () => {
-    const text = encodeURIComponent(
-      `Acabo de concluir a formação de elite "${record.course.title}" na NEXUS CODE! Meu certificado SHA-256 está autenticado publicamente na blockchain: ${
-        typeof window !== 'undefined' ? window.location.href : ''
-      }`
-    );
-    const linkedInUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${text}`;
-    if (typeof window !== 'undefined') {
-      window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
+export default async function VerifyCertificatePage({ params }: VerifyPageProps) {
+  const result = await fetchCertificate(params.hash);
 
   return (
-    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans selection:bg-[#04D361] selection:text-black pb-24">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce print:hidden">
-          <div className="bg-[#04D361] text-black border border-[#04D361]/60 px-4 py-3 rounded-xl text-xs font-mono font-bold shadow-[0_0_20px_rgba(4,211,97,0.4)]">
-            {toastMessage}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 1. TOP NAVBAR (Hidden during Print)                                       */}
-      {/* ========================================================================= */}
+    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans pb-24">
       <header className="sticky top-0 z-40 bg-[#08080B]/90 backdrop-blur-md border-b border-[#27272A] h-16 print:hidden">
         <div className="max-w-[1240px] mx-auto px-5 h-full flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Logo size="md" href="/" />
-
             <nav className="hidden md:flex items-center gap-5 text-sm font-medium">
-              <Link href="/dashboard" className="text-zinc-400 hover:text-white transition-colors">
-                Dashboard
-              </Link>
               <Link href="/courses" className="text-zinc-400 hover:text-white transition-colors">
                 Cursos
               </Link>
@@ -88,82 +72,152 @@ export default function VerifyCertificatePage({ params }: VerifyPageProps) {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          {result.kind === 'found' && (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#04D361]/10 border border-[#04D361]/30 text-[#04D361] text-xs font-mono font-bold">
               <span>✓</span>
               <span>Certificado Válido</span>
             </div>
-          </div>
+          )}
+          {result.kind === 'not-found' && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F43F5E]/10 border border-[#F43F5E]/30 text-[#F43F5E] text-xs font-mono font-bold">
+              <span>✕</span>
+              <span>Não encontrado</span>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ========================================================================= */}
-      {/* 2. MAIN CONTAINER                                                         */}
-      {/* ========================================================================= */}
-      <main className="max-w-[1240px] mx-auto px-5 pt-8 space-y-8">
-        {/* Verification Status Banner */}
-        <div className="bg-[#121217] border border-[#04D361]/40 rounded-2xl p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_0_30px_rgba(4,211,97,0.1)] print:hidden">
-          <div className="flex items-start sm:items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#04D361]/20 border border-[#04D361]/50 flex items-center justify-center text-2xl text-[#04D361] shrink-0">
-              ✓
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white font-heading">
-                  Auditoria Criptográfica Válida &amp; Autenticada
-                </h2>
-                <span className="text-[10px] font-mono bg-[#04D361]/15 text-[#04D361] px-2 py-0.2 rounded border border-[#04D361]/30 font-bold">
-                  SHA-256 MATCH
-                </span>
-              </div>
-              <p className="text-xs text-zinc-400 mt-0.5 max-w-xl">
-                Este certificado digital foi emitido pela autoridade acadêmica Nexus Code e assinado de forma imutável com prova de consenso distribuído.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsMerkleModalOpen(true)}
-            className="px-4 py-2 rounded-xl bg-[#181820] border border-[#8257E5]/40 text-xs font-mono font-bold text-[#996DFF] hover:bg-[#8257E5]/15 transition-all self-start sm:self-auto cursor-pointer"
-          >
-            Ver Prova no Ledger →
-          </button>
-        </div>
-
-        {/* Visual Certificate / Diploma */}
-        <CertificateCard record={record} />
-
-        {/* Audit Details & Actions Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start print:hidden">
-          {/* Metadata Card (Left 2 cols) */}
-          <div className="lg:col-span-2">
-            <AuditMetadataCard record={record} />
-          </div>
-
-          {/* Ledger Proof & Actions (Right 1 col) */}
-          <div className="space-y-6">
-            <VerificationActions
-              record={record}
-              onCopyLink={handleCopyLink}
-              onDownloadPdf={handleDownloadPdf}
-              onShareLinkedIn={handleShareLinkedIn}
-            />
-
-            <LedgerProofCard
-              record={record}
-              onInspectMerkle={() => setIsMerkleModalOpen(true)}
-            />
-          </div>
-        </div>
+      <main className="max-w-[860px] mx-auto px-5 pt-10">
+        {result.kind === 'found' && <FoundCertificate record={result.record} />}
+        {result.kind === 'not-found' && <NotFound code={params.hash} />}
+        {result.kind === 'unavailable' && <Unavailable />}
       </main>
+    </div>
+  );
+}
 
-      {/* Merkle Proof Inspector Modal */}
-      <MerkleProofModal
-        isOpen={isMerkleModalOpen}
-        onClose={() => setIsMerkleModalOpen(false)}
-        record={record}
-      />
+function FoundCertificate({ record }: { record: VerifiedCertificate }) {
+  const completedAt = record.completedAt
+    ? new Date(record.completedAt).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null;
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-[#121217] border border-[#04D361]/40 rounded-2xl p-5 md:p-6 flex items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#04D361]/20 border border-[#04D361]/50 flex items-center justify-center text-2xl text-[#04D361] shrink-0">
+          ✓
+        </div>
+        <div>
+          <h1 className="text-base font-bold text-white font-heading">
+            Certificado verificado
+          </h1>
+          <p className="text-xs text-zinc-400 mt-0.5 max-w-xl leading-relaxed">
+            Este código corresponde a um certificado emitido pela Nexus Code e
+            registrado na plataforma. A verificação confirma a existência do
+            registro — sem blockchain, sem intermediários: é o banco de dados
+            da plataforma respondendo pela emissão.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8">
+        <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 mb-4">
+          Certificado de conclusão
+        </div>
+        <div className="space-y-4">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Aluno</div>
+            <div className="text-xl font-heading font-black text-white">{record.studentName}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Curso</div>
+            <div className="text-base font-heading font-bold text-white">{record.courseTitle}</div>
+          </div>
+          {completedAt && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                Concluído em
+              </div>
+              <div className="text-sm text-zinc-200">{completedAt}</div>
+            </div>
+          )}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+              Código de verificação (SHA-256)
+            </div>
+            <div className="text-xs font-mono text-zinc-300 break-all bg-[#0B0B10] border border-[#27272A] rounded-lg px-3 py-2 mt-1">
+              {record.verificationCode}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-zinc-500 leading-relaxed">
+        O código é gerado no momento em que o aluno conclui todas as
+        atividades do curso e fica gravado no registro da matrícula. Qualquer
+        pessoa com o código pode conferir a autenticidade nesta página.
+      </p>
+    </div>
+  );
+}
+
+function NotFound({ code }: { code: string }) {
+  return (
+    <div className="space-y-8">
+      <div className="bg-[#121217] border border-[#F43F5E]/40 rounded-2xl p-5 md:p-6 flex items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#F43F5E]/15 border border-[#F43F5E]/50 flex items-center justify-center text-2xl text-[#F43F5E] shrink-0">
+          ✕
+        </div>
+        <div>
+          <h1 className="text-base font-bold text-white font-heading">
+            Certificado não encontrado
+          </h1>
+          <p className="text-xs text-zinc-400 mt-0.5 max-w-xl leading-relaxed">
+            Nenhum certificado emitido corresponde ao código informado.
+            Isso significa que o código está incorreto ou que nenhum aluno
+            concluiu um curso gerando este código — a verificação não
+            confirma certificados que não existem.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+        <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
+          Código consultado
+        </div>
+        <div className="text-xs font-mono text-zinc-300 break-all bg-[#0B0B10] border border-[#27272A] rounded-lg px-3 py-2">
+          {code}
+        </div>
+        <ul className="mt-5 space-y-2 text-sm text-zinc-400 leading-relaxed">
+          <li>• Confira se o código foi copiado por completo (são 64 caracteres hexadecimais).</li>
+          <li>• O código aparece no certificado do aluno ao concluir todas as atividades de um curso.</li>
+          <li>• Certificados só existem depois da conclusão real — não há emissão manual.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function Unavailable() {
+  return (
+    <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-5 md:p-6 flex items-start gap-4">
+      <div className="w-12 h-12 rounded-2xl bg-[#27272A] border border-[#3F3F46] flex items-center justify-center text-2xl text-zinc-300 shrink-0">
+        !
+      </div>
+      <div>
+        <h1 className="text-base font-bold text-white font-heading">
+          Verificação indisponível no momento
+        </h1>
+        <p className="text-xs text-zinc-400 mt-0.5 max-w-xl leading-relaxed">
+          Não foi possível consultar o registro de certificados agora. Isso
+          não confirma nem nega a validade do código — tente novamente em
+          alguns minutos.
+        </p>
+      </div>
     </div>
   );
 }

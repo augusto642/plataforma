@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Role, SubmissionStatus } from '@prisma/client';
+import { Plan, Prisma, Role, SubmissionStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { CacheService } from '../cache/cache.service';
@@ -63,6 +63,7 @@ export class AdminService {
           email: true,
           name: true,
           role: true,
+          plan: true,
           xp: true,
           level: true,
           streakDays: true,
@@ -89,6 +90,7 @@ export class AdminService {
         email: u.email,
         name: u.name,
         role: u.role,
+        plan: u.plan,
         xp: u.xp,
         level: u.level,
         streakDays: u.streakDays,
@@ -144,6 +146,39 @@ export class AdminService {
     }
 
     this.logger.log(`User ${id} role updated from ${existing.role} to ${role}`);
+    return updated;
+  }
+
+  /**
+   * B32 (Sprint 10) — gestão manual de plano pelo admin: enquanto não
+   * há gateway de pagamento (fora de escopo), é assim que um usuário
+   * vira Pro de verdade — o campo existe, é legível e tem efeito
+   * (entitlement da tutora). Espelha updateUserRole.
+   */
+  async updateUserPlan(id: string, plan: Plan) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, plan: true, email: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { plan },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        plan: true,
+        updatedAt: true,
+      },
+    });
+
+    this.logger.log(`User ${id} plan updated from ${existing.plan} to ${plan}`);
     return updated;
   }
 
