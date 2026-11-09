@@ -1,9 +1,41 @@
+# =============================================================================
+# Compose de PRODUÇÃO — imagens de build (Dockerfile.prod), sem `pnpm dev`.
+#
+# Subir:  docker compose up -d --build
+# Parar:  docker compose down          (volumes preservados; `down -v` apaga)
+#
+# Variáveis OBRIGATÓRIAS no `.env` (a API recusa subir sem elas):
+#   JWT_ACCESS_SECRET, JWT_REFRESH_SECRET — `openssl rand -hex 48`
+#   GITEA_WEBHOOK_SECRET                 — `openssl rand -hex 32`
+#   POSTGRES_PASSWORD                    — `openssl rand -hex 32`
+#   REDIS_PASSWORD                       — `openssl rand -hex 32`
+# M16 (Lote 4): NÃO há mais defaults para senhas — o compose RECUSA subir
+# sem POSTGRES_PASSWORD e REDIS_PASSWORD (`${VAR:?msg}` = fail-closed, erro
+# claro no `docker compose config/up`). O Redis NÃO publica mais a porta
+# 6379 no host: só a API o alcança pela rede interna, e ele exige senha.
+# Opcionais com default: POSTGRES_USER/DB/PORT, API_PORT,
+# WEB_PORT, GITEA_HTTP_PORT/SSH_PORT, GITEA_ENABLED, NEXT_PUBLIC_API_URL
+# (URL pública da API embutida no build da web).
+#
+# Notas:
+# - `db-migrate` aplica as migrations ANTES da API subir (a API NÃO roda
+#   migrations no boot; `RUN_MIGRATIONS=true` só para deploy desacoplado).
+# - A6: `DATABASE_URL` carrega `connection_limit=21&pool_timeout=10` e o
+#   Postgres tem `statement_timeout=30000` no servidor (ver
+#   apps/api/src/prisma/prisma.service.ts para a medição/justificativa).
+# - Dev local NÃO usa este arquivo: rode `pnpm dev` na raiz (o compose de
+#   dev com volume mounts + `pnpm dev` foi substituído por este de deploy).
+# =============================================================================
 services:
   postgres:
     image: postgres:16-alpine
+    # A6: trava por query no servidor (30 s) — 1 query lenta não segura uma
+    # conexão do pool indefinidamente. O pool também fixa o timeout por
+    # conexão (statement_timeout no PrismaService).
+    command: ["postgres", "-c", "statement_timeout=30000"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-plataforma}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plataforma_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (openssl rand -hex 32)}
       POSTGRES_DB: ${POSTGRES_DB:-plataforma}
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
@@ -18,13 +50,15 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - '${REDIS_PORT:-6379}:6379'
+    # M16 (Lote 4): senha obrigatória (--requirepass) e SEM `ports`: o Redis
+    # não é publicado no host — só a API o alcança pela rede interna.
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env (openssl rand -hex 32)}
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env (openssl rand -hex 32)}"]
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD-SHELL', 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -38,7 +72,7 @@ services:
       GITEA__database__HOST: postgres:5432
       GITEA__database__NAME: gitea
       GITEA__database__USER: ${POSTGRES_USER:-plataforma}
-      GITEA__database__PASSWD: ${POSTGRES_PASSWORD:-plataforma_dev}
+      GITEA__database__PASSWD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (openssl rand -hex 32)}
       GITEA__database__SSL_MODE: disable
       GITEA__server__ROOT_URL: http://localhost:${GITEA_HTTP_PORT:-3030}/
       GITEA__server__DOMAIN: localhost
@@ -102,10 +136,11 @@ services:
   db-migrate:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
-    command: ["pnpm", "--filter", "@plataforma/api", "exec", "prisma", "migrate", "deploy"]
+      dockerfile: apps/api/Dockerfile.prod
+    # Imagem prod não tem pnpm: usa o binário do Prisma instalado no build.
+    command: ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma"]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-plataforma}:${POSTGRES_PASSWORD:-plataforma_dev}@postgres:5432/${POSTGRES_DB:-plataforma}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plataforma}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (openssl rand -hex 32)}@postgres:5432/${POSTGRES_DB:-plataforma}?connection_limit=21&pool_timeout=10
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,32 +149,29 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api/Dockerfile.prod
     ports:
       - '${API_PORT:-3000}:3000'
     networks:
       - default
       - sandbox-net
     environment:
+      NODE_ENV: production
       PORT: '3000'
       CORS_ORIGIN: http://localhost:${WEB_PORT:-3001}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-plataforma}:${POSTGRES_PASSWORD:-plataforma_dev}@postgres:5432/${POSTGRES_DB:-plataforma}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plataforma}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (openssl rand -hex 32)}@postgres:5432/${POSTGRES_DB:-plataforma}?connection_limit=21&pool_timeout=10
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?defina JWT_ACCESS_SECRET no .env (openssl rand -hex 48)}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no .env (openssl rand -hex 48)}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env (openssl rand -hex 32)}@redis:6379
       GITEA_URL: http://gitea:3000
       GITEA_ENABLED: ${GITEA_ENABLED:-true}
       GITEA_TOKEN: ${GITEA_TOKEN:-}
       GITEA_WEBHOOK_SECRET: ${GITEA_WEBHOOK_SECRET:?defina GITEA_WEBHOOK_SECRET no .env (openssl rand -hex 32)}
       GITEA_ORG: ${GITEA_ORG:-plataforma}
       PISTON_URL: http://piston:2000
-      CHOKIDAR_USEPOLLING: 'true'
-      WATCHPACK_POLLING: 'true'
-    volumes:
-      - ./apps/api/src:/app/apps/api/src
-    command: ["sh", "-c", "pnpm --filter @plataforma/api exec prisma generate && pnpm --filter @plataforma/api dev"]
+      PISTON_MAX_CONCURRENT: ${PISTON_MAX_CONCURRENT:-4}
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
       interval: 10s
@@ -159,17 +191,16 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/web/Dockerfile.prod
+      args:
+        # NEXT_PUBLIC_API_URL é embutido no build Next (não dá para trocar
+        # só com env em runtime): defina a URL pública da API no .env.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${API_PORT:-3000}}
     ports:
       - '${WEB_PORT:-3001}:3001'
     environment:
       API_URL: http://api:3000
       NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-3000}
-      WATCHPACK_POLLING: 'true'
-      CHOKIDAR_USEPOLLING: 'true'
-    volumes:
-      - ./apps/web/app:/app/apps/web/app
-      - ./apps/web/public:/app/apps/web/public
     depends_on:
       api:
         condition: service_healthy

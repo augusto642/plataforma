@@ -1,8 +1,10 @@
-import { BadGatewayException, BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { createHash, randomInt } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { GiteaService } from '../gitea/gitea.service';
+import { ConfigError } from '../config/secrets.validation';
+import { buildCertificateCode } from './certificate-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -12,6 +14,61 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 
 const ENROLLMENT_CODE_LENGTH = 8;
 const ENROLLMENT_CODE_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+/**
+ * A4 — ranking: cache + paginação.
+ * - TTL 45 s (dentro da faixa 30-60 s recomendada): o ranking muda a cada
+ *   avaliação, e 45 s de defasagem é aceitável para um leaderboard.
+ * - Página default 50, teto 100: o piloto tem <= 30 alunos, então a 1ª
+ *   página cobre a turma inteira sem o custo de trazer todos sempre.
+ * - Chave inclui curso + página + limite; a invalidação é por curso
+ *   (`leaderboard:<courseId>:*`) em `evaluate`/`battleRun` e no
+ *   `AdminService.updateUserRole` (que já fazia `delPattern('leaderboard:*')`
+ *   sobre um cache que nunca era escrito — agora ele invalida de verdade).
+ */
+/**
+ * A4 — entrada do ranking (contrato de `getLeaderboard`, consumido também
+ * por `TalentService.getCourseLeaderboard`). Tipagem explícita: o retorno
+ * passa por `cache.get<LeaderboardEntry[]>` e, sem ela, o TS inferiria
+ * `unknown` nas entradas e quebraria os consumidores.
+ */
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  name: string;
+  xp: number;
+  level: number;
+  streakDays: number;
+  badges: Array<{
+    id: string;
+    badgeCode: string;
+    title: string;
+    icon: string | null;
+  }>;
+  completedActivitiesCount: number;
+}
+
+const LEADERBOARD_CACHE_TTL_SECONDS = 45;
+const LEADERBOARD_DEFAULT_LIMIT = 50;
+
+/**
+ * M2 (Lote 4) — paginação padrão das listagens, mesmo padrão do ranking
+ * (A4): 1ª página / 50 por padrão, teto 100. `page`/`limit` fora da faixa
+ * são clamped, nunca rejeitados, para não quebrar clientes antigos.
+ */
+const DEFAULT_LIST_LIMIT = 50;
+const MAX_LIST_LIMIT = 100;
+
+function clampPage(page: unknown, fallback = 1): number {
+  return Math.max(1, Math.floor(Number(page)) || fallback);
+}
+
+function clampLimit(limit: unknown, fallback = DEFAULT_LIST_LIMIT): number {
+  return Math.min(
+    MAX_LIST_LIMIT,
+    Math.max(1, Math.floor(Number(limit)) || fallback),
+  );
+}
 
 function generateEnrollmentCode(): string {
   let code = '';
@@ -32,6 +89,8 @@ function isEnrollmentCodeConflict(error: unknown): boolean {
 
 @Injectable()
 export class CoursesService {
+  private readonly logger = new Logger(CoursesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
@@ -276,11 +335,25 @@ export class CoursesService {
     throw new ConflictException('Não foi possível gerar um código de turma único. Tente novamente.');
   }
 
-  async getEnrollments(courseId: string, userId?: string, userRole?: string) {
+  /**
+   * M2 (Lote 4) — listagem paginada no banco (skip/take, teto 100).
+   * Antes: `findMany` sem `take` trazia TODOS os matriculados a cada
+   * chamada. O retorno continua sendo o array da página, na mesma ordem
+   * (`createdAt desc`); sem `page`/`limit`, 1ª página / 50.
+   */
+  async getEnrollments(
+    courseId: string,
+    userId?: string,
+    userRole?: string,
+    page = 1,
+    limit = DEFAULT_LIST_LIMIT,
+  ) {
     const course = await this.findById(courseId);
     if (userRole !== 'admin' && userId && course.instructorId !== userId) {
       throw new ForbiddenException('Acesso não autorizado aos alunos deste curso');
     }
+    const safePage = clampPage(page);
+    const safeLimit = clampLimit(limit);
     return this.prisma.enrollment.findMany({
       where: { courseId },
       include: {
@@ -289,6 +362,8 @@ export class CoursesService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
     });
   }
 
@@ -312,18 +387,36 @@ export class CoursesService {
       where: { courseId },
     });
 
+    // M2 (Lote 4): antes, `activity.findMany({ include: { submissions } })`
+    // trazia TODAS as submissões do curso para a memória e agregava com
+    // filter/length em JS. Agora a agregação é feita no banco (`groupBy`
+    // por atividade+status) e só as atividades (id/título) vêm para a
+    // aplicação. Números idênticos: totalAttempts = nº de submissões da
+    // atividade, passedCount = as de status 'passed', passRate =
+    // Math.round(passed/total*100) (0 sem tentativas). A ordem das
+    // atividades é a mesma de antes (mesmo findMany, sem orderBy).
     const activities = await this.prisma.activity.findMany({
       where: { courseId },
-      include: {
-        submissions: {
-          select: { id: true, status: true, score: true, userId: true },
-        },
-      },
+      select: { id: true, title: true },
     });
 
+    const grouped = await this.prisma.submission.groupBy({
+      by: ['activityId', 'status'],
+      where: { activity: { courseId } },
+      _count: { _all: true },
+    });
+
+    const attemptsByActivity = new Map<string, { total: number; passed: number }>();
+    for (const row of grouped) {
+      const entry = attemptsByActivity.get(row.activityId) ?? { total: 0, passed: 0 };
+      entry.total += row._count._all;
+      if (row.status === 'passed') entry.passed += row._count._all;
+      attemptsByActivity.set(row.activityId, entry);
+    }
+
     const activitiesStats = activities.map((act) => {
-      const totalAttempts = act.submissions.length;
-      const passedCount = act.submissions.filter((s) => s.status === 'passed').length;
+      const { total: totalAttempts, passed: passedCount } =
+        attemptsByActivity.get(act.id) ?? { total: 0, passed: 0 };
       const passRate = totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100) : 0;
       return {
         activityId: act.id,
@@ -434,24 +527,50 @@ export class CoursesService {
     }
 
     const activitiesCount = await this.prisma.activity.count({ where: { courseId } });
-    const passedSubmissions = await this.prisma.submission.findMany({
+    // M2 (Lote 4): antes, `findMany` de TODAS as submissões passed do aluno
+    // no curso (activityId + createdAt) + `Set` + `reduce` em JS. Agora o
+    // banco agrupa por atividade (uma linha por atividade concluída) e
+    // devolve só o createdAt máximo de cada uma — a mesma cardinalidade do
+    // Set e o mesmo completedAt (o mais recente entre as atividades).
+    // Submissões duplicadas na mesma atividade não inflam mais a contagem
+    // nem no banco nem na aplicação: o groupBy já deduplica por activityId.
+    const passedGroups = await this.prisma.submission.groupBy({
+      by: ['activityId'],
       where: { userId, status: 'passed', activity: { courseId } },
-      select: { activityId: true, createdAt: true },
+      _max: { createdAt: true },
     });
-    const passedActivityIds = new Set(passedSubmissions.map((s) => s.activityId));
+    const passedActivityIds = new Set(passedGroups.map((g) => g.activityId));
 
     if (activitiesCount === 0 || passedActivityIds.size < activitiesCount) {
       throw new BadRequestException('Complete todas as atividades para emitir o certificado');
     }
 
-    const completedAt = passedSubmissions.reduce<Date>(
-      (latest, s) => (s.createdAt > latest ? s.createdAt : latest),
-      passedSubmissions[0].createdAt,
+    // Aqui passedGroups é não vazio (o guarda acima garante size >= count
+    // >= 1) e cada grupo tem >= 1 linha, então _max.createdAt é não nulo.
+    const completedAt = passedGroups.reduce<Date>(
+      (latest, g) => {
+        const d = g._max.createdAt ?? latest;
+        return d > latest ? d : latest;
+      },
+      passedGroups[0]._max.createdAt as Date,
     );
 
-    const verificationCode = createHash('sha256')
-      .update(`${userId}:${courseId}:${completedAt.toISOString()}`)
-      .digest('hex');
+    // A11 (Lote 3): o código antigo era `sha256(userId:courseId:completedAt)`
+    // sem segredo — pré-computável por qualquer um (userId vaza no
+    // leaderboard, courseId é público, completedAt é dedutível) e sem
+    // expiração. O código novo é v2: HMAC-SHA256 com o segredo dedicado
+    // `CERTIFICATE_HMAC_SECRET` + versão + expiração embutida
+    // (`certificate-code.ts`). Fail-closed: sem o segredo a emissão recusa
+    // subir/emitir em vez de emitir um código forjável.
+    const certificateSecret = this.config.get<string>('CERTIFICATE_HMAC_SECRET');
+    if (!certificateSecret) {
+      throw new ConfigError('CERTIFICATE_HMAC_SECRET is required');
+    }
+    const verificationCode = buildCertificateCode(certificateSecret, {
+      userId,
+      courseId,
+      completedAt,
+    });
 
     const student = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -467,7 +586,31 @@ export class CoursesService {
     };
   }
 
-  async getLeaderboard(courseId: string, userId?: string, userRole?: string) {
+  /**
+   * A4 — ranking paginado e cacheado por curso.
+   *
+   * Antes: `findMany` sem `take`/`orderBy`, `.sort()` em memória e retorno
+   * de TODOS os matriculados a cada chamada, sem cache.
+   *
+   * Agora: ordenação no banco (`user.xp desc`, desempate determinístico por
+   * `user.createdAt asc` — o desempate antigo por nº de atividades
+   * concluídas não é exprimível em `orderBy` do Prisma e foi removido;
+   * a contagem continua sendo retornada por linha), `skip`/`take` por
+   * página, e cache Redis de 45 s por (curso, página, limite).
+   *
+   * Contrato preservado: retorna o array da página (`rank` já com o offset
+   * da página). `page`/`limit` fora da faixa são clamped (limit 1..100).
+   * Falha do Redis é fail-open: ignora o cache e vai ao banco (o ranking
+   * nunca quebra porque o cache caiu). O `TalentService` chama sem
+   * `page`/`limit` e recebe a 1ª página (50) — suficiente no piloto.
+   */
+  async getLeaderboard(
+    courseId: string,
+    userId?: string,
+    userRole?: string,
+    page = 1,
+    limit = LEADERBOARD_DEFAULT_LIMIT,
+  ): Promise<LeaderboardEntry[]> {
     const course = await this.findById(courseId);
 
     if (userRole === 'student' && userId) {
@@ -479,8 +622,23 @@ export class CoursesService {
       }
     }
 
+    const safePage = clampPage(page);
+    const safeLimit = clampLimit(limit, LEADERBOARD_DEFAULT_LIMIT);
+    const skip = (safePage - 1) * safeLimit;
+    const cacheKey = `leaderboard:${courseId}:p${safePage}:l${safeLimit}`;
+
+    try {
+      const cached = await this.cache.get<LeaderboardEntry[]>(cacheKey);
+      if (cached) return cached;
+    } catch (err: any) {
+      this.logger.warn(`Leaderboard cache read failed (${cacheKey}): ${err?.message}`);
+    }
+
     const enrollments = await this.prisma.enrollment.findMany({
       where: { courseId },
+      orderBy: [{ user: { xp: 'desc' } }, { user: { createdAt: 'asc' } }],
+      skip,
+      take: safeLimit,
       include: {
         user: {
           select: {
@@ -505,22 +663,28 @@ export class CoursesService {
       },
     });
 
-    const ranked = enrollments
-      .map((e) => ({
-        userId: e.user.id,
-        name: e.user.name,
-        xp: e.user.xp,
-        level: e.user.level,
-        streakDays: e.user.streakDays,
-        badges: e.user.badges,
-        completedActivitiesCount: e.user.submissions.length,
-      }))
-      .sort((a, b) => b.xp - a.xp || b.completedActivitiesCount - a.completedActivitiesCount);
+    const ranked = enrollments.map((e) => ({
+      userId: e.user.id,
+      name: e.user.name,
+      xp: e.user.xp,
+      level: e.user.level,
+      streakDays: e.user.streakDays,
+      badges: e.user.badges,
+      completedActivitiesCount: e.user.submissions.length,
+    }));
 
-    return ranked.map((item, index) => ({
-      rank: index + 1,
+    const result = ranked.map((item, index) => ({
+      rank: skip + index + 1,
       ...item,
     }));
+
+    try {
+      await this.cache.set(cacheKey, result, LEADERBOARD_CACHE_TTL_SECONDS);
+    } catch (err: any) {
+      this.logger.warn(`Leaderboard cache write failed (${cacheKey}): ${err?.message}`);
+    }
+
+    return result;
   }
 
   private giteaUsernameFor(email: string, userId: string): string {
