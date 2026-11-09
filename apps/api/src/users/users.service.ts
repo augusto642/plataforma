@@ -260,19 +260,31 @@ export class UsersService {
       },
     });
 
-    const submissions = await this.prisma.submission.findMany({
+    // M2 (Lote 4): antes, `findMany` de TODAS as submissões do usuário (sem
+    // take) + agregação em JS (Set de passed, soma/média de scores). Agora
+    // um único `groupBy` por (atividade, status) com `_count`/`_sum`: o
+    // banco devolve no máximo (#atividades × #status) linhas. Números
+    // idênticos: passedActivityIds = atividades com >= 1 'passed';
+    // totalSubmissions = soma dos _count; averageScore =
+    // Math.round(soma dos scores / nº de scores não nulos) (0 sem scores).
+    const grouped = await this.prisma.submission.groupBy({
+      by: ['activityId', 'status'],
       where: { userId },
-      select: {
-        id: true,
-        activityId: true,
-        status: true,
-        score: true,
-      },
+      _count: { _all: true, score: true },
+      _sum: { score: true },
     });
 
-    const passedActivityIds = new Set(
-      submissions.filter((s) => s.status === 'passed').map((s) => s.activityId),
-    );
+    const passedActivityIds = new Set<string>();
+    let totalSubmissions = 0;
+    let scoredCount = 0;
+    let scoreSum = 0;
+    for (const row of grouped) {
+      totalSubmissions += row._count._all;
+      scoredCount += row._count.score;
+      scoreSum += row._sum.score ?? 0;
+      if (row.status === 'passed') passedActivityIds.add(row.activityId);
+    }
+    const averageScore = scoredCount > 0 ? Math.round(scoreSum / scoredCount) : 0;
 
     const coursesProgress = enrollments.map((enr) => {
       const totalActivities = enr.course.activities.length;
@@ -287,10 +299,6 @@ export class UsersService {
         progressPercent,
       };
     });
-
-    const totalSubmissions = submissions.length;
-    const scores = submissions.filter((s) => s.score !== null).map((s) => s.score as number);
-    const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
     return {
       xp: user?.xp || 0,
