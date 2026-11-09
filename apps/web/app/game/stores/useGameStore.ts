@@ -172,6 +172,11 @@ export interface GameStoreState {
   currentBattle: BattleState | null;
   startBattle: (enemy?: Partial<EnemyCreature>) => void;
   attackEnemy: (skillId?: string) => void;
+  /**
+   * D2: aplica o dano já decidido pelo CodeBattleModal (servidor ou treino),
+   * sem rolar dano novo e sem conceder XP/bits. Só o modal usa.
+   */
+  applyCodeBattleOutcome: (damage: number) => void;
   fleeBattle: () => void;
 
   // Configurações de som e ambiente
@@ -1086,6 +1091,56 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       setGameMode('exploring');
       set({ currentBattle: null });
     }, 800);
+  },
+
+  /**
+   * D2 (Lote 1): aplica o dano já decidido pelo CodeBattleModal — no caminho
+   * registrado, `damageDealt` autoritativo do servidor (GET :id/battle); no
+   * modo treino, o dano local. NÃO rola dano aleatório de novo (attackEnemy
+   * rolava) e NÃO concede XP/bits: no caminho registrado o servidor já
+   * persistiu xpGained/bitsGained na transação do job; no treino não há
+   * recompensa. Usado SÓ pelo callback onAttackSuccess do modal.
+   */
+  applyCodeBattleOutcome: (damage) => {
+    const { currentBattle, selectedStarter, setGameMode } = get();
+    if (!currentBattle || currentBattle.isFinished) return;
+
+    const nextEnemyHp = Math.max(0, currentBattle.enemy.hp - damage);
+    const updatedLog = [
+      ...currentBattle.log,
+      `${selectedStarter.name} usou ataque de código! Causou ${damage} de dano.`,
+    ];
+
+    if (nextEnemyHp <= 0) {
+      updatedLog.push(`[${currentBattle.enemy.name}] foi neutralizado!`);
+      set({
+        currentBattle: {
+          ...currentBattle,
+          enemy: { ...currentBattle.enemy, hp: 0 },
+          log: updatedLog,
+          isFinished: true,
+          winner: 'player',
+        },
+      });
+      setTimeout(() => {
+        setGameMode('exploring');
+        set({ currentBattle: null });
+      }, 2400);
+      return;
+    }
+
+    // Sem contra-ataque agendado: o modelo do servidor só prevê recuo na
+    // falha (recoilDamage, aplicado pelo modal via updateHp). O turno segue
+    // com o jogador — deixar 'enemy' aqui travaria a batalha, pois nada
+    // mais dispara o turno inimigo (o contra-ataque vivia em attackEnemy).
+    set({
+      currentBattle: {
+        ...currentBattle,
+        enemy: { ...currentBattle.enemy, hp: nextEnemyHp },
+        turn: 'player',
+        log: updatedLog,
+      },
+    });
   },
 
   // Configurações de som e visual

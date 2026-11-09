@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CacheService } from '../../cache/cache.service';
 import { GamificationService } from '../../gamification/gamification.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -36,6 +37,7 @@ export class EvaluatorService {
     private readonly prisma: PrismaService,
     private readonly runner: PistonRunnerService,
     private readonly gamification: GamificationService,
+    private readonly cache: CacheService,
   ) {}
 
   async processSubmission(submissionId: string): Promise<void> {
@@ -69,7 +71,56 @@ export class EvaluatorService {
       const errorMessage =
         evaluation.errorMessage || (kind === 'passed' ? undefined : KIND_MESSAGES[kind]);
 
+      // C8 (Lote 1): claim + premiação do XP fundidos numa SÓ transação.
+      // Antes eram duas transações separadas (esta, com o CAS xpAwarded, e a
+      // do GamificationService): se a segunda falhasse, o catch dela só
+      // logava e retornava null — o XP era perdido silenciosamente com o
+      // claim já marcado. Agora o award roda dentro desta transação (com o
+      // tx do Prisma): qualquer falha desfaz TUDO (inclusive o claim) e o
+      // retry do BullMQ (attempts: 2) pode reclamar o XP de novo.
       const shouldAwardXp = await this.prisma.$transaction(async (tx) => {
+        const resultData = {
+          status: kind === 'sandbox_unavailable' ? 'error' : evaluation.status,
+          score: evaluation.score,
+          maxScore: evaluation.maxScore,
+          durationMs: evaluation.durationMs,
+          errorMessage,
+          logs: evaluation.logs,
+        };
+
+        // M5 — ordem canônica de locks (ver `common/tx-lock-order.ts`):
+        // a SUBMISSÃO é travada primeiro. O claim CAS abaixo precisa
+        // preceder o prêmio (C8): premiar antes de reclamar pagaria XP
+        // por uma submissão que outro worker já reclamou.
+        let claimed = false;
+        if (canAwardXp) {
+          // Compare-and-set atômico: só o worker que flipar xpAwarded false->true
+          // (count === 1) tem o direito de premiar XP. Impede XP em dobro quando
+          // BullMQ retries (attempts: 2) ou réplicas concorrentes processam a
+          // mesma submissão.
+          const claim = await tx.submission.updateMany({
+            where: { id: submissionId, xpAwarded: false },
+            data: { ...resultData, xpAwarded: true },
+          });
+          claimed = claim.count === 1;
+          if (!claimed) {
+            // Outra corrida já processou esta submissão; persiste o resultado
+            // mais recente sem premiar XP novamente.
+            await tx.submission.update({
+              where: { id: submissionId },
+              data: resultData,
+            });
+          }
+        } else {
+          // Outcomes que nunca premiam XP preservam o flag existente.
+          await tx.submission.update({
+            where: { id: submissionId },
+            data: { ...resultData, xpAwarded: submission.xpAwarded },
+          });
+        }
+
+        // M5 — testCaseResults DEPOIS da submissão, ANTES do usuário
+        // (ordem canônica: submissions → test_case_results → users).
         // Clean up previous test results if this is a retry
         await tx.testCaseResult.deleteMany({
           where: { submissionId },
@@ -91,52 +142,24 @@ export class EvaluatorService {
           });
         }
 
-        const resultData = {
-          status: kind === 'sandbox_unavailable' ? 'error' : evaluation.status,
-          score: evaluation.score,
-          maxScore: evaluation.maxScore,
-          durationMs: evaluation.durationMs,
-          errorMessage,
-          logs: evaluation.logs,
-        };
-
-        if (canAwardXp) {
-          // Compare-and-set atômico: só o worker que flipar xpAwarded false->true
-          // (count === 1) tem o direito de premiar XP. Impede XP em dobro quando
-          // BullMQ retries (attempts: 2) ou réplicas concorrentes processam a
-          // mesma submissão.
-          const claimed = await tx.submission.updateMany({
-            where: { id: submissionId, xpAwarded: false },
-            data: { ...resultData, xpAwarded: true },
-          });
-          if (claimed.count === 1) {
-            return true;
-          }
-          // Outra corrida já processou esta submissão; persiste o resultado
-          // mais recente sem premiar XP novamente.
-          await tx.submission.update({
-            where: { id: submissionId },
-            data: resultData,
-          });
-          return false;
+        if (claimed) {
+          // O award dentro da mesma transação: sem ele não há commit do
+          // claim — nada de XP perdido silenciosamente.
+          await this.gamification.awardSubmissionXp(
+            submission.userId,
+            submission.activityId,
+            evaluation.status === 'passed',
+            evaluation.score,
+            tx as any,
+          );
+          return true;
         }
-
-        // Outcomes que nunca premiam XP preservam o flag existente.
-        await tx.submission.update({
-          where: { id: submissionId },
-          data: { ...resultData, xpAwarded: submission.xpAwarded },
-        });
         return false;
       });
 
-      // Award XP and evaluate Badges only for the worker that won the
-      // compare-and-set above (exactly-once per submission)
       if (shouldAwardXp) {
-        await this.gamification.awardSubmissionXp(
-          submission.userId,
-          submission.activityId,
-          evaluation.status === 'passed',
-          evaluation.score,
+        this.logger.log(
+          `XP awarded in-transaction for submission ${submissionId} (user ${submission.userId})`,
         );
       }
     } catch (err: any) {
@@ -148,6 +171,22 @@ export class EvaluatorService {
           errorMessage: err.message || 'Internal evaluation error',
         },
       });
+    }
+
+    // A4: a avaliação persiste status/score/XP — o ranking do curso mudou
+    // (ou pode ter mudado), então o cache `leaderboard:<courseId>:*` não
+    // vale mais. Invalidação best-effort: falha do Redis nunca pode
+    // transformar uma avaliação concluída em erro (o TTL de 45 s cobre).
+    await this.invalidateLeaderboard(submission.activity.courseId);
+  }
+
+  private async invalidateLeaderboard(courseId: string): Promise<void> {
+    try {
+      await this.cache.delPattern(`leaderboard:${courseId}:*`);
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to invalidate leaderboard cache for course ${courseId}: ${err?.message}`,
+      );
     }
   }
 

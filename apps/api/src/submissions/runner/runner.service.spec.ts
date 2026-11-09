@@ -113,8 +113,10 @@ describe('PistonRunnerService.execute', () => {
     assert.equal(payload.compile_memory_limit, 128 * 1024 * 1024);
     assert.equal(payload.run_timeout, 7000);
     assert.equal(payload.run_cpu_time, 7000);
-    assert.equal(payload.compile_timeout, 10000);
-    assert.equal(payload.compile_cpu_time, 10000);
+    // M7 — timeout único: compile usa o canônico (default 30 s), não
+    // mais o fixo de 10 s.
+    assert.equal(payload.compile_timeout, 30000);
+    assert.equal(payload.compile_cpu_time, 30000);
     assert.equal(payload.language, 'python');
   });
 
@@ -460,5 +462,213 @@ describe('PistonRunnerService.executeInSandbox', () => {
     assert.equal(result.status, 'failed');
     assert.equal(calls.length, 0);
     assert.match(result.errorMessage || '', /vazio/);
+  });
+});
+describe('PistonRunnerService piston concurrency (A3)', () => {
+  it('caps simultaneous Piston executions at 4 while still running in parallel', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    fetchStub = async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      inFlight--;
+      return okResponse({ run: runStage({}) });
+    };
+    const runner = newRunner();
+
+    assert.equal(runner.maxPistonConcurrency, 4);
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        runner.execute('javascript', 'console.log(1)'),
+      ),
+    );
+
+    assert.ok(maxInFlight > 1, `expected jobs to run in parallel, saw max ${maxInFlight}`);
+    assert.ok(maxInFlight <= 4, `expected at most 4 concurrent Piston calls, saw ${maxInFlight}`);
+    assert.equal(runner.currentPistonConcurrency, 0);
+  });
+
+  it('honors PISTON_MAX_CONCURRENT=2', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    fetchStub = async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      inFlight--;
+      return okResponse({ run: runStage({}) });
+    };
+    const runner = newRunner({ PISTON_MAX_CONCURRENT: '2' });
+
+    assert.equal(runner.maxPistonConcurrency, 2);
+    await Promise.all(
+      Array.from({ length: 6 }, () =>
+        runner.execute('javascript', 'console.log(1)'),
+      ),
+    );
+
+    assert.ok(maxInFlight <= 2, `expected at most 2 concurrent Piston calls, saw ${maxInFlight}`);
+    assert.equal(runner.currentPistonConcurrency, 0);
+  });
+
+  it('releases the slot when the Piston call fails', async () => {
+    fetchStub = async () => {
+      throw new Error('connection reset');
+    };
+    const runner = newRunner();
+
+    const result = await runner.execute('javascript', 'console.log(1)');
+    assert.equal(result.kind, 'sandbox_unavailable');
+    assert.equal(runner.currentPistonConcurrency, 0);
+
+    // O slot liberado permite a próxima execução normalmente.
+    fetchStub = async () => okResponse({ run: runStage({}) });
+    const ok = await runner.execute('javascript', 'console.log(1)');
+    assert.equal(ok.kind, 'passed');
+    assert.equal(runner.currentPistonConcurrency, 0);
+  });
+});
+
+describe('PistonRunnerService unified timeout (M7)', () => {
+  it('uses the single canonical timeout for run and compile, and clamps the per-run limit to it', async () => {
+    fetchStub = async () => okResponse({ run: runStage({}) });
+    const runner = newRunner();
+
+    assert.equal(runner.executionTimeoutMs, 30000);
+    assert.equal(runner.pistonHttpTimeoutMs, 32000);
+
+    await runner.execute('python', 'print(1)', { timeLimitMs: 99999 });
+
+    const payload = assertExecutePayload(calls[0]);
+    assert.equal(payload.run_timeout, 30000);
+    assert.equal(payload.run_cpu_time, 30000);
+    assert.equal(payload.compile_timeout, 30000);
+    assert.equal(payload.compile_cpu_time, 30000);
+  });
+
+  it('honors a smaller PISTON_TIMEOUT_MS as the single timeout everywhere', async () => {
+    fetchStub = async () => okResponse({ run: runStage({}) });
+    const runner = newRunner({ PISTON_TIMEOUT_MS: '8000' });
+
+    assert.equal(runner.executionTimeoutMs, 8000);
+    assert.equal(runner.pistonHttpTimeoutMs, 10000);
+
+    await runner.execute('python', 'print(1)', { timeLimitMs: 99999 });
+
+    const payload = assertExecutePayload(calls[0]);
+    assert.equal(payload.run_timeout, 8000);
+    assert.equal(payload.compile_timeout, 8000);
+  });
+});
+
+describe('PistonRunnerService circuit breaker (M7)', () => {
+  it('opens after N consecutive transport failures and fails fast without calling Piston', async () => {
+    fetchStub = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+    const runner = newRunner({
+      PISTON_BREAKER_FAILURE_THRESHOLD: '3',
+      PISTON_BREAKER_OPEN_MS: '60000',
+    });
+
+    assert.equal(runner.circuitBreakerState, 'closed');
+    for (let i = 0; i < 3; i++) {
+      const result = await runner.execute('javascript', '1');
+      assert.equal(result.kind, 'sandbox_unavailable');
+    }
+    assert.equal(calls.length, 3);
+    assert.equal(runner.circuitBreakerState, 'open');
+    assert.equal(runner.circuitBreakerFailureCount, 3);
+
+    // Circuito aberto: falha rápido, sem HTTP e com erro explícito.
+    const fast = await runner.execute('javascript', '1');
+    assert.equal(fast.kind, 'sandbox_unavailable');
+    assert.match(fast.errorMessage || '', /circuit breaker/i);
+    assert.equal(calls.length, 3);
+  });
+
+  it('closes after a successful half-open trial once the cooldown elapses', async () => {
+    let failuresLeft = 2;
+    fetchStub = async () => {
+      if (failuresLeft > 0) {
+        failuresLeft--;
+        throw new Error('ECONNREFUSED');
+      }
+      return okResponse({ run: runStage({}) });
+    };
+    const runner = newRunner({
+      PISTON_BREAKER_FAILURE_THRESHOLD: '2',
+      PISTON_BREAKER_OPEN_MS: '50',
+    });
+
+    await runner.execute('javascript', '1');
+    await runner.execute('javascript', '1');
+    assert.equal(runner.circuitBreakerState, 'open');
+
+    // Ainda no cooldown: falha rápido, sem HTTP.
+    const fast = await runner.execute('javascript', '1');
+    assert.equal(calls.length, 2);
+    assert.match(fast.errorMessage || '', /circuit breaker/i);
+
+    // Cooldown decorrido: o trial passa, o Piston responde e o circuito fecha.
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    const recovered = await runner.execute('javascript', '1');
+    assert.equal(recovered.kind, 'passed');
+    assert.equal(runner.circuitBreakerState, 'closed');
+    assert.equal(runner.circuitBreakerFailureCount, 0);
+    assert.equal(calls.length, 3);
+
+    // E a próxima chamada vai ao Piston normalmente.
+    const next = await runner.execute('javascript', '1');
+    assert.equal(next.kind, 'passed');
+    assert.equal(calls.length, 4);
+  });
+
+  it('counts HTTP 5xx as failures but not 4xx (Piston is up and answering)', async () => {
+    fetchStub = async () => textResponse('boom', 500);
+    const runner = newRunner({
+      PISTON_BREAKER_FAILURE_THRESHOLD: '2',
+      PISTON_BREAKER_OPEN_MS: '60000',
+    });
+
+    await runner.execute('javascript', '1');
+    await runner.execute('javascript', '1');
+    assert.equal(runner.circuitBreakerState, 'open');
+
+    // 4xx: runtime não encontrado — o Piston respondeu, não é falha.
+    fetchStub = async () =>
+      textResponse('{"message":"Runtime not found for language typescript"}', 400);
+    const runner2 = newRunner({
+      PISTON_BREAKER_FAILURE_THRESHOLD: '2',
+      PISTON_BREAKER_OPEN_MS: '60000',
+    });
+    const first = await runner2.execute('typescript', 'const x: number = 1;');
+    assert.equal(first.kind, 'unsupported');
+    const second = await runner2.execute('typescript', 'const x: number = 1;');
+    assert.equal(second.kind, 'unsupported');
+    assert.equal(runner2.circuitBreakerState, 'closed');
+    assert.equal(runner2.circuitBreakerFailureCount, 0);
+  });
+
+  it('a single success resets the consecutive failure count', async () => {
+    let calls_made = 0;
+    fetchStub = async () => {
+      calls_made++;
+      if (calls_made <= 2) throw new Error('ECONNREFUSED');
+      return okResponse({ run: runStage({}) });
+    };
+    const runner = newRunner({
+      PISTON_BREAKER_FAILURE_THRESHOLD: '3',
+      PISTON_BREAKER_OPEN_MS: '60000',
+    });
+
+    await runner.execute('javascript', '1');
+    await runner.execute('javascript', '1');
+    assert.equal(runner.circuitBreakerFailureCount, 2);
+    const ok = await runner.execute('javascript', '1');
+    assert.equal(ok.kind, 'passed');
+    assert.equal(runner.circuitBreakerFailureCount, 0);
+    assert.equal(runner.circuitBreakerState, 'closed');
   });
 });

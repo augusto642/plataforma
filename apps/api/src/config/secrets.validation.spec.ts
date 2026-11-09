@@ -16,6 +16,7 @@ describe('validateRequiredSecrets', () => {
     }
     expect(message).toContain('JWT_ACCESS_SECRET');
     expect(message).toContain('JWT_REFRESH_SECRET');
+    expect(message).toContain('CERTIFICATE_HMAC_SECRET');
     expect(message).toContain('GITEA_TOKEN');
     expect(message).toContain('GITEA_WEBHOOK_SECRET');
   });
@@ -31,6 +32,7 @@ describe('validateRequiredSecrets', () => {
       validateRequiredSecrets({
         JWT_ACCESS_SECRET: STRONG('access'),
         JWT_REFRESH_SECRET: STRONG('refresh'),
+        CERTIFICATE_HMAC_SECRET: STRONG('cert'),
       }),
     ).toThrow(/GITEA_TOKEN/);
   });
@@ -39,6 +41,7 @@ describe('validateRequiredSecrets', () => {
     const env = {
       JWT_ACCESS_SECRET: STRONG('access'),
       JWT_REFRESH_SECRET: STRONG('refresh'),
+      CERTIFICATE_HMAC_SECRET: STRONG('cert'),
       GITEA_ENABLED: 'false',
     };
     expect(validateRequiredSecrets(env)).toBe(env);
@@ -48,6 +51,7 @@ describe('validateRequiredSecrets', () => {
     const env = {
       JWT_ACCESS_SECRET: STRONG('access'),
       JWT_REFRESH_SECRET: STRONG('refresh'),
+      CERTIFICATE_HMAC_SECRET: STRONG('cert'),
       GITEA_TOKEN: 'tok',
       GITEA_WEBHOOK_SECRET: STRONG('whsec'),
     };
@@ -64,6 +68,7 @@ describe('validateRequiredSecrets', () => {
     const env = {
       JWT_ACCESS_SECRET: `change_me_access_secret_${'0123456789abcdef'.repeat(3)}`,
       JWT_REFRESH_SECRET: STRONG('refresh'),
+      CERTIFICATE_HMAC_SECRET: STRONG('cert'),
       GITEA_TOKEN: 'tok',
       GITEA_WEBHOOK_SECRET: STRONG('whsec'),
     };
@@ -78,6 +83,7 @@ describe('validateRequiredSecrets', () => {
       validateRequiredSecrets({
         JWT_ACCESS_SECRET: STRONG('access'),
         JWT_REFRESH_SECRET: STRONG('refresh'),
+        CERTIFICATE_HMAC_SECRET: STRONG('cert'),
         GITEA_TOKEN: 'tok',
         GITEA_WEBHOOK_SECRET: `CHANGE_ME_${'0123456789abcdef'.repeat(3)}`,
       }),
@@ -92,6 +98,7 @@ describe('validateRequiredSecrets', () => {
         validateRequiredSecrets({
           JWT_ACCESS_SECRET: '123456',
           JWT_REFRESH_SECRET: STRONG('refresh'),
+          CERTIFICATE_HMAC_SECRET: STRONG('cert'),
           GITEA_TOKEN: 'tok',
           GITEA_WEBHOOK_SECRET: STRONG('whsec'),
         }),
@@ -103,16 +110,30 @@ describe('validateRequiredSecrets', () => {
         validateRequiredSecrets({
           JWT_ACCESS_SECRET: STRONG('access'),
           JWT_REFRESH_SECRET: STRONG('refresh'),
+          CERTIFICATE_HMAC_SECRET: STRONG('cert'),
           GITEA_TOKEN: 'tok',
           GITEA_WEBHOOK_SECRET: 'shortwebhook',
         }),
       ).toThrow(/Weak secret value.*GITEA_WEBHOOK_SECRET/s);
     });
 
+    it('rejects weak CERTIFICATE_HMAC_SECRET even when JWT secrets are strong (A11)', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          JWT_ACCESS_SECRET: STRONG('access'),
+          JWT_REFRESH_SECRET: STRONG('refresh'),
+          CERTIFICATE_HMAC_SECRET: 'shortcert',
+          GITEA_TOKEN: 'tok',
+          GITEA_WEBHOOK_SECRET: STRONG('whsec'),
+        }),
+      ).toThrow(/Weak secret value.*CERTIFICATE_HMAC_SECRET/s);
+    });
+
     it('rejects secrets with exactly 31 chars and accepts 32', () => {
       const base = {
         GITEA_TOKEN: 'tok',
         GITEA_ENABLED: 'false',
+        CERTIFICATE_HMAC_SECRET: STRONG('cert'),
       };
       expect(() =>
         validateRequiredSecrets({
@@ -137,6 +158,7 @@ describe('validateRequiredSecrets', () => {
         validateRequiredSecrets({
           JWT_ACCESS_SECRET: '123456',
           JWT_REFRESH_SECRET: 'abc',
+          CERTIFICATE_HMAC_SECRET: STRONG('cert'),
           GITEA_TOKEN: 'tok',
           GITEA_WEBHOOK_SECRET: 'xyz',
         });

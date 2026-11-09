@@ -14,6 +14,7 @@ describe('AuthService (no secret defaults)', () => {
   };
   let jwt: { signAsync: jest.Mock };
   let config: { get: jest.Mock };
+  let mailer: { sendVerificationCode: jest.Mock };
   let bcryptCompare: jest.SpyInstance;
 
   const user = {
@@ -22,6 +23,7 @@ describe('AuthService (no secret defaults)', () => {
     name: 'Student',
     passwordHash: 'hash',
     role: 'student',
+    emailVerifiedAt: new Date(),
   };
 
   beforeEach(() => {
@@ -42,7 +44,8 @@ describe('AuthService (no secret defaults)', () => {
     };
     bcryptCompare = bcrypt.compare as jest.Mock;
     bcryptCompare.mockResolvedValue(true);
-    auth = new AuthService(prisma as any, jwt as any, config as any);
+    mailer = { sendVerificationCode: jest.fn().mockResolvedValue(undefined) };
+    auth = new AuthService(prisma as any, jwt as any, config as any, mailer as any);
   });
 
   afterEach(() => {

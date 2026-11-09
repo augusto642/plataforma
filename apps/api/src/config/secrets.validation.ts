@@ -9,12 +9,23 @@ export interface RequiredSecretsEnv {
   NODE_ENV?: string;
   JWT_ACCESS_SECRET?: string;
   JWT_REFRESH_SECRET?: string;
+  CERTIFICATE_HMAC_SECRET?: string;
   GITEA_ENABLED?: string;
   GITEA_TOKEN?: string;
   GITEA_WEBHOOK_SECRET?: string;
 }
 
-const REQUIRED_AUTH_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const;
+// A11 (Lote 3): segredo DEDICADO ao HMAC dos códigos de certificado.
+// Não reutilizar JWT_ACCESS_SECRET/JWT_REFRESH_SECRET: segredos com
+// finalidades distintas não se compartilham — a rotação/comprometimento
+// de um não pode invalidar (ou vazar) o outro. Obrigatório no boot
+// fail-closed, como os segredos JWT; o `validate` do ConfigModule roda
+// no boot e `NODE_ENV=test` pula a checagem (testes unitários).
+const REQUIRED_AUTH_SECRETS = [
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'CERTIFICATE_HMAC_SECRET',
+] as const;
 
 /**
  * Segredos que precisam de alta entropia (>= 32 chars). Finding BAIXA —
@@ -25,6 +36,7 @@ const REQUIRED_AUTH_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as con
 const STRONG_SECRETS = [
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
+  'CERTIFICATE_HMAC_SECRET',
   'GITEA_WEBHOOK_SECRET',
 ] as const;
 const MIN_STRONG_SECRET_LENGTH = 32;

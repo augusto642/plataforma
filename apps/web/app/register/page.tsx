@@ -6,6 +6,7 @@ import Logo from '../components/Logo';
 import { ConfettiCanvas, ConfettiCanvasHandle } from './components/ConfettiCanvas';
 import { RegisterStepper } from './components/RegisterStepper';
 import { StepCredentials, RoleType } from './components/StepCredentials';
+import { StepEmailVerification } from './components/StepEmailVerification';
 import { StepTracks, TrackId } from './components/StepTracks';
 import { StepGoals, ExpLevel, TimeCommitment, CareerGoal } from './components/StepGoals';
 import { StepTerminalProvision } from './components/StepTerminalProvision';
@@ -55,6 +56,10 @@ export default function RegisterPage() {
   const { register: authRegister } = useAuth();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
+  // C5 (Lote 1): o cadastro não cria sessão — o passo 4 exibe a digitação do
+  // código antes da celebração do workspace.
+  const [needsEmailVerification, setNeedsEmailVerification] = useState<boolean>(false);
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
 
   const handleStep3Next = useCallback(async () => {
     setIsRegistering(true);
@@ -69,17 +74,27 @@ export default function RegisterPage() {
       });
 
       if (!result.success) {
-        // Se a API retornou erro formal (ex: email duplicado), exibe para o usuário
+        // Erro formal da API (ex: email duplicado) — exibe e NÃO avança.
         setRegisterError(result.error || 'Falha ao registrar conta.');
-        setIsRegistering(false);
         return;
       }
+
+      // C5: conta criada mas não verificada — o passo 4 pede o código.
+      setNeedsEmailVerification(result.emailVerificationRequired === true);
+      setEmailVerified(false);
     } catch {
-      // Fallback gracioso para modo demonstração offline
+      // C4 (Lote 1): falha de rede/exceção no cadastro é erro honesto e
+      // NÃO avança ao passo 4. Antes o catch era vazio ("fallback
+      // gracioso") e o passo 4 rodava sempre, simulando sucesso.
+      setRegisterError(
+        'Não foi possível conectar ao servidor para criar sua conta. Verifique sua conexão e tente novamente.'
+      );
+      return;
     } finally {
       setIsRegistering(false);
     }
 
+    // Só avança após 2xx real da API (conta criada de fato).
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [email, password, name, authRegister]);
@@ -324,8 +339,17 @@ export default function RegisterPage() {
             />
           )}
 
-          {/* STEP 4: TERMINAL PROVISION & CELEBRATION */}
-          {currentStep === 4 && (
+          {/* STEP 4: VERIFICAÇÃO DE E-MAIL (C5) E DEPOIS TERMINAL PROVISION & CELEBRATION */}
+          {currentStep === 4 && needsEmailVerification && !emailVerified && (
+            <StepEmailVerification
+              email={email}
+              onVerified={() => {
+                setEmailVerified(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          )}
+          {currentStep === 4 && (!needsEmailVerification || emailVerified) && (
             <StepTerminalProvision
               name={name}
               email={email}

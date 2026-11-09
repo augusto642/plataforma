@@ -169,13 +169,9 @@ export default function OnboardingView({ onComplete, onSwitchToLogin }: Onboardi
     }
   };
 
-  // GitHub OAuth Simulation
-  const handleGitHubAuth = () => {
-    setName('Augusto Developer');
-    setEmail('augusto@nexuscode.dev');
-    setPassword('NexusDev#2026Secure!');
-    setErrorMsg(null);
-  };
+  // C2 (Lote 1): removido o botão "Continuar com GitHub" (1-Click) —
+  // não existe OAuth real; ele só preenchia nome/e-mail/senha
+  // hardcoded. Cadastro é só com e-mail/senha até haver OAuth real.
 
   // Step 4: Terminal Simulation Loop
   useEffect(() => {
@@ -517,61 +513,6 @@ export default function OnboardingView({ onComplete, onSwitchToLogin }: Onboardi
         {/* STEP 1: CREDENTIALS & AUTH */}
         {currentStep === 1 && (
           <div>
-            {/* GitHub 1-Click Fast Auth Button with Subtle Glow */}
-            <button
-              type="button"
-              onClick={handleGitHubAuth}
-              style={{
-                width: '100%',
-                padding: '13px 16px',
-                backgroundColor: '#181820',
-                border: '1px solid #3F3F46',
-                borderRadius: '12px',
-                color: '#FFFFFF',
-                fontWeight: 600,
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
-                marginBottom: '20px',
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget;
-                el.style.backgroundColor = '#20202B';
-                el.style.borderColor = '#8257E5';
-                el.style.boxShadow = '0 8px 24px -4px rgba(130, 87, 229, 0.45)';
-                el.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget;
-                el.style.backgroundColor = '#181820';
-                el.style.borderColor = '#3F3F46';
-                el.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4)';
-                el.style.transform = 'translateY(0)';
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                />
-              </svg>
-              <span>Continuar com GitHub</span>
-              <span style={{ fontSize: '11px', color: '#00E5FF', background: 'rgba(0, 229, 255, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>1-Click</span>
-            </button>
-
-            {/* Divider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ flex: 1, height: '1px', backgroundColor: '#27272A' }} />
-              <span style={{ fontSize: '11px', color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ou cadastre com e-mail</span>
-              <div style={{ flex: 1, height: '1px', backgroundColor: '#27272A' }} />
-            </div>
-
             <form onSubmit={handleStep1Submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Full Name */}
               <div>
