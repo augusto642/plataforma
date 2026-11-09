@@ -7,6 +7,23 @@ import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prom
 
 export type SocraticTier = 1 | 2 | 3;
 
+/**
+ * A1 (Lote 2) — camada 2 (defense-in-depth no serviço): whitelist de papéis
+ * ao montar `apiMessages` para o LLM. O prompt do sistema do tutor é
+ * montado pelo servidor como PRIMEIRA mensagem; nenhuma mensagem do aluno
+ * pode assumir `role: "system"` (no provedor Gemini isso vira
+ * `systemInstruction` e sobrescreveria o prompt do tutor).
+ *
+ * Decisão documentada: qualquer papel diferente de 'assistant' vira 'user'
+ * (nunca é descartado — descartar perderia conteúdo e mudaria a ordem dos
+ * turnos — e nunca vira 'system'). A camada 1 (DTO com @IsIn) já rejeita
+ * `role: "system"` com 400 no HTTP; esta função protege chamadas diretas
+ * ao serviço e qualquer caminho que não passe pela validação do DTO.
+ */
+export function normalizeTutorMessageRole(role: unknown): 'user' | 'assistant' {
+  return role === 'assistant' ? 'assistant' : 'user';
+}
+
 export interface PedagogicalFeedback {
   summary: string;
   hints: string[];
@@ -380,7 +397,11 @@ export class AiService {
 
         const apiMessages = [
           { role: 'system' as const, content: systemPrompt },
-          ...dto.messages.map((m) => ({ role: m.role, content: this.sanitizePrompt(m.content) })),
+          ...dto.messages.map((m) => ({
+            // A1: whitelist — papel vindo do aluno nunca vira 'system'.
+            role: normalizeTutorMessageRole(m.role),
+            content: this.sanitizePrompt(m.content),
+          })),
         ];
 
         // LlmClient.stream: timeout + retry no handshake e idle-timeout no
@@ -521,7 +542,11 @@ export class AiService {
 
         const apiMessages = [
           { role: 'system' as const, content: systemPrompt },
-          ...dto.messages.map((m) => ({ role: m.role, content: this.sanitizePrompt(m.content) })),
+          ...dto.messages.map((m) => ({
+            // A1: whitelist — papel vindo do aluno nunca vira 'system'.
+            role: normalizeTutorMessageRole(m.role),
+            content: this.sanitizePrompt(m.content),
+          })),
         ];
 
         // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx

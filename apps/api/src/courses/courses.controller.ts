@@ -118,8 +118,17 @@ export class CoursesController {
   getStudents(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.courses.getEnrollments(id, user.sub, user.role);
+    // M2: paginação via query (?page=2&limit=20); sem params, 1ª página/50.
+    return this.courses.getEnrollments(
+      id,
+      user.sub,
+      user.role,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':id/students/:userId/report')
@@ -159,8 +168,17 @@ export class CoursesController {
   getLeaderboard(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user?: JwtPayload,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.courses.getLeaderboard(id, user?.sub, user?.role);
+    // A4: paginação via query (?page=2&limit=20); sem params, 1ª página/50.
+    return this.courses.getLeaderboard(
+      id,
+      user?.sub,
+      user?.role,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Delete(':id')
