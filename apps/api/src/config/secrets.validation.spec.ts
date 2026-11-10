@@ -139,6 +139,7 @@ describe('validateRequiredSecrets', () => {
     it('rejects weak CERTIFICATE_HMAC_SECRET even when JWT secrets are strong (A11)', () => {
       expect(() =>
         validateRequiredSecrets({
+          BILLING_WEBHOOK_SECRET: BILLING_SECRET,
           JWT_ACCESS_SECRET: STRONG('access'),
           JWT_REFRESH_SECRET: STRONG('refresh'),
           CERTIFICATE_HMAC_SECRET: 'shortcert',
@@ -209,6 +210,7 @@ describe('validateRequiredSecrets', () => {
     const validEnv = {
       JWT_ACCESS_SECRET: STRONG('access'),
       JWT_REFRESH_SECRET: STRONG('refresh'),
+      CERTIFICATE_HMAC_SECRET: STRONG('cert'),
       GITEA_ENABLED: 'false',
     };
 

@@ -15,6 +15,10 @@ module.exports = {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.json' }],
   },
   testRegex: '.*\\.spec\\.ts$',
+  // P6 — C1: BILLING_WEBHOOK_SECRET é obrigatório até em test; o setup
+  // injeta um valor fictício forte em process.env antes de cada arquivo
+  // (os testes de secrets.validation passam o env explicitamente).
+  setupFiles: ['<rootDir>/../jest.setup.ts'],
   collectCoverageFrom: [
     '**/*.service.ts',
     '**/*.controller.ts',
