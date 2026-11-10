@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToPipeableStream } from 'react-dom/server';
 import { PassThrough } from 'node:stream';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import HomePage from '../../../(public)/page';
 
 // B76 (Sprint 18 · Volta 3 · TL M3) — testes de RENDERIZAÇÃO dos
@@ -10,27 +10,9 @@ import HomePage from '../../../(public)/page';
 // página — foi assim que claims quebrados no destino (starter do
 // TCG) passaram. Aqui a landing é renderizada de verdade (SSR,
 // react-dom/server) e os claims são contados NO HTML.
-// A TracksSection é async (catálogo via API) e o renderer DOM do
-// React 18 não resolve async components fora do Flight do Next —
-// ela é stubada aqui e coberta de verdade em tracks-section.spec.ts.
-vi.mock('../TracksSection', async () => {
-  const ReactModule = await import('react');
-  return {
-    TracksSection: () =>
-      ReactModule.createElement('section', { 'data-tracks-stub': 'true' }),
-  };
-});
-
-// Pelo mesmo motivo, a faixa de números reais (B78, Sprint 19) é
-// async (estatísticas via API): stubada aqui e coberta de verdade
-// em stats-section.spec.ts.
-vi.mock('../PlatformStatsSection', async () => {
-  const ReactModule = await import('react');
-  return {
-    PlatformStatsSection: () =>
-      ReactModule.createElement('section', { 'data-stats-stub': 'true' }),
-  };
-});
+// Central 218 (D1) — a TracksSection voltou a ser síncrona (só os
+// 3 cards estruturados) e a PlatformStatsSection saiu da home:
+// nenhum stub é necessário aqui; a página renderiza de verdade.
 
 async function renderHtml(element: React.ReactElement): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -81,50 +63,61 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('<main id="main-content"');
   });
 
-  // Central 216 (D1): sem preço, o Carreira não tem bloco Product —
-  // só o Pro tem Offer (PreOrder).
-  it('JSON-LD: 3 blocos (Organization, FAQPage e Product do Pro); Offer com PreOrder e sem AggregateRating', async () => {
+  // Central 218 (D1) — sem FAQ e sem seção de fundador na home, o
+  // JSON-LD tem 2 blocos (Organization e Product do Pro); Offer com
+  // PreOrder e sem AggregateRating.
+  it('JSON-LD: 2 blocos (Organization e Product do Pro); Offer com PreOrder e sem AggregateRating', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     const blocks = html.match(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g) ?? [];
-    expect(blocks.length).toBe(3);
+    expect(blocks.length).toBe(2);
     const all = blocks.join('\n');
     expect(all).toContain('"Organization"');
-    expect(all).toContain('"FAQPage"');
+    expect(all).not.toContain('"FAQPage"');
+    expect(all).not.toContain('"founder"');
     expect(all.split('"Product"').length - 1).toBe(1);
     expect(all).toContain('https://schema.org/PreOrder');
     expect(all).not.toContain('AggregateRating');
   });
 
-  it('radar rotulado nas superfícies da página: selos NO RADAR da stack e rodapé', async () => {
+  // Central 218 (D1) — CTAs de preço do protótipo, sem toggle e sem
+  // captura de e-mail nos cards.
+  it('CTAs de preço do protótipo + sem toggle mensal/anual nem lista de interessados', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('TECNOLOGIAS DE HOJE &amp; DO RADAR');
-    expect(countOccurrences(html, 'NO RADAR')).toBeGreaterThanOrEqual(2);
-    expect(html).toContain('Trilhas no radar');
+    expect(html).toContain('Escolha seu plano e comece hoje');
+    expect(html).toContain('Criar conta grátis');
+    expect(html).toContain('Assinar Pro por R$ 39,90');
+    expect(html).toContain('Garantir Plano Carreira');
+    expect(html).toContain('Preço a definir');
+    expect(html).not.toContain('Mensal');
+    expect(html).not.toContain('ECONOMIZE 25%');
+    expect(html).not.toContain('economize');
+    expect(html).not.toContain('plan-interest-email');
+    expect(html).not.toContain('lista de interessados');
   });
 
-  it('CTAs de preço distintos e verdadeiros + captura só-e-mail nos cards pagos', async () => {
+  // Central 218 (D1) — hero Stitch v2 em 2 colunas: código + terminal
+  // à esquerda, painel da tutora à direita. Sem dado inventado de
+  // aluno (liga/XP/nível) e sem os extras (2º parágrafo, lista de
+  // interessados, captura da Missão 1).
+  it('hero: H1 do protótipo + card do editor em 2 colunas com o painel da tutora', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Começar grátis agora');
-    expect(html).toContain('Assinar o Pro (modo de testes)');
-    expect(html).toContain('Falar com a equipe');
-    expect(html).toContain('id="plan-interest-email-pro"');
-    expect(html).toContain('id="plan-interest-email-staff"');
-  });
-
-  // Central 216 (D1) — hero Stitch v2: H1 do protótipo + card do
-  // editor de demonstração; a tela real fecha o primeiro bloco.
-  it('hero: H1 do protótipo + card do editor e a tela real fecha o primeiro bloco', async () => {
-    const html = await renderHtml(React.createElement(HomePage));
-    // next/image reescreve o src (/_next/image?url=%2Flanding%2F...):
-    // o nome do arquivo é o que sobrevive verbatim no HTML.
-    expect(html).toContain('produto-missao-1.webp');
-    expect(html).toContain('Tela real da plataforma: a Missão 1 do prólogo');
     expect(html).toContain('Aprenda a programar de verdade,');
     expect(html).toContain('jogando.');
     expect(html).toContain('Código real no navegador, sem videoaulas passivas');
     expect(html).toContain('Ver prévia do jogo');
     expect(html).toContain('fase-03_desafio-arrays.js');
     expect(html).toContain('Demonstração');
+    expect(html).toContain('Testes unitários: 3/3 aprovados');
+    expect(html).toContain('DESAFIO VENCIDO!');
+    expect(html).toContain('Tutora de IA');
+    expect(html).toContain('ao vivo');
+    expect(html).toContain('Avançar no Mapa');
+    expect(html).not.toContain('780 / 1.000 XP');
+    expect(html).not.toContain('Nível 04');
+    expect(html).not.toContain('+150 XP em jogo');
+    expect(html).not.toContain('0 pessoas na lista');
+    expect(html).not.toContain('Missão 1');
+    expect(html).not.toContain('produto-missao-1.webp');
   });
 
   // Redesign v2 (Central 213) — correções 1, 3, 4 e 6 do prompt v2:
@@ -136,7 +129,6 @@ describe('landing — renderização e claims estruturais (B76)', () => {
   it('redesign v2: hero, prova social e planos sem os textos do mockup antigo', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     expect(html).toContain('trilha de RPG sugerida pela IA para você');
-    expect(html).toContain('Execução real do seu código em sandbox isolado');
     expect(html).not.toContain('4 linguagens no sandbox');
     expect(html).not.toContain('JavaScript, Python, Java e Portugol');
     expect(html).toContain('Acesso aos desafios iniciais de lógica');
@@ -168,44 +160,96 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).not.toContain('ligas competitivas toda semana');
   });
 
-  it('tutora: H2 em escala de seção, fora do card', async () => {
+  // Central 218 (D1) — a home tem os 7 blocos do protótipo, nesta
+  // ordem, e nenhum dos extras: 6 H2s (um por bloco de seção).
+  it('estrutura D1: 7 blocos do protótipo, 6 H2s, nenhuma seção extra', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toMatch(/<h2 class="[^"]*text-3xl[^"]*">\s*Mentoria Socrática\s*<\/h2>/);
-    expect(html).toContain('Diálogo de exemplo');
+    const ids = ['id="hero"', 'id="como-funciona"', 'id="trilhas"', 'id="o-jogo"', 'id="recursos"', 'id="planos"'];
+    const positions = ids.map((id) => html.indexOf(id));
+    positions.forEach((pos) => expect(pos).toBeGreaterThan(-1));
+    for (let i = 1; i < positions.length; i++) {
+      expect(positions[i]).toBeGreaterThan(positions[i - 1]);
+    }
+    expect(html).toContain('Pronto para escrever seu primeiro código hoje?');
+    expect((html.match(/<h2/g) ?? []).length).toBe(6);
+    for (const extra of [
+      'Mentoria Socrática',
+      'Aprendizado ativo com feedback imediato',
+      'NÚMEROS REAIS',
+      'Um Gostinho do Terminal Real',
+      'Três apoios de verdade',
+      'Cards colecionáveis',
+      'Assistir aula x aprender fazendo',
+      'tecnologias que o mercado usa',
+      'Quem criou a Nexus Code',
+      'Perguntas Frequentes',
+      'Comece hoje. O resto está no radar.',
+      'NO RADAR',
+      'ARENA DE PRODUÇÃO',
+      'Escolha seu Companion Inicial',
+    ]) {
+      expect(html).not.toContain(extra);
+    }
   });
 
-  it('TCG: cards operáveis por teclado no HTML e nenhum identificador de starter fantasma', async () => {
+  // Central 218 (D1) — nav com os 5 itens do protótipo.
+  it('nav: 5 itens do protótipo, O jogo com selo XP, sem Terminal/IDE/Dúvidas/Jogo', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    // Os links do modal são estado client (card inspecionado) e não
-    // aparecem no SSR: o destino de cada card é travado nos DADOS
-    // (tcg-cards.spec.ts). Aqui: a grade renderizada e a ausência
-    // dos starters que o onboarding não tem.
-    expect(html).not.toContain('rustor');
-    expect(html).not.toContain('gopherus');
-    expect(html).toContain('aria-label="Inspecionar o card');
-    expect(html).toContain('role="button"');
-    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('href="#como-funciona"');
+    expect(html).toContain('href="#trilhas"');
+    expect(html).toContain('href="#o-jogo"');
+    expect(html).toContain('href="#recursos"');
+    expect(html).toContain('href="#planos"');
+    expect(html).toContain('O jogo');
+    expect(html).toContain('>XP<');
+    expect(html).not.toContain('Terminal Prático');
+    expect(html).not.toContain('Dúvidas');
+    expect(html).not.toContain('Modo RPG 2D');
+    expect(html).not.toContain('Cards TCG');
+    expect(html).not.toContain('href="#faq"');
+    expect(html).not.toContain('href="#sandbox"');
+    expect(html).not.toContain('href="#precos"');
   });
 
-  // Central 216 (D1) — o Carreira não tem preço: a lista de
-  // interessados é nomeada, sem prazo prometido.
-  it('lista de interessados: o Carreira sem preço é nomeado, sem prazo prometido', async () => {
+  // Central 218 (D1) — RPG com mapa e ranking honesto.
+  it('RPG: mapa da trilha com fases 01-04 e ligas reais, sem ranking inventado', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Seu e-mail para a lista de interessados do plano Carreira');
+    expect(html).toContain('Mapa da Trilha: Reino dos Algoritmos');
+    expect(html).toContain('O Desafio das Variáveis Mágicas');
+    expect(html).toContain('O Guardião dos Loops e Arrays');
+    expect(html).toContain('Recursão e Árvores de Decisão');
+    expect(html).toContain('Ligas Bronze, Prata e Ouro');
+    expect(html).not.toContain('Lucas F.');
+    expect(html).not.toContain('Liga Diamante');
+    expect(html).not.toContain('4.820 XP');
   });
 
-  it('fundador (B79 · Sprint 19): nome e papel reais na página e no JSON-LD, sem foto de pessoa', async () => {
+  // Central 218 (D1) — recursos com os detalhes do protótipo, sem
+  // número inventado (Clean Code Score sem nota fixa).
+  it('recursos: detalhes do protótipo sem número inventado', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Quem criou a Nexus Code');
-    expect(html).toContain('Augusto Fortes');
-    expect(html).toContain('Professor de Informática');
-    expect(html).toContain('curso técnico de Informática para Internet');
-    // Sem foto por enquanto (decisão B4): o visual é o monograma
-    // tipográfico — e nenhuma imagem de pessoa entra na seção.
-    expect(html).toContain('>AF<');
-    expect(html).not.toContain('user-profile-reference');
-    // O dado estruturado espelha a seção visível (founder na
-    // Organization), sem inventar campo novo de avaliação.
-    expect(html).toContain('"founder"');
+    expect(html).toContain('Exemplo de mentoria');
+    expect(html).toContain('Clean Code Score');
+    expect(html).toContain('Simulações de Live Coding');
+    expect(html).toContain('Perfil com portfólio de desafios validados');
+    expect(html).not.toContain('96/100');
+  });
+
+  // Central 218 (D1) — rodapé do protótipo.
+  it('rodapé: links do protótipo e copyright do protótipo', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    expect(html).toContain('Gamificação');
+    expect(html).toContain('Tutora de IA');
+    expect(html).toContain('Planos &amp; Preços');
+    expect(html).toContain('© 2026 Nexus Code. Aprenda a programar de verdade, jogando.');
+    expect(html).not.toContain('Trilhas no radar');
+    expect(html).not.toContain('Todos os direitos reservados');
+  });
+
+  // Central 218 (D1) — Q-8: selo das trilhas sem quebra de linha.
+  it('Q-8: selo das trilhas com whitespace-nowrap', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    expect(html).toContain('Todas com projetos práticos inclusos');
+    expect(html).toContain('whitespace-nowrap');
   });
 });

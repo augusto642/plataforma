@@ -1,26 +1,18 @@
 import React from 'react';
 import { renderToPipeableStream } from 'react-dom/server';
 import { PassThrough } from 'node:stream';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { TracksSection } from '../TracksSection';
-import { fetchPublicCatalog, type CatalogCourse } from '../../../lib/catalog';
 
-// B76/B74 (Sprint 18 · Volta 3) — a TracksSection é um async server
-// component: o teste a resolve com await (o elemento devolvido é
-// renderizável) e o catálogo é mockado nas três pontas — sucesso
-// (merchandising real vindo da API), vazio real e falha (fallback
-// honesto). Os títulos mockados são DELIBERADAMENTE diferentes dos
-// do seed: se a vitrine voltasse a um espelho hardcoded, este teste
-// quebra.
-vi.mock('../../../lib/catalog', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../../lib/catalog')>();
-  return { ...original, fetchPublicCatalog: vi.fn() };
-});
-
-const fetchCatalogMock = vi.mocked(fetchPublicCatalog);
+// Central 218 (D1) — a TracksSection voltou a ser só os 3 cards
+// estruturados do protótipo Stitch v2 (home-desktop.html §3):
+// Iniciante (100% Grátis) / Júnior / Pleno, com "O que você
+// aprende". O catálogo/radar "Comece hoje. O resto está no radar."
+// saiu da home — o catálogo real segue em /courses. A seção é um
+// Server Component síncrono: sem fetch de catálogo aqui.
 
 async function renderTracks(): Promise<string> {
-  const element = await TracksSection();
+  const element = TracksSection() as unknown as React.ReactElement;
   return new Promise((resolve, reject) => {
     let html = '';
     const sink = new PassThrough();
@@ -39,30 +31,6 @@ async function renderTracks(): Promise<string> {
   });
 }
 
-const MOCK_CATALOG: CatalogCourse[] = [
-  {
-    slug: 'curso-mock-javascript',
-    title: 'Curso Mockado de JavaScript',
-    description: 'Descrição vinda da API, não do código.',
-    activityCount: 3,
-    activities: [
-      { title: '1. Soma de Dois Números', language: 'javascript' },
-      { title: '2. Verificador de Palíndromo', language: 'javascript' },
-      { title: '3. Encontrar o Maior Número', language: 'javascript' },
-    ],
-  },
-  {
-    slug: 'curso-mock-python',
-    title: 'Curso Mockado de Python',
-    description: 'Outra descrição da API.',
-    activityCount: 2,
-    activities: [
-      { title: '1. Dobro de um Número', language: 'python' },
-      { title: '2. Contagem de Vogais', language: 'python' },
-    ],
-  },
-];
-
 // O SSR do React separa nós de texto dinâmicos com comentários
 // (<!-- -->) e marca fronteiras de Suspense (<!--$-->): sem removê-los,
 // asserções de frases que cruzam expressões JSX quebram por formatação,
@@ -71,52 +39,43 @@ function stripReactComments(html: string): string {
   return html.replace(/<!--[\s\S]*?-->/g, '');
 }
 
-describe('TracksSection — vitrine via catálogo real (B74/B76)', () => {
-  beforeEach(() => {
-    fetchCatalogMock.mockReset();
-    fetchCatalogMock.mockResolvedValue(MOCK_CATALOG);
+describe('TracksSection — trilhas estruturadas do protótipo (D1)', () => {
+  it('os 3 níveis do protótipo com textos literais e "O que você aprende"', async () => {
+    const html = await renderTracks();
+    expect(html).toContain('Trilhas estruturadas para cada momento');
+    expect(html).toContain('Iniciante');
+    expect(html).toContain('Júnior');
+    expect(html).toContain('Pleno');
+    expect(html).toContain('100% Grátis');
+    expect(html).toContain('Plano Pro');
+    expect(html).toContain('Fundamentos de lógica de programação');
+    expect(html).toContain('JavaScript moderno, TypeScript e manipulação do DOM');
+    expect(html).toContain('Clean Architecture, SOLID e Design Patterns');
+    expect(html).toContain('O que você aprende:');
+    expect(html).toContain('Mais procurada');
   });
 
-  it('merchandising real: título, descrição, contagem e ementa vêm da API', async () => {
+  it('CTAs: Iniciante ao cadastro; Júnior/Pleno à seção de planos', async () => {
     const html = await renderTracks();
-    expect(html).toContain('Curso Mockado de JavaScript');
-    expect(html).toContain('Descrição vinda da API, não do código.');
-    expect(html).toContain('3 atividades práticas');
-    expect(html).toContain('2 atividades práticas');
-    expect(html).toContain('Você vai praticar:');
-    expect(html).toContain('1. Soma de Dois Números');
-    expect(html).toContain('2. Contagem de Vogais');
+    expect(html).toContain('href="/register"');
+    expect(html).toContain('Começar trilha grátis');
+    expect(html).toContain('Desbloquear trilha Júnior');
+    expect(html).toContain('Explorar trilha Pleno');
+    expect(html).toContain('href="#planos"');
+    expect(html).not.toContain('href="#precos"');
   });
 
-  it('CTA de cada curso aponta para a página do curso', async () => {
+  it('Q-8: selo sem quebra de linha (whitespace-nowrap)', async () => {
     const html = await renderTracks();
-    expect(html).toContain('href="/courses/curso-mock-javascript"');
-    expect(html).toContain('href="/courses/curso-mock-python"');
-    expect(html).toContain('Ver o curso e começar');
-    expect(html).toContain('DISPONÍVEL');
+    expect(html).toContain('Todas com projetos práticos inclusos');
+    expect(html).toContain('whitespace-nowrap');
   });
 
-  it('o radar segue rotulado e com as listas por trilha', async () => {
+  it('sem catálogo nem radar na home', async () => {
     const html = await renderTracks();
-    expect(html).toContain('Programação do Zero com Rust');
-    expect(html.split('NO RADAR').length - 1).toBeGreaterThanOrEqual(4);
-    expect(html).toContain('id="waitlist-email-rust"');
-    expect(html).toContain('No radar — trilhas em estudo, sem datas');
-  });
-
-  it('sem API: fallback honesto — aviso + caminho, nunca o espelho hardcoded', async () => {
-    fetchCatalogMock.mockResolvedValue(null);
-    const html = await renderTracks();
-    expect(html).toContain('Não foi possível carregar o catálogo de cursos agora');
-    expect(html).toContain('Ver os cursos');
-    expect(html).not.toContain('Algoritmos e Estruturas em JavaScript');
-    expect(html).not.toContain('Curso Mockado');
-  });
-
-  it('catálogo vazio real: estado vazio declarado, sem curso inventado', async () => {
-    fetchCatalogMock.mockResolvedValue([]);
-    const html = await renderTracks();
-    expect(html).toContain('Nenhum curso aberto neste momento');
-    expect(html).not.toContain('Ver o curso e começar');
+    expect(html).not.toContain('Comece hoje. O resto está no radar.');
+    expect(html).not.toContain('NO RADAR');
+    expect(html).not.toContain('Disponível agora');
+    expect(html).not.toContain('waitlist-email');
   });
 });
