@@ -673,7 +673,7 @@ export class SubmissionsService {
             durationMs: t.durationMs,
             isHidden: t.isHidden ?? false,
             errorMessage:
-              t.isHidden && !t.passed ? 'Teste oculto falhou' : t.errorMessage,
+              t.isHidden && !t.passed ? HIDDEN_TEST_FAILED_MESSAGE : t.errorMessage,
           })),
         };
 

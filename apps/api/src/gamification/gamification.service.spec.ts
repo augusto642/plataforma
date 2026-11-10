@@ -262,21 +262,23 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
     expect(db.level).toBe(3);
   });
 
-  it('streak resets to 1 after more than 48h without activity (1-day grace preserved)', async () => {
-    const user50hAgo = {
+  it('streak resets to 1 after 3+ calendar days without activity (B15: 1-day grace preserved)', async () => {
+    const user3DaysAgo = {
       id: 'user-1',
       xp: 0,
       level: 1,
       streakDays: 5,
-      lastActiveAt: new Date(Date.now() - 50 * 60 * 60 * 1000),
+      // 73h atrás = 3+ dias de calendário atrás em qualquer horário:
+      // gap > 2 dias -> quebra (a regra antiga de 48h foi substituída pela B15).
+      lastActiveAt: new Date(Date.now() - 73 * 60 * 60 * 1000),
       badges: [],
     };
     const tx = {
       user: {
-        findUnique: jest.fn().mockResolvedValue(user50hAgo),
+        findUnique: jest.fn().mockResolvedValue(user3DaysAgo),
         update: jest.fn().mockImplementation(({ data }: any) => {
-          const next: any = { ...user50hAgo };
-          if (data.xp?.increment) next.xp = user50hAgo.xp + data.xp.increment;
+          const next: any = { ...user3DaysAgo };
+          if (data.xp?.increment) next.xp = user3DaysAgo.xp + data.xp.increment;
           if (typeof data.level === 'number') next.level = data.level;
           if (typeof data.streakDays === 'number') next.streakDays = data.streakDays;
           return Promise.resolve(next);
@@ -352,7 +354,7 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
             Promise.resolve({ ...scenarioUser, streakDays: data.streakDays }),
           ),
         },
-        userBadge: { create: jest.fn().mockResolvedValue({ id: 'badge-x' }) },
+        userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
       };
       (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(tx));
       return service.awardSubmissionXp(scenarioUser.id, 'activity-1', true, 50);

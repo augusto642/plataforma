@@ -195,6 +195,7 @@ describe('CoursesService.getCertificate (A11)', () => {
       course: { findUnique: jest.fn() },
       enrollment: {
         findUnique: jest.fn().mockResolvedValue({ id: 'enr-1' }),
+        update: jest.fn().mockResolvedValue({}),
       },
       activity: { count: jest.fn().mockResolvedValue(1) },
       submission: {
