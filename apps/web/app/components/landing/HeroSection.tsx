@@ -114,11 +114,16 @@ export const HeroSection: React.FC = () => (
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
-              {/* Redesign v2 (correção 3) — "4 linguagens no sandbox":
-                  JavaScript, Python, Java e Portugol. TypeScript roda
-                  no mesmo runtime do JavaScript no Piston, por isso
-                  conta como uma só família na contagem. */}
-              <span>4 linguagens no sandbox: JavaScript, Python, Java e Portugol</span>
+              {/* Retrabalho Central 213 (D1 + D4) — a enumeração
+                  anterior ("4 linguagens no sandbox: JavaScript,
+                  Python, Java e Portugol") estava errada duas vezes:
+                  o enum Language tem 5 valores e o hero nunca nomeia
+                  Portugol (correção permanente do usuário). O runner
+                  mapeia 5 linguagens, mas a presença do runtime
+                  TypeScript no Piston de produção não foi verificada
+                  — sem contagem defensável, o hero não afirma número
+                  nem nomeia linguagem nenhuma. */}
+              <span>Execução real do seu código em sandbox isolado</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>

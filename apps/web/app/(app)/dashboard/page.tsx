@@ -18,15 +18,21 @@ import { CareerPetBanner } from './components/CareerPetBanner';
 import { DynamicTrackCard } from './components/DynamicTrackCard';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import { PetEvolutionModal } from '../game/components/PetEvolutionModal';
-import { DEFAULT_DASHBOARD_DATA, fetchDashboardData } from './utils/api';
+import { fetchDashboardData } from './utils/api';
 import { fireConfetti } from './utils/confetti';
 import { StudentDashboardData } from './types';
 
 export default function StudentDashboardPage() {
   const router = useRouter();
-  const [data, setData] = useState<StudentDashboardData>(DEFAULT_DASHBOARD_DATA);
-  const [userXp, setUserXp] = useState<number>(DEFAULT_DASHBOARD_DATA.user.xp);
-  const [userLevel, setUserLevel] = useState<number>(DEFAULT_DASHBOARD_DATA.user.level);
+  // Retrabalho Central 213 (D5) — o estado inicial é VAZIO: antes, o
+  // dashboard nascia com DEFAULT_DASHBOARD_DATA e exibia "Augusto
+  // Silva / 4.850 XP / nível 25" e leaderboard fictício mesmo com a API
+  // fora do ar. Agora só há dados na tela quando a API respondeu.
+  const [data, setData] = useState<StudentDashboardData | null>(null);
+  const [userXp, setUserXp] = useState<number | null>(null);
+  const [userLevel, setUserLevel] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
   const [tutorOpen, setTutorOpen] = useState(false);
   const [searchNotice, setSearchNotice] = useState<string | null>(null);
@@ -36,17 +42,36 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     let isMounted = true;
     fetchDashboardData().then((fetched) => {
-      if (isMounted) {
+      if (!isMounted) return;
+      if (fetched) {
         setData(fetched);
         setUserXp(fetched.user.xp);
         setUserLevel(fetched.user.level);
+      } else {
+        setLoadFailed(true);
       }
+      setIsLoading(false);
     });
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  const handleRetryLoad = () => {
+    setIsLoading(true);
+    setLoadFailed(false);
+    fetchDashboardData().then((fetched) => {
+      if (fetched) {
+        setData(fetched);
+        setUserXp(fetched.user.xp);
+        setUserLevel(fetched.user.level);
+      } else {
+        setLoadFailed(true);
+      }
+      setIsLoading(false);
+    });
+  };
 
   // Spotlight mouse tracking effect for bento cards (throttled with rAF)
   const rafRef = useRef<number | null>(null);
@@ -68,6 +93,7 @@ export default function StudentDashboardPage() {
   };
 
   const handleSimulateChallenge = async () => {
+    if (userXp === null || userLevel === null) return;
     const newXp = userXp + 250;
     const newLvl = Math.floor(newXp / 200) + 1;
     setUserXp(newXp);
@@ -96,10 +122,45 @@ export default function StudentDashboardPage() {
     searchTimeoutRef.current = setTimeout(() => setSearchNotice(null), 4000);
   };
 
+  // D5 — estados honestos: carregando não mostra número nenhum e a
+  // falha da API não mostra dado inventado, só o erro e a nova tentativa.
+  if (isLoading) {
+    return (
+      <div className="dashboard-root min-h-screen flex flex-col items-center justify-center antialiased bg-background text-ink-heading p-6">
+        <p role="status" className="text-sm font-medium text-ink-body">
+          Carregando seu painel…
+        </p>
+      </div>
+    );
+  }
+
+  if (loadFailed || !data) {
+    return (
+      <div className="dashboard-root min-h-screen flex flex-col items-center justify-center antialiased bg-background text-ink-heading p-6">
+        <div className="max-w-md w-full rounded-2xl border border-border-2 bg-surface-1 p-6 text-center">
+          <h1 className="text-lg font-heading font-bold mb-2">
+            Não foi possível carregar seu painel
+          </h1>
+          <p className="text-sm text-ink-body leading-relaxed mb-5">
+            A API não respondeu — por isso nenhum dado está sendo exibido.
+            Verifique sua conexão e tente novamente.
+          </p>
+          <button
+            type="button"
+            onClick={handleRetryLoad}
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-sm font-heading font-bold transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const currentUserData = {
     ...data.user,
-    xp: userXp,
-    level: userLevel,
+    xp: userXp ?? data.user.xp,
+    level: userLevel ?? data.user.level,
   };
 
   return (
@@ -219,7 +280,7 @@ export default function StudentDashboardPage() {
           <div className="lg:col-span-6 flex flex-col">
             <CourseRankingTable
               leaderboard={data.leaderboard}
-              userXp={userXp}
+              userXp={currentUserData.xp}
             />
           </div>
           <div className="lg:col-span-6 flex flex-col">
@@ -237,7 +298,7 @@ export default function StudentDashboardPage() {
         isOpen={celebrationOpen}
         onClose={() => setCelebrationOpen(false)}
         xpGained={250}
-        newLevel={userLevel}
+        newLevel={currentUserData.level}
         onContinue={() => {
           setCelebrationOpen(false);
           router.push('/ide');

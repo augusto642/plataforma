@@ -133,7 +133,7 @@ export const LandingChrome: React.FC = () => {
                 Criar Avatar, Cards TCG) saíram da barra principal e
                 moram num único item "Jogo" (dropdown simples), pra barra
                 ter 6 itens e a oferta liderar sozinha */}
-            <a href="#metodologia" className="hover:text-ink-heading transition-colors">Como Funciona</a>
+            <a href="#como-funciona" className="hover:text-ink-heading transition-colors">Como Funciona</a>
             <a href="#trilhas" className="hover:text-ink-heading transition-colors">Trilhas</a>
             <a href="#sandbox" className="hover:text-ink-heading transition-colors flex items-center gap-2">
               <span>Terminal Prático</span>
@@ -216,7 +216,7 @@ export const LandingChrome: React.FC = () => {
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-border-1 px-6 py-5 bg-surface-1/95 backdrop-blur-xl shadow-2xl flex flex-col gap-3 animate-fadeIn">
             {/* Sprint 7 — drawer na mesma ordem da oferta do desktop */}
-            <a href="#metodologia" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+            <a href="#como-funciona" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
               Como Funciona
             </a>
             <a href="#trilhas" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">

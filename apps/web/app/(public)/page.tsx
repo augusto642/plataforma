@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { LandingChrome } from '../components/landing/LandingChrome';
 import { HeroSection } from '../components/landing/HeroSection';
+import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { MethodologySection } from '../components/landing/MethodologySection';
 import { LumiMascotHero } from '../components/landing/LumiMascotHero';
 import { TracksSection } from '../components/landing/TracksSection';
@@ -72,6 +73,10 @@ export default function HomePage() {
           era uma <div id="main-content"> sem semântica. */}
       <main id="main-content">
         <HeroSection />
+        {/* Retrabalho Central 213 (D3) — a seção de passos do mockup
+            v2 ("Como funciona") não existia em nenhuma tela: entra
+            aqui, logo depois do hero, na ordem do mockup. */}
+        <HowItWorksSection />
         <MethodologySection />
   {/* DEMONSTRAÇÃO DA TUTORA DE IA COM MÉTODO SOCRÁTICO — Sprint 7: a
       seção da mascote desceu: sai do caminho hero → metodologia e entra

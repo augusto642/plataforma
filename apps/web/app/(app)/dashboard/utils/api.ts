@@ -152,13 +152,27 @@ function generateInitialHeatmapDays() {
   return days;
 }
 
-export async function fetchDashboardData(): Promise<StudentDashboardData> {
+export async function fetchDashboardData(): Promise<StudentDashboardData | null> {
   const merged: StudentDashboardData = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_DATA));
+
+  // Retrabalho Central 213 (D5) — o DEFAULT acima é só o MOLDE de
+  // merge do caminho feliz: ele NUNCA pode chegar à tela quando a API
+  // não responde. Antes, o catch vazio devolvia o molde intacto e o
+  // dashboard exibia um usuário inventado ("Augusto Silva", 4.850 XP,
+  // nível 25, leaderboard fictício). Agora: se nenhum endpoint central
+  // responder, devolve null e a página mostra erro honesto. O
+  // /users/me é a âncora de identidade: sem ele, nenhuma parte do
+  // painel é atribuível ao usuário real — mesmo que outro endpoint
+  // responda, o resultado é null.
+  let apiResponded = false;
+  let identityOk = false;
 
   try {
     // 0. Fetch User Profile
     const resMe = await apiFetch(`${API_BASE}/users/me`).catch(() => null);
     if (resMe && resMe.ok) {
+      apiResponded = true;
+      identityOk = true;
       const me = await resMe.json();
       if (me.name) {
         merged.user.name = me.name;
@@ -178,6 +192,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
     const resProgress = await apiFetch(`${API_BASE}/users/me/progress`).catch(() => null);
 
     if (resProgress && resProgress.ok) {
+      apiResponded = true;
       const data = await resProgress.json();
       if (data.xp) merged.user.xp = data.xp;
       if (data.level) merged.user.level = data.level;
@@ -198,6 +213,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
     const resCourses = await apiFetch(`${API_BASE}/courses`).catch(() => null);
 
     if (resCourses && resCourses.ok) {
+      apiResponded = true;
       const courses = await resCourses.json();
       if (Array.isArray(courses) && courses.length > 0) {
         const firstCourse = courses[0];
@@ -214,6 +230,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
         const resLeaderboard = await apiFetch(`${API_BASE}/courses/${firstCourse.id}/leaderboard`).catch(() => null);
 
         if (resLeaderboard && resLeaderboard.ok) {
+          apiResponded = true;
           const lb = await resLeaderboard.json();
           if (Array.isArray(lb) && lb.length > 0) {
             merged.leaderboard = lb.slice(0, 5).map((entry, idx) => {
@@ -245,13 +262,20 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
     const resSubmissions = await apiFetch(`${API_BASE}/submissions`).catch(() => null);
 
     if (resSubmissions && resSubmissions.ok) {
+      apiResponded = true;
       const subs = await resSubmissions.json();
       if (Array.isArray(subs) && subs.length > 0) {
         merged.heatmap.totalSubmissions = subs.length;
       }
     }
+    // D5 — nenhum endpoint central respondeu, ou a identidade do
+    // usuário não foi estabelecida: sem dados reais, sem dashboard
+    // inventado. O chamador mostra o estado de erro.
+    if (!apiResponded || !identityOk) return null;
   } catch {
-    // If backend is not reached or error occurs, default rich data is preserved safely
+    // Backend inalcançável ou erro inesperado: nada de preservar o
+    // molde como se fosse dado real.
+    return null;
   }
 
   return merged;
