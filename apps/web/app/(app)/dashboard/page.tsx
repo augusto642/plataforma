@@ -8,23 +8,26 @@ import { MaterialIcon } from '../../components/MaterialIcon';
 import { DynamicTrackCard } from './components/DynamicTrackCard';
 import { DailyMissions } from './components/DailyMissions';
 import { LeagueCard } from './components/LeagueCard';
+import { AiReviewsCard } from './components/AiReviewsCard';
+import { deriveHeroEyebrow } from './utils/hero';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import { fetchDashboardData } from './utils/api';
 import { apiFetch, API_BASE } from '../../lib/apiClient';
 import { StudentDashboardData } from './types';
 
-// Central 216 retrabalho (D2 + D7) — rebuild do dashboard para a
-// estrutura do protótipo Stitch v2 (dashboard-aluno.html): header com
-// nav + streak/XP reais, hero da fase atual, "Trilha Ativa" com
-// fases, "Simulador de Entrevista", "Sua Liga" (tiers reais
-// bronze/prata/ouro, via LeagueCard) e "Missões de Hoje" (reais, via
-// DailyMissions). Sai o bento grid (Topbar com simulação de +250 XP,
-// CareerPetBanner, SkillRoadmapTree, SkillsRadarChart, AnnualHeatmap,
-// CourseRankingTable, SocraticCopilotBox, HeroActiveMission).
-// Regra D7: seção sem dado real é omitida — "Revisões da IA Salvas"
-// não tem endpoint de listagem e não aparece; fases sem curso ativo
-// mostram estado vazio honesto. Nenhum número do molde ("Liga
-// Diamante", Kafka, 88.4, 348 submissões) existe mais nesta tela.
+// Central 219 (D2) — dashboard na estrutura do protótipo Stitch v2
+// (dashboard-aluno.html): header com nav + streak/XP reais, hero
+// "FASE ATUAL" (nº da fase ativa real — sem mundo/capítulo, que a
+// API não devolve), "Trilha Ativa" com fases 01–04 (ativa com
+// destaque de chefe, bloqueada opaca), módulos de apoio ("Revisões
+// da IA Salvas" via AiReviewsCard + "Simulador de Entrevista"),
+// coluna direita com "Sua Liga" (tiers reais bronze/prata/ouro, via
+// LeagueCard), "Missões de Hoje" (reais, via DailyMissions) e
+// ranking real do curso. Grid 8/4 como o protótipo.
+// Regra D7: seção sem dado real é omitida — fases sem curso ativo
+// mostram estado vazio honesto; XP por fase e estrelas não têm fonte
+// real e não aparecem; nenhum número do molde ("Liga Diamante",
+// Kafka, 88.4, 348 submissões) existe nesta tela.
 
 interface CourseActivity {
   id: string;
@@ -121,6 +124,13 @@ export default function StudentDashboardPage() {
     title: act.title,
     status: idx < completed ? 'concluída' : idx === completed ? 'ativa' : 'bloqueada',
   }));
+  // Central 219 (D2) — nº da fase ativa real (1-based) para o eyebrow
+  // "FASE ATUAL" do hero; null sem fase ativa determinável.
+  const activePhaseIdx = phases.findIndex((p) => p.status === 'ativa');
+  const heroEyebrow = deriveHeroEyebrow({
+    trackTitle: mission ? mission.trackTitle : null,
+    activePhaseNumber: activePhaseIdx >= 0 ? activePhaseIdx + 1 : null,
+  });
 
   return (
     <div className="dashboard-root min-h-screen flex flex-col antialiased selection:bg-[#8257E5] selection:text-white bg-background text-ink-heading">
@@ -170,13 +180,9 @@ export default function StudentDashboardPage() {
         <DynamicTrackCard />
 
         {/* Hero — fase atual: trilha ativa real ou estado vazio. */}
-        <section className="rounded-xl bg-dark-surface-container border border-border-subtle p-6 md:p-8">
+        <section className="rounded-xl bg-gradient-to-r from-dark-surface-container-high via-dark-surface-container to-dark-surface-container-low border border-border-strong p-6 md:p-8">
           <p className="font-code text-xs text-secondary font-bold uppercase tracking-wider">
-            {/* Central 216 r3 (Q-5) — sem missão, o eyebrow era "Sua
-                trilha" e duplicava o DynamicTrackCard acima ("Receba
-                uma trilha sugerida para você"). Com missão, segue o
-                título real da trilha. */}
-            {mission ? mission.trackTitle : 'Comece aqui'}
+            {heroEyebrow}
           </p>
           <h1 className="font-headline text-headline-lg-mobile md:text-headline-lg text-white font-bold mt-2">
             {mission ? mission.title : 'Comece sua jornada'}
@@ -237,7 +243,7 @@ export default function StudentDashboardPage() {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-8 space-y-6">
             {/* Trilha Ativa — fases reais do curso primário. */}
             <section
               aria-label="Trilha ativa"
@@ -257,7 +263,16 @@ export default function StudentDashboardPage() {
                   {phases.map((phase, idx) => (
                     <li
                       key={phase.id}
-                      className="flex items-center gap-3 rounded-xl border border-border-subtle bg-dark-surface-container px-4 py-3"
+                      // Central 219 (D2) — fase ativa com o destaque de
+                      // chefe do protótipo (borda roxa + sombra) e selo
+                      // "DESAFIO ATIVO"; bloqueada opaca, como no molde.
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
+                        phase.status === 'ativa'
+                          ? 'border-2 border-primary bg-primary/10 shadow-lg shadow-primary/10'
+                          : phase.status === 'concluída'
+                            ? 'border-border-subtle bg-dark-surface-container'
+                            : 'border-border-subtle bg-dark-surface-container opacity-60'
+                      }`}
                     >
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
@@ -277,8 +292,15 @@ export default function StudentDashboardPage() {
                         )}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-xs font-code text-dark-on-surface-variant uppercase tracking-wider">
-                          Fase 0{idx + 1} · {phase.status}
+                        <span className="flex items-center gap-2">
+                          <span className="block text-xs font-code text-dark-on-surface-variant uppercase tracking-wider">
+                            Fase 0{idx + 1} · {phase.status}
+                          </span>
+                          {phase.status === 'ativa' && (
+                            <span className="px-1.5 py-0.5 rounded bg-primary/20 text-white font-code text-[10px] font-bold">
+                              DESAFIO ATIVO
+                            </span>
+                          )}
                         </span>
                         <span className="block text-sm font-semibold text-white truncate">
                           {phase.title}
@@ -305,35 +327,38 @@ export default function StudentDashboardPage() {
               )}
             </section>
 
-            {/* Simulador de Entrevista — sem números inventados. */}
-            <section
-              aria-label="Simulador de entrevista"
-              className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-5"
-            >
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 border border-primary/40 text-dark-primary">
+            {/* Módulos de apoio — os 2 cards do protótipo, lado a lado:
+                "Revisões da IA Salvas" (dados reais ou omitido) e
+                "Simulador de Entrevista". */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AiReviewsCard />
+              <section
+                aria-label="Simulador de entrevista"
+                className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-5 flex items-start gap-4"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary">
                   <MaterialIcon name="record_voice_over" className="text-[22px]" />
                 </span>
-                <div>
-                  <h2 className="font-headline text-base font-bold text-white">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-headline text-sm font-bold text-white">
                     Simulador de Entrevista
                   </h2>
-                  <p className="text-sm text-dark-on-surface-variant">
+                  <p className="text-xs text-dark-on-surface-variant mt-0.5 mb-3">
                     Treine para entrevistas técnicas com perguntas e live coding.
                   </p>
+                  <Link
+                    href="/entrevista"
+                    className="inline-flex items-center gap-1 text-xs font-code font-bold text-tertiary hover:underline"
+                  >
+                    Nova simulação
+                    <MaterialIcon name="arrow_forward" className="text-[14px]" />
+                  </Link>
                 </div>
-              </div>
-              <Link
-                href="/entrevista"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline"
-              >
-                Nova simulação
-                <MaterialIcon name="arrow_forward" className="text-[16px]" />
-              </Link>
-            </section>
+              </section>
+            </div>
           </div>
 
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-4 space-y-6">
             {/* Sua Liga — tiers reais (LeagueCard some sem liga/acesso). */}
             <LeagueCard />
             {/* Missões de Hoje — só com dados reais (DailyMissions some sem). */}

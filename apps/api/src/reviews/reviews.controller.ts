@@ -23,6 +23,13 @@ export class ReviewsController {
     return this.reviews.requestAiReview(user.sub, submissionId);
   }
 
+  // Central 219 (D2) — GET /reviews/me: "Revisões da IA Salvas" do
+  // dashboard. Só as revisões das próprias submissões do usuário.
+  @Get('me')
+  listMine(@CurrentUser() user: JwtPayload) {
+    return this.reviews.listMine(user.sub);
+  }
+
   @Get('submissions/:submissionId')
   listForSubmission(
     @CurrentUser() user: JwtPayload,

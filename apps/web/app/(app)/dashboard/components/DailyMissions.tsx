@@ -66,13 +66,21 @@ export function DailyMissions() {
       </div>
       <ul className="space-y-3">
         {missions.map((mission) => (
-          <li key={mission.id} className="flex items-center gap-3">
+          // Central 219 (D2) — Q-8 do laudo pós-217: rótulo e valor
+          // espremidos lado a lado em 2 colunas estreitas. Detalhe
+          // empilhado abaixo do título, sem coluna apertada.
+          <li key={mission.id} className="flex items-start gap-3">
             <MaterialIcon
               name={mission.done ? 'check_circle' : 'radio_button_unchecked'}
-              className={`text-[20px] ${mission.done ? 'text-secondary' : 'text-dark-on-surface-variant'}`}
+              className={`mt-0.5 text-[20px] ${mission.done ? 'text-secondary' : 'text-dark-on-surface-variant'}`}
             />
-            <span className="flex-1 text-sm text-zinc-300">{mission.title}</span>
-            <span className="text-xs text-zinc-500">{mission.detail}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm text-zinc-300">{mission.title}</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">{mission.detail}</span>
+            </span>
+            {mission.done && (
+              <MaterialIcon name="check" className="mt-0.5 text-[18px] text-secondary" />
+            )}
           </li>
         ))}
       </ul>

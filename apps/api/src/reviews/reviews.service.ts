@@ -112,4 +112,30 @@ export class ReviewsService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  // Central 219 (D2) — "Revisões da IA Salvas" do dashboard: as
+  // revisões das PRÓPRIAS submissões do usuário, mais recentes
+  // primeiro. Só leitura; o filtro é pelo dono da submissão (nunca
+  // por parâmetro) e o título da atividade vem junto para a tela não
+  // precisar de outra chamada. Sem revisão, []. O gate 'code-review'
+  // do controller já barra free (403) antes de chegar aqui.
+  async listMine(userId: string, limit = 5) {
+    const rows = await this.prisma.codeReview.findMany({
+      where: { submission: { userId } },
+      include: {
+        submission: { select: { activity: { select: { title: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      kind: row.kind,
+      status: row.status,
+      summary: row.summary,
+      createdAt: row.createdAt,
+      submissionId: row.submissionId,
+      activityTitle: row.submission?.activity?.title ?? null,
+    }));
+  }
 }

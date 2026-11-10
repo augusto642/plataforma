@@ -14,6 +14,7 @@ describe('ReviewsController', () => {
   const mockService = {
     requestAiReview: jest.fn(),
     listForSubmission: jest.fn(),
+    listMine: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -46,5 +47,12 @@ describe('ReviewsController', () => {
       { id: 'rev-1' },
     ]);
     expect(mockService.listForSubmission).toHaveBeenCalledWith('user-1', 'sub-1');
+  });
+
+  // Central 219 (D2) — GET /reviews/me.
+  it('listMine repassa o userId do token', async () => {
+    mockService.listMine.mockResolvedValue([{ id: 'rev-1' }]);
+    await expect(controller.listMine(user)).resolves.toEqual([{ id: 'rev-1' }]);
+    expect(mockService.listMine).toHaveBeenCalledWith('user-1');
   });
 });

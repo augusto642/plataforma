@@ -103,4 +103,39 @@ describe('ReviewsService', () => {
     expect(mockPrisma.codeReview.create).not.toHaveBeenCalled();
     expect(mockQueue.add).not.toHaveBeenCalled();
   });
+
+  // Central 219 (D2) — listMine ("Revisões da IA Salvas" do dashboard).
+  it('listMine filtra só as revisões das próprias submissões, recentes primeiro', async () => {
+    mockPrisma.codeReview.findMany.mockResolvedValue([
+      {
+        id: 'rev-1',
+        kind: 'ai',
+        status: 'completed',
+        summary: 'Bom uso de funções.',
+        createdAt: new Date('2026-11-10T10:00:00Z'),
+        submissionId: 'sub-1',
+        submission: { activity: { title: 'Loops e arrays' } },
+      },
+    ]);
+    const result = await service.listMine('user-1');
+    expect(mockPrisma.codeReview.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { submission: { userId: 'user-1' } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+    );
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'rev-1',
+        activityTitle: 'Loops e arrays',
+        submissionId: 'sub-1',
+      }),
+    ]);
+  });
+
+  it('listMine sem revisão devolve [] (nunca inventa)', async () => {
+    mockPrisma.codeReview.findMany.mockResolvedValue([]);
+    await expect(service.listMine('user-1')).resolves.toEqual([]);
+  });
 });

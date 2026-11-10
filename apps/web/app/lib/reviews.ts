@@ -32,3 +32,23 @@ export async function listReviews(submissionId: string): Promise<CodeReview[]> {
   if (!res.ok) throw await parseError(res);
   return res.json();
 }
+
+// Central 219 (D2) — "Revisões da IA Salvas" do dashboard: as
+// revisões das próprias submissões do usuário (GET /reviews/me).
+// Rejeita em !ok (403 de plano free incluído) para o card sumir
+// fail-closed, nunca inventar lista.
+export interface SavedReview {
+  id: string;
+  kind: string;
+  status: string;
+  summary: string | null;
+  createdAt: string;
+  submissionId: string;
+  activityTitle: string | null;
+}
+
+export async function listMyReviews(): Promise<SavedReview[]> {
+  const res = await apiFetch('/reviews/me');
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
