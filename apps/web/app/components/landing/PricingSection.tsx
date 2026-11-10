@@ -82,7 +82,7 @@ export const PricingSection: React.FC = () => {
             <div className="mb-8">
               <div className="flex items-baseline gap-1">
                 <span className="text-body-lg text-ink-body font-heading font-bold">R$</span>
-                <span className="text-4xl font-heading font-extrabold text-white">{formatBRL(PLAN_PRICES.pro.monthly!).replace('R$ ', '')}</span>
+                <span className="text-4xl font-heading font-extrabold text-white">{formatBRL(PLAN_PRICES.pro.monthly!).replace(/^R\$\s*/, '')}</span>
                 <span className="text-body-sm text-ink-span">/mês</span>
               </div>
               <span className="font-mono text-xs text-brand-purple-light">Acesso a todas as fases</span>
