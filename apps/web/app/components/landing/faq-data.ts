@@ -1,0 +1,44 @@
+/* B44 (Sprint 15) — fonte textual das perguntas e respostas do FAQ
+   para o JSON-LD (FAQPage) da home, gerado em StructuredData.tsx.
+   O texto aqui é o ESPELHO EXATO, em texto puro, do que a FaqSection
+   exibe (lá as respostas têm trechos destacados em <span>; aqui os
+   trechos são concatenados). Se uma pergunta ou resposta mudar na
+   FaqSection, mude aqui também — dado estruturado divergente do
+   conteúdo visível é pior do que nenhum dado estruturado. */
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export const FAQ_ITEMS: FaqItem[] = [
+  {
+    question: 'Preciso instalar algo na minha máquina para começar?',
+    answer:
+      'Não. Todo o ambiente roda em containers Linux isolados diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes em Python, Go e Rust.',
+  },
+  {
+    question: 'Qual a diferença entre a NEXUS CODE e cursos em vídeo?',
+    answer:
+      'Nas plataformas tradicionais você passa a maior parte do tempo assistindo passivamente a vídeos longos. Na NEXUS CODE você passa a maior parte do tempo escrevendo código e corrigindo testes, exatamente o que molda o programador contratado pelo mercado.',
+  },
+  {
+    question: 'Sou iniciante absoluto. Vou conseguir acompanhar?',
+    answer:
+      'Sim, com certeza! A plataforma foi desenhada para quem nunca escreveu uma linha de código. Você começa aprendendo lógica básica e sintaxe elementar, com feedback passo a passo até construir projetos completos.',
+  },
+  {
+    question: 'Preciso ter faculdade ou saber matemática avançada?',
+    answer:
+      'Não! Você não precisa de diploma na área nem de fórmulas complexas. O raciocínio lógico é construído de forma prática, visual e gradual, resolvendo problemas reais no terminal desde o primeiro dia.',
+  },
+  {
+    question: 'Como funciona o feedback quando meu código dá erro?',
+    answer:
+      'Nossa tutoria socrática lê a mensagem de erro e o seu código, reconhece o padrão do problema e aponta pistas e perguntas reflexivas, em vez de dar a resposta pronta. Isso desenvolve seu raciocínio real de debugging.',
+  },
+  {
+    question: 'Como os projetos e certificados me ajudam a conseguir vagas?',
+    answer:
+      'Cada projeto gera repositórios Git reais com histórico de commits e certificados com código de verificação SHA-256 que qualquer pessoa pode conferir. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.',
+  },
+];

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { CourseListItem, CourseProgressEntry } from '../types';
+import { courseProgressStatus } from '../utils';
 import { CourseGlyph } from './CourseGlyph';
 
 interface CourseCardProps {
@@ -14,14 +15,18 @@ interface CourseCardProps {
 // GET /users/me/progress. Nível, horas, XP e o selo de progresso com
 // default de 68% não existem na API e foram removidos.
 export function CourseCard({ course, progress, onSelect }: CourseCardProps) {
-  const status = !progress
-    ? { label: 'Não iniciado', className: 'text-zinc-500' }
-    : progress.progressPercent >= 100
-      ? { label: 'Concluído (100%)', className: 'text-[#04D361] font-semibold' }
-      : {
-          label: `Em Progresso (${progress.progressPercent}%)`,
-          className: 'text-[#00E5FF] font-semibold',
-        };
+  // Q2 (Sprint 15) — o rótulo vem da regra única de courseProgressStatus:
+  // matrícula real em 0% é "Não iniciado", não "Em Progresso (0%)".
+  const statusInfo = courseProgressStatus(progress);
+  const status = {
+    label: statusInfo.label,
+    className:
+      statusInfo.kind === 'completed'
+        ? 'text-[#04D361] font-semibold'
+        : statusInfo.kind === 'in-progress'
+          ? 'text-[#00E5FF] font-semibold'
+          : 'text-zinc-500',
+  };
 
   return (
     <div className="bg-[#121217] border border-[#27272A] rounded-[20px] p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:border-[#8257E5]/60 hover:shadow-[0_12px_30px_-10px_rgba(130,87,229,0.3)] group">

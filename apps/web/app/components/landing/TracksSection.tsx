@@ -1,6 +1,7 @@
 {/* Sprint 10 · B34 — fatiado do antigo page.tsx monolítico ('use client' integral, 1.767 linhas): esta seção é Server Component; o estado interativo vive nas ilhas client. */}
 import React from 'react';
 import { TrackedLink } from './TrackedLink';
+import { TracksCarousel } from './TracksCarousel';
 import { IconMap, TrackCoverGo, TrackCoverPython, TrackCoverRust, TrackCoverWeb } from './icons';
 
 export const TracksSection: React.FC = () => (
@@ -29,17 +30,11 @@ export const TracksSection: React.FC = () => (
     </div>
 
 
-    {/* CARROSSEL HORIZONTAL COM SCROLL SNAP (10% À ESQUERDA) */}
-    <div className="relative">
-      {/* Sombra fade esquerda */}
-      <div className="pointer-events-none absolute left-0 top-0 h-full w-20 z-10 bg-gradient-to-r from-background to-transparent" />
-      {/* Sombra fade direita */}
-      <div className="pointer-events-none absolute right-0 top-0 h-full w-16 z-10 bg-gradient-to-l from-background to-transparent" />
-
-      <div
-        className="flex gap-6 overflow-x-auto scroll-smooth pb-6 pl-[10%] pr-12"
-        style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+    {/* CARROSSEL HORIZONTAL COM SCROLL SNAP (10% À ESQUERDA) —
+        B47 (Sprint 15): contêiner de scroll, sombras e dots vivem na
+        ilha client TracksCarousel; os cards seguem renderizados
+        aqui, no servidor, e entram como filhos dela. */}
+    <TracksCarousel labels={['Rust', 'Go', 'React & Next.js', 'Python & IA']}>
 
         {/* TRILHA 1: Rust — Lógica & Alta Performance */}
         <article
@@ -267,16 +262,7 @@ export const TracksSection: React.FC = () => (
           </div>
         </article>
 
-      </div>
-
-      {/* Indicadores de navegação (dots) */}
-      <div className="flex items-center justify-center gap-2 mt-6">
-        <span className="w-6 h-1.5 rounded-full bg-brand-amber"></span>
-        <span className="w-2 h-1.5 rounded-full bg-surface-3"></span>
-        <span className="w-2 h-1.5 rounded-full bg-surface-3"></span>
-        <span className="w-2 h-1.5 rounded-full bg-surface-3"></span>
-      </div>
-    </div>
+    </TracksCarousel>
   </section>
   </>
 );

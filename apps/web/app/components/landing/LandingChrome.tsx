@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Logo from '../Logo';
+import { moveCommandSelection } from './commandPalette';
 // B11 — captura de atribuição na chegada (a porta de cadastro lê da lib)
 import { captureUtmFromUrl } from '../../lib/attribution';
 // B08 — eventos do funil da landing (+ pageview na Sprint 5)
@@ -22,6 +23,9 @@ export const LandingChrome: React.FC = () => {
   // Command Palette & Mobile State
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandSearchQuery, setCommandSearchQuery] = useState('');
+  // B46 (Sprint 15) — seleção ativa da palette (setas ↑/↓ + Enter)
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const commandItemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // Sprint 9 — dropdown "Jogo" da navbar enxuta (desktop)
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
@@ -65,6 +69,43 @@ export const LandingChrome: React.FC = () => {
   const filteredCommands = commandItems.filter((cmd) =>
     cmd.label.toLowerCase().includes(commandSearchQuery.toLowerCase())
   );
+
+  // B46 (Sprint 15) — a seleção sempre aponta para um item existente:
+  // ao abrir a palette ela volta ao primeiro item, e o índice usado
+  // na renderização é limitado ao tamanho atual da lista filtrada.
+  useEffect(() => {
+    if (isCommandPaletteOpen) setSelectedCommandIndex(0);
+  }, [isCommandPaletteOpen]);
+
+  const activeCommandIndex =
+    filteredCommands.length === 0
+      ? -1
+      : Math.min(selectedCommandIndex, filteredCommands.length - 1);
+
+  // B46 (Sprint 15) — o rodapé da palette sempre anunciou "Navegue
+  // com ↑ ↓ e pressione Enter", mas não havia handler de setas: a
+  // promessa agora é o comportamento. ↑/↓ movem a seleção (com
+  // wrap-around, via moveCommandSelection) e Enter clica no item
+  // selecionado — reusando o onClick do próprio link (tracking +
+  // fechamento), sem duplicar a lógica de navegação.
+  const handlePaletteKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const delta = e.key === 'ArrowDown' ? 1 : -1;
+      const next = moveCommandSelection(
+        activeCommandIndex < 0 ? 0 : activeCommandIndex,
+        delta,
+        filteredCommands.length,
+      );
+      setSelectedCommandIndex(next);
+      commandItemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      if (activeCommandIndex >= 0) {
+        e.preventDefault();
+        commandItemRefs.current[activeCommandIndex]?.click();
+      }
+    }
+  };
 
   return (
     <>
@@ -221,9 +262,12 @@ export const LandingChrome: React.FC = () => {
           className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/80 backdrop-blur-md animate-fadeIn"
           onClick={() => setIsCommandPaletteOpen(false)}
         >
-          <div 
+          <div
             className="w-full max-w-xl bg-surface-1 border border-border-1 rounded-2xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Paleta de comandos"
           >
             <div className="p-4 border-b border-border-1 flex items-center gap-3 bg-surface-1">
               <span className="text-brand-purple-light shrink-0">
@@ -234,7 +278,19 @@ export const LandingChrome: React.FC = () => {
                 autoFocus
                 placeholder="Digite o que procura (ex: Python, Rust, Go, Terminal, Entrar)..."
                 value={commandSearchQuery}
-                onChange={(e) => setCommandSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setCommandSearchQuery(e.target.value);
+                  setSelectedCommandIndex(0);
+                }}
+                onKeyDown={handlePaletteKeyDown}
+                role="combobox"
+                aria-expanded="true"
+                aria-controls="command-palette-list"
+                aria-activedescendant={
+                  activeCommandIndex >= 0
+                    ? `command-option-${activeCommandIndex}`
+                    : undefined
+                }
                 className="w-full bg-transparent text-sm text-ink-heading placeholder-ink-span outline-none font-sans"
               />
               <button
@@ -246,7 +302,12 @@ export const LandingChrome: React.FC = () => {
               </button>
             </div>
 
-            <div className="max-h-80 overflow-y-auto p-2 divide-y divide-border-1/60">
+            <div
+              id="command-palette-list"
+              role="listbox"
+              aria-label="Comandos"
+              className="max-h-80 overflow-y-auto p-2 divide-y divide-border-1/60"
+            >
               {filteredCommands.length === 0 ? (
                 <div className="p-6 text-center text-body-sm text-ink-span">
                   Nenhum resultado encontrado para "{commandSearchQuery}".
@@ -255,22 +316,39 @@ export const LandingChrome: React.FC = () => {
                 filteredCommands.map((cmd, i) => (
                   <Link
                     key={i}
+                    id={`command-option-${i}`}
+                    role="option"
+                    aria-selected={i === activeCommandIndex}
+                    ref={(el) => {
+                      commandItemRefs.current[i] = el;
+                    }}
+                    onMouseEnter={() => setSelectedCommandIndex(i)}
                     href={cmd.href}
                     data-cta-id={cmd.href === '/register' ? 'palette_register' : undefined}
                     onClick={() => {
                       if (cmd.href === '/register') track('nav_cta', 'palette_register');
                       setIsCommandPaletteOpen(false);
                     }}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-2 text-body-sm text-ink-body transition-colors group cursor-pointer"
+                    className={`flex items-center justify-between p-3 rounded-xl text-body-sm text-ink-body transition-colors group cursor-pointer ${
+                      i === activeCommandIndex ? 'bg-surface-2' : 'hover:bg-surface-2'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-brand-purple-light flex items-center shrink-0">{cmd.icon}</span>
                       <div>
-                        <div className="font-semibold text-ink-heading group-hover:text-brand-purple-light transition-colors">{cmd.label}</div>
+                        <div className={`font-semibold transition-colors ${
+                          i === activeCommandIndex
+                            ? 'text-brand-purple-light'
+                            : 'text-ink-heading group-hover:text-brand-purple-light'
+                        }`}>{cmd.label}</div>
                         <div className="text-body-sm text-ink-span font-mono">{cmd.category}</div>
                       </div>
                     </div>
-                    <span className="text-ink-span group-hover:text-brand-green-neon font-mono text-body-sm">
+                    <span className={`font-mono text-body-sm ${
+                      i === activeCommandIndex
+                        ? 'text-brand-green-neon'
+                        : 'text-ink-span group-hover:text-brand-green-neon'
+                    }`}>
                       Ir →
                     </span>
                   </Link>
