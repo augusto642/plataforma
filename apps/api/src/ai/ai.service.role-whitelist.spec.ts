@@ -35,9 +35,14 @@ describe('AiService — A1 role whitelist no serviço', () => {
 
   const mockConfigService = { get: jest.fn().mockReturnValue('') };
 
+  // Sprint 22 — o LlmClient virou gateway: o contrato é isAvailable /
+  // unavailableReason / providerId / model (hasApiKey morreu com a
+  // pergunta "tem chave?"; modelo local não tem chave).
   const mockLlmClient = {
-    hasApiKey: true,
-    apiKey: 'test-key',
+    isAvailable: true,
+    unavailableReason: null,
+    providerId: 'gemini',
+    model: 'gemini-3.5-flash-lite',
     complete: jest.fn(),
     stream: jest.fn(),
   };
@@ -53,7 +58,7 @@ describe('AiService — A1 role whitelist no serviço', () => {
     }).compile();
 
     service = module.get<AiService>(AiService);
-    mockLlmClient.hasApiKey = true;
+    mockLlmClient.isAvailable = true;
     mockLlmClient.complete.mockReset();
     mockLlmClient.complete.mockResolvedValue('resposta do tutor');
     mockLlmClient.stream.mockReset();
