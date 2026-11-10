@@ -9,14 +9,52 @@ import { MaterialIcon } from '../MaterialIcon';
 // "Streak 14 dias", "28 Conquistas" — são inventados): a seção
 // descreve o sistema — tiers reais Bronze, Prata e Ouro — e cada
 // card leva à ação real (cadastro / desafios / ligas).
+// Central 218 (D1) — o rebuild troca os 4 cards genéricos pela
+// estrutura do protótipo: mapa da trilha (fases 01–04) + ranking.
+// O mapa é um EXEMPLO rotulado como tal (o mapa real, com o
+// progresso do aluno, aparece no painel dele); o XP por fase é a
+// regra do jogo, não dado de aluno. O ranking não tem linhas
+// inventadas ("Lucas F. 4.820 XP" etc.): mostra as ligas reais e o
+// estado vazio honesto. Sem "Liga Diamante" (não existe) e sem
+// streak/badges com número fixo.
+const MAP_PHASES = [
+  {
+    n: '01',
+    state: 'concluida' as const,
+    stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
+    title: 'O Desafio das Variáveis Mágicas',
+    xp: '+200 XP',
+  },
+  {
+    n: '02',
+    state: 'concluida' as const,
+    stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
+    title: 'Portas Lógicas e Condicionais IF/ELSE',
+    xp: '+250 XP',
+  },
+  {
+    n: '03',
+    state: 'atual' as const,
+    stateLabel: 'FASE ATUAL • DESAFIO DE CÓDIGO',
+    title: 'O Guardião dos Loops e Arrays',
+    xp: '+450 XP',
+  },
+  {
+    n: '04',
+    state: 'bloqueada' as const,
+    stateLabel: 'BLOQUEADO',
+    title: 'Recursão e Árvores de Decisão',
+    xp: '+600 XP',
+  },
+];
+
 export const GamificationSection: React.FC = () => (
-  <section id="gamificacao" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
-    <div className="max-w-2xl mb-14">
-      <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-purple/10 border border-brand-purple/30 text-brand-purple-light text-xs font-mono font-bold mb-3">
-        <MaterialIcon name="sports_esports" className="text-[16px]" />
-        <span>GAMIFICAÇÃO DE VERDADE</span>
-      </div>
-      <h2 className="text-3xl sm:text-5xl font-display font-extrabold text-white tracking-tight mb-4">
+  <section id="o-jogo" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
+    <div className="text-center max-w-2xl mx-auto mb-16">
+      <span className="font-mono text-xs text-brand-cyan-neon uppercase tracking-widest font-bold block mb-2">
+        Gamificação de verdade
+      </span>
+      <h2 className="text-3xl sm:text-5xl font-heading font-black text-ink-heading tracking-tight mb-4">
         Aprender programando vicia quando parece um RPG
       </h2>
       <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">
@@ -24,16 +62,76 @@ export const GamificationSection: React.FC = () => (
       </p>
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 border border-primary/40 text-dark-primary">
-            <MaterialIcon name="map" className="text-[22px]" />
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-16">
+      {/* Mapa da trilha — exemplo do protótipo */}
+      <div className="lg:col-span-7 bg-dark-surface-container-low border border-border-subtle rounded-xl p-6 md:p-8">
+        <div className="flex items-center justify-between gap-4 pb-6 mb-6 border-b border-border-subtle">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 border border-primary/40 text-dark-primary">
+              <MaterialIcon name="map" className="text-[22px]" />
+            </span>
+            <div>
+              <h3 className="font-headline font-bold text-white text-lg">Mapa da Trilha: Reino dos Algoritmos</h3>
+              <p className="text-body-sm text-ink-span font-mono">Mundo 2 • Capítulo: Estruturas Dinâmicas</p>
+            </div>
+          </div>
+          <span className="shrink-0 px-3 py-1 bg-surface-2 border border-border-1 text-ink-span font-mono text-xs rounded-full font-bold">
+            Exemplo
           </span>
-          <h3 className="font-headline text-lg font-bold text-white">Mapa da Trilha</h3>
         </div>
-        <p className="text-sm text-ink-body leading-relaxed">
-          Sua trilha é um mapa de fases: cada fase concluída abre a próxima, e o guardião da fase testa o que você aprendeu. O mapa completo aparece no seu painel, com o seu progresso real.
+
+        <div className="relative py-2 space-y-6">
+          {MAP_PHASES.map((phase, i) => (
+            <div key={phase.n}>
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-12 h-12 shrink-0 rounded-full border-2 flex items-center justify-center font-code font-bold ${
+                    phase.state === 'concluida'
+                      ? 'bg-secondary/20 border-secondary text-secondary'
+                      : phase.state === 'atual'
+                        ? 'bg-brand-purple border-white text-white shadow-lg shadow-brand-purple/40'
+                        : 'bg-dark-surface-container-high border-border-strong text-ink-span'
+                  }`}
+                >
+                  {phase.state === 'concluida' ? (
+                    <MaterialIcon name="check" className="text-[22px]" />
+                  ) : phase.state === 'atual' ? (
+                    <MaterialIcon name="swords" className="text-[22px]" />
+                  ) : (
+                    <MaterialIcon name="lock" className="text-[20px]" />
+                  )}
+                </div>
+                <div
+                  className={`flex-1 p-4 rounded-xl border flex items-center justify-between gap-3 ${
+                    phase.state === 'atual'
+                      ? 'bg-brand-purple/10 border-brand-purple/50'
+                      : phase.state === 'bloqueada'
+                        ? 'bg-dark-surface-container border-border-subtle opacity-50'
+                        : 'bg-dark-surface-container border-border-subtle'
+                  }`}
+                >
+                  <div>
+                    <span className={`text-[11px] font-code ${phase.state === 'atual' ? 'text-dark-primary font-bold' : phase.state === 'bloqueada' ? 'text-ink-span' : 'text-secondary'}`}>
+                      {phase.stateLabel}
+                    </span>
+                    <h4 className={`font-headline font-semibold text-body-md ${phase.state === 'bloqueada' ? 'text-ink-span' : 'text-white'}`}>
+                      {phase.n}. {phase.title}
+                    </h4>
+                  </div>
+                  <span className={`font-code text-code-sm shrink-0 ${phase.state === 'atual' ? 'px-3 py-1 bg-brand-purple text-white rounded font-bold' : 'text-ink-span'}`}>
+                    {phase.xp}
+                  </span>
+                </div>
+              </div>
+              {i < MAP_PHASES.length - 1 && (
+                <div className={`w-0.5 h-6 ml-6 ${phase.state === 'concluida' ? 'bg-secondary' : phase.state === 'atual' ? 'bg-brand-purple' : 'bg-border-strong'}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-6 pt-4 border-t border-border-subtle text-body-sm text-ink-span font-sans leading-relaxed">
+          Exemplo de como o mapa funciona: cada fase concluída abre a próxima, e o guardião da fase testa o que você aprendeu. O seu mapa, com o seu progresso real, aparece no seu painel.
         </p>
         <Link href="/dashboard" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline">
           Ver meu mapa
@@ -41,52 +139,50 @@ export const GamificationSection: React.FC = () => (
         </Link>
       </div>
 
-      <div className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-amber/15 border border-brand-amber/40 text-brand-amber">
-            <MaterialIcon name="emoji_events" className="text-[22px]" />
-          </span>
-          <h3 className="font-headline text-lg font-bold text-white">Ligas Bronze, Prata e Ouro</h3>
+      {/* Ligas e ranking */}
+      <div className="lg:col-span-5 space-y-6">
+        <div className="bg-dark-surface-container-low border border-border-subtle rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <MaterialIcon name="emoji_events" className="text-[22px] text-brand-amber" />
+            <h3 className="font-headline font-bold text-white text-lg">Ligas Bronze, Prata e Ouro</h3>
+          </div>
+          <p className="text-body-sm text-ink-body leading-relaxed mb-4">
+            Semanalmente você compete na sua liga — Bronze, Prata ou Ouro, conforme o seu nível. Os primeiros sobem de divisão; o ranking é por nível, nunca uma liga única global.
+          </p>
+          <p className="text-body-sm text-ink-span leading-relaxed">
+            O ranking semanal aparece aqui quando você joga — sem ranking inventado: só alunos reais, com XP real.
+          </p>
+          <Link href="/leaderboard" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline">
+            Ver ligas e ranking
+            <MaterialIcon name="arrow_forward" className="text-[16px]" />
+          </Link>
         </div>
-        <p className="text-sm text-ink-body leading-relaxed">
-          Semanalmente você compete na sua liga — Bronze, Prata ou Ouro, conforme o seu nível. Os primeiros sobem de divisão; o ranking é por nível, nunca uma liga única global.
-        </p>
-        <Link href="/leaderboard" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline">
-          Ver ligas e ranking
-          <MaterialIcon name="arrow_forward" className="text-[16px]" />
-        </Link>
-      </div>
 
-      <div className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-amber/15 border border-brand-amber/40 text-brand-amber">
-            <MaterialIcon name="local_fire_department" className="text-[22px]" />
-          </span>
-          <h3 className="font-headline text-lg font-bold text-white">Streak diário</h3>
-        </div>
-        <p className="text-sm text-ink-body leading-relaxed">
-          Constância diária multiplica o seu ganho de XP. Seu streak aparece no painel e conta os dias seguidos em que você resolveu desafios.
-        </p>
-        <Link href="/desafios" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline">
-          Resolver o desafio de hoje
-          <MaterialIcon name="arrow_forward" className="text-[16px]" />
-        </Link>
-      </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-dark-surface-container-low border border-border-subtle p-4 rounded-xl">
+            <div className="flex items-center gap-2 text-brand-amber mb-1">
+              <MaterialIcon name="local_fire_department" className="text-[20px]" />
+              <span className="font-code font-bold text-code-sm">Streak diário</span>
+            </div>
+            <p className="text-xs text-ink-span leading-relaxed">Constância diária multiplica ganho de XP. Seu streak aparece no painel.</p>
+            <Link href="/desafios" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-dark-primary hover:underline">
+              Resolver o desafio de hoje
+              <MaterialIcon name="arrow_forward" className="text-[14px]" />
+            </Link>
+          </div>
 
-      <div className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/15 border border-secondary/40 text-secondary">
-            <MaterialIcon name="military_tech" className="text-[22px]" />
-          </span>
-          <h3 className="font-headline text-lg font-bold text-white">Badges e conquistas</h3>
+          <div className="bg-dark-surface-container-low border border-border-subtle p-4 rounded-xl">
+            <div className="flex items-center gap-2 text-brand-cyan-neon mb-1">
+              <MaterialIcon name="military_tech" className="text-[20px]" />
+              <span className="font-code font-bold text-code-sm">Badges Dev</span>
+            </div>
+            <p className="text-xs text-ink-span leading-relaxed">Conquistas pelo que você realmente fez. Mostre suas medalhas no perfil público.</p>
+            <Link href="/profile" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-dark-primary hover:underline">
+              Ver meu perfil
+              <MaterialIcon name="arrow_forward" className="text-[14px]" />
+            </Link>
+          </div>
         </div>
-        <p className="text-sm text-ink-body leading-relaxed">
-          Conquistas desbloqueadas pelo que você realmente fez — fases vencidas, streaks mantidos, desafios resolvidos. Mostre suas medalhas no seu perfil público.
-        </p>
-        <Link href="/profile" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline">
-          Ver meu perfil
-          <MaterialIcon name="arrow_forward" className="text-[16px]" />
-        </Link>
       </div>
     </div>
   </section>
