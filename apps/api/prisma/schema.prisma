@@ -106,6 +106,10 @@ model User {
   forumPosts           ForumPost[]
   solutionShares       SolutionShare[]
   peerReviewsGiven     CodeReview[]       @relation("PeerReviews")
+  // Fase 4 premium (desenho §5): Talent Match + B2B.
+  talentProfile        TalentProfile?
+  talentIntroductions  TalentIntroduction[]
+  orgMemberships       OrgMember[]
   chatMessages      AiChatMessage[]
   studentRepos      StudentRepo[]
 
@@ -361,6 +365,12 @@ model Company {
   name      String
   tokenHash String   @unique @map("token_hash")
   createdAt DateTime @default(now()) @map("created_at")
+
+  // Fase 4 premium (desenho §5): vagas de parceira + introduções + orgs.
+  jobPostings         JobPosting[]
+  talentIntroductions TalentIntroduction[]
+  organizations       Organization[]
+
   @@map("companies")
 }
 model DiagnosticResult {
@@ -861,4 +871,109 @@ model SolutionShare {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("solution_shares")
+}
+
+// ── Fase 4 premium (desenho §5) ──────────────────────────────────────────
+// Talent Match + base técnica B2B. Nenhum texto promete emprego ou
+// contratação: matching é visibilidade + introdução mediada.
+// Desvio documentado do desenho: `JobPosting.researchId` é String, não
+// Uuid — os ids de pesquisa do ResearchService (arquivo versionado) são
+// como "research-python", não UUIDs; uma coluna Uuid rejeitaria a origem
+// real. A tabela espelho `knowledge_research` (uuid) não é a fonte aqui.
+
+enum JobSource {
+  aggregated
+  partner
+}
+
+model JobPosting {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid // null = agregada
+  title       String
+  skills      String[] // mesma taxonomia do concept-spine/KMS
+  level       String    @db.VarChar(16) // junior | mid | senior
+  source      JobSource
+  researchId  String?   @map("research_id") @db.VarChar(128) // pesquisa de origem, quando agregada
+  externalUrl String?   @map("external_url")
+  postedAt    DateTime  @map("posted_at")
+  expiresAt   DateTime  @map("expires_at")
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  introductions TalentIntroduction[]
+
+  @@index([level, expiresAt])
+  @@map("job_postings")
+}
+
+model TalentProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  headline     String?
+  // Derivadas de submissions passed (+ certificados, via serviço) — nunca
+  // autodeclaradas: o update do aluno ignora qualquer skillsProven enviada.
+  skillsProven String[] @map("skills_proven")
+  // Links externos (GitHub/deploy) informados pelo aluno — a função 9
+  // (deploy ao vivo) NÃO existe; o Match aceita URLs externas sem ela.
+  projectUrls  String[] @map("project_urls")
+  spotlight    Boolean  @default(false) // Carreira: destaque, sem promessa
+  visible      Boolean  @default(false) // espelha talentVisible; desligar desliga tudo
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("talent_profiles")
+}
+
+enum IntroductionStatus {
+  pending
+  accepted
+  declined
+}
+
+model TalentIntroduction {
+  id           String             @id @default(uuid()) @db.Uuid
+  companyId    String             @map("company_id") @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  jobPostingId String?            @map("job_posting_id") @db.Uuid
+  status       IntroductionStatus @default(pending)
+  companyMessage String?          @map("company_message") @db.Text
+  createdAt    DateTime           @default(now()) @map("created_at")
+  decidedAt    DateTime?          @map("decided_at")
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting? @relation(fields: [jobPostingId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([userId, status])
+  @@map("talent_introductions")
+}
+
+enum OrgRole {
+  admin
+  member
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String?  @map("company_id") @db.Uuid // liga com Company existente, quando houver
+  name      String
+  seats     Int      @default(0) // licenças contratadas; 0 = sem assento
+  members   OrgMember[]
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id     String  @id @default(uuid()) @db.Uuid
+  orgId  String  @map("org_id") @db.Uuid
+  userId String  @map("user_id") @db.Uuid
+  role   OrgRole @default(member)
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@map("org_members")
 }
