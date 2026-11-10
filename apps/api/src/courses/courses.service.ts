@@ -124,6 +124,7 @@ export class CoursesService {
         });
 
         await this.cache.del('courses:list');
+        await this.cache.del('courses:public-catalog');
         return course;
       } catch (error) {
         if (isEnrollmentCodeConflict(error)) {
@@ -155,6 +156,47 @@ export class CoursesService {
 
     await this.cache.set('courses:list', courses, 60);
     return courses;
+  }
+
+  /**
+   * B74 (Sprint 18 · Volta 3) — leitura pública da vitrine: cursos
+   * do catálogo (fora a biblioteca interna), em ordem de criação,
+   * com as atividades em ordem de trilha. O formato é o contrato da
+   * landing: activityCount vem do _count real e a ementa resumida é
+   * a lista real de títulos — a vitrine não estima número nenhum.
+   */
+  async findPublicCatalog() {
+    const cached = await this.cache.get<any[]>('courses:public-catalog');
+    if (cached) return cached;
+
+    const courses = await this.prisma.course.findMany({
+      where: { isPublicLibrary: false },
+      select: {
+        slug: true,
+        title: true,
+        description: true,
+        activities: {
+          orderBy: { order: 'asc' },
+          select: { title: true, language: true },
+        },
+        _count: { select: { activities: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const catalog = courses.map((course) => ({
+      slug: course.slug,
+      title: course.title,
+      description: course.description,
+      activityCount: course._count.activities,
+      activities: course.activities.map((activity) => ({
+        title: activity.title,
+        language: activity.language,
+      })),
+    }));
+
+    await this.cache.set('courses:public-catalog', catalog, 60);
+    return catalog;
   }
 
   async findById(id: string) {
@@ -204,6 +246,7 @@ export class CoursesService {
 
     await this.cache.del(`courses:${id}`);
     await this.cache.del('courses:list');
+    await this.cache.del('courses:public-catalog');
   }
 
   async enroll(courseId: string, dto: EnrollStudentDto, actorId?: string, actorRole?: string) {
@@ -323,6 +366,7 @@ export class CoursesService {
         });
         await this.cache.del(`courses:${id}`);
         await this.cache.del('courses:list');
+        await this.cache.del('courses:public-catalog');
         return { enrollmentCode: updated.enrollmentCode };
       } catch (error) {
         if (isEnrollmentCodeConflict(error)) {
@@ -376,6 +420,7 @@ export class CoursesService {
 
     await this.cache.del(`courses:${id}`);
     await this.cache.del('courses:list');
+    await this.cache.del('courses:public-catalog');
   }
 
   async getCourseAnalytics(courseId: string, userId?: string, userRole?: string) {

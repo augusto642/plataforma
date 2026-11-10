@@ -23,11 +23,21 @@ const PILLARS: Pillar[] = [
     number: '01',
     tag: 'EXPLORAÇÃO EM CANVAS',
     title: 'O Overworld 2D de Código',
+    // B65 (Sprint 18 · Volta 3 · QA A4) — a descrição anterior
+    // inventariava o que o jogo NÃO tem: "cidades em pixel art",
+    // "NPCs arquitetos", "masmorras" e "portas e pontes que abrem com
+    // 100% dos testes". O que a engine faz de fato (GameEngine.ts e
+    // InteractiveProp.ts): cena em canvas com câmera suave, props
+    // interativos (terminais de lição, totens, portas para interiores
+    // como o laboratório), diálogos e batalhas/bosses por código.
+    // O badge de 60 FPS tem lastro no próprio motor: loop
+    // requestAnimationFrame com delta-time projetado para 60 FPS e
+    // contador de FPS interno.
     description:
-      'Ande por cidades em pixel art, converse com NPCs arquitetos e explore masmorras onde portas e pontes só abrem quando sua lógica passa por 100% dos testes unitários.',
+      'Explore um mundo 2D em canvas: ande pelo cenário, ative terminais de lição, passe por portas para os interiores e encare batalhas e chefes resolvendo código de verdade — cada avanço é o seu programa passando nos testes.',
     badge: 'Canvas Engine 60 FPS',
     icon: 'gamepad',
-    techHighlight: 'Zero Lag • Controles WASD / Touch • Física Retrô 16-bit',
+    techHighlight: 'Loop 60 FPS com delta-time • WASD / Touch • Batalhas por código',
     accentGradient: 'from-brand-cyan-neon/20 via-brand-cyan/10 to-transparent',
   },
   {

@@ -44,6 +44,21 @@ export class CoursesController {
     return this.courses.findAll();
   }
 
+  /**
+   * B74 (Sprint 18 · Volta 3) — catálogo público da vitrine da
+   * landing ("Disponível agora"): só os campos que a vitrine exibe
+   * (slug, título, descrição, atividades em ordem e a contagem) —
+   * nada de instrutor, código de matrícula ou dado de aluno. A
+   * landing consome com ISR e FALLBACK HONESTO: sem resposta da API,
+   * ela mostra o estado de indisponibilidade, nunca um espelho.
+   * Declarada ANTES de @Get(':id') para não cair no ParseUUIDPipe.
+   */
+  @Public()
+  @Get('public-catalog')
+  findPublicCatalog() {
+    return this.courses.findPublicCatalog();
+  }
+
   @Post('join')
   joinByCode(@CurrentUser() user: JwtPayload, @Body() dto: JoinCourseDto) {
     return this.courses.joinByCode(user.sub, dto);

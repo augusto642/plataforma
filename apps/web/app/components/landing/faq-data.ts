@@ -16,8 +16,12 @@ export interface FaqItem {
 export const FAQ_ITEMS: FaqItem[] = [
   {
     question: 'Preciso instalar algo na minha máquina para começar?',
+    // B66 (Sprint 18 · Volta 3 · QA A5) — "containers rodando
+    // diretamente no seu navegador" estava errado: quem roda o código
+    // é o servidor (Piston); o navegador é a janela. Formulação única
+    // com o restante da página.
     answer:
-      'Não. Todo o ambiente roda em containers Linux isolados diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes nas linguagens da plataforma: Java, JavaScript, TypeScript, Python e Portugol.',
+      'Não. Você escreve, compila e roda testes direto no navegador, sem instalar nada — por trás, o código executa em containers Linux isolados nos servidores da plataforma, via Piston. Você só precisa de uma conexão à internet para usar as linguagens da plataforma: Java, JavaScript, TypeScript, Python e Portugol.',
     emphasis: ['containers Linux isolados'],
   },
   {
@@ -28,8 +32,11 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     question: 'Sou iniciante absoluto. Vou conseguir acompanhar?',
+    // B66 (Sprint 18 · Volta 3 · PM B1) — a resposta prometia
+    // acompanhar "até construir projetos completos": além do
+    // catálogo de hoje. Agora ela ancora no que está no ar.
     answer:
-      'Sim, com certeza! A plataforma foi desenhada para quem nunca escreveu uma linha de código. Você começa aprendendo lógica básica e sintaxe elementar, com feedback passo a passo até construir projetos completos.',
+      'Sim, com certeza! A plataforma foi desenhada para quem nunca escreveu uma linha de código. Você começa aprendendo lógica básica e sintaxe elementar, com feedback passo a passo, nos cursos introdutórios de JavaScript e Python que já estão no ar.',
     emphasis: ['lógica básica e sintaxe elementar'],
   },
   {

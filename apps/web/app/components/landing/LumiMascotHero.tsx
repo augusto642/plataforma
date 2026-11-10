@@ -106,7 +106,30 @@ export const LumiMascotHero: React.FC = () => {
   };
 
   return (
-    <section className="relative py-20 max-w-5xl mx-auto px-4">
+    <section className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
+      {/* B70 (Sprint 18 · Volta 3 · Designer M5) — a seção da Tutora
+          vivia fora da gramática das demais: contêiner max-w-5xl,
+          paddings próprios e o H2 em escala de card (text-base/lg)
+          dentro do painel. Agora ela tem o mesmo cabeçalho de seção
+          (eyebrow + H2 em escala + introdução, contêiner max-w-7xl e
+          divisória border-t); o card do diálogo segue em max-w-5xl,
+          centrado, como conteúdo da seção. */}
+      <div className="max-w-2xl text-left mb-14">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-xs font-mono font-bold mb-3">
+          <IconChat className="w-4 h-4" />
+          <span>TUTORA DE IA SOCRÁTICA</span>
+        </div>
+        <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
+          Mentoria Socrática
+        </h2>
+        <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">
+          A tutora acompanha cada exercício na plataforma: em vez de entregar a
+          resposta, ela pergunta, dá dicas em níveis e deixa a solução ser sua.
+          Abaixo, o método em um diálogo de exemplo.
+        </p>
+      </div>
+
+      <div className="max-w-5xl mx-auto">
       {/* Sprint 9 — a moldura especular (anel em gradiente roxo→ciano)
           foi aposentada: borda sólida de token + sombra da escala */}
       <div className="relative rounded-[28px] border border-border-2 bg-surface-1 shadow-elev-md">
@@ -166,14 +189,15 @@ export const LumiMascotHero: React.FC = () => {
             <div className="flex-1 w-full text-left">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2.5">
-                  {/* B56 (Sprint 17 · Volta 2) — a seção ganha o seu H2
-                      (o outline pulava do H1 direto aos H2 seguintes) e
-                      o título perde o "em Tempo Real": o diálogo aqui é
-                      roteiro fixo de demonstração, como o selo abaixo
-                      declara — tempo real é o da tutora na plataforma. */}
-                  <h2 className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
-                    Mentoria Socrática
-                  </h2>
+                  {/* B56 (Sprint 17 · Volta 2) — a seção ganhou o seu H2
+                      e o título perdeu o "em Tempo Real": o diálogo é
+                      roteiro fixo de demonstração, como o selo declara.
+                      B70 (Sprint 18 · Volta 3) — o H2 subiu para o
+                      cabeçalho da seção, em escala de seção; aqui fica
+                      o rótulo do diálogo, sem duplicar o título. */}
+                  <span className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
+                    Diálogo de exemplo
+                  </span>
                   <span className="text-xs font-mono text-brand-purple-light bg-brand-purple-low px-2.5 py-0.5 rounded-full border border-brand-purple/30">
                     Zero Resposta Pronta • 100% Reflexão
                   </span>
@@ -232,6 +256,7 @@ export const LumiMascotHero: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </section>
   );

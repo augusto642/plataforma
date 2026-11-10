@@ -66,24 +66,20 @@ export const metadata: Metadata = {
   },
 };
 
-import { AuthProvider } from './context/AuthContext';
-import { QueryProvider } from './providers/QueryProvider';
-import { PlanInterestNotice } from './components/PlanInterestNotice';
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // B75 (Sprint 18 · Volta 3 · TL M2) — route groups: o layout raiz
+  // guarda só o esqueleto (html/body/fontes/metadata). Os providers
+  // de sessão moram no layout de (app); as rotas de (public) nascem
+  // sem nenhum provider — a allowlist manual de rotas públicas do
+  // AuthContext (PUBLIC_PATHS) foi aposentada junto.
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-[#09090A] text-[#F4F4F5] antialiased">
-        <QueryProvider>
-          <AuthProvider>
-            {children}
-            <PlanInterestNotice />
-          </AuthProvider>
-        </QueryProvider>
+        {children}
       </body>
     </html>
   );

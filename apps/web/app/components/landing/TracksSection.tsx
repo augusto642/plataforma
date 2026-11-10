@@ -1,40 +1,126 @@
 {/* Sprint 10 · B34 — fatiado do antigo page.tsx monolítico ('use client' integral, 1.767 linhas): esta seção é Server Component; o estado interativo vive nas ilhas client. */}
 {/* B49/P2 (Sprint 16) — a seção foi reestruturada em duas partes
-    honestas: DISPONÍVEL AGORA (os 2 cursos reais do catálogo, com os
-    títulos/descrições do seed e entrada real para /courses) e NO
+    honestas: DISPONÍVEL AGORA (os cursos reais do catálogo) e NO
     RADAR (as trilhas da ementa, rotuladas como roadmap — roteiro
     planejado, sem datas — com lista de espera por trilha e contador
     público real vindo da API). A vitrine não vende mais como curso
-    o que ainda é plano. */}
+    o que ainda é plano.
+    B74 (Sprint 18 · Volta 3 · TL M1) — o DISPONÍVEL AGORA deixou de
+    ser o espelho hardcoded do seed (AVAILABLE_COURSES): consome o
+    catálogo público da API com ISR e FALLBACK HONESTO (sem resposta,
+    mostra a indisponibilidade e o caminho para /courses — nunca uma
+    lista velha). B69 (Designer M2 · PM M1) — os cards disponíveis
+    ganham o acabamento dos cards do radar (capa, sombra de acento) e
+    o merchandising real do catálogo: contagem de atividades e a
+    ementa (títulos reais), com CTA para a página do curso. */}
 import React from 'react';
 import { TrackedLink } from './TrackedLink';
 import { TracksCarousel } from './TracksCarousel';
 import { TrackWaitlistForm } from './TrackWaitlistForm';
 import { IconMap, TrackCoverGo, TrackCoverPython, TrackCoverRust, TrackCoverWeb } from './icons';
+import {
+  courseLanguage,
+  fetchPublicCatalog,
+  languageLabel,
+  type CatalogCourse,
+} from '../../lib/catalog';
 
-/* Cursos REAIS do catálogo hoje — espelho do seed oficial
-   (scripts/seed-data.mjs): título e descrição idênticos aos do
-   banco; a listagem viva e a matrícula acontecem em /courses. */
-const AVAILABLE_COURSES = [
-  {
-    slug: 'algoritmos-javascript',
-    title: 'Algoritmos e Estruturas em JavaScript',
-    description:
-      'Aprenda os fundamentos de lógica e estruturas de dados essenciais através de exercícios práticos.',
-    meta: 'JavaScript · Nível Iniciante',
-    accent: 'bg-brand-green-neon',
-  },
-  {
-    slug: 'introducao-python',
-    title: 'Introdução à Programação com Python',
-    description:
-      'Domine a sintaxe limpa do Python, funções, laços e manipulação de listas.',
-    meta: 'Python · Nível Iniciante',
-    accent: 'bg-brand-purple',
-  },
-];
+/* Acabamento por linguagem dos cards DISPONÍVEIS — o mesmo repertório
+   visual dos cards do radar (capa com gradiente + arte vetorial +
+   sombra de acento no hover). Classes completas e estáticas: o JIT do
+   Tailwind não enxerga classes montadas por interpolação. */
+interface CourseVisual {
+  hoverBorder: string;
+  hoverShadow: string;
+  gradient: string;
+  blob: string;
+  coverBorder: string;
+  titleHover: string;
+  Cover: React.ComponentType;
+}
 
-export const TracksSection: React.FC = () => (
+const COURSE_VISUALS: Record<string, CourseVisual> = {
+  javascript: {
+    hoverBorder: 'hover:border-brand-green/60',
+    hoverShadow: 'hover:shadow-accent-green',
+    gradient: 'from-brand-green/10',
+    blob: 'bg-brand-green-neon/20 group-hover:bg-brand-green-neon/30',
+    coverBorder: 'border-brand-green/30 group-hover:border-brand-green/40',
+    titleHover: 'group-hover:text-brand-green-neon',
+    Cover: TrackCoverWeb,
+  },
+  python: {
+    hoverBorder: 'hover:border-brand-purple/60',
+    hoverShadow: 'hover:shadow-accent-purple',
+    gradient: 'from-brand-purple/10',
+    blob: 'bg-brand-purple/20 group-hover:bg-brand-purple/30',
+    coverBorder: 'border-brand-purple/30 group-hover:border-brand-purple/40',
+    titleHover: 'group-hover:text-brand-purple-light',
+    Cover: TrackCoverPython,
+  },
+};
+
+const DEFAULT_COURSE_VISUAL = COURSE_VISUALS.python;
+
+const AvailableCourseCard: React.FC<{ course: CatalogCourse }> = ({ course }) => {
+  const language = courseLanguage(course);
+  const visual = (language && COURSE_VISUALS[language]) || DEFAULT_COURSE_VISUAL;
+  const { Cover } = visual;
+  return (
+    <article
+      className={`group relative flex flex-col justify-between bg-surface-1 border border-border-2 ${visual.hoverBorder} rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 ${visual.hoverShadow}`}
+    >
+      <div>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full border border-brand-green/40 bg-brand-green/10 text-brand-green-neon">
+            DISPONÍVEL
+          </span>
+          <span className="text-xs font-mono text-ink-span">
+            {languageLabel(language)} · {course.activityCount}{' '}
+            {course.activityCount === 1 ? 'atividade prática' : 'atividades práticas'}
+          </span>
+        </div>
+        {/* Capa — o mesmo acabamento dos cards do radar (B69). */}
+        <div className="relative h-36 w-full rounded-xl overflow-hidden bg-surface-1 border border-border-1 mb-4 flex items-center justify-center select-none transition-colors">
+          <div className={`absolute inset-0 bg-gradient-to-br ${visual.gradient} via-transparent to-black/30 pointer-events-none`} />
+          <div className={`absolute -top-8 -right-8 w-36 h-36 ${visual.blob} rounded-full blur-2xl pointer-events-none transition-all duration-500`} />
+          <div className={`relative z-10 w-20 h-20 rounded-xl bg-surface-1/90 border ${visual.coverBorder} flex items-center justify-center p-2 shadow-xl group-hover:scale-110 transition-transform duration-300`}>
+            <Cover />
+          </div>
+        </div>
+        <h3 className={`text-base font-heading font-bold text-ink-heading tracking-tight ${visual.titleHover} transition-colors mb-1`}>
+          {course.title}
+        </h3>
+        <p className="text-body-sm text-ink-span leading-relaxed font-sans mb-4">
+          {course.description}
+        </p>
+        {/* Merchandising REAL do catálogo (B69): a ementa é a lista de
+            atividades que a API devolve — nada de número estimado. */}
+        {course.activities.length > 0 && (
+          <div className="mb-4 space-y-1 border-t border-border-1/60 pt-3 font-mono text-body-sm text-ink-span">
+            <div className="text-ink-body font-bold">Você vai praticar:</div>
+            {course.activities.map((activity) => (
+              <div key={activity.title}>{activity.title}</div>
+            ))}
+          </div>
+        )}
+      </div>
+      <TrackedLink
+        href={`/courses/${course.slug}`}
+        ctaId={`curso_disponivel_${course.slug}`}
+        event="trilha_cta"
+        eventProps={{ course: course.slug }}
+        className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25"
+      >
+        <span>Ver o curso e começar</span>
+      </TrackedLink>
+    </article>
+  );
+};
+
+export async function TracksSection() {
+  const catalog = await fetchPublicCatalog();
+  return (
   <>
   {/* 4. TRILHAS & ROADMAP — ordem dos cards do radar:
       1: Rust (Âmbar) | 2: Go (Ciano) | 3: Next.js (Esmeralda) | 4: Python/IA (Roxo) */}
@@ -62,7 +148,9 @@ export const TracksSection: React.FC = () => (
       </div>
     </div>
 
-    {/* DISPONÍVEL AGORA — os 2 cursos reais do catálogo */}
+    {/* DISPONÍVEL AGORA — catálogo real via API (B74), com fallback
+        honesto: sem resposta da API, a seção diz que não carregou e
+        aponta /courses; nunca exibe um espelho desatualizado. */}
     <div className="px-6 sm:px-10 lg:px-16 max-w-7xl mx-auto mb-20">
       <div className="flex items-center gap-2.5 mb-6">
         <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
@@ -70,38 +158,34 @@ export const TracksSection: React.FC = () => (
           Disponível agora — no catálogo, de verdade
         </span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {AVAILABLE_COURSES.map((course) => (
-          <article
-            key={course.slug}
-            className="relative flex flex-col justify-between bg-surface-1 border border-border-2 hover:border-brand-green/60 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1"
+      {catalog === null ? (
+        <div className="rounded-2xl bg-surface-1 border border-border-2 p-6 max-w-2xl">
+          <p className="text-body-sm text-ink-body leading-relaxed font-sans mb-4">
+            Não foi possível carregar o catálogo de cursos agora — e a gente prefere
+            mostrar esse aviso a uma lista desatualizada. A lista completa e atual
+            está na página de cursos:
+          </p>
+          <TrackedLink
+            href="/courses"
+            ctaId="curso_disponivel_fallback"
+            event="trilha_cta"
+            className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25"
           >
-            <div>
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full border border-brand-green/40 bg-brand-green/10 text-brand-green-neon">
-                  DISPONÍVEL
-                </span>
-                <span className="text-xs font-mono text-ink-span">{course.meta}</span>
-              </div>
-              <h3 className="text-lg font-heading font-bold text-ink-heading tracking-tight mb-2">
-                {course.title}
-              </h3>
-              <p className="text-body-sm text-ink-span leading-relaxed font-sans mb-6">
-                {course.description}
-              </p>
-            </div>
-            <TrackedLink
-              href="/courses"
-              ctaId={`curso_disponivel_${course.slug}`}
-              event="trilha_cta"
-              eventProps={{ course: course.slug }}
-              className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-transparent shadow-md shadow-brand-purple/25"
-            >
-              <span>Ver no catálogo e começar</span>
-            </TrackedLink>
-          </article>
-        ))}
-      </div>
+            <span>Ver os cursos</span>
+          </TrackedLink>
+        </div>
+      ) : catalog.length === 0 ? (
+        <p className="text-body-sm text-ink-span font-sans leading-relaxed max-w-2xl">
+          Nenhum curso aberto neste momento. As trilhas no radar, logo abaixo, são o
+          próximo passo — entre na lista da que você quer e te avisamos quando abrir.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {catalog.map((course) => (
+            <AvailableCourseCard key={course.slug} course={course} />
+          ))}
+        </div>
+      )}
     </div>
 
     {/* NO RADAR — trilhas da ementa como roadmap rotulado */}
@@ -371,4 +455,5 @@ export const TracksSection: React.FC = () => (
     </TracksCarousel>
   </section>
   </>
-);
+  );
+}

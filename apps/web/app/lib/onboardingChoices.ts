@@ -12,7 +12,7 @@
 // nível de carreira e o resultado da Missão 1) + a etapa atual. Estado
 // de batalha, posição no overworld e inventário continuam efêmeros.
 
-import type { CareerTier, FirstMissionResult } from '../game/stores/useGameStore';
+import type { CareerTier, FirstMissionResult } from '../(app)/game/stores/useGameStore';
 
 const STORAGE_KEY = 'nexus_onboarding_choices';
 

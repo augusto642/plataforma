@@ -18,13 +18,22 @@ type CountsResponse = Partial<Record<WaitlistTrackKey, number>>;
 
 // As 4 ilhas da seção dividem UMA busca de contagens (cache de
 // módulo): montar os 4 cards não vira 4 requests idênticos.
+// B76 (Sprint 18 · Volta 3 · TL B3): a FALHA não é cacheada — se a
+// busca falhar, a promise é limpa e a próxima montagem tenta de novo;
+// o que fica cacheado é só o sucesso.
 let countsPromise: Promise<CountsResponse> | null = null;
 
 function fetchCountsOnce(): Promise<CountsResponse> {
   if (!countsPromise) {
     countsPromise = fetch(`${API_BASE}/waitlist/counts`)
-      .then((res) => (res.ok ? (res.json() as Promise<CountsResponse>) : {}))
-      .catch(() => ({}));
+      .then((res) => {
+        if (!res.ok) throw new Error('waitlist_counts_failed');
+        return res.json() as Promise<CountsResponse>;
+      })
+      .catch(() => {
+        countsPromise = null;
+        return {};
+      });
   }
   return countsPromise;
 }

@@ -491,6 +491,67 @@ describe('CoursesService', () => {
     });
   });
 
+  describe('findPublicCatalog (B74)', () => {
+    it('projeta só os campos da vitrine e deriva a contagem do _count real', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+      mockPrismaService.course.findMany.mockResolvedValue([
+        {
+          slug: 'introducao-python',
+          title: 'Introdução à Programação com Python',
+          description: 'Domine a sintaxe limpa do Python.',
+          activities: [
+            { title: '1. Dobro de um Número', language: 'python' },
+            { title: '2. Contagem de Vogais', language: 'python' },
+          ],
+          _count: { activities: 2 },
+        },
+      ]);
+
+      const result = await service.findPublicCatalog();
+
+      expect(mockPrismaService.course.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isPublicLibrary: false },
+          orderBy: { createdAt: 'asc' },
+        }),
+      );
+      expect(result).toEqual([
+        {
+          slug: 'introducao-python',
+          title: 'Introdução à Programação com Python',
+          description: 'Domine a sintaxe limpa do Python.',
+          activityCount: 2,
+          activities: [
+            { title: '1. Dobro de um Número', language: 'python' },
+            { title: '2. Contagem de Vogais', language: 'python' },
+          ],
+        },
+      ]);
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'courses:public-catalog',
+        result,
+        60,
+      );
+    });
+
+    it('catálogo vazio é lista vazia (a vitrine mostra o estado, não inventa)', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+      mockPrismaService.course.findMany.mockResolvedValue([]);
+
+      await expect(service.findPublicCatalog()).resolves.toEqual([]);
+    });
+
+    it('retorna o cache do catálogo sem tocar o banco quando há cache', async () => {
+      const cached = [{ slug: 'x', title: 'Do cache', activityCount: 1, activities: [] }];
+      mockCacheService.get.mockResolvedValue(cached);
+
+      const result = await service.findPublicCatalog();
+
+      expect(result).toEqual(cached);
+      expect(mockPrismaService.course.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findById', () => {
     it('retorna o curso e grava no cache', async () => {
       mockCacheService.get.mockResolvedValue(null);

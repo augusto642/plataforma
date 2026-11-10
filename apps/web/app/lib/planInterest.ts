@@ -66,6 +66,75 @@ export function planPriceLabel(view: PlanInterestView): string {
     : `${formatBRL(price.monthly)}/mês`;
 }
 
+// ---- B71/B72 (Sprint 18 · Volta 3) — captura só-e-mail + número real ----
+
+export type PlanInterestCounts = Record<InterestPlanId, number>;
+
+export interface PlanInterestLeadResult {
+  plan: InterestPlanId;
+  count: number;
+  alreadyOnList: boolean;
+}
+
+/** Contagem pública por plano; null quando a API não responde (sem número exibido). */
+export async function fetchPlanInterestCounts(): Promise<PlanInterestCounts | null> {
+  try {
+    const res = await fetch(`${API_BASE}/plan-interest/counts`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as Partial<Record<string, unknown>>;
+    return {
+      pro: typeof data.pro === 'number' ? data.pro : 0,
+      staff: typeof data.staff === 'number' ? data.staff : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Captura pública só-e-mail da lista de interessados (espelho da
+ * waitlist): quem tem intenção de plano não precisa concluir o
+ * cadastro para entrar na lista. Devolve a contagem pública total do
+ * plano e se o e-mail já estava; null quando a API não responde.
+ */
+export async function registerPlanInterestLead(
+  email: string,
+  plan: InterestPlanId,
+  billingCycle?: InterestBillingCycle,
+): Promise<PlanInterestLeadResult | null> {
+  try {
+    const res = await fetch(`${API_BASE}/plan-interest/lead`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, plan, billingCycle }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      plan: InterestPlanId;
+      count: number;
+      alreadyOnList: boolean;
+    };
+    return {
+      plan: data.plan,
+      count: typeof data.count === 'number' ? data.count : 0,
+      alreadyOnList: data.alreadyOnList === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Frase de prova do tamanho REAL da lista (Growth B1): a contagem
+ * inclui zero — zero exibido como zero convida o primeiro nome em vez
+ * de esconder a lista vazia (mesmo padrão da waitlist, B50).
+ */
+export function planInterestCountLabel(count: number): string {
+  if (count <= 0) return '0 pessoas na lista de interessados — seja a primeira';
+  if (count === 1) return '1 pessoa na lista de interessados';
+  return `${count} pessoas na lista de interessados`;
+}
+
 /**
  * Texto da confirmação exibida ao usuário. Diz o plano, o preço que
  * ele viu na landing e o estado real: cobrança inativa, conta gratuita,

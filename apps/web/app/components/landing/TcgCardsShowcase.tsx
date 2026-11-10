@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { AudioSynthesizer } from '../../game/engine/AudioSynthesizer';
 // B08 — eventos do funil da landing
 import { track } from '../../lib/analytics';
 // Frente 3 — ícones SVG únicos da landing
 import { IconBolt, IconCards, IconSearch, IconShield, IconSwords } from './icons';
 
-interface TcgCardData {
+export interface TcgCardData {
   id: string;
   name: string;
   classTitle: string;
@@ -30,9 +29,19 @@ interface TcgCardData {
   passiveSkill: string;
   lore: string;
   quote: string;
+  // B63 (Sprint 18 · Volta 3 · QA A1) — disponibilidade REAL do
+  // starter: só os companions das linguagens com starter canônico no
+  // onboarding (Python → Pythox, TypeScript → Scripty) podem ser
+  // escolhidos hoje. Os de Rust e Go mapeavam para starters que o
+  // onboarding NÃO tem (rustor/gopherus) e caíam em fallback
+  // silencioso para a Pythox — promessa quebrada no destino. Eles
+  // chegam junto com as trilhas deles (no radar).
+  starterStatus: 'available' | 'radar';
+  /** Nome da trilha do radar, quando starterStatus = 'radar'. */
+  radarTrackName?: string;
 }
 
-const TCG_CARDS: TcgCardData[] = [
+export const TCG_CARDS: TcgCardData[] = [
   {
     id: 'rust-paladin',
     name: 'FERROX // PALADINO',
@@ -55,6 +64,8 @@ const TCG_CARDS: TcgCardData[] = [
     passiveSkill: 'Imunidade a Data Races e Ponteiros Nulos',
     lore: 'Nascido nos núcleos do silício de alta precisão. Ferrox governa o tempo de vida e ownership de cada byte com exatidão implacável.',
     quote: 'Zero segfaults em produção. O compilador é seu mestre mais impiedoso.',
+    starterStatus: 'radar',
+    radarTrackName: 'Rust',
   },
   {
     id: 'go-swarm',
@@ -78,6 +89,8 @@ const TCG_CARDS: TcgCardData[] = [
     passiveSkill: 'Orquestração de 100k Goroutines Concorrentes',
     lore: 'Comanda frotas massivas de microsserviços com canais CSP atômicos e coletor de lixo em sub-milissegundos.',
     quote: 'Não comunique compartilhando memória. Compartilhe memória comunicando.',
+    starterStatus: 'radar',
+    radarTrackName: 'Go',
   },
   {
     id: 'python-alchemist',
@@ -101,6 +114,7 @@ const TCG_CARDS: TcgCardData[] = [
     passiveSkill: 'Raciocínio Vetorial de Hiperdimensões',
     lore: 'Molda vetores latentes e tensores matemáticos. Conecta a mentoria da tutora de IA com redes neurais profundas.',
     quote: 'Linhas elegantes que transformam caos em tensores e inteligência viva.',
+    starterStatus: 'available',
   },
   {
     id: 'ts-sorcerer',
@@ -124,27 +138,19 @@ const TCG_CARDS: TcgCardData[] = [
     passiveSkill: 'Validação em Tempo de Compilação Zero-Any',
     lore: 'Conjura árvores DOM hiper-reativas com renderização em 120 FPS e tipagem estrita inviolável.',
     quote: 'Se o sistema de tipos aprovou sem coerções, seu usuário jamais verá crash.',
+    starterStatus: 'available',
   },
 ];
 
 export const TcgCardsShowcase: React.FC = () => {
   const [activeTilt, setActiveTilt] = useState<{ id: string; rx: number; ry: number; mx: number; my: number } | null>(null);
   const [inspectedCard, setInspectedCard] = useState<TcgCardData | null>(null);
-  const lastSoundTimeRef = useRef<number>(0);
-
-  const playInteractiveSound = (type: 'flip' | 'holo') => {
-    const now = Date.now();
-    if (now - lastSoundTimeRef.current > 150) {
-      lastSoundTimeRef.current = now;
-      const audio = AudioSynthesizer.getInstance();
-      void audio.resume();
-      if (type === 'holo') {
-        audio.playHoloHover();
-      } else {
-        audio.playCardFlip();
-      }
-    }
-  };
+  // B70 (Sprint 18 · Volta 3 · Designer M4) — acessibilidade do modal:
+  // foco vai para o diálogo ao abrir e RETORNA ao card que o abriu ao
+  // fechar. E o som de hover/flip saiu (Designer M3): passar o cursor
+  // numa grade não pode tocar áudio sem o usuário pedir.
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, id: string) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -165,38 +171,46 @@ export const TcgCardsShowcase: React.FC = () => {
     });
   };
 
-  const handleMouseEnter = (id: string) => {
-    playInteractiveSound('holo');
-  };
-
   const handleMouseLeave = () => {
     setActiveTilt(null);
   };
 
-  const handleInspectCard = (card: TcgCardData) => {
-    playInteractiveSound('flip');
+  const closeInspect = useCallback(() => {
+    setInspectedCard(null);
+    // Retorno de foco ao elemento que abriu o modal.
+    triggerRef.current?.focus();
+  }, []);
+
+  const handleInspectCard = (card: TcgCardData, trigger?: HTMLElement | null) => {
+    triggerRef.current = trigger ?? null;
     setInspectedCard(card);
   };
 
-  // Fechar modal com Escape
+  // Fechar modal com Escape + foco inicial no diálogo ao abrir
   useEffect(() => {
+    if (!inspectedCard) return;
+    dialogRef.current?.focus();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setInspectedCard(null);
+        closeInspect();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [inspectedCard, closeInspect]);
 
   return (
-    <section id="colecionaveis" className="relative py-16 px-4 sm:px-6 max-w-7xl mx-auto">
+    <section id="colecionaveis" className="relative py-20 px-4 sm:px-6 max-w-7xl mx-auto border-t border-border-2/70">
       {/* B58 (Sprint 17 · Volta 2) — peso de conceito: a seção era o
           bloco mais brilhante da página (py-28, H2 em 6xl, cards altos
           com foil forte e modal de 2xl com glow) para um recurso que
           NÃO existe. Escala reduzida em todas as superfícies — seção,
           título, cards, foil, CTA e modal — até a hierarquia visual
-          condizer com o selo "conceito em exploração". */}
+          condizer com o selo "conceito em exploração".
+          B70 (Sprint 18 · Volta 3 · Designer M6) — ritmo: a seção
+          reduzida entrava SEM divisória entre duas seções de py-28 e
+          lia como sobra, não decisão. Ganha a border-t das vizinhas e
+          py-20: contida, mas parte da cadência da página. */}
       {/* Sprint 9 — a faixa ambiente tricolor atrás da seção foi
           aposentada (dialeto ambiente fora da referência da casa);
           o foil holográfico dos cards segue, ele é o conteúdo */}
@@ -216,15 +230,19 @@ export const TcgCardsShowcase: React.FC = () => {
               assinatura de validação: nada disso existe no sistema
               (zero modelo de dados de cards na API). A seção vira o que
               ela é: a arte conceitual de uma ideia em exploração.
-              O que é REAL aqui e continua funcionando: cada espécime é
-              também um companion do jogo, e o CTA de starter pré-seleciona
-              esse companion no onboarding (deepLinks). */}
+              B63 (Sprint 18 · Volta 3 · QA A1) — a frase "cada espécime
+              é um companion jogável, e você pode escolhê-lo como seu
+              starter" era falsa para Rust e Go: os starters canônicos
+              do onboarding são Pythox, Scripty e Javagon — Rustor e
+              Gopherus não existem lá e o clique caía em fallback
+              silencioso. A copy agora separa os dois casos. */}
           <p className="text-base sm:text-lg text-ink-body font-sans leading-relaxed">
             Estamos estudando transformar conquistas em cards colecionáveis 3D com efeito foil.
             Ainda não é um recurso da plataforma: os cards abaixo são espécimes conceituais desse
             estudo — sem desbloqueio, sem atributos medidos e sem data prometida. O que já é real:
-            cada espécime é um companion jogável, e você pode escolhê-lo como seu starter.
-            Passe o cursor para inclinar e clique para inspecionar a arte.
+            os companions de Python e de TypeScript são starters jogáveis no onboarding. Os de
+            Rust e de Go chegam junto com as trilhas deles, que estão no radar — por enquanto,
+            são só arte conceitual. Passe o cursor para inclinar e clique para inspecionar a arte.
           </p>
         </div>
 
@@ -255,12 +273,20 @@ export const TcgCardsShowcase: React.FC = () => {
           return (
             <div
               key={card.id}
-              onClick={() => handleInspectCard(card)}
-              onMouseEnter={() => handleMouseEnter(card.id)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Inspecionar o card ${card.name}`}
+              onClick={(e) => handleInspectCard(card, e.currentTarget)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleInspectCard(card, e.currentTarget);
+                }
+              }}
               onMouseMove={(e) => handleMouseMove(e, card.id)}
               onMouseLeave={handleMouseLeave}
               style={transformStyle}
-              className="relative rounded-[26px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent cursor-pointer select-none group transition-all duration-300 hover:shadow-elev-md"
+              className="relative rounded-[26px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent cursor-pointer select-none group transition-all duration-300 hover:shadow-elev-md focus:outline-none focus:ring-2 focus:ring-brand-cyan-neon focus:ring-offset-2 focus:ring-offset-background"
             >
               <div className="relative rounded-[25px] bg-gradient-to-b from-surface-2 via-surface-1 to-background p-4 h-full flex flex-col justify-between overflow-hidden">
                 {/* Efeito Holográfico Reforçado com Prisma e Luz Arco-Íris */}
@@ -380,16 +406,22 @@ export const TcgCardsShowcase: React.FC = () => {
       {inspectedCard && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn"
-          onClick={() => setInspectedCard(null)}
+          onClick={closeInspect}
         >
           <div
-            className="relative w-full max-w-lg rounded-3xl border border-border-2 bg-gradient-to-br from-surface-2 via-surface-1 to-background p-5 sm:p-6 text-left"
+            ref={dialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Inspecionar o card ${inspectedCard.name}`}
+            className="relative w-full max-w-lg rounded-3xl border border-border-2 bg-gradient-to-br from-surface-2 via-surface-1 to-background p-5 sm:p-6 text-left focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Botão Fechar */}
             <button
               type="button"
-              onClick={() => setInspectedCard(null)}
+              onClick={closeInspect}
+              aria-label="Fechar inspeção do card"
               className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-ink-body hover:text-ink-heading transition-colors cursor-pointer"
             >
               ✕
@@ -450,21 +482,51 @@ export const TcgCardsShowcase: React.FC = () => {
 
                 {/* Ação de Seleção de Starter */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-border-1">
-                  {/* Sprint 5 — ação de JOGO (escolha de starter, dentro do
-                      prólogo): secundária distinta, sem gradiente de conversão */}
-                  <Link
-                    href={`/onboarding?starter=${inspectedCard.id}`}
-                    data-cta-id="tcg_starter"
-                    onClick={() => track('nav_cta', 'tcg_starter', { starter: inspectedCard.id })}
-                    className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-body-sm tracking-tight text-center transition-all flex items-center justify-center gap-2"
-                  >
-                    <IconBolt className="w-4 h-4" />
-                    <span>Escolher Como Meu Starter</span>
-                    <span>→</span>
-                  </Link>
+                  {inspectedCard.starterStatus === 'available' ? (
+                    <>
+                      {/* Sprint 5 — ação de JOGO (escolha de starter, dentro do
+                          prólogo): secundária distinta, sem gradiente de conversão.
+                          B63 (Sprint 18 · Volta 3) — este caminho só é exibido
+                          para os companions com starter canônico real no
+                          onboarding (Pythox/Scripty): o deep link resolve para
+                          um starter que existe. */}
+                      <Link
+                        href={`/onboarding?starter=${inspectedCard.id}`}
+                        data-cta-id="tcg_starter"
+                        onClick={() => track('nav_cta', 'tcg_starter', { starter: inspectedCard.id })}
+                        className="flex-1 py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-cyan-neon/50 text-brand-cyan-neon font-heading font-bold text-body-sm tracking-tight text-center transition-all flex items-center justify-center gap-2"
+                      >
+                        <IconBolt className="w-4 h-4" />
+                        <span>Escolher Como Meu Starter</span>
+                        <span>→</span>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      {/* B63 (Sprint 18 · Volta 3 · QA A1) — companions do
+                          radar NÃO têm starter no onboarding hoje: nada de
+                          deep link que cai em fallback silencioso. A ação
+                          verdadeira é a lista de espera da trilha. */}
+                      <div className="flex-1 py-3 px-5 rounded-xl bg-surface-2 border border-brand-amber/30 text-body-sm font-sans text-ink-body flex items-center">
+                        <span>
+                          Este companion chega com a trilha de {inspectedCard.radarTrackName} —
+                          hoje, ele é só arte conceitual.
+                        </span>
+                      </div>
+                      <Link
+                        href="/#trilhas"
+                        data-cta-id="tcg_radar_waitlist"
+                        onClick={() => track('nav_cta', 'tcg_radar_waitlist', { starter: inspectedCard.id })}
+                        className="py-3 px-5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border-1 hover:border-brand-amber/50 text-brand-amber font-heading font-bold text-body-sm tracking-tight text-center transition-all flex items-center justify-center gap-2"
+                      >
+                        <span>Entrar na lista da trilha</span>
+                        <span>→</span>
+                      </Link>
+                    </>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setInspectedCard(null)}
+                    onClick={closeInspect}
                     className="py-3 px-4 rounded-xl bg-surface-2 hover:bg-white/[0.1] text-ink-body text-body-sm font-mono transition-colors"
                   >
                     Voltar
