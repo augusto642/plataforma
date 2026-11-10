@@ -14,7 +14,7 @@ export const FinalCtaSection: React.FC = () => (
   <section className="relative z-10 py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
     <div className="max-w-5xl mx-auto">
       <div className="text-center rounded-3xl bg-gradient-to-b from-surface-2 to-surface-1 border border-border-2 p-10 md:p-16">
-        <h2 className="font-heading text-3xl sm:text-5xl font-black text-ink-heading tracking-tight mb-4">
+        <h2 className="font-heading text-3xl sm:text-[44px] sm:leading-[52px] font-extrabold text-ink-heading tracking-tight mb-4">
           Pronto para escrever seu primeiro código hoje?
         </h2>
         <p className="font-sans text-base sm:text-lg text-ink-body max-w-xl mx-auto mb-8 leading-relaxed">

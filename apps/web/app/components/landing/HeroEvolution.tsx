@@ -276,7 +276,6 @@ const StageIde: React.FC = () => {
     { name: 'paginação limita 20 itens', ms: '38ms', hidden: false },
     { name: 'filtro por categoria', ms: '44ms', hidden: false },
     { name: 'caso limite', ms: '39ms', hidden: true },
-    { name: 'caso limite', ms: '42ms', hidden: true },
   ];
 
   return (

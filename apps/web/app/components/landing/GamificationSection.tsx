@@ -21,14 +21,14 @@ const MAP_PHASES = [
   {
     n: '01',
     state: 'concluida' as const,
-    stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
+    stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
     title: 'O Desafio das Variáveis Mágicas',
     xp: '+200 XP',
   },
   {
     n: '02',
     state: 'concluida' as const,
-    stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
+    stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
     title: 'Portas Lógicas e Condicionais IF/ELSE',
     xp: '+250 XP',
   },
@@ -54,7 +54,7 @@ export const GamificationSection: React.FC = () => (
       <span className="font-mono text-xs text-brand-cyan-neon uppercase tracking-widest font-bold block mb-2">
         Gamificação de verdade
       </span>
-      <h2 className="text-3xl sm:text-5xl font-heading font-black text-ink-heading tracking-tight mb-4">
+      <h2 className="text-3xl sm:text-4xl sm:leading-[44px] font-heading font-bold text-ink-heading tracking-tight mb-4">
         Aprender programando vicia quando parece um RPG
       </h2>
       <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">

@@ -156,7 +156,7 @@ export function TracksSection() {
             <span className="font-mono text-xs text-brand-green-neon uppercase tracking-widest font-bold block mb-2">
               Da base ao código profissional
             </span>
-            <h2 className="text-3xl sm:text-5xl font-heading font-black text-ink-heading tracking-tight mb-2">
+            <h2 className="text-3xl sm:text-4xl sm:leading-[44px] font-heading font-bold text-ink-heading tracking-tight mb-2">
               Trilhas estruturadas para cada momento
             </h2>
             <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans max-w-xl">

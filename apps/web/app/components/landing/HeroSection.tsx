@@ -16,7 +16,7 @@ import { TrackedLink } from './TrackedLink';
 // números do mock (Liga Prata 780/1.000 XP, +150 XP em jogo, Nível
 // 04) NÃO entram: são dados de aluno inventados (A3) — o painel
 // mostra dados reais quando existirem ou omite o elemento, nunca
-// um número fixo. O bloco de testes (3/3 aprovados, 42ms, DESAFIO
+// um número fixo. O bloco de testes (3/3 aprovados, DESAFIO
 // VENCIDO!) fica: é a saída da demonstração, não dado de aluno.
 // Saíram o 2º parágrafo sobre a tutora, a linha da lista de
 // interessados ("0 pessoas na lista...") e a captura da Missão 1
@@ -128,7 +128,7 @@ export const HeroSection: React.FC = () => (
                   </div>
                   <div className="leading-6 space-y-1 overflow-x-auto text-xs">
                     <div><span className="text-brand-purple font-semibold">function</span> <span className="text-brand-cyan-neon">calcularPontuacao</span>(desafios) {'{'}</div>
-                    <div className="pl-4"><span className="text-dark-on-surface-variant">{'// Filtra desafios concluídos com sucesso'}</span></div>
+                    <div className="pl-4"><span className="text-dark-on-surface-variant">{'// Filtra os concluídos'}</span></div>
                     <div className="pl-4"><span className="text-brand-purple">const</span> concluidos = desafios.<span className="text-yellow-400">filter</span>(d =&gt; d.status === <span className="text-secondary">&#39;PASSED&#39;</span>);</div>
                     <div className="pl-4"><span className="text-brand-purple">return</span> concluidos.<span className="text-yellow-400">reduce</span>((acc, d) =&gt; {'{'}</div>
                     <div className="pl-8"><span className="text-brand-purple">return</span> acc + d.xp;</div>
@@ -145,7 +145,6 @@ export const HeroSection: React.FC = () => (
                       <span>✓</span>
                       Testes unitários: 3/3 aprovados
                     </span>
-                    <span className="text-dark-on-surface-variant">execução: 42ms</span>
                   </div>
                   <div className="bg-dark-surface-container p-2.5 rounded font-code text-[11px] text-emerald-400 border border-emerald-500/20">
                     ✓ calcularPontuacao([d1, d2]) === 350 XP<br />

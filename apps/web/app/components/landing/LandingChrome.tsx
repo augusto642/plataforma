@@ -143,17 +143,18 @@ export const LandingChrome: React.FC = () => {
             {/* Central 216 (auditoria do Designer, item 5) — a 390px o
                 rótulo quebrava em 3 linhas dentro do botão (linha
                 estreita demais: "Entrar" + CTA + hambúrguer). Rótulo
-                curto no mobile ("Começar grátis", como o protótipo) e
-                sem quebra em nenhuma largura. */}
+                curto ("Começar grátis", como o protótipo) e sem
+                quebra em nenhuma largura. Central 218 (D3) — o
+                rótulo longo ("Começar grátis agora") era só do hero;
+                o nav usa o curto em todas as larguras. */}
             <Link
               href="/register"
               data-cta-id="nav_primary"
               onClick={() => track('nav_cta', 'nav_primary')}
               className="inline-flex shrink-0 whitespace-nowrap items-center gap-2 px-3 sm:px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
             >
-              <span className="sm:hidden">Começar grátis</span>
-              <span className="hidden sm:inline">Começar grátis agora</span>
-              <span className="hidden sm:inline group-hover:translate-x-1 transition-transform font-bold">→</span>
+              <span>Começar grátis</span>
+              <span className="group-hover:translate-x-1 transition-transform font-bold">→</span>
             </Link>
 
 
@@ -199,7 +200,7 @@ export const LandingChrome: React.FC = () => {
                 Entrar
               </Link>
               <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="whitespace-nowrap px-4 py-2 rounded-xl bg-brand-purple text-white text-body-sm font-bold shadow-md">
-                Começar grátis agora
+                Começar grátis
               </Link>
             </div>
           </div>

@@ -113,6 +113,7 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('ao vivo');
     expect(html).toContain('Avançar no Mapa');
     expect(html).not.toContain('780 / 1.000 XP');
+    expect(html).not.toContain('42ms');
     expect(html).not.toContain('Nível 04');
     expect(html).not.toContain('+150 XP em jogo');
     expect(html).not.toContain('0 pessoas na lista');

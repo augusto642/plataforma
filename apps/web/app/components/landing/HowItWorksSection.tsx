@@ -20,7 +20,7 @@ export const HowItWorksSection: React.FC = () => (
       <span className="font-mono text-xs text-brand-purple-light uppercase tracking-widest font-bold block mb-2">
         Metodologia prática
       </span>
-      <h2 className="text-3xl sm:text-5xl font-heading font-black text-ink-heading tracking-tight mb-4">
+      <h2 className="text-3xl sm:text-4xl sm:leading-[44px] font-heading font-bold text-ink-heading tracking-tight mb-4">
         Como você aprende de verdade
       </h2>
       <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">

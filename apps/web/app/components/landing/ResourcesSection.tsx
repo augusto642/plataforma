@@ -18,7 +18,7 @@ export const ResourcesSection: React.FC = () => (
         <MaterialIcon name="psychology" className="text-[16px]" />
         <span>ARSENAL COMPLETO</span>
       </div>
-      <h2 className="text-3xl sm:text-5xl font-display font-extrabold text-white tracking-tight mb-4">
+      <h2 className="text-3xl sm:text-4xl sm:leading-[44px] font-display font-bold text-white tracking-tight mb-4">
         Recursos criados para acelerar sua evolução
       </h2>
       <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">
@@ -75,7 +75,7 @@ export const ResourcesSection: React.FC = () => (
         <p className="text-sm text-ink-body leading-relaxed mb-6">
           Treine para processos seletivos reais. A IA assume o papel do recrutador técnico, faz perguntas teóricas, pede explicações de código e avalia sua comunicação — com live coding e perguntas comportamentais.
         </p>
-        <div className="p-4 rounded-xl bg-dark-surface-container border border-border-subtle font-code text-xs text-dark-on-surface flex items-center justify-between gap-3">
+        <div className="p-4 rounded-xl bg-dark-surface-container border border-border-subtle font-code text-xs text-dark-on-surface flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <span className="text-dark-on-surface">Simulações de Live Coding &amp; Perguntas Comportamentais</span>
           <span className="text-brand-cyan-neon font-bold shrink-0">Feedback em tempo real</span>
         </div>
@@ -95,7 +95,7 @@ export const ResourcesSection: React.FC = () => (
         <p className="text-sm text-ink-body leading-relaxed mb-6">
           Certificados autenticados com hash criptográfico comprovando as horas práticas e projetos entregues. Conexão direta com vagas em empresas parceiras que buscam devs testados.
         </p>
-        <div className="p-4 rounded-xl bg-dark-surface-container border border-border-subtle font-code text-xs text-dark-on-surface flex items-center justify-between gap-3">
+        <div className="p-4 rounded-xl bg-dark-surface-container border border-border-subtle font-code text-xs text-dark-on-surface flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <span className="text-dark-on-surface">Perfil com portfólio de desafios validados</span>
           <span className="text-secondary font-bold shrink-0">Pronto para o mercado</span>
         </div>
