@@ -187,7 +187,7 @@ export class TutorChatService {
 
         const apiMessages = [
           { role: 'system' as const, content: systemPrompt },
-          ...dto.messages.map((m) => ({ role: m.role, content: this.safety.sanitizePrompt(m.content) })),
+          ...dto.messages.map((m) => ({ role: this.safety.normalizeTutorMessageRole(m.role), content: this.safety.sanitizePrompt(m.content) })),
         ];
 
         // Gateway LLM: timeout + idle-timeout no provedor, cota e uso
@@ -406,7 +406,7 @@ export class TutorChatService {
 
         const apiMessages = [
           { role: 'system' as const, content: systemPrompt },
-          ...dto.messages.map((m) => ({ role: m.role, content: this.safety.sanitizePrompt(m.content) })),
+          ...dto.messages.map((m) => ({ role: this.safety.normalizeTutorMessageRole(m.role), content: this.safety.sanitizePrompt(m.content) })),
         ];
 
         // Gateway LLM: timeout + retry no provedor, cota e uso no gateway

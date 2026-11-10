@@ -1,8 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { AiService, normalizeTutorMessageRole } from './ai.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { LlmClient } from './llm-client';
 
 /**
  * A1 (Lote 2) — camada 2: mesmo que uma mensagem com `role: "system"`
@@ -33,8 +29,6 @@ describe('AiService — A1 role whitelist no serviço', () => {
     },
   };
 
-  const mockConfigService = { get: jest.fn().mockReturnValue('') };
-
   // Sprint 22 — o LlmClient virou gateway: o contrato é isAvailable /
   // unavailableReason / providerId / model (hasApiKey morreu com a
   // pergunta "tem chave?"; modelo local não tem chave).
@@ -47,17 +41,15 @@ describe('AiService — A1 role whitelist no serviço', () => {
     stream: jest.fn(),
   };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AiService,
-        { provide: PrismaService, useValue: mockPrismaService },
-        { provide: ConfigService, useValue: mockConfigService },
-        { provide: LlmClient, useValue: mockLlmClient },
-      ],
-    }).compile();
-
-    service = module.get<AiService>(AiService);
+  beforeEach(() => {
+    // M12 — a fachada AiService compõe 8 serviços; o construtor estático
+    // fromRawDeps monta todos a partir das dependências brutas (mesma
+    // fiação do AiModule; LearnerModel é @Optional e não é usado nestes
+    // testes, Knowledge/Research só entram em pedidos de conteúdo integral).
+    service = AiService.fromRawDeps(
+      mockPrismaService as any,
+      mockLlmClient as any,
+    );
     mockLlmClient.isAvailable = true;
     mockLlmClient.complete.mockReset();
     mockLlmClient.complete.mockResolvedValue('resposta do tutor');

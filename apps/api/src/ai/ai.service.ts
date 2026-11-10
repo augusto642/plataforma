@@ -39,6 +39,11 @@ export type { TutorSourceInfo };
 export type { SocraticGuidanceResult };
 export type { ComplexityAnalysisResult };
 
+// A1 (Lote 2) — re-export de compatibilidade: quem importava a whitelist
+// de papéis de './ai.service' continua importando daqui (a função mora no
+// PromptSafetyService desde o M12).
+export { normalizeTutorMessageRole } from './prompt-safety.service';
+
 /**
  * M12 — AiService virou FACHADA FINA sobre 8 serviços coesos (antes: god
  * service de 1.213 linhas e 12 métodos públicos/privados entrelaçados).

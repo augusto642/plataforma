@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
 /**
+ * A1 (Lote 2) — whitelist de papéis ao montar `apiMessages` para o LLM
+ * (ver PromptSafetyService.normalizeTutorMessageRole).
+ */
+export function normalizeTutorMessageRole(role: unknown): 'user' | 'assistant' {
+  return role === 'assistant' ? 'assistant' : 'user';
+}
+
+/**
  * M12 — Segurança de prompt da tutora (extraído do AiService god service).
  *
  * Funções puras, sem dependência de banco ou LLM: sanitização de dados
@@ -11,6 +19,26 @@ import { Injectable } from '@nestjs/common';
  */
 @Injectable()
 export class PromptSafetyService {
+  /**
+   * A1 (Lote 2) — camada 2 (defense-in-depth no serviço): whitelist de papéis
+   * ao montar `apiMessages` para o LLM. O prompt do sistema do tutor é
+   * montado pelo servidor como PRIMEIRA mensagem; nenhuma mensagem do aluno
+   * pode assumir `role: "system"` (no provedor Gemini isso vira
+   * `systemInstruction` e sobrescreveria o prompt do tutor).
+   *
+   * Decisão documentada: qualquer papel diferente de 'assistant' vira 'user'
+   * (nunca é descartado — descartar perderia conteúdo e mudaria a ordem dos
+   * turnos — e nunca vira 'system'). A camada 1 (DTO com @IsIn) já rejeita
+   * `role: "system"` com 400 no HTTP; esta função protege chamadas diretas
+   * ao serviço e qualquer caminho que não passe pela validação do DTO.
+   *
+   * M12: a função vivia no AiService god service; com a extração, ela mora
+   * aqui (serviço puro de segurança) e é re-exportada pela fachada AiService.
+   */
+  normalizeTutorMessageRole(role: unknown): 'user' | 'assistant' {
+    return normalizeTutorMessageRole(role);
+  }
+
   sanitizePrompt(text: string): string {
     if (!text) return '';
     return text
