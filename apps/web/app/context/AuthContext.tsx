@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { apiFetch, API_BASE, COOKIE_AUTH, clearStoredSession, refreshAuthToken } from '../lib/apiClient';
 
 export interface User {
@@ -65,9 +66,30 @@ function normalizeUser(raw: any): User | null {
   };
 }
 
+/* B52/P5 (Sprint 16) — rotas públicas puras: nenhuma superfície
+   nelas consome sessão (a landing e suas páginas legais/de contato
+   não usam useAuth). O AuthProvider mora no layout raiz e, até aqui,
+   TODA visita — inclusive a do visitante anônimo na landing —
+   disparava GET /users/me (+ tentativa de refresh no 401): um
+   request morto por visita. Nessas rotas o probe de sessão é
+   ADIADO: ele roda na primeira navegação para uma rota não-pública
+   da mesma sessão do SPA, sem tocar no app autenticado. */
+const PUBLIC_PATHS = new Set(['/', '/termos', '/privacidade', '/contato']);
+const PUBLIC_PATH_PREFIXES = ['/verify/'];
+
+function isPublicPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return (
+    PUBLIC_PATHS.has(pathname) ||
+    PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const pathname = usePathname();
+  const sessionProbedRef = useRef(false);
 
   // Fluxo cookie-only: o backend NUNCA devolve tokens no corpo. A sessão é
   // detectada via GET /users/me com credentials:'include' (401 => deslogado).
@@ -101,8 +123,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchCurrentUser]);
 
   useEffect(() => {
-    refreshSession();
-  }, [refreshSession]);
+    if (sessionProbedRef.current) return;
+    if (isPublicPath(pathname)) {
+      // Rota pública: nada aqui depende da sessão — não disparar o
+      // /users/me morto. O probe acontece se/quando o visitante
+      // navegar para uma rota do app (o effect roda de novo com o
+      // novo pathname, e o layout raiz não remonta no SPA).
+      setIsLoading(false);
+      return;
+    }
+    sessionProbedRef.current = true;
+    void refreshSession();
+  }, [pathname, refreshSession]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
     setIsLoading(true);

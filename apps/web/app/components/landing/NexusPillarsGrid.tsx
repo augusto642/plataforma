@@ -42,25 +42,35 @@ const PILLARS: Pillar[] = [
     accentGradient: 'from-brand-purple/20 via-brand-rose/10 to-transparent',
   },
   {
+    // B48/P1 (Sprint 16) — os cards TCG NÃO são um pilar do produto:
+    // não existe modelo de dados, desbloqueio nem atributos medidos
+    // no sistema. O card vira item de ROADMAP rotulado "em exploração"
+    // — a ideia segue visível (com os espécimes conceituais da seção
+    // abaixo), mas sem prometer o que não existe.
     number: '03',
-    tag: 'GAMIFICAÇÃO DE ALTA RETENÇÃO',
-    title: 'Cards TCG Holográficos 3D',
+    tag: 'NO RADAR // EM EXPLORAÇÃO',
+    title: 'Cards Colecionáveis — em exploração',
     description:
-      'Conquiste criaturas digitais raras com efeito foil 3D e tilt dinâmico. Compartilhe suas cartas no LinkedIn e GitHub com atributos reais medidos a partir do seu código.',
-    badge: 'Foil 3D Shaders',
+      'Estamos estudando transformar conquistas em cards colecionáveis 3D. Por enquanto é só um conceito: não está na plataforma, não tem data e não prometemos que vire recurso. Os cards exibidos mais abaixo são a arte conceitual desse estudo.',
+    badge: 'Em exploração',
     icon: 'cards',
-    techHighlight: 'Colecionismo Real • Metamorfose de Deck • Badges Raras',
+    techHighlight: 'Conceito em estudo • Fora da plataforma por enquanto',
     accentGradient: 'from-brand-amber/20 via-brand-amber-solar/10 to-transparent',
   },
   {
     number: '04',
     tag: 'ENGENHARIA DE MISSÃO CRÍTICA',
     title: 'Do Jogo ao Git Real & Mercado',
+    // B48/P1 (Sprint 16) — a copy antiga prometia "commits automáticos
+    // a cada desafio resolvido", que o sistema NÃO faz. O comportamento
+    // real (courses.service): usuário e repositório Gitea são criados
+    // na MATRÍCULA; projetos e certificados verificáveis ficam no
+    // portfólio. A copy agora diz exatamente isso.
     description:
-      'A diversão é em 2D, mas o motor é infraestrutura real. Cada desafio resolvido gera commits automáticos em repositórios Git reais com correção por testes em containers Linux isolados.',
+      'A diversão é em 2D, mas o motor é infraestrutura real. Ao se matricular, você ganha um repositório Git real no seu nome — e seus projetos e certificados verificáveis ficam no seu portfólio, com correção por testes em containers Linux isolados via Piston.',
     badge: 'Verificação SHA-256',
     icon: 'shield',
-    techHighlight: 'Kernel Linux Piston • Commits no Git • Portfólio Auditável',
+    techHighlight: 'Repositório Git na matrícula • Execução via Piston • Portfólio Auditável',
     accentGradient: 'from-brand-green/20 via-brand-green-neon/10 to-transparent',
   },
 ];
@@ -80,10 +90,10 @@ export const NexusPillarsGrid: React.FC = () => {
         <div className="max-w-2xl text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-cyan-neon text-xs font-mono font-bold mb-4 shadow-elev-xs">
             <IconBolt className="w-5 h-5" />
-            <span>POR DENTRO DA PLATAFORMA // 4 PILARES</span>
+            <span>POR DENTRO DA PLATAFORMA // PILARES & RADAR</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-            Quatro apoios para você chegar ao mercado
+            Três apoios de verdade — e um no radar
           </h2>
           <p className="text-base sm:text-lg text-ink-body font-sans leading-relaxed">
             Unimos o melhor do design de jogos clássicos à arquitetura de software contemporânea
@@ -95,7 +105,7 @@ export const NexusPillarsGrid: React.FC = () => {
         <div className="hidden lg:flex flex-col items-end gap-2 font-mono text-xs">
           <div className="px-4 py-2 rounded-xl bg-surface-2 border border-border-1 text-ink-body flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-brand-green-neon" />
-            <span>INFRA: DOCKER + LINUX CGROUPS</span>
+            <span>INFRA: CONTAINERS LINUX VIA PISTON</span>
           </div>
           <span className="text-body-sm text-ink-span">ISOLAMENTO TOTAL POR DESAFIO</span>
         </div>

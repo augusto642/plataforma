@@ -176,6 +176,20 @@ export const LumiMascotHero: React.FC = () => {
                 <span className="text-xs font-mono text-brand-cyan-neon font-semibold">{currentItem.insight}</span>
               </div>
 
+              {/* B48/P1 (Sprint 16) — honestidade da seção: o diálogo é
+                  um ROTEIRO FIXO de 3 perguntas com respostas prontas,
+                  não a tutora ao vivo. A seção ganha o mesmo rótulo que
+                  a SandboxDemo vizinha já usa — demonstração ilustrativa
+                  declarada, sem prometer tempo real que não existe aqui. */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-purple/15 text-brand-purple-light border border-brand-purple/30">
+                  DEMONSTRAÇÃO ILUSTRATIVA
+                </span>
+                <span className="text-xs font-mono text-ink-span">
+                  Diálogo de exemplo, com respostas fixas — na plataforma, a tutora responde ao seu código de verdade.
+                </span>
+              </div>
+
               {/* Caixa de Texto com Acabamento de Luxo */}
               <div className="relative min-h-[96px] p-5 rounded-2xl bg-background/90 border border-border-1 text-ink-body text-sm sm:text-base font-sans leading-relaxed shadow-inner">
                 <p className="text-ink-heading font-medium">

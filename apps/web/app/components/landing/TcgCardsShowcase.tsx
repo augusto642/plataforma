@@ -200,15 +200,25 @@ export const TcgCardsShowcase: React.FC = () => {
         <div className="max-w-2xl text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-purple-light text-xs font-mono font-bold mb-4 shadow-elev-xs">
             <IconCards className="w-5 h-5" />
-            <span>SÉRIE 01 // CARTAS COLECIONÁVEIS HOLOGRÁFICAS</span>
+            <span>NO RADAR // CONCEITO EM EXPLORAÇÃO</span>
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-            Suas conquistas viram cards colecionáveis
+            Cards colecionáveis: um conceito no nosso radar
           </h2>
+          {/* B48/P1 (Sprint 16) — a copy antiga prometia desbloqueio de
+              cards por trilha/chefão, atributos reais de combate e
+              assinatura de validação: nada disso existe no sistema
+              (zero modelo de dados de cards na API). A seção vira o que
+              ela é: a arte conceitual de uma ideia em exploração.
+              O que é REAL aqui e continua funcionando: cada espécime é
+              também um companion do jogo, e o CTA de starter pré-seleciona
+              esse companion no onboarding (deepLinks). */}
           <p className="text-base sm:text-lg text-ink-body font-sans leading-relaxed">
-            Cada trilha e chefão derrotado desbloqueia cards em 3D com efeito foil holográfico,
-            atributos reais de combate e assinatura de validação em código auditável.
-            Passe o cursor para inclinar e clique para inspecionar.
+            Estamos estudando transformar conquistas em cards colecionáveis 3D com efeito foil.
+            Ainda não é um recurso da plataforma: os cards abaixo são espécimes conceituais desse
+            estudo — sem desbloqueio, sem atributos medidos e sem data prometida. O que já é real:
+            cada espécime é um companion jogável, e você pode escolhê-lo como seu starter.
+            Passe o cursor para inclinar e clique para inspecionar a arte.
           </p>
         </div>
 
@@ -216,9 +226,9 @@ export const TcgCardsShowcase: React.FC = () => {
         <div className="hidden lg:flex flex-col items-end gap-2 font-mono text-xs">
           <div className="px-4 py-2 rounded-xl bg-brand-purple-low border border-brand-purple/30 text-brand-purple-light flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-brand-purple-light" />
-            <span>DECK: 4 CLASSES ELEMENTAIS DISPONÍVEIS</span>
+            <span>CONCEITO: 4 ESPÉCIMES EM ESTUDO</span>
           </div>
-          <span className="text-body-sm text-ink-span">PROPORÇÃO 2.5:3.5 // FOIL METÁLICO SHADERS</span>
+          <span className="text-body-sm text-ink-span">ARTE CONCEITUAL // NÃO É UM RECURSO ATIVO</span>
         </div>
       </div>
 

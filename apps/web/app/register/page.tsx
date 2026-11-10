@@ -61,7 +61,10 @@ export default function RegisterPage() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [passwordConfirm, setPasswordConfirm] = useState<string>('');
-  const [termsAccepted, setTermsAccepted] = useState<boolean>(true);
+  // B48/P1 (Sprint 16) — LGPD: o aceite dos termos nascia PRÉ-MARCADO
+  // (consentimento presumido não é consentimento). Nasce desmarcado e
+  // o cadastro só libera com o aceite explícito do visitante.
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
 
   // Step 2 & 3 State
   const [selectedTrack, setSelectedTrack] = useState<TrackId>('web3');

@@ -142,13 +142,17 @@ export const SandboxDemo: React.FC = () => {
   const [terminalOutput, setTerminalOutput] = useState(CODE_SNIPPETS.python.output);
 
   const handleRun = () => {
-    // B08 — interação com a demonstração do sandbox
-    track('sandbox_cta', 'sandbox_run');
+    // B50/P3 (Sprint 16) — a demo ganhou funil próprio no catálogo de
+    // eventos: demo_started ao rodar, demo_completed quando a saída
+    // de exemplo termina de aparecer. (Substitui o sandbox_cta/
+    // sandbox_run genérico do B08 para esta interação.)
+    track('demo_started', 'sandbox_run', { lang: activeLang });
     setIsExecuting(true);
     setTerminalOutput('Preparando a demonstração com a saída de exemplo...');
     setTimeout(() => {
       setTerminalOutput(CODE_SNIPPETS[activeLang].output);
       setIsExecuting(false);
+      track('demo_completed', 'sandbox_run', { lang: activeLang });
     }, 400);
   };
 
@@ -288,7 +292,12 @@ export const SandboxDemo: React.FC = () => {
       </div>
     </div>
 
-    {/* BANNER DE ALTA CONVERSÃO PÓS-TERMINAL */}
+    {/* BANNER PÓS-TERMINAL — B50/P3 (Sprint 16): a demo ilustrativa
+        deixou de empurrar para o cadastro e passou a levar à
+        PRIMEIRA LIÇÃO REAL do produto: a Missão 1 do prólogo
+        (/onboarding), jogável no navegador ANTES de qualquer conta —
+        a conta, no fim do prólogo, é o que salva a vitória, o
+        starter e o XP. A prova é usar o produto, não assistir a ele. */}
     <div className="mt-6 p-5 rounded-2xl bg-surface-1 border border-brand-green-neon/35 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl shadow-brand-green-neon/5">
       <div className="flex items-center gap-3.5">
         <div className="w-10 h-10 rounded-xl bg-brand-green-neon/15 border border-brand-green-neon/40 flex items-center justify-center text-brand-green-neon shrink-0">
@@ -296,15 +305,17 @@ export const SandboxDemo: React.FC = () => {
         </div>
         <div>
           <div className="text-sm sm:text-base font-heading font-bold text-ink-heading flex items-center gap-2">
-            <span>Isto é só uma amostra do ambiente real</span>
+            <span>Isto é só uma amostra. A primeira missão de verdade está aberta:</span>
           </div>
           <p className="text-body-sm text-ink-body font-sans mt-0.5">
-            Cadastre-se gratuitamente para executar código de verdade no terminal, salvar seu histórico, acumular XP e liberar os desafios reais da plataforma.
+            A Missão 1 do prólogo roda de verdade no seu navegador — você batalha escrevendo
+            código, sem cadastro e sem cartão. Jogou e venceu? A conta grátis, no fim do
+            prólogo, salva sua vitória, seu starter e seu XP.
           </p>
         </div>
       </div>
-      <Link href="/register" data-cta-id="sandbox_banner" onClick={() => track('sandbox_cta', 'sandbox_banner')} className="whitespace-nowrap inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white font-heading font-extrabold text-xs sm:text-sm shadow-lg shadow-brand-purple/30 active:scale-95 transition-all">
-        <span>Começar grátis agora</span>
+      <Link href="/onboarding" data-cta-id="demo_mission1" onClick={() => track('demo_cta', 'demo_mission1')} className="whitespace-nowrap inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white font-heading font-extrabold text-xs sm:text-sm shadow-lg shadow-brand-purple/30 active:scale-95 transition-all">
+        <span>Jogar a Missão 1 de verdade</span>
         <span>→</span>
       </Link>
     </div>

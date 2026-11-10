@@ -15,6 +15,7 @@ import { CoursesModule } from './courses/courses.module';
 import { DiagnosticModule } from './diagnostic/diagnostic.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ContactModule } from './contact/contact.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { GiteaModule } from './gitea/gitea.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -83,6 +84,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     DiagnosticModule,
     AnalyticsModule,
     ContactModule,
+    WaitlistModule,
     GamificationModule,
     ActivitiesModule,
     SubmissionsModule,

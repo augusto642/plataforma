@@ -5,7 +5,7 @@
 import React from 'react';
 import { TrackedLink } from './TrackedLink';
 import {
-  IconBolt, IconBox, IconChat, IconMonitor, IconShieldCheck, IconSpeech, IconSun,
+  IconBolt, IconBox, IconCard, IconChat, IconMonitor, IconShield, IconShieldCheck, IconSpeech, IconSun,
 } from './icons';
 
 export const FaqSection: React.FC = () => (
@@ -52,7 +52,7 @@ export const FaqSection: React.FC = () => (
           Preciso instalar algo na minha máquina para começar?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes em Python, Go e Rust.
+          Não. Todo o ambiente roda em <span className="text-ink-heading font-medium">containers Linux isolados</span> diretamente no seu navegador. Você só precisa de uma conexão à internet para escrever, compilar e rodar testes nas linguagens da plataforma: Java, JavaScript, TypeScript, Python e Portugol.
         </p>
       </div>
 
@@ -147,7 +147,45 @@ export const FaqSection: React.FC = () => (
           Como os projetos e certificados me ajudam a conseguir vagas?
         </h3>
         <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-          Cada projeto gera repositórios Git reais com histórico de commits e certificados com <span className="text-ink-heading font-medium">código de verificação SHA-256</span> que qualquer pessoa pode conferir. Você prova sua capacidade técnica para recrutadores mostrando código executável em produção.
+          Ao se matricular em um curso, você ganha um <span className="text-ink-heading font-medium">repositório Git real</span> no seu nome. Seus projetos e certificados — com <span className="text-ink-heading font-medium">código de verificação SHA-256</span> que qualquer pessoa pode conferir publicamente — ficam no seu portfólio. É assim que você prova capacidade técnica para recrutadores: com código e certificados verificáveis, não com promessas.
+        </p>
+      </div>
+
+      {/* 7. Verde: Dinheiro — estado real de hoje (B51/P4, Sprint 16) */}
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-green-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-green">
+        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-green-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="w-10 h-10 rounded-xl bg-brand-green-neon/10 border border-brand-green-neon/30 text-brand-green-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <IconCard className="w-5 h-5" />
+          </div>
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-green-neon/40 bg-brand-green-neon/10 text-brand-green-neon">
+            DINHEIRO
+          </span>
+        </div>
+        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-green-neon transition-colors">
+          Preciso pagar para começar? Como funcionam os pagamentos hoje?
+        </h3>
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
+          Não. O cadastro e o nível Iniciante são <span className="text-ink-heading font-medium">gratuitos</span>. E, hoje, <span className="text-ink-heading font-medium">nenhuma cobrança é feita</span> na plataforma: os planos pagos exibidos na página de preços ainda não têm cobrança ativa. Quando a cobrança entrar no ar, ela será anunciada com antecedência, pelos preços exatamente como exibidos.
+        </p>
+      </div>
+
+      {/* 8. Ciano: Garantia legal & cancelamento (B51/P4, Sprint 16) */}
+      <div className="group relative p-7 rounded-2xl bg-surface-1 border border-border-2 hover:border-brand-cyan-neon/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent-sm-cyan">
+        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-brand-cyan-neon/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="w-10 h-10 rounded-xl bg-brand-cyan-neon/10 border border-brand-cyan-neon/30 text-brand-cyan-neon flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <IconShield className="w-5 h-5" />
+          </div>
+          <span className="text-body-sm font-mono font-bold px-2.5 py-0.5 rounded-full border border-brand-cyan-neon/40 bg-brand-cyan-neon/10 text-brand-cyan-neon">
+            GARANTIA & CANCELAMENTO
+          </span>
+        </div>
+        <h3 className="font-heading font-bold text-ink-heading text-base sm:text-lg mb-2.5 group-hover:text-brand-cyan-neon transition-colors">
+          Se eu assinar um plano pago, tenho garantia? Posso cancelar?
+        </h3>
+        <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
+          Sim. Quando os planos pagos entrarem no ar, vale a regra do <span className="text-ink-heading font-medium">Código de Defesa do Consumidor (art. 49)</span>: compras feitas pela internet têm <span className="text-ink-heading font-medium">7 dias de desistência com reembolso integral</span>, sem precisar justificar. E o cancelamento é feito por você, direto na sua conta — sem precisar falar com ninguém e sem multa.
         </p>
       </div>
 

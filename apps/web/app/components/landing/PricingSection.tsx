@@ -7,6 +7,8 @@ import { track } from '../../lib/analytics';
 import { savePlanIntent } from '../../lib/attribution';
 // Frente 3 — ícones SVG únicos da landing
 import { IconBolt, IconCard, IconRocket } from './icons';
+// B52/P5 (Sprint 16) — preços da fonte única (pricing-data.ts)
+import { PLAN_PRICES, annualSavings, annualTotal, formatBRL } from './pricing-data';
 
 /* Sprint 10 · B34 — ilha client dos preços: o toggle mensal/anual é o
    único estado da seção; os cards leem o ciclo dele.
@@ -66,6 +68,14 @@ export const PricingSection: React.FC = () => {
         </button>
       </div>
     </div>
+    {/* B51/P4 (Sprint 16) — a economia do anual em REAIS ABSOLUTOS,
+        junto ao toggle (a pesquisa do ciclo: valor absoluto supera o
+        percentual na escolha do anual). Os valores vêm da fonte única
+        de preços — Pro: R$ 120/ano; Staff: R$ 240/ano contra o mensal. */}
+    <p className="text-body-sm font-mono text-ink-span -mt-8 mb-16 lg:text-right">
+      No plano anual: <span className="text-ink-heading font-bold">economize {formatBRL(annualSavings(PLAN_PRICES.pro))} por ano</span> no Pro
+      e <span className="text-ink-heading font-bold">{formatBRL(annualSavings(PLAN_PRICES.staff))} por ano</span> no Staff, em relação ao mensal.
+    </p>
 {/* CARDS DE PREÇO */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
       
@@ -78,7 +88,7 @@ export const PricingSection: React.FC = () => {
             Para experimentar os primeiros módulos e o terminal interativo.
           </p>
           <div className="mb-6">
-            <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">R$ 0</span>
+            <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">{formatBRL(PLAN_PRICES.explorer.monthly)}</span>
             <span className="text-body-sm font-mono text-ink-span ml-1">/ para sempre</span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
@@ -107,10 +117,10 @@ export const PricingSection: React.FC = () => {
           </p>
           <div className="mb-6">
             <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-ink-heading">
-              {billingCycle === 'annual' ? 'R$ 29,90' : 'R$ 39,90'}
+              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.pro.annualMonthly : PLAN_PRICES.pro.monthly)}
             </span>
             <span id="cycle-pro" className="text-body-sm font-mono text-ink-span ml-1">
-              {billingCycle === 'annual' ? '/ mês (R$ 358,80/ano)' : '/ mês'}
+              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.pro))}/ano)` : '/ mês'}
             </span>
             <div className="mt-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-xs font-mono font-bold uppercase tracking-wider">
@@ -120,10 +130,15 @@ export const PricingSection: React.FC = () => {
             </div>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-heading mb-8">
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as 4 Trilhas Master</li>
+            {/* B48/P1 (Sprint 16) — a lista prometia "todas as 4 Trilhas
+                Master" e "capstones de concorrência e sistemas
+                distribuídos": as trilhas da ementa ainda não existem
+                como cursos (ver seção de trilhas/roadmap) e capstone
+                nomeado não é conferível. Fica o benefício real do plano:
+                acesso a trilhas e níveis, tutora e portfólio verificável. */}
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso total a todas as trilhas e níveis da plataforma</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Capstones de concorrência e sistemas distribuídos</li>
           </ul>
         </div>
         <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
@@ -141,10 +156,10 @@ export const PricingSection: React.FC = () => {
           </p>
           <div className="mb-6">
             <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">
-              {billingCycle === 'annual' ? 'R$ 59,90' : 'R$ 79,90'}
+              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.staff.annualMonthly : PLAN_PRICES.staff.monthly)}
             </span>
             <span id="cycle-staff" className="text-body-sm font-mono text-ink-span ml-1">
-              {billingCycle === 'annual' ? '/ mês (R$ 718,80/ano)' : '/ mês'}
+              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.staff))}/ano)` : '/ mês'}
             </span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">

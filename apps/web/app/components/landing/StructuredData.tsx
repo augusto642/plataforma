@@ -1,5 +1,6 @@
 import React from 'react';
 import { FAQ_ITEMS } from './faq-data';
+import { PLAN_PRICES, type PlanPrice } from './pricing-data';
 
 /* B44 (Sprint 15) — dados estruturados (JSON-LD) da home.
    Até aqui a página não tinha NENHUM application/ld+json (grep = 0),
@@ -13,7 +14,14 @@ import { FAQ_ITEMS } from './faq-data';
    Course NÃO entra: as trilhas exibidas são a ementa do produto e
    não mapeiam 1:1 para entidades de curso com disponibilidade e
    preço conferíveis — prometer isso em dado estruturado seria o
-   mesmo exagero que as Sprints 10–14 removeram do HTML visível. */
+   mesmo exagero que as Sprints 10–14 removeram do HTML visível.
+   B52/P5 (Sprint 16) — reescopo conforme a pesquisa do ciclo: o
+   Google aposentou os rich results de Course Info (jun/2025) e de
+   FAQ (mai/2026); FAQPage fica como higiene de entidade, sem
+   expectativa de snippet. O que entra de novo é Product/Offer dos
+   planos pagos, com os preços REAIS exibidos na PricingSection —
+   lidos da mesma fonte única (pricing-data.ts). NADA de
+   AggregateRating/review: não existe avaliação real coletada. */
 
 const SITE_URL = 'https://nexuscode.dev';
 
@@ -24,6 +32,30 @@ const organizationJsonLd = {
   url: SITE_URL,
   logo: `${SITE_URL}/logo.svg`,
 };
+
+const productJsonLd = (plan: PlanPrice, description: string) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: plan.name,
+  description,
+  brand: { '@type': 'Organization', name: 'Nexus Code' },
+  offers: {
+    '@type': 'Offer',
+    url: `${SITE_URL}/#precos`,
+    priceCurrency: 'BRL',
+    price: plan.monthly.toFixed(2),
+  },
+});
+
+const proProductJsonLd = productJsonLd(
+  PLAN_PRICES.pro,
+  'Plano Pro da Nexus Code: acesso total a trilhas e níveis da plataforma, tutora de IA socrática e portfólio de evidências com verificação SHA-256.',
+);
+
+const staffProductJsonLd = productJsonLd(
+  PLAN_PRICES.staff,
+  'Plano Staff da Nexus Code, para times: tudo do plano Pro, painel de gestão de equipes, desafios customizados de empresa e relatórios de performance.',
+);
 
 const faqJsonLd = {
   '@context': 'https://schema.org',
@@ -47,6 +79,14 @@ export const StructuredData: React.FC = () => (
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+    />
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(proProductJsonLd) }}
+    />
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(staffProductJsonLd) }}
     />
   </>
 );
