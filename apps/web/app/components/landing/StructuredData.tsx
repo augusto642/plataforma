@@ -1,5 +1,4 @@
 import React from 'react';
-import { FAQ_ITEMS } from './faq-data';
 import { PLAN_PRICES, type PlanPrice } from './pricing-data';
 
 /* B44 (Sprint 15) — dados estruturados (JSON-LD) da home.
@@ -9,8 +8,6 @@ import { PLAN_PRICES, type PlanPrice } from './pricing-data';
    sem inventar nada:
    - Organization: nome, URL canônica (a mesma de layout/robots/
      sitemap) e o logo real servido em /logo.svg.
-   - FAQPage: gerado de faq-data.ts, espelho textual exato das
-     perguntas e respostas REAIS exibidas na FaqSection.
    Course NÃO entra: as trilhas exibidas são a ementa do produto e
    não mapeiam 1:1 para entidades de curso com disponibilidade e
    preço conferíveis — prometer isso em dado estruturado seria o
@@ -31,14 +28,8 @@ const organizationJsonLd = {
   name: 'Nexus Code',
   url: SITE_URL,
   logo: `${SITE_URL}/logo.svg`,
-  // B79 (Sprint 19 · destravamento B4) — o fundador nomeado também
-  // no dado estruturado, espelho da FounderSection visível: nome e
-  // cargo verdadeiros, sem foto (a foto dele entra depois).
-  founder: {
-    '@type': 'Person',
-    name: 'Augusto Fortes',
-    jobTitle: 'Professor de Informática',
-  },
+  // Central 218 (D1) — sem founder: a seção "Quem criou" saiu da
+  // home; o dado estruturado espelha só o que a página mostra.
 };
 
 const productJsonLd = (plan: PlanPrice, description: string) => ({
@@ -49,7 +40,7 @@ const productJsonLd = (plan: PlanPrice, description: string) => ({
   brand: { '@type': 'Organization', name: 'Nexus Code' },
   offers: {
     '@type': 'Offer',
-    url: `${SITE_URL}/#precos`,
+    url: `${SITE_URL}/#planos`,
     priceCurrency: 'BRL',
     // Só chamado com plano com preço definido (Pro); o Carreira
     // (monthly null) não tem bloco Product — ver abaixo.
@@ -72,29 +63,15 @@ const proProductJsonLd = productJsonLd(
 // Central 216 (D1) — o Carreira está com "Preço a definir": sem
 // preço não há Offer honesta, então não há bloco Product dele. Só o
 // Pro tem Product/Offer (PreOrder, cobrança ainda não ativa).
-
-const faqJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: FAQ_ITEMS.map((item) => ({
-    '@type': 'Question',
-    name: item.question,
-    acceptedAnswer: {
-      '@type': 'Answer',
-      text: item.answer,
-    },
-  })),
-};
+// Central 218 (D1) — sem FAQPage: a FAQ saiu da home; o dado
+// estruturado espelha só o que a página mostra (Organization +
+// Product do Pro).
 
 export const StructuredData: React.FC = () => (
   <>
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-    />
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
     />
     <script
       type="application/ld+json"
