@@ -8,7 +8,7 @@ import { AiService, PedagogicalFeedback } from '../ai.service';
  * Régua versionada de qualidade do tutor: roda cada caso de
  * `golden-set.json` contra o AiService como caixa-preta, pelo ponto de
  * entrada público `generatePedagogicalHint`, no caminho OFFLINE e
- * determinístico (LlmClient mockado com `hasApiKey: false` → engine
+ * determinístico (LlmClient mockado com `isAvailable: false` → engine
  * heurística). O Prisma é mockado com a estrutura real que o tutor
  * recebe (Submission + Activity + TestCaseResult[]) e o tier é dirigido
  * pelo histórico do caso (contadores que alimentam `calculateTier`).
@@ -118,7 +118,11 @@ async function runCase(gc: GoldenCase): Promise<RunResult> {
     },
   };
   const llmMock = {
-    hasApiKey: false,
+    // Sprint 22: gateway sem provedor → engine heurística (offline).
+    isAvailable: false,
+    unavailableReason: 'no-provider',
+    providerId: null,
+    model: null,
     complete: jest.fn(),
     stream: jest.fn(),
   };

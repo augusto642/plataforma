@@ -89,7 +89,20 @@ export class AiController {
     res.flushHeaders?.();
 
     try {
-      for await (const chunk of this.ai.streamChatWithTutor(dto, user.sub)) {
+      // Sprint 22 — antes do primeiro chunk, o serviço informa a
+      // proveniência da resposta (LLM × heurística) num evento SSE de
+      // metadados: o cliente exibe o rótulo honesto ("modo offline")
+      // quando a tutora de IA não respondeu. Eventos sem `chunk` são
+      // ignorados por clientes antigos.
+      const onSource = (info: {
+        source: string;
+        provider?: string;
+        model?: string;
+        fallbackReason?: string;
+      }) => {
+        res.write(`data: ${JSON.stringify(info)}\n\n`);
+      };
+      for await (const chunk of this.ai.streamChatWithTutor(dto, user.sub, onSource)) {
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
       }
       res.write(`data: [DONE]\n\n`);

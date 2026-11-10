@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { LlmClient } from './llm-client';
+import { LlmClient, LlmQuotaExceededError } from './llm-client';
 
 describe('AiService', () => {
   let service: AiService;
@@ -31,11 +31,14 @@ describe('AiService', () => {
     get: jest.fn().mockReturnValue(''),
   };
 
-  // Sem AI_API_KEY: LlmClient reporta hasApiKey=false e o serviço usa o
-  // motor heurístico (degrade offline preservado).
+  // Sprint 22: sem provedor utilizável, o gateway (LlmClient) reporta
+  // isAvailable=false e o serviço usa o motor heurístico ROTULADO
+  // (degrade offline preservado).
   const mockLlmClient = {
-    hasApiKey: false,
-    apiKey: '',
+    isAvailable: false,
+    unavailableReason: 'no-provider' as string | null,
+    providerId: null as string | null,
+    model: null as string | null,
     complete: jest.fn(),
     stream: jest.fn(),
   };
@@ -51,7 +54,10 @@ describe('AiService', () => {
     }).compile();
 
     service = module.get<AiService>(AiService);
-    mockLlmClient.hasApiKey = false;
+    mockLlmClient.isAvailable = false;
+    mockLlmClient.unavailableReason = 'no-provider';
+    mockLlmClient.providerId = null;
+    mockLlmClient.model = null;
     mockLlmClient.complete.mockReset();
     mockLlmClient.stream.mockReset();
   });
@@ -248,7 +254,10 @@ describe('AiService', () => {
     });
 
     it('prompt do LLM não contém errorMessage de teste oculto (e mantém o visível)', async () => {
-      mockLlmClient.hasApiKey = true;
+      mockLlmClient.isAvailable = true;
+      mockLlmClient.unavailableReason = null;
+      mockLlmClient.providerId = 'gemini';
+      mockLlmClient.model = 'gemini-3.5-flash-lite';
       mockLlmClient.complete.mockResolvedValue(
         JSON.stringify({ summary: 'Resumo do tutor', hints: ['dica 1'], suggestedConcept: 'Lógica' }),
       );
@@ -268,6 +277,10 @@ describe('AiService', () => {
       const feedback = await service.generatePedagogicalHint('sub-llm', 'user-1');
 
       expect(feedback.summary).toBe('Resumo do tutor');
+      // Sprint 22 — rótulo de proveniência do caminho LLM
+      expect(feedback.source).toBe('llm');
+      expect(feedback.provider).toBe('gemini');
+      expect(feedback.model).toBe('gemini-3.5-flash-lite');
       expect(mockLlmClient.complete).toHaveBeenCalledTimes(1);
       const prompt = (mockLlmClient.complete as jest.Mock).mock.calls[0][0].messages[0].content as string;
       expect(prompt).not.toContain('llm-hidden-stderr');
@@ -527,6 +540,87 @@ describe('AiService', () => {
 
       expect(result.hint).toContain('Giga');
       expect(result.socraticQuestion).toContain('caso base da sua função');
+    });
+  });
+
+  describe('Sprint 22 — rótulo honesto de proveniência (source)', () => {
+    const mockSubmissionForHint = () => {
+      mockPrismaService.submission.count.mockResolvedValueOnce(1);
+      mockPrismaService.aiChatMessage.count.mockResolvedValueOnce(0);
+      mockPrismaService.submission.findFirst.mockResolvedValueOnce({
+        id: 'sub-src',
+        activityId: 'act-1',
+        activity: { title: 'Soma de Dois Números', description: 'Retorne a + b' },
+        testResults: [
+          { passed: false, isHidden: false, name: 'caso visível', errorMessage: 'expected 5 got undefined' },
+        ],
+        codeSnapshot: 'function somar(a, b) { return a - b; }',
+      });
+    };
+
+    it('sem provedor: feedback heurístico carrega source=heuristic + motivo no-provider', async () => {
+      mockSubmissionForHint();
+      const feedback = await service.generatePedagogicalHint('sub-src', 'user-1');
+      expect(feedback.source).toBe('heuristic');
+      expect(feedback.fallbackReason).toBe('no-provider');
+      expect(feedback.summary).toBeTruthy();
+    });
+
+    it('kill switch: motivo disabled é propagado ao rótulo', async () => {
+      mockLlmClient.unavailableReason = 'disabled';
+      mockSubmissionForHint();
+      const feedback = await service.generatePedagogicalHint('sub-src', 'user-1');
+      expect(feedback.source).toBe('heuristic');
+      expect(feedback.fallbackReason).toBe('disabled');
+    });
+
+    it('cota estourada: complete lança LlmQuotaExceededError → fallback com motivo quota-exceeded, sem erro ao aluno', async () => {
+      mockLlmClient.isAvailable = true;
+      mockLlmClient.unavailableReason = null;
+      mockLlmClient.complete.mockRejectedValue(new LlmQuotaExceededError(20, 20));
+      mockSubmissionForHint();
+      const feedback = await service.generatePedagogicalHint('sub-src', 'user-1');
+      expect(feedback.source).toBe('heuristic');
+      expect(feedback.fallbackReason).toBe('quota-exceeded');
+      expect(feedback.hints.length).toBeGreaterThan(0);
+    });
+
+    it('chat: resposta do LLM carrega source=llm; sem provedor, source=heuristic', async () => {
+      mockPrismaService.activity.findUnique.mockResolvedValue({
+        id: 'act-1',
+        title: 'Soma de Dois Números',
+        description: 'Retorne a + b',
+      });
+      mockPrismaService.aiChatMessage.create.mockResolvedValue({});
+      mockPrismaService.aiChatMessage.findMany.mockResolvedValue([]);
+      mockPrismaService.submission.count.mockResolvedValue(0);
+      mockPrismaService.aiChatMessage.count.mockResolvedValue(0);
+
+      // Sem provedor → heurística rotulada
+      const offline = await service.chatWithTutor(
+        { activityId: 'act-1', messages: [{ role: 'user', content: 'o que é return?' }] },
+        'user-1',
+      );
+      expect(offline.source).toBe('heuristic');
+      expect(offline.fallbackReason).toBe('no-provider');
+
+      // Com provedor → LLM rotulado
+      mockLlmClient.isAvailable = true;
+      mockLlmClient.unavailableReason = null;
+      mockLlmClient.providerId = 'openai-compatible';
+      mockLlmClient.model = 'local-model';
+      mockLlmClient.complete.mockResolvedValue('O `return` devolve um valor. O que sua função devolve hoje?');
+      const online = await service.chatWithTutor(
+        { activityId: 'act-1', messages: [{ role: 'user', content: 'o que é return?' }] },
+        'user-1',
+      );
+      expect(online.source).toBe('llm');
+      expect(online.provider).toBe('openai-compatible');
+      expect(online.model).toBe('local-model');
+      // userId e purpose fluem para o gateway (cota/uso)
+      const call = (mockLlmClient.complete as jest.Mock).mock.calls[0][0];
+      expect(call.userId).toBe('user-1');
+      expect(call.purpose).toBe('chat');
     });
   });
 });

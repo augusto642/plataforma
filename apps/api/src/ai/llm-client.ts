@@ -1,67 +1,111 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import { AiUsageService } from './llm/ai-usage.service';
+import { GeminiProvider } from './llm/gemini.provider';
+import {
+  LlmChatMessage,
+  LlmProvider,
+  LlmQuotaExceededError,
+  LlmRequestError,
+  LlmUnavailableReason,
+} from './llm/llm-provider';
+import { OpenAiCompatibleProvider } from './llm/openai-compatible.provider';
+
+export type { LlmChatMessage } from './llm/llm-provider';
+export {
+  LlmQuotaExceededError,
+  LlmRequestError,
+} from './llm/llm-provider';
+export type {
+  LlmUnavailableReason,
+  TutorResponseSource,
+} from './llm/llm-provider';
 
 /**
- * Cliente HTTP interno único para chamadas ao LLM (finding CRÍTICO — AppSec):
- * antes cada serviço chamava `fetch` sem timeout nem retry — um provedor
- * lento/indisponível pendurava workers indefinidamente (inclusive o reader
- * do streaming SSE).
+ * Sprint 22 (B8 ampliada) — o antigo `LlmClient` virou o GATEWAY da
+ * tutora sobre a camada de provedores (`ai/llm/`):
  *
- * Garantias:
- * - Timeout por requisição (default 30s, env AI_TIMEOUT_MS).
- * - 1 retry com backoff exponencial apenas para 429/5xx e erros de rede.
- * - Streaming com idle-timeout: o reader é abortado se nenhum chunk chegar
- *   dentro da janela (não pendura indefinidamente).
- * - Nunca vaza a API key nem o corpo bruto do upstream nas mensagens de erro.
+ * - Resolve o provedor ativo SÓ por configuração (nenhum consumidor
+ *   muda quando o provedor troca):
+ *     AI_PROVIDER=gemini | openai-compatible | none
+ *     (sem AI_PROVIDER: AI_API_URL definida ⇒ openai-compatible —
+ *      compatibilidade com o .env antigo; senão, gemini)
+ * - Kill switch: AI_TUTOR_ENABLED=false desliga o LLM por completo
+ *   (a tutora cai na heurística ROTULADA, nunca em erro).
+ * - Cota diária por plano (AiUsageService) aplicada quando a chamada
+ *   carrega userId; estourar a cota lança LlmQuotaExceededError ANTES
+ *   de chamar o provedor — os consumidores caem na heurística com o
+ *   motivo verdadeiro ('quota-exceeded').
+ * - Registra o uso de cada chamada (tokens/latência/resultado).
+ *
+ * A interface pública consumida pelos serviços da tutora continua a
+ * mesma de antes (complete/stream devolvendo string/deltas): quem muda
+ * é o que acontece por baixo.
  */
-
-export interface LlmChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
 
 export interface LlmRequestOptions {
   messages: LlmChatMessage[];
-  /** Default: AI_MODEL ou 'gemini-2.0-flash'. */
-  model?: string;
-  /** Default: AI_API_URL ou endpoint OpenAI-compat do Gemini. */
-  apiUrl?: string;
-  /** response_format json_object. */
   jsonMode?: boolean;
-  /** Sobrescreve o timeout (ms). */
   timeoutMs?: number;
-  /** stream: true no payload. */
-  stream?: boolean;
-}
-
-export class LlmRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-    readonly retryable = false,
-  ) {
-    super(message);
-    this.name = 'LlmRequestError';
-  }
+  /** Aluno dono da chamada — habilita cota e registro de uso. */
+  userId?: string;
+  /** Superfície chamadora, para o registro de uso ('hint', 'chat'...). */
+  purpose?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const DEFAULT_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-const RETRYABLE_STATUS = (status: number) => status === 429 || status >= 500;
+const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+/**
+ * Default do Gemini: `gemini-3.5-flash-lite` — o modelo PROVADO
+ * gerando na conta do Augusto na validação viva de 2026-10-22. As
+ * famílias 2.0 (desligada) e 2.5 (404 "no longer available to new
+ * users" na geração, apesar de listadas) NÃO servem de default.
+ * Tier de qualidade, também provado: `gemini-3.5-flash`
+ * (AI_GEMINI_MODEL=gemini-3.5-flash). Como tudo aqui, é configuração —
+ * nunca hardcoded nos consumidores.
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+/**
+ * Thinking budget enxuto para as dicas curtas da tutora: modelos
+ * Gemini 3.x gastam thought tokens por padrão; sem teto, cada dica
+ * paga raciocínio desnecessário. Configurável via
+ * AI_GEMINI_THINKING_BUDGET ('dynamic' = o modelo decide).
+ */
+export const DEFAULT_GEMINI_THINKING_BUDGET = 128;
 
 @Injectable()
 export class LlmClient {
   private readonly logger = new Logger(LlmClient.name);
+  private readonly provider: LlmProvider | null;
+  private readonly enabled: boolean;
+  private readonly planCache = new Map<string, { plan: string; at: number }>();
 
-  constructor(private readonly config: ConfigService) {}
-
-  get apiKey(): string {
-    return this.config.get<string>('AI_API_KEY') || '';
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly usage?: AiUsageService,
+    @Optional() private readonly prisma?: PrismaService,
+  ) {
+    this.enabled = this.resolveEnabled();
+    this.provider = this.enabled ? this.resolveProvider() : null;
+    if (!this.enabled) {
+      this.logger.warn('AI_TUTOR_ENABLED is off: tutor LLM disabled by kill switch.');
+    } else if (!this.provider) {
+      this.logger.warn(
+        'No LLM provider configured: tutor will use the labeled heuristic fallback.',
+      );
+    } else {
+      this.logger.log(
+        `Tutor LLM provider active: ${this.provider.id} (model ${this.provider.model})`,
+      );
+    }
   }
 
-  get hasApiKey(): boolean {
-    return Boolean(this.apiKey);
+  // ---------- configuração ----------
+
+  private resolveEnabled(): boolean {
+    const raw = (this.config.get<string>('AI_TUTOR_ENABLED') || '').toLowerCase();
+    return raw !== 'false' && raw !== '0' && raw !== 'off';
   }
 
   private get timeoutMs(): number {
@@ -69,225 +113,237 @@ export class LlmClient {
     return Number.isFinite(value) && value > 0 ? value : DEFAULT_TIMEOUT_MS;
   }
 
-  private buildBody(opts: LlmRequestOptions): string {
-    const payload: Record<string, unknown> = {
+  private resolveProviderKind(): 'gemini' | 'openai' | 'none' {
+    const explicit = (this.config.get<string>('AI_PROVIDER') || '')
+      .trim()
+      .toLowerCase();
+    if (explicit === 'gemini') return 'gemini';
+    if (explicit === 'openai' || explicit === 'openai-compatible') return 'openai';
+    if (explicit === 'none') return 'none';
+    // Compat: o .env antigo configurava AI_API_URL (OpenAI) sem provider.
+    if (this.config.get<string>('AI_API_URL')) return 'openai';
+    return 'gemini';
+  }
+
+  private resolveGeminiThinkingBudget(): number | undefined {
+    const raw = this.config.get<string>('AI_GEMINI_THINKING_BUDGET');
+    if (raw === undefined || raw === '') return DEFAULT_GEMINI_THINKING_BUDGET;
+    if (raw.toLowerCase() === 'dynamic') return undefined;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0
+      ? Math.floor(value)
+      : DEFAULT_GEMINI_THINKING_BUDGET;
+  }
+
+  private resolveProvider(): LlmProvider | null {
+    const kind = this.resolveProviderKind();
+    if (kind === 'none') return null;
+
+    if (kind === 'gemini') {
+      const apiKey =
+        this.config.get<string>('AI_GEMINI_API_KEY') ||
+        this.config.get<string>('AI_API_KEY') ||
+        '';
+      if (!apiKey) return null; // Gemini exige chave: sem ela, sem provedor.
+      return new GeminiProvider({
+        baseUrl:
+          this.config.get<string>('AI_GEMINI_BASE_URL') || DEFAULT_GEMINI_BASE_URL,
+        apiKey,
+        model:
+          this.config.get<string>('AI_GEMINI_MODEL') ||
+          this.config.get<string>('AI_MODEL') ||
+          DEFAULT_GEMINI_MODEL,
+        timeoutMs: this.timeoutMs,
+        thinkingBudget: this.resolveGeminiThinkingBudget(),
+      });
+    }
+
+    // OpenAI-compatível: a própria OpenAI, compatíveis e modelos locais
+    // (Ollama/LM Studio) — chave vazia é válida no caso local.
+    const baseUrl = this.config.get<string>('AI_OPENAI_BASE_URL');
+    const endpoint = baseUrl
+      ? `${baseUrl.replace(/\/+$/, '')}/chat/completions`
+      : this.config.get<string>('AI_API_URL') ||
+        'https://api.openai.com/v1/chat/completions';
+    return new OpenAiCompatibleProvider({
+      endpoint,
+      apiKey:
+        this.config.get<string>('AI_OPENAI_API_KEY') ||
+        this.config.get<string>('AI_API_KEY') ||
+        '',
       model:
-        opts.model || this.config.get<string>('AI_MODEL', 'gemini-2.0-flash'),
-      messages: opts.messages,
-    };
-    if (opts.jsonMode) {
-      payload.response_format = { type: 'json_object' };
-    }
-    if (opts.stream) {
-      payload.stream = true;
-    }
-    return JSON.stringify(payload);
+        this.config.get<string>('AI_OPENAI_MODEL') ||
+        this.config.get<string>('AI_MODEL') ||
+        'gpt-4o-mini',
+      timeoutMs: this.timeoutMs,
+    });
   }
 
-  private resolveUrl(opts: LlmRequestOptions): string {
-    return opts.apiUrl || this.config.get<string>('AI_API_URL') || DEFAULT_API_URL;
+  // ---------- superfície pública ----------
+
+  /** O LLM está utilizável agora? (kill switch ligado + provedor configurado) */
+  get isAvailable(): boolean {
+    return this.enabled && this.provider !== null;
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  /** Por que o LLM não está utilizável (para o rótulo honesto do fallback). */
+  get unavailableReason(): LlmUnavailableReason | null {
+    if (!this.enabled) return 'disabled';
+    if (!this.provider) return 'no-provider';
+    return null;
+  }
+
+  get providerId(): string | null {
+    return this.provider?.id ?? null;
+  }
+
+  get model(): string | null {
+    return this.provider?.model ?? null;
   }
 
   /**
-   * Chat completion não-streaming. Retorna o conteúdo textual
-   * (choices[0].message.content). Lança LlmRequestError em falha definitiva.
+   * @deprecated Alias histórico (pré-Sprint 22 a pergunta era "tem
+   * chave?"). A pergunta certa hoje é `isAvailable` — um modelo local
+   * (Ollama/LM Studio) não tem chave e mesmo assim está disponível.
    */
-  async complete(opts: LlmRequestOptions): Promise<string> {
-    const url = this.resolveUrl(opts);
-    const timeout = opts.timeoutMs ?? this.timeoutMs;
-    const body = this.buildBody(opts);
-    const maxAttempts = 2; // 1 tentativa + 1 retry
+  get hasApiKey(): boolean {
+    return this.isAvailable;
+  }
 
-    let lastError: LlmRequestError | null = null;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      if (attempt > 0) {
-        await this.sleep(500 * 2 ** (attempt - 1)); // backoff: 500ms
-      }
+  // A chave de API NÃO é mais exposta pelo gateway (pré-Sprint 22 o
+  // antigo cliente a expunha num getter público): ela vive só dentro
+  // do adaptador do provedor ativo.
+
+  // ---------- cota ----------
+
+  private async resolvePlan(userId: string): Promise<string> {
+    const cached = this.planCache.get(userId);
+    if (cached && Date.now() - cached.at < 60_000) return cached.plan;
+    let plan = 'free';
+    if (this.prisma) {
       try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body,
-          signal: AbortSignal.timeout(timeout),
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { plan: true },
         });
-
-        if (!res.ok) {
-          const retryable = RETRYABLE_STATUS(res.status);
-          lastError = new LlmRequestError(
-            `LLM request failed with status ${res.status}`,
-            res.status,
-            retryable,
-          );
-          if (retryable && attempt < maxAttempts - 1) {
-            this.logger.warn(
-              `LLM upstream ${res.status} (tentativa ${attempt + 1}/${maxAttempts}); retrying...`,
-            );
-            continue;
-          }
-          throw lastError;
-        }
-
-        const data = await res.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (typeof content !== 'string') {
-          throw new LlmRequestError('LLM response missing message content');
-        }
-        return content;
-      } catch (err) {
-        if (err instanceof LlmRequestError) {
-          if (err.retryable && attempt < maxAttempts - 1) {
-            lastError = err;
-            continue;
-          }
-          throw err;
-        }
-        // Timeout (AbortError) ou erro de rede: retryable
-        lastError = new LlmRequestError('LLM request timed out or network error', undefined, true);
-        if (attempt < maxAttempts - 1) {
-          this.logger.warn(
-            `LLM request failed (${(err as Error)?.name || 'error'}) (tentativa ${attempt + 1}/${maxAttempts}); retrying...`,
-          );
-          continue;
-        }
-        throw lastError;
+        if (user?.plan) plan = user.plan;
+      } catch {
+        // Sem plano legível, vale o MENOR limite (free): default seguro.
       }
     }
-    throw lastError ?? new LlmRequestError('LLM request failed');
+    this.planCache.set(userId, { plan, at: Date.now() });
+    return plan;
   }
 
-  /**
-   * Chat completion com streaming SSE. Emite os deltas de conteúdo
-   * (choices[0].delta.content). Usa idle-timeout: se nenhum byte chegar
-   * dentro de `timeoutMs`, a conexão é abortada e LlmRequestError é lançado.
-   */
-  async *stream(opts: LlmRequestOptions): AsyncGenerator<string, void, unknown> {
-    const url = this.resolveUrl(opts);
-    const timeout = opts.timeoutMs ?? this.timeoutMs;
-    const body = this.buildBody({ ...opts, stream: true });
-    const maxAttempts = 2;
+  /** Reserva cota (quando há userId); lança LlmQuotaExceededError se estourou. */
+  private async reserveQuota(opts: LlmRequestOptions): Promise<boolean> {
+    if (!opts.userId || !this.usage) return false;
+    const plan = await this.resolvePlan(opts.userId);
+    const reservation = await this.usage.reserve(opts.userId, plan);
+    if (!reservation.ok) {
+      this.logger.warn(
+        `AI daily quota exceeded for user ${opts.userId} (${reservation.used}/${reservation.limit}); tutor degrades to labeled heuristic.`,
+      );
+      throw new LlmQuotaExceededError(reservation.used, reservation.limit);
+    }
+    return true;
+  }
 
-    let res: Response | null = null;
-    let controller: AbortController | null = null;
-    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private recordUsage(
+    opts: LlmRequestOptions,
+    startedAt: number,
+    outcome: 'success' | 'error',
+    usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number; thoughtsTokens?: number },
+    errorKind?: string,
+  ): void {
+    if (!this.usage || !this.provider) return;
+    void this.usage.recordUsage({
+      userId: opts.userId,
+      provider: this.provider.id,
+      model: this.provider.model,
+      purpose: opts.purpose || 'unknown',
+      usage,
+      latencyMs: Date.now() - startedAt,
+      outcome,
+      errorKind,
+    });
+  }
 
-    const clearIdle = () => {
-      if (idleTimer) {
-        clearTimeout(idleTimer);
-        idleTimer = null;
-      }
-    };
+  // ---------- chamadas ----------
 
+  async complete(opts: LlmRequestOptions): Promise<string> {
+    if (!this.provider) {
+      throw new LlmRequestError(
+        'LLM provider unavailable (disabled or not configured)',
+        undefined,
+        false,
+        'unavailable',
+      );
+    }
+    const startedAt = Date.now();
+    const reserved = await this.reserveQuota(opts);
     try {
-      let lastError: LlmRequestError | null = null;
-      for (let attempt = 0; attempt < maxAttempts && !res; attempt++) {
-        if (attempt > 0) {
-          await this.sleep(500 * 2 ** (attempt - 1));
-        }
-        controller = new AbortController();
-        clearIdle();
-        idleTimer = setTimeout(() => controller?.abort(), timeout);
-        try {
-          const candidate = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.apiKey}`,
-            },
-            body,
-            signal: controller.signal,
-          });
-
-          if (!candidate.ok) {
-            const retryable = RETRYABLE_STATUS(candidate.status);
-            lastError = new LlmRequestError(
-              `LLM stream failed with status ${candidate.status}`,
-              candidate.status,
-              retryable,
-            );
-            if (retryable && attempt < maxAttempts - 1) {
-              this.logger.warn(
-                `LLM stream upstream ${candidate.status} (tentativa ${attempt + 1}/${maxAttempts}); retrying...`,
-              );
-              continue;
-            }
-            throw lastError;
-          }
-          if (!candidate.body) {
-            throw new LlmRequestError('LLM stream response has no body');
-          }
-          res = candidate;
-        } catch (err) {
-          if (err instanceof LlmRequestError) {
-            if (err.retryable && attempt < maxAttempts - 1) {
-              lastError = err;
-              continue;
-            }
-            throw err;
-          }
-          lastError = new LlmRequestError('LLM stream timed out or network error', undefined, true);
-          if (attempt < maxAttempts - 1) {
-            this.logger.warn(
-              `LLM stream failed (${(err as Error)?.name || 'error'}) (tentativa ${attempt + 1}/${maxAttempts}); retrying...`,
-            );
-            continue;
-          }
-          throw lastError;
-        }
-      }
-
-      if (!res || !res.body) {
-        throw new LlmRequestError('LLM stream unavailable');
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        // Reagenda o idle-timeout a cada loop; o abort dispara se reader.read()
-        // pendurar sem dados.
-        clearIdle();
-        idleTimer = setTimeout(() => controller?.abort(), timeout);
-
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('data:')) continue;
-          const dataStr = trimmed.replace(/^data:\s*/, '');
-          if (dataStr === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(dataStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (typeof delta === 'string' && delta) {
-              yield delta;
-            }
-          } catch {
-            // Linha SSE parcial/inválida: ignora e segue o stream
-          }
-        }
-      }
+      const result = await this.provider.complete({
+        messages: opts.messages,
+        jsonMode: opts.jsonMode,
+        timeoutMs: opts.timeoutMs,
+      });
+      this.recordUsage(opts, startedAt, 'success', result.usage);
+      return result.content;
     } catch (err) {
-      if (err instanceof LlmRequestError) {
-        throw err;
+      if (reserved && this.usage && opts.userId) {
+        await this.usage.refund(opts.userId);
       }
-      // AbortError do idle-timeout ou erro de rede no meio do stream
-      throw new LlmRequestError('LLM stream timed out or connection failed');
-    } finally {
-      clearIdle();
-      controller?.abort();
+      const kind = err instanceof LlmRequestError ? err.kind : 'unknown';
+      if (kind === 'model-unavailable') {
+        this.logger.error(
+          `Configured LLM model '${this.provider.model}' is unavailable at provider '${this.provider.id}' (retired?). Change the model configuration — this is not a credential problem.`,
+        );
+      }
+      this.recordUsage(opts, startedAt, 'error', undefined, kind);
+      throw err;
+    }
+  }
+
+  async *stream(opts: LlmRequestOptions): AsyncGenerator<string, void, unknown> {
+    if (!this.provider) {
+      throw new LlmRequestError(
+        'LLM provider unavailable (disabled or not configured)',
+        undefined,
+        false,
+        'unavailable',
+      );
+    }
+    const startedAt = Date.now();
+    const reserved = await this.reserveQuota(opts);
+    let yielded = 0;
+    try {
+      for await (const delta of this.provider.stream({
+        messages: opts.messages,
+        jsonMode: opts.jsonMode,
+        timeoutMs: opts.timeoutMs,
+      })) {
+        yielded++;
+        yield delta;
+      }
+      // Streaming não traz usage dos provedores nesta camada: a chamada
+      // conta para a cota, mas os tokens ficam sem registro (declarado).
+      this.recordUsage(opts, startedAt, 'success', undefined);
+    } catch (err) {
+      // Falha antes do primeiro delta: a chamada não consumiu nada do
+      // aluno — estorna a reserva. Depois do primeiro delta, houve
+      // consumo parcial e a reserva fica.
+      if (reserved && yielded === 0 && this.usage && opts.userId) {
+        await this.usage.refund(opts.userId);
+      }
+      const kind = err instanceof LlmRequestError ? err.kind : 'unknown';
+      if (kind === 'model-unavailable') {
+        this.logger.error(
+          `Configured LLM model '${this.provider.model}' is unavailable at provider '${this.provider.id}' (retired?). Change the model configuration — this is not a credential problem.`,
+        );
+      }
+      this.recordUsage(opts, startedAt, 'error', undefined, kind);
+      throw err;
     }
   }
 }

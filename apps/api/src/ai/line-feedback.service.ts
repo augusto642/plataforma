@@ -72,7 +72,7 @@ export class LineFeedbackService {
 
     const code = submission.codeSnapshot ?? submission.activity.initialCode ?? '';
     const heuristicItems = this.analyzeHeuristics(code, submission.activity.language);
-    const items = await this.enrichWithExternalAI(code, submission.activity.language, heuristicItems);
+    const items = await this.enrichWithExternalAI(code, submission.activity.language, heuristicItems, userId);
 
     await this.prisma.submission.update({
       where: { id: submissionId },
@@ -259,8 +259,13 @@ export class LineFeedbackService {
     code: string,
     language: string,
     heuristicItems: LineFeedbackItem[],
+    userId?: string,
   ): Promise<LineFeedbackItem[]> {
-    if (!this.llm.hasApiKey) {
+    // Sprint 22: provedor utilizável (modelo local não tem chave). A
+    // resposta deste endpoint é um array de itens (contrato com o
+    // web): o LLM só ACRESCENTA itens à heurística — sem campo de
+    // proveniência no contrato; cota e uso passam pelo gateway.
+    if (!this.llm.isAvailable) {
       return heuristicItems;
     }
     try {
@@ -274,10 +279,12 @@ export class LineFeedbackService {
         wrapUntrusted('CODIGO_DO_ALUNO', this.ai.sanitizePrompt(code)),
       ].join('\n');
 
-      // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
+      // Gateway LLM: timeout + retry no provedor, cota e uso no gateway
       const content = await this.llm.complete({
         messages: [{ role: 'user', content: prompt }],
         jsonMode: true,
+        userId,
+        purpose: 'line-feedback',
       });
 
       const parsed = JSON.parse(content);
