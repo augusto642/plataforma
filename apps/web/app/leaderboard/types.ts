@@ -1,9 +1,10 @@
-// B38b (Sprint 11) — NÃO existe sistema de ligas no backend da Nexus Code.
-// A mecânica real (GET /courses/:id/leaderboard, em courses.service) é um
-// ranking por curso ordenado pelo XP total acumulado do usuário (desempate:
-// atividades concluídas distintas no curso). As "faixas" abaixo são apenas
-// agrupamentos de exibição derivados do XP total — sem temporada, rodada
-// semanal, promoção ou rebaixamento.
+// B38b (Sprint 11) / fechamento na Sprint 12 — NÃO existe sistema de
+// ligas no backend da Nexus Code. A mecânica real
+// (GET /courses/:id/leaderboard, em courses.service) é um ranking por
+// curso ordenado pelo XP total acumulado do usuário (desempate:
+// atividades concluídas distintas no curso). As "faixas" abaixo são
+// apenas agrupamentos de exibição derivados do XP total — sem
+// temporada, rodada semanal, promoção ou rebaixamento.
 
 export type XpBand =
   | 'bronze'
@@ -27,21 +28,46 @@ export interface XpBandInfo {
   description: string;
 }
 
-export type LeaderboardFilter = 'current' | 'global' | 'friends';
+export interface CourseOption {
+  id: string;
+  title: string;
+  slug?: string;
+}
 
-export interface LeaderboardUser {
+/** Formato devolvido por GET /courses/:id/leaderboard. */
+export interface LeaderboardApiEntry {
+  rank: number;
+  userId: string;
+  name: string;
+  xp: number;
+  level: number;
+  streakDays: number;
+  badges: Array<{
+    id: string;
+    badgeCode: string;
+    title: string;
+    icon: string;
+  }>;
+  completedActivitiesCount: number;
+}
+
+/** Linha pronta para exibição, derivada exclusivamente da API. */
+export interface LeaderboardDisplayUser {
   id: string;
   rank: number;
   name: string;
-  handle: string;
-  avatarUrl?: string;
   avatarInitials: string;
-  /** XP total acumulado (a mesma grandeza que ordena o ranking real). */
   xp: number;
+  level: number;
   streakDays: number;
-  gitSolvedCount: number;
-  currentTrack: string;
-  isCurrentUser?: boolean;
-  movement: 'up' | 'down' | 'same' | 'new';
-  movementPlaces?: number;
+  badges: LeaderboardApiEntry['badges'];
+  completedActivitiesCount: number;
+  /** Só é verdadeiro para o usuário autenticado presente na resposta. */
+  isCurrentUser: boolean;
+}
+
+export interface CourseProgressSummary {
+  courseId: string;
+  courseTitle: string;
+  slug?: string;
 }

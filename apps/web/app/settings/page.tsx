@@ -86,7 +86,7 @@ export default function SettingsPage() {
             </span>
           </h1>
           <p className="text-zinc-400 text-sm max-w-2xl mt-1 leading-relaxed">
-            Gerencie seu perfil de engenheiro, chaves criptográficas SSH/GPG, modelo pedagógico do tutor de IA e faturamento.
+            Gerencie seu perfil e as preferências do tutor de IA, e consulte o estado real de chaves, segurança e faturamento.
           </p>
         </div>
 
@@ -97,9 +97,7 @@ export default function SettingsPage() {
           <section className="flex-1 min-w-0">
             {activeTab === 'profile' && <ProfileTab onSave={(msg) => showToast(msg)} />}
 
-            {activeTab === 'git-ssh' && (
-              <GitKeysTab onNotify={(msg, type) => showToast(msg, type)} />
-            )}
+            {activeTab === 'git-ssh' && <GitKeysTab />}
 
             {activeTab === 'tutor' && (
               <TutorPreferencesTab onSave={(msg) => showToast(msg)} />
@@ -107,9 +105,7 @@ export default function SettingsPage() {
 
             {activeTab === 'billing' && <BillingTab />}
 
-            {activeTab === 'security' && (
-              <SecurityTab onNotify={(msg, type) => showToast(msg, type)} />
-            )}
+            {activeTab === 'security' && <SecurityTab />}
           </section>
         </div>
       </main>
