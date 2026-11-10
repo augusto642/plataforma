@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import './dashboard.css';
-import Logo from '../../../components/Logo';
-import { MaterialIcon } from '../../../components/MaterialIcon';
+import Logo from '../../components/Logo';
+import { MaterialIcon } from '../../components/MaterialIcon';
 import { DynamicTrackCard } from './components/DynamicTrackCard';
 import { DailyMissions } from './components/DailyMissions';
 import { LeagueCard } from './components/LeagueCard';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import { fetchDashboardData } from './utils/api';
-import { apiFetch, API_BASE } from '../../../lib/apiClient';
+import { apiFetch, API_BASE } from '../../lib/apiClient';
 import { StudentDashboardData } from './types';
 
 // Central 216 retrabalho (D2 + D7) — rebuild do dashboard para a

@@ -92,7 +92,7 @@ export default function CheckoutPage() {
                   aria-pressed={cycle === 'monthly'}
                   className={`px-4 py-2 rounded-xl text-xs font-bold ${cycle === 'monthly' ? 'bg-[#8257E5] text-white' : 'bg-[#181820] text-zinc-300 border border-[#27272A]'}`}
                 >
-                  Mensal — {formatBRL(PLAN_PRICES.pro.monthly)}/mês
+                  Mensal — {formatBRL(PLAN_PRICES.pro.monthly!)}/mês
                 </button>
                 <button
                   type="button"
@@ -100,7 +100,7 @@ export default function CheckoutPage() {
                   aria-pressed={cycle === 'annual'}
                   className={`px-4 py-2 rounded-xl text-xs font-bold ${cycle === 'annual' ? 'bg-[#8257E5] text-white' : 'bg-[#181820] text-zinc-300 border border-[#27272A]'}`}
                 >
-                  Anual — {formatBRL(PLAN_PRICES.pro.annualMonthly)}/mês
+                  Anual — {formatBRL(PLAN_PRICES.pro.annualMonthly!)}/mês
                 </button>
               </div>
               <p className="text-xs text-zinc-500 mt-3">

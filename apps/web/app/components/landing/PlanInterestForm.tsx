@@ -78,7 +78,7 @@ export const PlanInterestForm: React.FC<PlanInterestFormProps> = ({
       </p>
       <div className="flex gap-2">
         <label className="sr-only" htmlFor={`plan-interest-email-${plan}`}>
-          Seu e-mail para a lista de interessados do plano {planLabel}
+          Seu e-mail para a lista de interessados do {planLabel}
         </label>
         <input
           id={`plan-interest-email-${plan}`}

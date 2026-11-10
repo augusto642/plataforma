@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { MaterialIcon } from '../../MaterialIcon';
+import { MaterialIcon } from '../MaterialIcon';
 
 // Central 216 retrabalho (D1) — seção "Arsenal completo" do
 // protótipo Stitch v2 (home-desktop.html): Tutora de IA 24/7,

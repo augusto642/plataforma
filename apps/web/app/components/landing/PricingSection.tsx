@@ -107,7 +107,7 @@ export const PricingSection: React.FC = () => {
             Para experimentar os primeiros módulos e o terminal interativo.
           </p>
           <div className="mb-6">
-            <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">{formatBRL(PLAN_PRICES.explorer.monthly)}</span>
+            <span className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">{formatBRL(PLAN_PRICES.explorer.monthly!)}</span>
             <span className="text-body-sm font-mono text-ink-span ml-1">/ para sempre</span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
@@ -142,10 +142,10 @@ export const PricingSection: React.FC = () => {
           </p>
           <div className="mb-6">
             <span id="price-pro" className="text-4xl sm:text-5xl font-heading font-black text-ink-heading">
-              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.pro.annualMonthly : PLAN_PRICES.pro.monthly)}
+              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.pro.annualMonthly! : PLAN_PRICES.pro.monthly!)}
             </span>
             <span id="cycle-pro" className="text-body-sm font-mono text-ink-span ml-1">
-              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.pro))}/ano)` : '/ mês'}
+              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.pro) ?? 0)}/ano)` : '/ mês'}
             </span>
             <div className="mt-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-purple-low border border-border-brand text-brand-purple-light text-xs font-mono font-bold uppercase tracking-wider">
