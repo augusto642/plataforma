@@ -172,7 +172,11 @@ export default function StudentDashboardPage() {
         {/* Hero — fase atual: trilha ativa real ou estado vazio. */}
         <section className="rounded-xl bg-dark-surface-container border border-border-subtle p-6 md:p-8">
           <p className="font-code text-xs text-secondary font-bold uppercase tracking-wider">
-            {mission ? mission.trackTitle : 'Sua trilha'}
+            {/* Central 216 r3 (Q-5) — sem missão, o eyebrow era "Sua
+                trilha" e duplicava o DynamicTrackCard acima ("Receba
+                uma trilha sugerida para você"). Com missão, segue o
+                título real da trilha. */}
+            {mission ? mission.trackTitle : 'Comece aqui'}
           </p>
           <h1 className="font-headline text-headline-lg-mobile md:text-headline-lg text-white font-bold mt-2">
             {mission ? mission.title : 'Comece sua jornada'}
