@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { CacheModule } from './cache/cache.module';
 import { CoursesModule } from './courses/courses.module';
+import { AdaptationModule } from './adaptation/adaptation.module';
 import { DiagnosticModule } from './diagnostic/diagnostic.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ContactModule } from './contact/contact.module';
@@ -82,6 +83,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     AuthModule,
     UsersModule,
     CoursesModule,
+    AdaptationModule,
     DiagnosticModule,
     AnalyticsModule,
     ContactModule,

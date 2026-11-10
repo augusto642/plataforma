@@ -7,6 +7,8 @@ import {
   mapApiCourse,
   mapApiCourseDetail,
   mapApiCourses,
+  mapApiCoursePath,
+  moduleStatusLabel,
   pickActiveProgress,
   progressByCourseId,
 } from '../utils';
@@ -176,5 +178,77 @@ describe('initialsOf', () => {
     expect(initialsOf('Maria da Silva')).toBe('MS');
     expect(initialsOf('Madonna')).toBe('MA');
     expect(initialsOf('  ')).toBe('?');
+  });
+});
+
+// Sprint 21 — caminho de adaptação: a página só exibe o que a API de
+// adaptação sustentou; payload malformado some com a camada inteira.
+describe('mapApiCoursePath', () => {
+  const rawPath = {
+    courseId: 'course-1',
+    courseSlug: 'introducao-python',
+    isSyntaxTrack: true,
+    entryModuleTag: 'operadores',
+    modules: [
+      {
+        tag: 'saida-e-variaveis',
+        title: 'Saída e variáveis',
+        order: 1,
+        status: 'tested-out',
+        totalActivities: 3,
+        passedActivities: 1,
+        effectiveCompletedActivities: 3,
+        testOutActivity: { id: 'a3', slug: 'a3', title: 'A3' },
+      },
+      {
+        tag: 'operadores',
+        title: 'Operadores',
+        order: 3,
+        status: 'not-started',
+        totalActivities: 3,
+        passedActivities: 0,
+        effectiveCompletedActivities: 0,
+        testOutActivity: null,
+      },
+    ],
+    nextActivity: {
+      id: 'b1',
+      slug: 'b1',
+      title: 'B1',
+      order: 4,
+      moduleTag: 'operadores',
+    },
+  };
+
+  it('mapeia módulos, test-out e próximo passo reais', () => {
+    const path = mapApiCoursePath(rawPath);
+    expect(path?.isSyntaxTrack).toBe(true);
+    expect(path?.modules).toHaveLength(2);
+    expect(path?.modules[0].status).toBe('tested-out');
+    expect(path?.modules[0].testOutActivity?.id).toBe('a3');
+    expect(path?.modules[0].effectiveCompletedActivities).toBe(3);
+    expect(path?.nextActivity?.id).toBe('b1');
+    expect(path?.entryModuleTag).toBe('operadores');
+  });
+
+  it('rejeita payload sem courseId ou não-objeto', () => {
+    expect(mapApiCoursePath(null)).toBeNull();
+    expect(mapApiCoursePath('path')).toBeNull();
+    expect(mapApiCoursePath({ modules: [] })).toBeNull();
+  });
+
+  it('curso concluído: nextActivity nulo é preservado', () => {
+    const path = mapApiCoursePath({ ...rawPath, nextActivity: null });
+    expect(path?.nextActivity).toBeNull();
+  });
+});
+
+describe('moduleStatusLabel', () => {
+  it('rótulos únicos por estado do módulo', () => {
+    expect(moduleStatusLabel('completed')).toBe('Concluído');
+    expect(moduleStatusLabel('tested-out')).toBe('Concluído via test-out');
+    expect(moduleStatusLabel('in-progress')).toBe('Em andamento');
+    expect(moduleStatusLabel('not-started')).toBe('Não iniciado');
+    expect(moduleStatusLabel('qualquer-outro')).toBe('Não iniciado');
   });
 });
