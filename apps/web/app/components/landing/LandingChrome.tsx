@@ -10,15 +10,15 @@ import { captureUtmFromUrl } from '../../lib/attribution';
 import { track, trackPageview } from '../../lib/analytics';
 // Frente 3 — ícones SVG únicos da landing
 import {
-  IconBolt, IconCard, IconCards, IconChart, IconChevronDown, IconClose,
-  IconCode, IconGamepad, IconGear, IconKey, IconMenu, IconNodes,
-  IconSearch, IconSparkle, IconTerminal,
+  IconBolt, IconCard, IconChart, IconClose,
+  IconKey, IconMenu, IconSearch,
 } from './icons';
 
 /* Sprint 10 · B34 — ilha client da landing: navbar, drawer mobile,
-   dropdown "Jogo", command palette (⌘K) e os efeitos de chegada
-   (UTM + pageview). É TUDO o que a casca da página precisa de estado;
-   o restante virou Server Component. */
+   command palette (⌘K) e os efeitos de chegada (UTM + pageview). É
+   TUDO o que a casca da página precisa de estado; o restante virou
+   Server Component. Central 218 (D1) — nav com os 5 itens do
+   protótipo; sem dropdown "Jogo". */
 export const LandingChrome: React.FC = () => {
   // Command Palette & Mobile State
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -27,8 +27,6 @@ export const LandingChrome: React.FC = () => {
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const commandItemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Sprint 9 — dropdown "Jogo" da navbar enxuta (desktop)
-  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
 
   // B11 — a atribuição nasce na chegada: UTMs da URL da landing são
   // persistidos aqui, para qualquer porta de cadastro (register ou
@@ -56,19 +54,11 @@ export const LandingChrome: React.FC = () => {
 
   const commandItems = [
     { label: 'Iniciar Cadastro Gratuito', href: '/register', icon: <IconBolt className="w-5 h-5" />, category: 'Ações Rápidas' },
-    { label: 'Abrir Terminal & Playground de Código', href: '/ide', icon: <IconTerminal className="w-5 h-5" />, category: 'Ações Rápidas' },
     { label: 'Acessar Dashboard do Aluno', href: '/dashboard', icon: <IconChart className="w-5 h-5" />, category: 'Navegação' },
     { label: 'Entrar na Minha Conta', href: '/login', icon: <IconKey className="w-5 h-5" />, category: 'Navegação' },
-    // B64 (Sprint 18 · Volta 3 · QA A3) — as 4 "trilhas" da palette
-    // são as trilhas do RADAR (não são cursos abertos): ganham a
-    // marcação de roadmap no rótulo e o destino vira a seção de
-    // trilhas, onde mora a lista de espera de cada uma — não o
-    // /register seco, que prometia matrícula numa trilha inexistente.
-    { label: 'Rust — Lógica & Alta Performance (no radar: lista de espera)', href: '/#trilhas', icon: <IconGear className="w-5 h-5" />, category: 'Trilhas no radar' },
-    { label: 'Go — APIs & Backend Moderno (no radar: lista de espera)', href: '/#trilhas', icon: <IconNodes className="w-5 h-5" />, category: 'Trilhas no radar' },
-    { label: 'React & Next.js — Desenvolvimento Web (no radar: lista de espera)', href: '/#trilhas', icon: <IconBolt className="w-5 h-5" />, category: 'Trilhas no radar' },
-    { label: 'Python & IA (no radar: lista de espera)', href: '/#trilhas', icon: <IconCode className="w-5 h-5" />, category: 'Trilhas no radar' },
-    { label: 'Ver Planos & Preços', href: '#precos', icon: <IconCard className="w-5 h-5" />, category: 'Navegação' },
+    // Central 218 (D1) — sem as 4 "trilhas no radar": o radar saiu
+    // da home; a palette não promete matrícula em trilha inexistente.
+    { label: 'Ver Planos & Preços', href: '#planos', icon: <IconCard className="w-5 h-5" />, category: 'Navegação' },
   ];
 
   const filteredCommands = commandItems.filter((cmd) =>
@@ -124,59 +114,19 @@ export const LandingChrome: React.FC = () => {
             <Logo size="lg" theme="dark" href="/" />
           </div>
 
-          {/* Navegação Central com maior espaçamento */}
+          {/* Central 218 (D1) — nav do protótipo Stitch v2: os 5
+              itens, nesta ordem — Como funciona · Trilhas · O jogo
+              (selo XP) · Recursos & IA · Planos. Saíram Terminal
+              Prático/IDE, Dúvidas e o dropdown "Jogo". */}
           <nav className="hidden md:flex items-center justify-center gap-4 lg:gap-5 xl:gap-6 text-sm font-semibold text-ink-body whitespace-nowrap">
-            {/* Sprint 7 — a navbar segue a ORDEM DA OFERTA (a mesma das
-                seções da página): Como Funciona → Trilhas → Terminal →
-                Planos → Dúvidas.
-                Sprint 9 — navbar enxuta: os 3 links do jogo (Modo RPG 2D,
-                Criar Avatar, Cards TCG) saíram da barra principal e
-                moram num único item "Jogo" (dropdown simples), pra barra
-                ter 6 itens e a oferta liderar sozinha */}
-            <a href="#como-funciona" className="hover:text-ink-heading transition-colors">Como Funciona</a>
+            <a href="#como-funciona" className="hover:text-ink-heading transition-colors">Como funciona</a>
             <a href="#trilhas" className="hover:text-ink-heading transition-colors">Trilhas</a>
-            <a href="#gamificacao" className="hover:text-ink-heading transition-colors">O jogo</a>
-            <a href="#recursos" className="hover:text-ink-heading transition-colors">Recursos &amp; IA</a>
-            <a href="#sandbox" className="hover:text-ink-heading transition-colors flex items-center gap-2">
-              <span>Terminal Prático</span>
-              <span className="inline-flex items-center gap-1.5 text-body-sm font-mono px-2 py-0.5 rounded-md bg-surface-2 text-brand-cyan-neon border border-border-1 font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-green-neon"></span>
-                IDE
-              </span>
+            <a href="#o-jogo" className="hover:text-ink-heading transition-colors flex items-center gap-1.5">
+              <span>O jogo</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-secondary/15 text-secondary border border-secondary/30 font-code font-bold">XP</span>
             </a>
-            <a href="#precos" className="hover:text-ink-heading transition-colors">Planos</a>
-            <a href="#faq" className="hover:text-ink-heading transition-colors">Dúvidas</a>
-            <div className="relative" onMouseLeave={() => setIsGameMenuOpen(false)}>
-              <button
-                type="button"
-                onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
-                aria-expanded={isGameMenuOpen}
-                aria-haspopup="true"
-                className="hover:text-ink-heading transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <IconGamepad className="w-5 h-5" />
-                <span>Jogo</span>
-                <IconChevronDown className={`w-4 h-4 transition-transform ${isGameMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isGameMenuOpen && (
-                <div className="absolute right-0 top-full pt-3 z-50">
-                  <div className="w-52 rounded-2xl bg-surface-1 border border-border-1 shadow-elev-sm p-2 flex flex-col">
-                    <Link href="/game" onClick={() => setIsGameMenuOpen(false)} className="px-3 py-2.5 rounded-xl text-sm text-ink-body hover:text-ink-heading hover:bg-surface-2 transition-colors flex items-center gap-2">
-                      <IconGamepad className="w-5 h-5 shrink-0" />
-                      <span>Modo RPG 2D</span>
-                    </Link>
-                    <Link href="/onboarding" data-cta-id="nav_avatar" onClick={() => { track('nav_cta', 'nav_avatar'); setIsGameMenuOpen(false); }} className="px-3 py-2.5 rounded-xl text-sm text-ink-body hover:text-ink-heading hover:bg-surface-2 transition-colors flex items-center gap-2">
-                      <IconSparkle className="w-5 h-5 shrink-0" />
-                      <span>Criar Avatar</span>
-                    </Link>
-                    <a href="#colecionaveis" onClick={() => setIsGameMenuOpen(false)} className="px-3 py-2.5 rounded-xl text-sm text-ink-body hover:text-ink-heading hover:bg-surface-2 transition-colors flex items-center gap-2">
-                      <IconCards className="w-5 h-5 shrink-0" />
-                      <span>Cards TCG</span>
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
+            <a href="#recursos" className="hover:text-ink-heading transition-colors">Recursos &amp; IA</a>
+            <a href="#planos" className="hover:text-ink-heading transition-colors">Planos</a>
           </nav>
 
           {/* Botões do Navbar na Direita */}
@@ -196,7 +146,7 @@ export const LandingChrome: React.FC = () => {
                 curto no mobile ("Começar grátis", como o protótipo) e
                 sem quebra em nenhuma largura. */}
             <Link
-              href="/onboarding"
+              href="/register"
               data-cta-id="nav_primary"
               onClick={() => track('nav_cta', 'nav_primary')}
               className="inline-flex shrink-0 whitespace-nowrap items-center gap-2 px-3 sm:px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
@@ -226,40 +176,24 @@ export const LandingChrome: React.FC = () => {
         {/* Mobile Drawer */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-border-1 px-6 py-5 bg-surface-1/95 backdrop-blur-xl shadow-2xl flex flex-col gap-3 animate-fadeIn">
-            {/* Sprint 7 — drawer na mesma ordem da oferta do desktop */}
+            {/* Central 218 (D1) — drawer com os mesmos 5 itens do
+                protótipo, na mesma ordem do desktop. */}
             <a href="#como-funciona" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              Como Funciona
+              Como funciona
             </a>
             <a href="#trilhas" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              4 Trilhas Práticas
+              Trilhas
             </a>
-            <a href="#sandbox" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2 flex items-center justify-between">
-              <span>Terminal Interativo</span>
-              <span className="text-body-sm font-mono px-2 py-0.5 rounded bg-brand-purple/15 text-brand-purple-light border border-brand-purple/30">IDE</span>
+            <a href="#o-jogo" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2 flex items-center gap-1.5">
+              <span>O jogo</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-secondary/15 text-secondary border border-secondary/30 font-code font-bold">XP</span>
             </a>
-            <a href="#precos" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              Planos & Preços
+            <a href="#recursos" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+              Recursos &amp; IA
             </a>
-            <a href="#faq" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-              Perguntas Frequentes
+            <a href="#planos" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
+              Planos
             </a>
-            {/* Sprint 9 — no drawer, os links do jogo viram um grupo
-                rotulado "Jogo" (mesma lógica do dropdown do desktop):
-                a oferta lidera e o jogo fica a um nível de distância */}
-            <div className="pt-2 mt-1 border-t border-border-1">
-              <span className="block text-xs font-mono font-bold uppercase tracking-wider text-ink-span py-1.5">Jogo</span>
-              <div className="flex flex-col pl-3">
-                <Link href="/game" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-                  Modo RPG 2D
-                </Link>
-                <Link href="/onboarding" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-                  Criar Avatar
-                </Link>
-                <a href="#colecionaveis" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-medium text-ink-body hover:text-ink-heading py-2">
-                  Cards TCG
-                </a>
-              </div>
-            </div>
             <div className="pt-3 border-t border-border-1 flex items-center justify-between gap-3">
               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-body-sm font-semibold text-ink-body hover:text-ink-heading py-2">
                 Entrar
