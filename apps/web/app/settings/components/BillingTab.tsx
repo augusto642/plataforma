@@ -1,8 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import {
+  fetchMyPlanInterest,
+  planDisplayName,
+  planPriceLabel,
+  type PlanInterestView,
+} from '../../lib/planInterest';
 
 // B37 (Sprint 11) — aba de plano HONESTA.
 // Antes esta tela era um stub fictício: plano "PRO ativo" com renovação
@@ -32,6 +38,22 @@ const PRO_INCLUDES = [
 
 export const BillingTab: React.FC = () => {
   const { user, isLoading } = useAuth();
+
+  // B54 (Sprint 17) — registro da lista de interessados (GET
+  // /plan-interest/me): existe quando o usuário clicou num plano pago
+  // na landing e concluiu o cadastro/entrou logado. É um registro de
+  // interesse, não uma assinatura: nenhum valor é cobrado.
+  const [interest, setInterest] = useState<PlanInterestView | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyPlanInterest().then((view) => {
+      if (active) setInterest(view);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -156,6 +178,25 @@ export const BillingTab: React.FC = () => {
           e os recibos reais da sua assinatura.
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 4. LISTA DE INTERESSADOS (B54 — SPRINT 17): REGISTRO REAL, SEM COBRANÇA   */}
+      {/* ========================================================================= */}
+      {interest && (
+        <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+          <h3 className="text-base font-bold text-white font-heading mb-1">
+            Lista de interessados — plano {planDisplayName(interest.plan)}
+          </h3>
+          <p className="text-xs text-zinc-400 max-w-2xl">
+            Você entrou na lista de interessados do plano {planDisplayName(interest.plan)} (
+            {interest.billingCycle === 'annual' ? 'ciclo anual' : 'ciclo mensal'},{' '}
+            {planPriceLabel(interest)}) em{' '}
+            {new Date(interest.createdAt).toLocaleDateString('pt-BR')}. A cobrança dos planos
+            pagos ainda não está ativa: este registro não é uma assinatura e nenhum valor é
+            cobrado. Quando a cobrança abrir, avisamos você.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

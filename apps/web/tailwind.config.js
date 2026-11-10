@@ -42,7 +42,8 @@ module.exports = {
           span: '#8B8B9A',
         },
         // D2 — token de foco visível (anel global em globals.css)
-        focus: '#03B2CB',
+        // B59 (Sprint 17) — alinhado ao ciano da marca (#00E5FF)
+        focus: '#00E5FF',
         brand: {
           green: '#00B37E',
           'green-neon': '#04D361',

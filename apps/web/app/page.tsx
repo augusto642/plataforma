@@ -30,6 +30,15 @@ import { StructuredData } from './components/landing/StructuredData';
 export default function HomePage() {
   return (
     <div className="bg-background text-ink-body antialiased selection:bg-brand-purple/30 selection:text-brand-purple-light relative overflow-x-hidden font-sans">
+      {/* B59 (Sprint 17 · Volta 2) — skip link: primeiro elemento
+          focável da página; invisível até o foco, salta o chrome e
+          cai direto no <main>. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70] focus:rounded-xl focus:bg-brand-purple focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:font-bold focus:text-white"
+      >
+        Pular para o conteúdo principal
+      </a>
       {/* AURAS & AMBIENT MESH DE FUNDO DARK OBSIDIAN LUXURY */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         {/* Glow Spheres Suaves em GPU — Sprint 7 (dieta de ambiente do
@@ -56,14 +65,18 @@ export default function HomePage() {
       {/* B44 (Sprint 15) — JSON-LD real da home (Organization + FAQPage) */}
       <StructuredData />
 
-      {/* MAIN CONTAINER */}
-      <div id="main-content">
+      {/* MAIN CONTAINER — B59 (Sprint 17 · Volta 2): vira <main> de
+          verdade (landmark para leitores de tela e alvo do skip link);
+          era uma <div id="main-content"> sem semântica. */}
+      <main id="main-content">
         <HeroSection />
         <MethodologySection />
   {/* DEMONSTRAÇÃO DA TUTORA DE IA COM MÉTODO SOCRÁTICO — Sprint 7: a
       seção da mascote desceu: sai do caminho hero → metodologia e entra
-      DEPOIS da Metodologia (ordem: Hero → Metodologia → Mascote →
-      Trilhas → Sandbox → Pilares → TCG → Versus → Stack → Preços → FAQ) */}
+      DEPOIS da Metodologia. Sprint 17 (Volta 2 · B59): a Pricing sobe
+      para logo depois da Sandbox. Ordem atual: Hero → Metodologia →
+      Tutora → Trilhas → Sandbox → Preços → Pilares → TCG → Versus →
+      Stack → FAQ → CTA final → Rodapé */}
   <LumiMascotHero />
         <TracksSection />
   {/* 5. TERMINAL INTERATIVO COM AS CORES DA PÁGINA PRINCIPAL */}
@@ -130,6 +143,15 @@ export default function HomePage() {
     </div>
           <SandboxDemo />
         </section>
+        {/* B59 (Sprint 17 · Volta 2) — preço mais cedo + cadência: a
+            Pricing sai do fim da página (depois de Versus/Stack) e
+            vem para logo depois da Sandbox, onde a intenção de compra
+            nasce; e ganha a ÚNICA faixa de fundo cheia da landing —
+            a variação de ritmo que quebra a cadência de seções
+            idênticas separadas por border-t. */}
+        <div className="relative z-10 border-y border-border-2/70 bg-surface-1/60">
+          <PricingSection />
+        </div>
         {/* OS 4 PILARES DA NEXUS CODE (GRID BENTO) */}
         <NexusPillarsGrid />
         {/* SHOWCASE DOS CARDS TCG HOLOGRÁFICOS 3D */}
@@ -137,11 +159,10 @@ export default function HomePage() {
         {/* O COMPARATIVO BRUTAL: VELHO MUNDO VS ARENA NEXUS */}
         <ComparisonVersus />
         <StackSection />
-        <PricingSection />
         <FaqSection />
         <FinalCtaSection />
         <LandingFooter />
-      </div>
+      </main>
     </div>
   );
 }

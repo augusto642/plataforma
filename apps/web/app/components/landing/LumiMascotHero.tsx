@@ -106,7 +106,7 @@ export const LumiMascotHero: React.FC = () => {
   };
 
   return (
-    <section className="relative my-20 max-w-5xl mx-auto px-4">
+    <section className="relative py-20 max-w-5xl mx-auto px-4">
       {/* Sprint 9 — a moldura especular (anel em gradiente roxo→ciano)
           foi aposentada: borda sólida de token + sombra da escala */}
       <div className="relative rounded-[28px] border border-border-2 bg-surface-1 shadow-elev-md">
@@ -166,9 +166,14 @@ export const LumiMascotHero: React.FC = () => {
             <div className="flex-1 w-full text-left">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
-                    Mentoria Socrática em Tempo Real
-                  </span>
+                  {/* B56 (Sprint 17 · Volta 2) — a seção ganha o seu H2
+                      (o outline pulava do H1 direto aos H2 seguintes) e
+                      o título perde o "em Tempo Real": o diálogo aqui é
+                      roteiro fixo de demonstração, como o selo abaixo
+                      declara — tempo real é o da tutora na plataforma. */}
+                  <h2 className="font-heading font-black text-ink-heading text-base sm:text-lg tracking-tight">
+                    Mentoria Socrática
+                  </h2>
                   <span className="text-xs font-mono text-brand-purple-light bg-brand-purple-low px-2.5 py-0.5 rounded-full border border-brand-purple/30">
                     Zero Resposta Pronta • 100% Reflexão
                   </span>

@@ -69,6 +69,7 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   companion         UserCompanion?
+  planInterest      PlanInterest?
   refreshTokens     RefreshToken[]
   emailVerificationCodes EmailVerificationCode[]
   diagnosticResults DiagnosticResult[]
@@ -390,4 +391,25 @@ model TrackWaitlistEntry {
   @@unique([email, track])
   @@index([track])
   @@map("track_waitlist_entries")
+}
+
+// Sprint 17 (Ciclo 10/10 · Volta 2/B54) — destino real da intenção de
+// plano da landing. A cobrança dos planos pagos ainda NÃO está ativa:
+// quem clica num plano pago na landing e conclui o cadastro (ou entra
+// logado) entra na LISTA DE INTERESSADOS daquele plano — registro
+// contável no servidor (GET /plan-interest/counts), um por usuário
+// (unique em user_id; nova intenção substitui a anterior). Nenhum
+// benefício é prometido além do aviso quando a cobrança abrir.
+model PlanInterest {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  plan         String   @db.VarChar(16)
+  billingCycle String?  @map("billing_cycle") @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([plan])
+  @@map("plan_interests")
 }

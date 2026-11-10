@@ -132,6 +132,19 @@ export function readPlanIntent(): PlanIntent | null {
   }
 }
 
+/**
+ * Sprint 17 (Volta 2/B54) — a intenção é CONSUMIDA quando vira registro
+ * no servidor (POST /plan-interest): limpar a chave evita registrar o
+ * mesmo clique de novo em remounts e navegações seguintes.
+ */
+export function clearPlanIntent(): void {
+  try {
+    sessionStorage.removeItem(PLAN_INTENT_KEY);
+  } catch {
+    // sessionStorage indisponível: nada a limpar
+  }
+}
+
 /** Intenção de plano no formato de props de analytics ({} se não houver). */
 export function readPlanIntentProps(): Record<string, string> {
   const intent = readPlanIntent();

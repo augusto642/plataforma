@@ -40,10 +40,17 @@ export const HeroSection: React.FC = () => (
           Do primeiro exercício ao <span className="text-brand-purple">mercado de tecnologia</span>.
         </h1>
 
-        {/* SUBHEADLINE: O ARCO INTEIRO, EM FRASES VERIFICÁVEIS */}
+        {/* SUBHEADLINE: O PONTO DE PARTIDA REAL + A JORNADA COMO CAMINHO
+            B53 (Sprint 17 · Volta 2) — a versão anterior narrava o arco
+            inteiro no presente ("sobe de nível: projetos guiados, a IDE
+            completa, até montar um portfólio"), como se cada estágio já
+            fosse inventário. Agora: o que está no ar hoje (prólogo
+            jogável + cursos introdutórios de JavaScript e Python) é o
+            ponto de partida declarado; os estágios seguintes são o
+            caminho/destino — a gramática que o HeroEvolution usa. */}
         <p className="hero-rise font-sans text-base sm:text-lg text-ink-body leading-relaxed mb-4 max-w-xl" style={{ animationDelay: '180ms' }}>
           Sem horas de vídeo que não viram prática: aqui, <strong className="text-ink-heading">cada conceito vira um exercício</strong> — código escrito por você e corrigido na hora.
-          Você começa em missões no formato de jogo e sobe de nível: projetos guiados, a IDE completa, até montar um portfólio que as empresas buscam.
+          Você começa hoje pelo prólogo jogável e pelos cursos introdutórios de JavaScript e Python que já estão no ar — e a jornada continua em estágios: projetos guiados, níveis avançados e o portfólio verificável são o caminho até o mercado.
           O destino não é um certificado. É você, <strong className="text-ink-heading">dev completo, pronto para o mercado</strong>.
         </p>
 
@@ -74,9 +81,12 @@ export const HeroSection: React.FC = () => (
           </TrackedLink>
         </div>
 
-        {/* MICROCOPY DO LOTE FUNDADOR (HONESTA, SEM URGÊNCIA INVENTADA) */}
+        {/* MICROCOPY DE PREÇO (HONESTA, SEM URGÊNCIA INVENTADA)
+            B54 (Sprint 17 · Volta 2) — "lote fundador" saiu: não existe
+            lote, cota nem prazo definidos. O que existe é a lista de
+            interessados do plano (B54), e é ela que a microcopy nomeia. */}
         <p className="hero-rise text-xs font-mono text-ink-span mb-8" style={{ animationDelay: '380ms' }}>
-          Lote fundador aberto · Pro por {formatBRL(PLAN_PRICES.pro.monthly)}/mês · grátis para começar, sem cartão
+          Lista de interessados do Pro aberta · Pro por {formatBRL(PLAN_PRICES.pro.monthly)}/mês · grátis para começar, sem cartão
         </p>
 
         {/* PROVAS DE MECANISMO (SUBSTITUEM AS MÉTRICAS FABRICADAS) */}

@@ -190,19 +190,25 @@ export const TcgCardsShowcase: React.FC = () => {
   }, []);
 
   return (
-    <section id="colecionaveis" className="relative py-28 px-4 sm:px-6 max-w-7xl mx-auto">
+    <section id="colecionaveis" className="relative py-16 px-4 sm:px-6 max-w-7xl mx-auto">
+      {/* B58 (Sprint 17 · Volta 2) — peso de conceito: a seção era o
+          bloco mais brilhante da página (py-28, H2 em 6xl, cards altos
+          com foil forte e modal de 2xl com glow) para um recurso que
+          NÃO existe. Escala reduzida em todas as superfícies — seção,
+          título, cards, foil, CTA e modal — até a hierarquia visual
+          condizer com o selo "conceito em exploração". */}
       {/* Sprint 9 — a faixa ambiente tricolor atrás da seção foi
           aposentada (dialeto ambiente fora da referência da casa);
           o foil holográfico dos cards segue, ele é o conteúdo */}
 
       {/* Título de Seção Assimétrico (Esquerda + Direita) */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-16">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
         <div className="max-w-2xl text-left">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-2 border border-border-1 text-brand-purple-light text-xs font-mono font-bold mb-4 shadow-elev-xs">
             <IconCards className="w-5 h-5" />
             <span>NO RADAR // CONCEITO EM EXPLORAÇÃO</span>
           </div>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-black text-ink-heading tracking-tight mb-4">
             Cards colecionáveis: um conceito no nosso radar
           </h2>
           {/* B48/P1 (Sprint 16) — a copy antiga prometia desbloqueio de
@@ -233,12 +239,12 @@ export const TcgCardsShowcase: React.FC = () => {
       </div>
 
       {/* Grid de 4 Cards TCG de Luxo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {TCG_CARDS.map((card) => {
           const isTilted = activeTilt?.id === card.id;
           const transformStyle = isTilted
             ? {
-                transform: `perspective(1000px) rotateX(${activeTilt.rx}deg) rotateY(${activeTilt.ry}deg) scale3d(1.03, 1.03, 1.03)`,
+                transform: `perspective(1000px) rotateX(${activeTilt.rx}deg) rotateY(${activeTilt.ry}deg) scale3d(1.01, 1.01, 1.01)`,
                 transition: 'transform 0.08s ease-out',
               }
             : {
@@ -254,14 +260,14 @@ export const TcgCardsShowcase: React.FC = () => {
               onMouseMove={(e) => handleMouseMove(e, card.id)}
               onMouseLeave={handleMouseLeave}
               style={transformStyle}
-              className="relative rounded-[26px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent cursor-pointer select-none group transition-all duration-300 hover:shadow-elev-2xl"
+              className="relative rounded-[26px] p-[1px] bg-gradient-to-b from-surface-4 via-surface-3 to-transparent cursor-pointer select-none group transition-all duration-300 hover:shadow-elev-md"
             >
-              <div className="relative rounded-[25px] bg-gradient-to-b from-surface-2 via-surface-1 to-background p-5 h-full flex flex-col justify-between overflow-hidden">
+              <div className="relative rounded-[25px] bg-gradient-to-b from-surface-2 via-surface-1 to-background p-4 h-full flex flex-col justify-between overflow-hidden">
                 {/* Efeito Holográfico Reforçado com Prisma e Luz Arco-Íris */}
                 {isTilted && (
                   <>
                     <div
-                      className="pointer-events-none absolute inset-0 mix-blend-color-dodge opacity-75 z-20 rounded-[25px]"
+                      className="pointer-events-none absolute inset-0 mix-blend-color-dodge opacity-50 z-20 rounded-[25px]"
                       style={{
                         background: `radial-gradient(circle at ${activeTilt.mx}% ${activeTilt.my}%, rgba(255,255,255,0.85) 0%, rgba(0,229,255,0.5) 25%, rgba(168,85,247,0.4) 50%, rgba(245,158,11,0.3) 75%, transparent 100%)`,
                       }}
@@ -286,7 +292,7 @@ export const TcgCardsShowcase: React.FC = () => {
 
                   {/* Arte do Card — Sprint 7: ilustração própria em tela cheia
                       da área de arte (lazy: a seção fica fora da primeira dobra) */}
-                  <div className="relative w-full h-44 rounded-2xl overflow-hidden bg-surface-2 border border-border-1 mb-4 shadow-inner group-hover:border-border-2 transition-colors">
+                  <div className="relative w-full h-36 rounded-2xl overflow-hidden bg-surface-2 border border-border-1 mb-4 shadow-inner group-hover:border-border-2 transition-colors">
                     <Image
                       src={card.avatarImage}
                       alt={card.avatarAlt}
@@ -358,7 +364,7 @@ export const TcgCardsShowcase: React.FC = () => {
       </div>
 
       {/* CTA Inferior de Coleção */}
-      <div className="mt-12 text-center">
+      <div className="mt-8 text-center">
         <Link
           href="/onboarding"
           data-cta-id="tcg_onboarding"
@@ -373,11 +379,11 @@ export const TcgCardsShowcase: React.FC = () => {
       {/* MODAL DE INSPEÇÃO ULTRA DETALHADA DO CARD */}
       {inspectedCard && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn"
           onClick={() => setInspectedCard(null)}
         >
           <div
-            className="relative w-full max-w-2xl rounded-3xl border border-border-2 bg-gradient-to-br from-surface-2 via-surface-1 to-background p-6 sm:p-8 shadow-glow-cyan-lg text-left"
+            className="relative w-full max-w-lg rounded-3xl border border-border-2 bg-gradient-to-br from-surface-2 via-surface-1 to-background p-5 sm:p-6 text-left"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Botão Fechar */}
@@ -391,17 +397,17 @@ export const TcgCardsShowcase: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
               {/* Mini Card Holográfico Destaque */}
-              <div className="relative w-44 shrink-0 rounded-2xl p-[1px] bg-gradient-to-b from-surface-4 to-surface-3 shadow-2xl">
-                <div className="rounded-[15px] bg-background p-4 text-center">
+              <div className="relative w-36 shrink-0 rounded-2xl p-[1px] bg-gradient-to-b from-surface-4 to-surface-3 shadow-lg">
+                <div className="rounded-[15px] bg-background p-3 text-center">
                   <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-full border ${inspectedCard.rarityColor} inline-block mb-3`}>
                     {inspectedCard.rarity}
                   </span>
-                  <div className="relative w-32 h-32 mx-auto mb-2 rounded-xl overflow-hidden">
+                  <div className="relative w-24 h-24 mx-auto mb-2 rounded-xl overflow-hidden">
                     <Image
                       src={inspectedCard.avatarImage}
                       alt={inspectedCard.avatarAlt}
                       fill
-                      sizes="128px"
+                      sizes="96px"
                       className="object-cover"
                     />
                   </div>
@@ -420,7 +426,7 @@ export const TcgCardsShowcase: React.FC = () => {
                   <span className="text-ink-span">•</span>
                   <span className="text-xs font-mono text-ink-span">{inspectedCard.edition}</span>
                 </div>
-                <h3 className="text-2xl font-heading font-black text-ink-heading mb-1">{inspectedCard.name}</h3>
+                <h3 className="text-xl font-heading font-black text-ink-heading mb-1">{inspectedCard.name}</h3>
                 <p className="text-body-sm text-ink-span font-sans mb-4">{inspectedCard.lore}</p>
 
                 {/* Habilidades */}

@@ -68,6 +68,7 @@ export const metadata: Metadata = {
 
 import { AuthProvider } from './context/AuthContext';
 import { QueryProvider } from './providers/QueryProvider';
+import { PlanInterestNotice } from './components/PlanInterestNotice';
 
 export default function RootLayout({
   children,
@@ -78,7 +79,10 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-[#09090A] text-[#F4F4F5] antialiased">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <PlanInterestNotice />
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

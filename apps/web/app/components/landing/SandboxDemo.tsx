@@ -10,9 +10,17 @@ import { IconBolt, IconPlay } from './icons';
 /* Sprint 10 · B34 — ilha client do sandbox: seletor de linguagem +
    "execução" da demonstração ilustrativa + banner pós-terminal.
    Os CODE_SNIPPETS moram aqui (saíram do page.tsx). O cabeçalho da
-   seção e as telas reais do produto são Server Components no page. */
+   seção e as telas reais do produto são Server Components no page.
+   B57 (Sprint 17 · Volta 2) — as amostras agora são das linguagens
+   REAIS do catálogo e em nível iniciante: saíram o rate limiter em
+   Rust ("Sistemas Distribuídos & Baixa Latência") e o worker pool
+   em Go ("Microsserviços & Concorrência") — linguagens que não são
+   cursos hoje e temas que nenhum iniciante encontra no produto —
+   e o two_sum O(N) com 10.000 elementos. Entram JavaScript, Python
+   e Java (enum real da plataforma) com exemplos do tamanho das
+   primeiras lições dos cursos introdutórios que estão no ar. */
 
-type LangKey = 'python' | 'rust' | 'go';
+type LangKey = 'javascript' | 'python' | 'java';
 
 const CODE_SNIPPETS: Record<LangKey, {
   fileName: string;
@@ -20,126 +28,73 @@ const CODE_SNIPPETS: Record<LangKey, {
   output: string;
   lines: string[];
 }> = {
+  javascript: {
+    fileName: 'pontos.js',
+    level: 'Nível: Iniciante',
+    output: `✔ Execução concluída com sucesso.
+Total de pontos: 100
+✔ Correção por testes reais: 3 de 3 testes aprovados.`,
+    lines: [
+    "<span class=\"text-ink-span italic\">// Soma os pontos de cada missão concluída</span>",
+    "<span class=\"text-syntax-keyword font-semibold\">function</span> <span class=\"text-syntax-fn font-bold\">totalDePontos</span>(<span class=\"text-syntax-base\">pontos</span>) {",
+    "  <span class=\"text-syntax-keyword font-semibold\">let</span> <span class=\"text-syntax-base\">total</span> = <span class=\"text-syntax-number\">0</span>;",
+    "  <span class=\"text-syntax-keyword font-semibold\">for</span> (<span class=\"text-syntax-keyword font-semibold\">const</span> <span class=\"text-syntax-base\">p</span> <span class=\"text-syntax-keyword font-semibold\">of</span> <span class=\"text-syntax-base\">pontos</span>) {",
+    "    <span class=\"text-syntax-base\">total</span> += <span class=\"text-syntax-base\">p</span>;",
+    "  }",
+    "  <span class=\"text-syntax-keyword font-semibold\">return</span> <span class=\"text-syntax-base\">total</span>;",
+    "}",
+    "",
+    "<span class=\"text-syntax-keyword font-semibold\">const</span> <span class=\"text-syntax-base\">missoes</span> = [<span class=\"text-syntax-number\">50</span>, <span class=\"text-syntax-number\">30</span>, <span class=\"text-syntax-number\">20</span>];",
+    "<span class=\"text-syntax-base\">console</span>.<span class=\"text-syntax-fn\">log</span>(<span class=\"text-syntax-string\">\"Total de pontos:\"</span>, <span class=\"text-syntax-fn\">totalDePontos</span>(<span class=\"text-syntax-base\">missoes</span>));"
+]
+  },
   python: {
-    fileName: 'two_sum.py',
-    level: 'Nível: Fundamentos & Algoritmos',
+    fileName: 'media.py',
+    level: 'Nível: Iniciante',
+    output: `✔ Execução concluída com sucesso.
+Média final: 8.0
+✔ Correção por testes reais: 3 de 3 testes aprovados.`,
+    lines: [
+    "<span class=\"text-ink-span italic\"># Calcula a média das notas de um aluno</span>",
+    "<span class=\"text-syntax-keyword font-semibold\">def</span> <span class=\"text-syntax-fn font-bold\">media</span>(<span class=\"text-syntax-base\">notas</span>):",
+    "    <span class=\"text-syntax-base\">soma</span> = <span class=\"text-syntax-number\">0</span>",
+    "    <span class=\"text-syntax-keyword font-semibold\">for</span> <span class=\"text-syntax-base\">nota</span> <span class=\"text-syntax-keyword font-semibold\">in</span> <span class=\"text-syntax-base\">notas</span>:",
+    "        <span class=\"text-syntax-base\">soma</span> += <span class=\"text-syntax-base\">nota</span>",
+    "    <span class=\"text-syntax-keyword font-semibold\">return</span> <span class=\"text-syntax-base\">soma</span> / <span class=\"text-syntax-fn\">len</span>(<span class=\"text-syntax-base\">notas</span>)",
+    "",
+    "<span class=\"text-syntax-base\">notas</span> = [<span class=\"text-syntax-number\">8</span>, <span class=\"text-syntax-number\">7</span>, <span class=\"text-syntax-number\">9</span>]",
+    "<span class=\"text-syntax-fn\">print</span>(<span class=\"text-syntax-string\">\"Média final:\"</span>, <span class=\"text-syntax-fn\">media</span>(<span class=\"text-syntax-base\">notas</span>))"
+]
+  },
+  java: {
+    fileName: 'Main.java',
+    level: 'Nível: Iniciante',
     output: `✔ Compilação e execução concluídas com sucesso.
-Resultado: [9998, 9999] | Tempo: 0.142ms
-✔ Análise de Complexidade: O(N) Tempo Linear comprovado.
-✔ Uso de Memória RSS: 4.1 MB (Sem vazamentos).`,
+Contagem: 1
+Contagem: 2
+Contagem: 3
+Contagem: 4
+Contagem: 5
+Largada!
+✔ Correção por testes reais: 3 de 3 testes aprovados.`,
     lines: [
-    "<span class=\"text-syntax-keyword font-semibold\">def</span> <span class=\"text-syntax-fn font-bold\">two_sum_optimal</span>(<span class=\"text-syntax-base\">nums</span>: <span class=\"text-syntax-type\">list</span>[<span class=\"text-syntax-type\">int</span>], <span class=\"text-syntax-base\">target</span>: <span class=\"text-syntax-type\">int</span>) -&gt; <span class=\"text-syntax-type\">list</span>[<span class=\"text-syntax-type\">int</span>]:",
-    "    <span class=\"text-syntax-string italic\">&quot;&quot;&quot;</span>",
-    "    <span class=\"text-syntax-string italic\">Encontra os índices de dois números que somam o target.</span>",
-    "    <span class=\"text-syntax-string italic\">Complexidade: O(N) tempo e O(N) espaço residente.</span>",
-    "    <span class=\"text-syntax-string italic\">&quot;&quot;&quot;</span>",
-    "    <span class=\"text-syntax-base\">seen</span> = {}",
-    "    <span class=\"text-syntax-keyword font-semibold\">for</span> <span class=\"text-syntax-base\">i</span>, <span class=\"text-syntax-base\">num</span> <span class=\"text-syntax-keyword font-semibold\">in</span> <span class=\"text-syntax-fn\">enumerate</span>(<span class=\"text-syntax-base\">nums</span>):",
-    "        <span class=\"text-syntax-base\">diff</span> = <span class=\"text-syntax-base\">target</span> - <span class=\"text-syntax-base\">num</span>",
-    "        <span class=\"text-syntax-keyword font-semibold\">if</span> <span class=\"text-syntax-base\">diff</span> <span class=\"text-syntax-keyword font-semibold\">in</span> <span class=\"text-syntax-base\">seen</span>:",
-    "            <span class=\"text-syntax-keyword font-semibold\">return</span> [<span class=\"text-syntax-base\">seen</span>[<span class=\"text-syntax-base\">diff</span>], <span class=\"text-syntax-base\">i</span>]",
-    "        <span class=\"text-syntax-base\">seen</span>[<span class=\"text-syntax-base\">num</span>] = <span class=\"text-syntax-base\">i</span>",
-    "    <span class=\"text-syntax-keyword font-semibold\">return</span> []",
-    "",
-    "<span class=\"text-ink-span italic\"># Caso de teste com 10.000 elementos</span>",
-    "<span class=\"text-syntax-keyword font-semibold\">import</span> <span class=\"text-syntax-base\">time</span>",
-    "<span class=\"text-syntax-base\">start</span> = <span class=\"text-syntax-base\">time</span>.<span class=\"text-syntax-fn\">perf_counter</span>()",
-    "<span class=\"text-syntax-base\">res</span> = <span class=\"text-syntax-fn\">two_sum_optimal</span>(<span class=\"text-syntax-type\">list</span>(<span class=\"text-syntax-fn\">range</span>(<span class=\"text-syntax-number\">10000</span>)), <span class=\"text-syntax-number\">19997</span>)",
-    "<span class=\"text-syntax-base\">elapsed</span> = (<span class=\"text-syntax-base\">time</span>.<span class=\"text-syntax-fn\">perf_counter</span>() - <span class=\"text-syntax-base\">start</span>) * <span class=\"text-syntax-number\">1000</span>",
-    "<span class=\"text-syntax-fn\">print</span>(<span class=\"text-syntax-string\">f&quot;Resultado: {res} | Tempo: {elapsed:.3f}ms&quot;</span>)"
-]
-  },
-  rust: {
-    fileName: 'rate_limiter.rs',
-    level: 'Nível: Sistemas Distribuídos & Baixa Latência',
-    output: `✔ Compilação rustc 1.78.0 (release mode): 0 warnings
-✔ Test Suite: Concurrency Burst (50.000 req/s) -> PASSED (11.2ms)
-✔ Memory RSS: 2.1 MB (Zero heap thrashing)
-✔ Complexidade: O(log N) worst-case lookup verificado.`,
-    lines: [
-    "<span class=\"text-syntax-keyword font-semibold\">pub struct</span> <span class=\"text-syntax-type font-bold\">SlidingWindowLimiter</span> {",
-    "    <span class=\"text-syntax-base\">capacity</span>: <span class=\"text-syntax-type\">usize</span>,",
-    "    <span class=\"text-syntax-base\">window_duration</span>: <span class=\"text-syntax-base\">std</span>::<span class=\"text-syntax-base\">time</span>::<span class=\"text-syntax-type\">Duration</span>,",
-    "    <span class=\"text-syntax-base\">events</span>: <span class=\"text-syntax-base\">std</span>::<span class=\"text-syntax-base\">collections</span>::<span class=\"text-syntax-type\">BTreeMap</span>&lt;<span class=\"text-syntax-base\">std</span>::<span class=\"text-syntax-base\">time</span>::<span class=\"text-syntax-type\">Instant</span>, <span class=\"text-syntax-type\">usize</span>&gt;,",
-    "}",
-    "",
-    "<span class=\"text-syntax-keyword font-semibold\">impl</span> <span class=\"text-syntax-type\">SlidingWindowLimiter</span> {",
-    "    <span class=\"text-syntax-keyword font-semibold\">pub fn</span> <span class=\"text-syntax-fn font-bold\">new</span>(<span class=\"text-syntax-base\">capacity</span>: <span class=\"text-syntax-type\">usize</span>, <span class=\"text-syntax-base\">window</span>: <span class=\"text-syntax-base\">std</span>::<span class=\"text-syntax-base\">time</span>::<span class=\"text-syntax-type\">Duration</span>) -&gt; <span class=\"text-syntax-type\">Self</span> {",
-    "        <span class=\"text-syntax-type\">Self</span> {",
-    "            <span class=\"text-syntax-base\">capacity</span>,",
-    "            <span class=\"text-syntax-base\">window_duration</span>: <span class=\"text-syntax-base\">window</span>,",
-    "            <span class=\"text-syntax-base\">events</span>: <span class=\"text-syntax-base\">std</span>::<span class=\"text-syntax-base\">collections</span>::<span class=\"text-syntax-type\">BTreeMap</span>::<span class=\"text-syntax-fn\">new</span>(),",
+    "<span class=\"text-ink-span italic\">// Conta de 1 a 5 e anuncia a largada</span>",
+    "<span class=\"text-syntax-keyword font-semibold\">public class</span> <span class=\"text-syntax-type font-bold\">Main</span> {",
+    "    <span class=\"text-syntax-keyword font-semibold\">public static void</span> <span class=\"text-syntax-fn font-bold\">main</span>(<span class=\"text-syntax-type\">String</span>[] <span class=\"text-syntax-base\">args</span>) {",
+    "        <span class=\"text-syntax-keyword font-semibold\">for</span> (<span class=\"text-syntax-type\">int</span> <span class=\"text-syntax-base\">i</span> = <span class=\"text-syntax-number\">1</span>; <span class=\"text-syntax-base\">i</span> &lt;= <span class=\"text-syntax-number\">5</span>; <span class=\"text-syntax-base\">i</span>++) {",
+    "            <span class=\"text-syntax-base\">System</span>.<span class=\"text-syntax-base\">out</span>.<span class=\"text-syntax-fn\">println</span>(<span class=\"text-syntax-string\">\"Contagem: \"</span> + <span class=\"text-syntax-base\">i</span>);",
     "        }",
+    "        <span class=\"text-syntax-base\">System</span>.<span class=\"text-syntax-base\">out</span>.<span class=\"text-syntax-fn\">println</span>(<span class=\"text-syntax-string\">\"Largada!\"</span>);",
     "    }",
-    "",
-    "    <span class=\"text-syntax-keyword font-semibold\">pub fn</span> <span class=\"text-syntax-fn font-bold\">allow</span>(&amp;<span class=\"text-syntax-keyword\">mut</span> <span class=\"text-syntax-keyword\">self</span>, <span class=\"text-syntax-base\">now</span>: <span class=\"text-syntax-base\">std</span>::<span class=\"text-syntax-base\">time</span>::<span class=\"text-syntax-type\">Instant</span>) -&gt; <span class=\"text-syntax-type\">bool</span> {",
-    "        <span class=\"text-syntax-keyword font-semibold\">let</span> <span class=\"text-syntax-base\">cutoff</span> = <span class=\"text-syntax-base\">now</span>.<span class=\"text-syntax-fn\">saturating_sub</span>(<span class=\"text-syntax-keyword\">self</span>.<span class=\"text-syntax-base\">window_duration</span>);",
-    "        <span class=\"text-syntax-keyword\">self</span>.<span class=\"text-syntax-base\">events</span>.<span class=\"text-syntax-fn\">retain</span>(|&amp;<span class=\"text-syntax-base\">time</span>, _| <span class=\"text-syntax-base\">time</span> &gt;= <span class=\"text-syntax-base\">cutoff</span>);",
-    "        <span class=\"text-syntax-keyword font-semibold\">let</span> <span class=\"text-syntax-base\">count</span>: <span class=\"text-syntax-type\">usize</span> = <span class=\"text-syntax-keyword\">self</span>.<span class=\"text-syntax-base\">events</span>.<span class=\"text-syntax-fn\">values</span>().<span class=\"text-syntax-fn\">sum</span>();",
-    "        <span class=\"text-syntax-keyword font-semibold\">if</span> <span class=\"text-syntax-base\">count</span> &lt; <span class=\"text-syntax-keyword\">self</span>.<span class=\"text-syntax-base\">capacity</span> {",
-    "            *<span class=\"text-syntax-keyword\">self</span>.<span class=\"text-syntax-base\">events</span>.<span class=\"text-syntax-fn\">entry</span>(<span class=\"text-syntax-base\">now</span>).<span class=\"text-syntax-fn\">or_insert</span>(<span class=\"text-syntax-number\">0</span>) += <span class=\"text-syntax-number\">1</span>;",
-    "            <span class=\"text-syntax-keyword font-semibold\">true</span>",
-    "        } <span class=\"text-syntax-keyword font-semibold\">else</span> {",
-    "            <span class=\"text-syntax-keyword font-semibold\">false</span>",
-    "        }",
-    "    }",
-    "}"
-]
-  },
-  go: {
-    fileName: 'worker_pool.go',
-    level: 'Nível: Microsserviços & Concorrência',
-    output: `✔ Compilação go build: 0 race conditions (-race flag)
-Processados: 2500050000 itens | Tempo: 14.8ms
-✔ Test Suite: 50.000 tarefas processadas concorrentemente
-✔ Throughput: 128.000 ops/segundo.`,
-    lines: [
-    "<span class=\"text-syntax-keyword font-semibold\">package</span> <span class=\"text-syntax-base\">main</span>",
-    "",
-    "<span class=\"text-syntax-keyword font-semibold\">import</span> (",
-    "    <span class=\"text-syntax-string\">&quot;fmt&quot;</span>",
-    "    <span class=\"text-syntax-string\">&quot;time&quot;</span>",
-    ")",
-    "",
-    "<span class=\"text-ink-span italic\">// Dispatcher gerencia fila de tarefas concorrentes</span>",
-    "<span class=\"text-syntax-keyword font-semibold\">func</span> <span class=\"text-syntax-fn font-bold\">processJobs</span>(<span class=\"text-syntax-base\">jobCount</span> <span class=\"text-syntax-type\">int</span>) <span class=\"text-syntax-type\">int</span> {",
-    "    <span class=\"text-syntax-base\">jobs</span> := <span class=\"text-syntax-fn\">make</span>(<span class=\"text-syntax-keyword\">chan</span> <span class=\"text-syntax-type\">int</span>, <span class=\"text-syntax-base\">jobCount</span>)",
-    "    <span class=\"text-syntax-base\">results</span> := <span class=\"text-syntax-fn\">make</span>(<span class=\"text-syntax-keyword\">chan</span> <span class=\"text-syntax-type\">int</span>, <span class=\"text-syntax-base\">jobCount</span>)",
-    "",
-    "    <span class=\"text-ink-span italic\">// Sobe 3 workers concorrentes</span>",
-    "    <span class=\"text-syntax-keyword font-semibold\">for</span> <span class=\"text-syntax-base\">w</span> := <span class=\"text-syntax-number\">1</span>; <span class=\"text-syntax-base\">w</span> &lt;= <span class=\"text-syntax-number\">3</span>; <span class=\"text-syntax-base\">w</span>++ {",
-    "        <span class=\"text-syntax-keyword font-semibold\">go func</span>() {",
-    "            <span class=\"text-syntax-keyword font-semibold\">for</span> <span class=\"text-syntax-base\">j</span> := <span class=\"text-syntax-keyword\">range</span> <span class=\"text-syntax-base\">jobs</span> {",
-    "                <span class=\"text-syntax-base\">results</span> &lt;- <span class=\"text-syntax-base\">j</span> * <span class=\"text-syntax-number\">2</span>",
-    "            }",
-    "        }()",
-    "    }",
-    "",
-    "    <span class=\"text-syntax-keyword font-semibold\">for</span> <span class=\"text-syntax-base\">j</span> := <span class=\"text-syntax-number\">1</span>; <span class=\"text-syntax-base\">j</span> &lt;= <span class=\"text-syntax-base\">jobCount</span>; <span class=\"text-syntax-base\">j</span>++ {",
-    "        <span class=\"text-syntax-base\">jobs</span> &lt;- <span class=\"text-syntax-base\">j</span>",
-    "    }",
-    "    <span class=\"text-syntax-fn\">close</span>(<span class=\"text-syntax-base\">jobs</span>)",
-    "",
-    "    <span class=\"text-syntax-base\">sum</span> := <span class=\"text-syntax-number\">0</span>",
-    "    <span class=\"text-syntax-keyword font-semibold\">for</span> <span class=\"text-syntax-base\">a</span> := <span class=\"text-syntax-number\">1</span>; <span class=\"text-syntax-base\">a</span> &lt;= <span class=\"text-syntax-base\">jobCount</span>; <span class=\"text-syntax-base\">a</span>++ {",
-    "        <span class=\"text-syntax-base\">sum</span> += &lt;-<span class=\"text-syntax-base\">results</span>",
-    "    }",
-    "    <span class=\"text-syntax-keyword font-semibold\">return</span> <span class=\"text-syntax-base\">sum</span>",
-    "}",
-    "",
-    "<span class=\"text-syntax-keyword font-semibold\">func</span> <span class=\"text-syntax-fn font-bold\">main</span>() {",
-    "    <span class=\"text-syntax-base\">start</span> := <span class=\"text-syntax-base\">time</span>.<span class=\"text-syntax-fn\">Now</span>()",
-    "    <span class=\"text-syntax-base\">total</span> := <span class=\"text-syntax-fn\">processJobs</span>(<span class=\"text-syntax-number\">50000</span>)",
-    "    <span class=\"text-syntax-base\">fmt</span>.<span class=\"text-syntax-fn\">Printf</span>(<span class=\"text-syntax-string\">&quot;Processados: %d itens | Tempo: %v\\n&quot;</span>, <span class=\"text-syntax-base\">total</span>, <span class=\"text-syntax-base\">time</span>.<span class=\"text-syntax-fn\">Since</span>(<span class=\"text-syntax-base\">start</span>))",
     "}"
 ]
   }
 };
 
 export const SandboxDemo: React.FC = () => {
-  const [activeLang, setActiveLang] = useState<LangKey>('python');
+  const [activeLang, setActiveLang] = useState<LangKey>('javascript');
   const [isExecuting, setIsExecuting] = useState(false);
-  const [terminalOutput, setTerminalOutput] = useState(CODE_SNIPPETS.python.output);
+  const [terminalOutput, setTerminalOutput] = useState(CODE_SNIPPETS.javascript.output);
 
   const handleRun = () => {
     // B50/P3 (Sprint 16) — a demo ganhou funil próprio no catálogo de
@@ -179,25 +134,14 @@ export const SandboxDemo: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-background p-1 rounded-xl border border-border-2">
           <button
             type="button"
-            onClick={() => handleSelectLang('rust')}
+            onClick={() => handleSelectLang('javascript')}
             className={`px-3.5 py-1.5 rounded-lg text-body-sm font-mono font-bold transition-all ${
-              activeLang === 'rust'
+              activeLang === 'javascript'
                 ? 'bg-brand-amber-solar text-black shadow-sm'
                 : 'text-ink-span hover:text-ink-heading'
             }`}
           >
-            Rust
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectLang('go')}
-            className={`px-3.5 py-1.5 rounded-lg text-body-sm font-mono font-bold transition-all ${
-              activeLang === 'go'
-                ? 'bg-brand-cyan-neon text-black shadow-sm'
-                : 'text-ink-span hover:text-ink-heading'
-            }`}
-          >
-            Go
+            JavaScript
           </button>
           <button
             type="button"
@@ -209,6 +153,17 @@ export const SandboxDemo: React.FC = () => {
             }`}
           >
             Python
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectLang('java')}
+            className={`px-3.5 py-1.5 rounded-lg text-body-sm font-mono font-bold transition-all ${
+              activeLang === 'java'
+                ? 'bg-brand-cyan-neon text-black shadow-sm'
+                : 'text-ink-span hover:text-ink-heading'
+            }`}
+          >
+            Java
           </button>
         </div>
 
@@ -245,7 +200,7 @@ export const SandboxDemo: React.FC = () => {
               <span className="hidden sm:inline text-ink-span">kernel-linux-v6.8</span>
             </div>
           </div>
-          
+
           <div className="flex font-mono leading-relaxed select-text">
             {/* Gutter / Numeração de Linhas */}
             <div className="select-none text-right pr-3.5 sm:pr-4 text-ink-span border-r border-border-1/80 space-y-0.5 shrink-0">
