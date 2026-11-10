@@ -41,8 +41,6 @@ function debounce(fn, delay = 300) {
   // Implemente aqui: cancele o temporizador anterior a cada
   // chamada e agende fn com os argumentos recebidos.
 }
-
-module.exports = { debounce };
 `;
 
 interface LiveTestResult {
@@ -68,6 +66,9 @@ async function runDebounceSelfTest(code: string): Promise<LiveTestResult> {
       lastArgs = args;
     };
     const debounced = debounce(fn, 50);
+    if (typeof debounced !== 'function') {
+      return { passed: false, lines: ['debounce não retornou uma função — implemente o retorno.'] };
+    }
     debounced('a');
     debounced('b');
     debounced('c');

@@ -125,7 +125,7 @@ export const LandingChrome: React.FC = () => {
           </div>
 
           {/* Navegação Central com maior espaçamento */}
-          <nav className="hidden md:flex items-center justify-center gap-6 lg:gap-8 xl:gap-10 text-[15px] font-semibold text-ink-body">
+          <nav className="hidden md:flex items-center justify-center gap-4 lg:gap-5 xl:gap-6 text-sm font-semibold text-ink-body whitespace-nowrap">
             {/* Sprint 7 — a navbar segue a ORDEM DA OFERTA (a mesma das
                 seções da página): Como Funciona → Trilhas → Terminal →
                 Planos → Dúvidas.

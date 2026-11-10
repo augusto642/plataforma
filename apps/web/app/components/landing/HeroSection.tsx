@@ -61,7 +61,7 @@ export const HeroSection: React.FC = () => (
               href="/register"
               ctaId="hero_primary"
               event="hero_cta"
-              className="group inline-flex items-center justify-center gap-3 px-7 py-4 rounded bg-brand-purple hover:bg-brand-purple-dark text-white text-sm sm:text-base font-heading font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-brand-purple/30 cursor-pointer"
+              className="group inline-flex items-center justify-center gap-3 px-7 py-4 rounded bg-brand-purple hover:bg-brand-purple-dark text-white text-sm sm:text-base font-heading font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-brand-purple/30 cursor-pointer whitespace-nowrap"
             >
               <span>Começar grátis agora</span>
               <span className="group-hover:translate-x-1.5 transition-transform duration-200 font-bold">→</span>
@@ -71,7 +71,7 @@ export const HeroSection: React.FC = () => (
               href="/onboarding"
               ctaId="hero_game_preview"
               event="hero_cta"
-              className="group inline-flex items-center justify-center gap-2 px-6 py-4 rounded bg-transparent hover:bg-surface-2 border border-border-2 hover:border-border-brand text-ink-heading font-heading font-bold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              className="group inline-flex items-center justify-center gap-2 px-6 py-4 rounded bg-transparent hover:bg-surface-2 border border-border-2 hover:border-border-brand text-ink-heading font-heading font-bold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
             >
               <span>🎮 Ver prévia do jogo</span>
             </TrackedLink>

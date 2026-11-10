@@ -76,7 +76,10 @@ export const PlanInterestForm: React.FC<PlanInterestFormProps> = ({
       <p className="text-xs font-mono text-ink-span mb-2">
         Ou entre na lista só com seu e-mail — sem criar conta agora:
       </p>
-      <div className="flex gap-2">
+      {/* Central 216 retrabalho (D1) — o formulário vivia em linha
+          (`flex gap-2`) dentro de cards de ~260px: o botão longo
+          espremia o input a ~26px de largura, inutilizável. Empilhado. */}
+      <div className="flex flex-col gap-2">
         <label className="sr-only" htmlFor={`plan-interest-email-${plan}`}>
           Seu e-mail para a lista de interessados do {planLabel}
         </label>
@@ -87,12 +90,12 @@ export const PlanInterestForm: React.FC<PlanInterestFormProps> = ({
           placeholder="seu@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="min-w-0 flex-1 px-3 py-2 rounded-xl bg-background border border-border-1 text-body-sm font-mono text-ink-heading placeholder:text-ink-span focus:outline-none focus:border-brand-purple"
+          className="w-full px-3 py-2 rounded-xl bg-background border border-border-1 text-body-sm font-mono text-ink-heading placeholder:text-ink-span focus:outline-none focus:border-brand-purple"
         />
         <button
           type="submit"
           disabled={status === 'sending'}
-          className="cursor-pointer shrink-0 inline-flex items-center justify-center px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-border-1 disabled:opacity-50"
+          className="cursor-pointer w-full inline-flex items-center justify-center px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-border-1 disabled:opacity-50"
         >
           {/* A9 (Lote 3) — o rótulo do botão É a ação da lista: a fase 1
               premium trocou o CTA do card Pro pelo checkout em modo de
