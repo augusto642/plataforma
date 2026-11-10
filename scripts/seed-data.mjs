@@ -138,13 +138,27 @@ async function main() {
     },
   });
 
+  // Sprint 20B — decisão do rename: o slug 'introducao-python' é MANTIDO.
+  // A página do aluno resolve o curso por match exato de slug e não existe
+  // mecanismo de alias/redirect no schema; o upsert é por slug, então
+  // trocar o slug criaria um curso novo e órfão em bancos já semeados, e
+  // as matrículas (que referenciam courseId) ficariam no curso antigo.
+  // O reposicionamento como trilha de sintaxe é feito por título/descrição
+  // — e, como na Sprint 20A, o `update` regrava título e descrição para
+  // bancos já semeados convergirem na próxima execução do seed.
   const course2 = await prisma.course.upsert({
     where: { slug: 'introducao-python' },
-    update: { enrollmentCode: 'WEB2024' },
+    update: {
+      title: 'Sintaxe Python — Trilha Completa',
+      description:
+        'A trilha de sintaxe do Python do zero ao projeto final: saída e variáveis, strings, operadores, condicionais, loops, listas, dicionários, funções e depuração — um exercício de cada vez, com correção por testes.',
+      enrollmentCode: 'WEB2024',
+    },
     create: {
-      title: 'Introdução à Programação com Python',
+      title: 'Sintaxe Python — Trilha Completa',
       slug: 'introducao-python',
-      description: 'Domine a sintaxe limpa do Python, funções, laços e manipulação de listas.',
+      description:
+        'A trilha de sintaxe do Python do zero ao projeto final: saída e variáveis, strings, operadores, condicionais, loops, listas, dicionários, funções e depuração — um exercício de cada vez, com correção por testes.',
       instructorId: instructor.id,
       enrollmentCode: 'WEB2024',
     },
