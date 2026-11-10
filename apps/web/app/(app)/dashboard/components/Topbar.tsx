@@ -116,7 +116,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           <Link
             href="/profile"
             title={`Perfil de ${user.name}`}
-            className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8257E5] to-[#0070F3] p-[1.5px] shadow-lg shadow-[#8257E5]/20 hover:scale-105 transition-transform select-none block"
+            className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8257E5] to-[#00E5FF] p-[1.5px] shadow-lg shadow-[#8257E5]/20 hover:scale-105 transition-transform select-none block"
           >
             <div className="w-full h-full bg-[#121214] rounded-[10px] flex items-center justify-center text-xs font-black text-[#00E5FF]">
               {user.avatarInitials}

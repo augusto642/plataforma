@@ -37,10 +37,10 @@ interface ReportModalProps {
 }
 
 const STATUS_STYLES: Record<string, { label: string; color: string; background: string }> = {
-  passed: { label: 'Aprovada', color: '#4ade80', background: 'rgba(34, 197, 94, 0.15)' },
+  passed: { label: 'Aprovada', color: '#4ade80', background: 'rgba(0, 230, 118, 0.15)' },
   failed: { label: 'Reprovada', color: '#f87171', background: 'rgba(239, 68, 68, 0.15)' },
   error: { label: 'Erro', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.15)' },
-  none: { label: 'Não iniciada', color: '#64748b', background: '#0b1120' },
+  none: { label: 'Não iniciada', color: '#A1A1AA', background: '#12131D' },
 };
 
 function formatDuration(ms: number): string {
@@ -122,43 +122,43 @@ export default function ReportModal({ isOpen, onClose, courseId }: ReportModalPr
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}
     >
-      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: 28, width: '100%', maxWidth: 640, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
+      <div style={{ background: '#12131D', border: '1px solid #27272A', borderRadius: 16, padding: 28, width: '100%', maxWidth: 640, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#F4F4F5' }}>
             {report ? `📊 Relatório — ${report.student.name}` : '📊 Relatórios do Curso'}
           </h2>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#A1A1AA', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
 
         {report ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <button
               onClick={() => setReport(null)}
-              style={{ alignSelf: 'flex-start', background: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+              style={{ alignSelf: 'flex-start', background: 'transparent', border: '1px solid #3F3F46', color: '#A1A1AA', padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
             >
               ← Voltar para a lista de alunos
             </button>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              <div style={{ background: '#131c2e', border: '1px solid #1e293b', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{report.submissionsTotal}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>Submissões</div>
+              <div style={{ background: '#181926', border: '1px solid #27272A', borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#F4F4F5' }}>{report.submissionsTotal}</div>
+                <div style={{ fontSize: 10, color: '#A1A1AA' }}>Submissões</div>
               </div>
-              <div style={{ background: '#131c2e', border: '1px solid #1e293b', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ background: '#181926', border: '1px solid #27272A', borderRadius: 10, padding: '10px 12px' }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#4ade80' }}>{report.passedTotal}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>Aprovadas</div>
+                <div style={{ fontSize: 10, color: '#A1A1AA' }}>Aprovadas</div>
               </div>
-              <div style={{ background: '#131c2e', border: '1px solid #1e293b', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>{report.avgScore}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>Nota média</div>
+              <div style={{ background: '#181926', border: '1px solid #27272A', borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#996DFF' }}>{report.avgScore}</div>
+                <div style={{ fontSize: 10, color: '#A1A1AA' }}>Nota média</div>
               </div>
-              <div style={{ background: '#131c2e', border: '1px solid #1e293b', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ background: '#181926', border: '1px solid #27272A', borderRadius: 10, padding: '10px 12px' }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>{formatDuration(report.totalDurationMs)}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>Tempo total</div>
+                <div style={{ fontSize: 10, color: '#A1A1AA' }}>Tempo total</div>
               </div>
             </div>
 
-            <div style={{ fontSize: 11, color: '#64748b' }}>
+            <div style={{ fontSize: 11, color: '#A1A1AA' }}>
               {report.student.email} • {report.courseTitle}
             </div>
 
@@ -166,10 +166,10 @@ export default function ReportModal({ isOpen, onClose, courseId }: ReportModalPr
               {report.activities.map((act) => {
                 const style = STATUS_STYLES[act.status] ?? STATUS_STYLES.none;
                 return (
-                  <div key={act.activityId} style={{ background: '#131c2e', border: '1px solid #1e293b', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div key={act.activityId} style={{ background: '#181926', border: '1px solid #27272A', borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#F4F4F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</div>
+                      <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 2 }}>
                         {act.attempts} tentativa(s){act.bestScore !== null ? ` • melhor nota: ${act.bestScore}` : ''}
                         {act.lastAttemptAt ? ` • última: ${new Date(act.lastAttemptAt).toLocaleString('pt-BR')}` : ''}
                       </div>
@@ -183,29 +183,29 @@ export default function ReportModal({ isOpen, onClose, courseId }: ReportModalPr
             </div>
           </div>
         ) : isLoadingStudents ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando alunos...</div>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando alunos...</div>
         ) : loadError ? (
           <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>{loadError}</div>
         ) : students.length === 0 ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Nenhum aluno matriculado neste curso.</div>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Nenhum aluno matriculado neste curso.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {isLoadingReport && (
-              <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>Carregando relatório...</div>
+              <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center' }}>Carregando relatório...</div>
             )}
             {reportError && (
               <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center' }}>{reportError}</div>
             )}
             {students.map((student) => (
-              <div key={student.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#131c2e', border: '1px solid #1e293b', borderRadius: 10 }}>
+              <div key={student.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#181926', border: '1px solid #27272A', borderRadius: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.email}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#F4F4F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
+                  <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.email}</div>
                 </div>
                 <button
                   onClick={() => openReport(student.userId)}
                   disabled={isLoadingReport}
-                  style={{ padding: '6px 12px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', borderRadius: 6, color: '#38bdf8', cursor: isLoadingReport ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}
+                  style={{ padding: '6px 12px', background: 'rgba(153, 109, 255, 0.15)', border: '1px solid #996DFF', borderRadius: 6, color: '#996DFF', cursor: isLoadingReport ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}
                 >
                   Ver Relatório
                 </button>

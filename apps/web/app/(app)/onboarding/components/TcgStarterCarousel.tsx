@@ -74,7 +74,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
         <h2 className="text-3xl font-black text-white tracking-tight">
           ESCOLHA SEU STARTER DE CÓDIGO
         </h2>
-        <p className="mt-1 font-mono text-sm text-slate-400">
+        <p className="mt-1 font-mono text-sm text-dark-on-surface-variant">
           Cada companheiro digital possui ataques especializados e afinidade com uma área de engenharia.
         </p>
       </div>
@@ -108,7 +108,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
                 className={`relative h-full flex flex-col justify-between rounded-3xl border-2 p-6 overflow-hidden transition-all duration-300 shadow-2xl ${
                   isSelected
                     ? 'border-[#00E5FF] bg-gradient-to-b from-[#09152B] via-[#050B18] to-[#02050D] shadow-cyan-900/50'
-                    : 'border-slate-800/80 bg-gradient-to-b from-[#060D1E] via-[#040814] to-[#02040A] hover:border-slate-700'
+                    : 'border-border-subtle/80 bg-gradient-to-b from-[#060D1E] via-[#040814] to-[#02040A] hover:border-border-subtle'
                 }`}
               >
                 {/* Camada Holográfica Foil Sheen */}
@@ -130,7 +130,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
                         <h3 className="font-mono text-base font-black text-white">
                           {starter.name}
                         </h3>
-                        <span className="font-mono text-[10px] text-slate-400">
+                        <span className="font-mono text-[10px] text-dark-on-surface-variant">
                           {starter.codeName}
                         </span>
                       </div>
@@ -172,70 +172,70 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
                   </div>
 
                   {/* Descrição Didática */}
-                  <p className="font-mono text-xs text-slate-300 leading-relaxed mb-4">
+                  <p className="font-mono text-xs text-ink-body leading-relaxed mb-4">
                     {starter.description}
                   </p>
 
                   {/* Barras de Estatísticas do Starter */}
                   <div className="space-y-2 mb-4 bg-[#030612] p-3 rounded-xl border border-white/5 font-mono text-[11px]">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">HP:</span>
-                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <span className="text-dark-on-surface-variant">HP:</span>
+                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-dark-surface-container overflow-hidden">
                         <div
                           className="h-full bg-emerald-400 rounded-full"
                           style={{ width: `${(starter.hp / 60) * 100}%` }}
                         />
                       </div>
-                      <span className="text-slate-200">{starter.hp}</span>
+                      <span className="text-dark-on-surface">{starter.hp}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">ATK:</span>
-                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <span className="text-dark-on-surface-variant">ATK:</span>
+                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-dark-surface-container overflow-hidden">
                         <div
                           className="h-full bg-amber-400 rounded-full"
                           style={{ width: `${(starter.attack / 70) * 100}%` }}
                         />
                       </div>
-                      <span className="text-slate-200">{starter.attack}</span>
+                      <span className="text-dark-on-surface">{starter.attack}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">DEF:</span>
-                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <span className="text-dark-on-surface-variant">DEF:</span>
+                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-dark-surface-container overflow-hidden">
                         <div
                           className="h-full bg-cyan-400 rounded-full"
                           style={{ width: `${(starter.defense / 70) * 100}%` }}
                         />
                       </div>
-                      <span className="text-slate-200">{starter.defense}</span>
+                      <span className="text-dark-on-surface">{starter.defense}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">SPD:</span>
-                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <span className="text-dark-on-surface-variant">SPD:</span>
+                      <div className="flex-1 mx-3 h-1.5 rounded-full bg-dark-surface-container overflow-hidden">
                         <div
                           className="h-full bg-purple-400 rounded-full"
                           style={{ width: `${(starter.speed / 80) * 100}%` }}
                         />
                       </div>
-                      <span className="text-slate-200">{starter.speed}</span>
+                      <span className="text-dark-on-surface">{starter.speed}</span>
                     </div>
                   </div>
 
                   {/* Lista de Ataques / Skills */}
                   <div className="space-y-1.5 mb-4">
-                    <span className="font-mono text-[10px] text-slate-400 font-semibold uppercase">
+                    <span className="font-mono text-[10px] text-dark-on-surface-variant font-semibold uppercase">
                       Habilidades Iniciais:
                     </span>
                     <div className="grid grid-cols-2 gap-1.5">
                       {starter.skills.slice(0, 2).map((sk) => (
                         <div
                           key={sk.id}
-                          className="rounded-lg bg-white/5 px-2 py-1 border border-white/5 font-mono text-[10px] text-slate-200"
+                          className="rounded-lg bg-white/5 px-2 py-1 border border-white/5 font-mono text-[10px] text-dark-on-surface"
                         >
                           <div className="font-bold">{sk.name}</div>
-                          <div className="text-[9px] text-slate-400">PWR: {sk.power} | PP: {sk.pp}</div>
+                          <div className="text-[9px] text-dark-on-surface-variant">PWR: {sk.power} | PP: {sk.pp}</div>
                         </div>
                       ))}
                     </div>
@@ -256,7 +256,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
                     className={`w-full py-2.5 rounded-xl font-mono text-xs font-bold transition flex items-center justify-center space-x-2 ${
                       isSelected
                         ? 'bg-[#00E5FF] text-black shadow-lg shadow-cyan-950 font-black'
-                        : 'border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-slate-500'
+                        : 'border border-border-subtle bg-dark-surface-container-low/60 text-ink-body hover:border-border-strong'
                     }`}
                   >
                     <span>{isSelected ? '✓ STARTER SELECIONADO' : 'ESCOLHER STARTER'}</span>
@@ -270,7 +270,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
 
       {/* Barra de Compartilhamento Viral (PR #07) */}
       <div className="mt-8 rounded-2xl border border-cyan-900/50 bg-[#071124]/90 p-4 text-center max-w-xl mx-auto backdrop-blur-sm shadow-xl shadow-cyan-950/40">
-        <div className="font-mono text-xs text-slate-300 mb-2.5 font-semibold flex items-center justify-center gap-2">
+        <div className="font-mono text-xs text-ink-body mb-2.5 font-semibold flex items-center justify-center gap-2">
           <span>⚡ COMPARTILHE SEU COMPANHEIRO DIGITAL</span>
           <span className="text-[#00E5FF]">[{selectedStarter.name}]</span>
         </div>
@@ -284,7 +284,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
               );
               window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
             }}
-            className="rounded-xl border border-sky-500/40 bg-sky-950/40 px-3.5 py-1.5 font-mono text-xs font-bold text-sky-300 hover:bg-sky-500 hover:text-black transition flex items-center gap-1.5"
+            className="rounded-xl border border-tertiary/40 bg-tertiary/40 px-3.5 py-1.5 font-mono text-xs font-bold text-tertiary hover:bg-tertiary hover:text-black transition flex items-center gap-1.5"
           >
             <span>🐦 Twitter / X</span>
           </button>
@@ -308,7 +308,7 @@ export const TcgStarterCarousel: React.FC<TcgStarterCarouselProps> = ({ onConfir
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-1.5 font-mono text-xs text-slate-300 hover:border-slate-500 transition flex items-center gap-1.5"
+            className="rounded-xl border border-border-subtle bg-dark-surface-container/80 px-3.5 py-1.5 font-mono text-xs text-ink-body hover:border-border-strong transition flex items-center gap-1.5"
           >
             <span>{copied ? '✓ Copiado!' : '📋 Copiar Resumo'}</span>
           </button>

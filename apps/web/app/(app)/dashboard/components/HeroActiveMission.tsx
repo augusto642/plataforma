@@ -108,7 +108,7 @@ export const HeroActiveMission: React.FC<HeroActiveMissionProps> = ({
           </div>
           <div className="w-full h-2.5 bg-[#09090A] rounded-full overflow-hidden border border-[#27272A]">
             <div
-              className="h-full bg-gradient-to-r from-[#8257E5] via-[#0070F3] to-[#00B37E] rounded-full transition-all duration-700 ease-out"
+              className="h-full bg-gradient-to-r from-[#8257E5] via-[#00E5FF] to-[#00B37E] rounded-full transition-all duration-700 ease-out"
               style={{ width: `${mission.progressPercent}%` }}
             />
           </div>

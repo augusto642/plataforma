@@ -133,17 +133,17 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
   };
 
   return (
-    <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-[#0B1021]/90 p-8 shadow-2xl backdrop-blur-md">
+    <div className="w-full max-w-xl rounded-2xl border border-border-subtle bg-[#0B1021]/90 p-8 shadow-2xl backdrop-blur-md">
       <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#8257E5]">
         Passo final · Salvar progresso
       </div>
       <h2 className="font-mono text-2xl font-black tracking-tight text-white">
         Crie sua conta grátis para salvar tudo isto
       </h2>
-      <p className="mt-2 font-mono text-xs leading-relaxed text-slate-400">
+      <p className="mt-2 font-mono text-xs leading-relaxed text-dark-on-surface-variant">
         Operador <span className="font-bold text-[#04D361]">{player.name}</span> · Starter{' '}
         <span className="font-bold text-[#FFA116]">{selectedStarter.name}</span> · Nível{' '}
-        <span className="font-bold text-slate-200">{TIER_LABELS[careerTier] ?? careerTier}</span>
+        <span className="font-bold text-dark-on-surface">{TIER_LABELS[careerTier] ?? careerTier}</span>
         {firstMission?.completed && (
           <>
             {' '}· Missão 1{' '}
@@ -159,7 +159,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
         {firstMission && !firstMission.completed && (
           <>
             {' '}·{' '}
-            <span className="font-bold text-slate-200">Sua Missão 1 te espera na IDE</span>
+            <span className="font-bold text-dark-on-surface">Sua Missão 1 te espera na IDE</span>
           </>
         )}
       </p>
@@ -170,7 +170,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
             Conta detectada: {user.email}. Seu progresso fica salvo nesta conta.
           </div>
           <label className="mt-5 flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-dark-on-surface-variant">
               O que você quer se tornar? (opcional)
             </span>
             <input
@@ -181,7 +181,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
                 saveOnboardingChoices({ ...(readOnboardingChoices() ?? {}), goal: e.target.value });
               }}
               placeholder="ex.: desenvolvedor Java, front-end…"
-              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+              className="rounded-xl border border-border-subtle bg-dark-surface-container-low/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
             />
           </label>
           <button
@@ -206,7 +206,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
           )}
 
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-dark-on-surface-variant">
               Nome completo
             </span>
             <input
@@ -214,12 +214,12 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Seu nome"
-              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+              className="rounded-xl border border-border-subtle bg-dark-surface-container-low/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
             />
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-dark-on-surface-variant">
               E-mail
             </span>
             <input
@@ -227,12 +227,12 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu.email@exemplo.com"
-              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+              className="rounded-xl border border-border-subtle bg-dark-surface-container-low/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
             />
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-dark-on-surface-variant">
               Senha
             </span>
             <input
@@ -240,12 +240,12 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 6 caracteres"
-              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+              className="rounded-xl border border-border-subtle bg-dark-surface-container-low/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
             />
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-dark-on-surface-variant">
               O que você quer se tornar? (opcional)
             </span>
             <input
@@ -256,9 +256,9 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
                 saveOnboardingChoices({ ...(readOnboardingChoices() ?? {}), goal: e.target.value });
               }}
               placeholder="ex.: desenvolvedor Java, front-end…"
-              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+              className="rounded-xl border border-border-subtle bg-dark-surface-container-low/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
             />
-            <span className="font-mono text-[11px] leading-relaxed text-slate-500">
+            <span className="font-mono text-[11px] leading-relaxed text-dark-on-surface-variant">
               Sua trilha vai se gerando aos poucos a partir deste objetivo — a criação é feita por um admin.
             </span>
           </label>
@@ -271,7 +271,7 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
             {isSubmitting ? 'Criando sua conta...' : 'Começar grátis agora'}
           </button>
 
-          <p className="text-center font-mono text-[11px] text-slate-500">
+          <p className="text-center font-mono text-[11px] text-dark-on-surface-variant">
             Já tem conta?{' '}
             <Link href="/login" className="font-bold text-[#996DFF] underline">
               Entrar
@@ -281,11 +281,11 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
       )}
 
       {/* Ponte explícita para quem quer só testar: rótulo e consequência claros */}
-      <div className="mt-7 border-t border-slate-800 pt-5 text-center">
-        <p className="font-mono text-[11px] leading-relaxed text-slate-500">
+      <div className="mt-7 border-t border-border-subtle pt-5 text-center">
+        <p className="font-mono text-[11px] leading-relaxed text-dark-on-surface-variant">
           Prefere só conhecer o jogo? Você pode{' '}
-          <span className="font-bold text-slate-300">testar sem conta</span> — mas XP, starter e
-          avatar <span className="font-bold text-slate-300">não ficam salvos</span>.
+          <span className="font-bold text-ink-body">testar sem conta</span> — mas XP, starter e
+          avatar <span className="font-bold text-ink-body">não ficam salvos</span>.
         </p>
         <button
           type="button"

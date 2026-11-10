@@ -77,7 +77,7 @@ export const TutorModal: React.FC<TutorModalProps> = ({
         {/* Modal Header */}
         <div className="h-14 border-b border-[#27272A] px-5 flex items-center justify-between bg-[#121214]">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#8257E5] to-[#0070F3] flex items-center justify-center text-sm shadow">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#8257E5] to-[#00E5FF] flex items-center justify-center text-sm shadow">
               🤖
             </div>
             <div>

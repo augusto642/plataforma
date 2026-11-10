@@ -185,11 +185,11 @@ export const LumiAITutorDrawer: React.FC = () => {
                       className={`h-1.5 w-4 rounded-full transition-all ${
                         idx < lumiQuota.remaining
                           ? 'bg-[#04D361] shadow-sm shadow-emerald-400'
-                          : 'bg-slate-800'
+                          : 'bg-dark-surface-container'
                       }`}
                     />
                   ))}
-                  <span className="font-mono text-[9px] text-slate-400 ml-1">
+                  <span className="font-mono text-[9px] text-dark-on-surface-variant ml-1">
                     {lumiQuota.remaining} restantes
                   </span>
                 </div>
@@ -199,7 +199,7 @@ export const LumiAITutorDrawer: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="rounded-lg border border-slate-700 bg-slate-800/80 p-1.5 text-xs text-slate-400 hover:text-white transition"
+              className="rounded-lg border border-border-subtle bg-dark-surface-container/80 p-1.5 text-xs text-dark-on-surface-variant hover:text-white transition"
             >
               ✕
             </button>
@@ -218,12 +218,12 @@ export const LumiAITutorDrawer: React.FC = () => {
                   className={`max-w-[85%] rounded-2xl p-3 shadow-md ${
                     m.sender === 'player'
                       ? 'bg-[#00E5FF] text-black font-semibold rounded-br-none'
-                      : 'border border-cyan-900/60 bg-[#0B172E] text-slate-200 rounded-bl-none'
+                      : 'border border-cyan-900/60 bg-[#0B172E] text-dark-on-surface rounded-bl-none'
                   }`}
                 >
                   {m.text}
                 </div>
-                <span className="text-[9px] text-slate-500 mt-1 px-1">
+                <span className="text-[9px] text-dark-on-surface-variant mt-1 px-1">
                   {m.sender === 'player' ? player.name : 'Tutora'} &bull; {m.timestamp}
                 </span>
               </div>
@@ -260,7 +260,7 @@ export const LumiAITutorDrawer: React.FC = () => {
             <div className="border-t border-amber-500/30 bg-amber-950/40 p-2.5 flex items-center justify-between font-mono text-xs">
               <div className="text-amber-300 flex items-center gap-1.5">
                 <span>⚡ Cota Esgotada!</span>
-                <span className="text-[10px] text-slate-400">({player.bits} Bits)</span>
+                <span className="text-[10px] text-dark-on-surface-variant">({player.bits} Bits)</span>
               </div>
               <button
                 type="button"
@@ -312,7 +312,7 @@ export const LumiAITutorDrawer: React.FC = () => {
                   ? 'Pergunte à tutora (método socrático)...'
                   : 'Cota diária de 5 prompts esgotada!'
               }
-              className="flex-1 rounded-xl border border-cyan-900/60 bg-[#030713] px-3.5 py-2 font-mono text-xs text-white placeholder:text-slate-500 focus:border-[#00E5FF] focus:outline-none"
+              className="flex-1 rounded-xl border border-cyan-900/60 bg-[#030713] px-3.5 py-2 font-mono text-xs text-white placeholder:text-dark-on-surface-variant focus:border-[#00E5FF] focus:outline-none"
             />
 
             <button

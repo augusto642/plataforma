@@ -176,7 +176,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
     : 100;
 
   return (
-    <div className="w-full max-w-3xl rounded-2xl border border-slate-800 bg-[#0B1021]/90 p-8 shadow-2xl backdrop-blur-md">
+    <div className="w-full max-w-3xl rounded-2xl border border-border-subtle bg-[#0B1021]/90 p-8 shadow-2xl backdrop-blur-md">
       <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#8257E5]">
         Missão 1 · Sua primeira vitória
       </div>
@@ -186,7 +186,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
           <h2 className="font-mono text-2xl font-black tracking-tight text-white">
             Um bug corrompeu o runtime. Resolva com código.
           </h2>
-          <p className="mt-3 font-mono text-xs leading-relaxed text-slate-400">
+          <p className="mt-3 font-mono text-xs leading-relaxed text-dark-on-surface-variant">
             Antes de qualquer cadastro: jogue a primeira batalha de verdade. Você batalha com o
             starter <span className="font-bold text-[#FFA116]">{selectedStarter.name}</span> — o
             seu, você escolhe logo depois da missão. Escreva o código do ataque para derrotar o{' '}
@@ -204,7 +204,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             <button
               type="button"
               onClick={handleSkipIntro}
-              className="font-mono text-xs font-bold text-slate-400 underline-offset-4 transition hover:text-slate-200 hover:underline"
+              className="font-mono text-xs font-bold text-dark-on-surface-variant underline-offset-4 transition hover:text-dark-on-surface hover:underline"
             >
               Pular por agora →
             </button>
@@ -214,11 +214,11 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
 
       {phase === 'battle' && currentBattle && (
         <>
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <span className="font-mono text-xs font-black uppercase tracking-wider text-rose-400">
               Combate // Missão 1
             </span>
-            <span className="font-mono text-xs text-slate-400">
+            <span className="font-mono text-xs text-dark-on-surface-variant">
               Turno:{' '}
               <span className={currentBattle.turn === 'player' ? 'font-bold text-[#04D361]' : 'font-bold text-rose-400'}>
                 {currentBattle.turn === 'player' ? 'SEU' : 'DO INIMIGO'}
@@ -238,13 +238,13 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
               <div className="mt-2 font-mono text-sm font-bold text-white">
                 {currentBattle.enemy.name}
               </div>
-              <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full border border-slate-700 bg-slate-900">
+              <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full border border-border-subtle bg-dark-surface-container-low">
                 <div
                   className="h-full bg-gradient-to-r from-rose-500 to-amber-500 transition-all duration-300"
                   style={{ width: `${enemyHpPercent}%` }}
                 />
               </div>
-              <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-400">
+              <div className="mt-1 flex justify-between font-mono text-[10px] text-dark-on-surface-variant">
                 <span>HP</span>
                 <span>
                   {currentBattle.enemy.hp} / {currentBattle.enemy.maxHp}
@@ -263,13 +263,13 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
               <div className="mt-2 font-mono text-sm font-bold text-white">
                 {selectedStarter.name}
               </div>
-              <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full border border-slate-700 bg-slate-900">
+              <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full border border-border-subtle bg-dark-surface-container-low">
                 <div
                   className="h-full bg-[#04D361] transition-all duration-300"
                   style={{ width: `${hpPercent}%` }}
                 />
               </div>
-              <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-400">
+              <div className="mt-1 flex justify-between font-mono text-[10px] text-dark-on-surface-variant">
                 <span>HP</span>
                 <span>
                   {currentHp} / {maxHp}
@@ -279,9 +279,9 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
           </div>
 
           {/* Log da batalha */}
-          <div className="mt-4 h-24 space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-[#050812] p-3 font-mono text-xs">
+          <div className="mt-4 h-24 space-y-1 overflow-y-auto rounded-lg border border-border-subtle bg-[#050812] p-3 font-mono text-xs">
             {currentBattle.log.slice(-5).map((line, idx) => (
-              <div key={idx} className="flex items-start gap-1.5 text-slate-300">
+              <div key={idx} className="flex items-start gap-1.5 text-ink-body">
                 <span className="text-cyan-400">&gt;</span>
                 <span>{line}</span>
               </div>
@@ -305,7 +305,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
                   <span className="font-mono text-xs font-bold text-white">{skill.name}</span>
                   <span className="font-mono text-[9px] text-cyan-400">Pwr {skill.power}</span>
                 </span>
-                <span className="mt-0.5 block truncate font-mono text-[9px] text-slate-400">
+                <span className="mt-0.5 block truncate font-mono text-[9px] text-dark-on-surface-variant">
                   Escreva o código do ataque
                 </span>
               </button>
@@ -316,7 +316,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             <button
               type="button"
               onClick={handleSkip}
-              className="font-mono text-xs font-bold text-slate-500 underline-offset-4 transition hover:text-slate-300 hover:underline"
+              className="font-mono text-xs font-bold text-dark-on-surface-variant underline-offset-4 transition hover:text-ink-body hover:underline"
             >
               Pular a missão por agora →
             </button>
@@ -329,9 +329,9 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
           <h2 className="font-mono text-2xl font-black tracking-tight text-[#04D361]">
             Vitória! Primeira missão concluída.
           </h2>
-          <p className="mt-3 font-mono text-xs leading-relaxed text-slate-400">
+          <p className="mt-3 font-mono text-xs leading-relaxed text-dark-on-surface-variant">
             Você derrotou o SyntaxBug #404 com o {selectedStarter.name} e conquistou{' '}
-            <span className="font-bold text-slate-200">
+            <span className="font-bold text-dark-on-surface">
               +{firstMission?.xpEarned ?? 0} XP · +{firstMission?.bitsEarned ?? 0} Bits
             </span>
             . Isso já é progresso de verdade — ele fica guardado e a conta grátis do fim do
@@ -352,7 +352,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
           <h2 className="font-mono text-2xl font-black tracking-tight text-rose-300">
             Seu starter caiu desta vez. Faz parte.
           </h2>
-          <p className="mt-3 font-mono text-xs leading-relaxed text-slate-400">
+          <p className="mt-3 font-mono text-xs leading-relaxed text-dark-on-surface-variant">
             Programar é isso: errar, ler o log e tentar de novo. Seu HP foi restaurado — a Missão 1
             continua aqui quando você quiser. Se preferir, siga o prólogo e volte à missão depois,
             na IDE.
@@ -368,7 +368,7 @@ export const FirstMissionStep: React.FC<FirstMissionStepProps> = ({ onComplete }
             <button
               type="button"
               onClick={handleContinueAfterLoss}
-              className="font-mono text-xs font-bold text-slate-400 underline-offset-4 transition hover:text-slate-200 hover:underline"
+              className="font-mono text-xs font-bold text-dark-on-surface-variant underline-offset-4 transition hover:text-dark-on-surface hover:underline"
             >
               Continuar sem concluir →
             </button>

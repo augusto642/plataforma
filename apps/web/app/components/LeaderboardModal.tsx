@@ -33,18 +33,18 @@ export default function LeaderboardModal({ isOpen, onClose, entries, isLoading, 
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}
     >
-      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
+      <div style={{ background: '#12131D', border: '1px solid #27272A', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>🏆 Ranking</h2>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#F4F4F5' }}>🏆 Ranking</h2>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#A1A1AA', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
 
         {isLoading ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
             Carregando ranking...
           </div>
         ) : entries.length === 0 ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
             Nenhum ranking disponível ainda.
           </div>
         ) : (
@@ -59,8 +59,8 @@ export default function LeaderboardModal({ isOpen, onClose, entries, isLoading, 
                     alignItems: 'center',
                     gap: 12,
                     padding: '10px 14px',
-                    background: isCurrent ? 'rgba(56, 189, 248, 0.12)' : '#131c2e',
-                    border: isCurrent ? '1px solid #38bdf8' : '1px solid #1e293b',
+                    background: isCurrent ? 'rgba(153, 109, 255, 0.12)' : '#181926',
+                    border: isCurrent ? '1px solid #996DFF' : '1px solid #27272A',
                     borderRadius: 10,
                   }}
                 >
@@ -68,16 +68,16 @@ export default function LeaderboardModal({ isOpen, onClose, entries, isLoading, 
                     {getRankEmoji(entry.rank)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? '#38bdf8' : '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? '#996DFF' : '#F4F4F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {entry.name} {isCurrent && '(Você)'}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 2 }}>
                       Nível {entry.level} • {entry.completedActivitiesCount} atividades • 🔥 {entry.streakDays}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: '#f59e0b' }}>{entry.xp}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>XP</div>
+                    <div style={{ fontSize: 10, color: '#A1A1AA' }}>XP</div>
                   </div>
                   {(entry.badges || []).length > 0 && (
                     <div style={{ fontSize: 14 }} title={entry.badges.map(b => b.title).join(', ')}>

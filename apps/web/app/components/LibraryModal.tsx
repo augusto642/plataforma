@@ -97,13 +97,13 @@ export default function LibraryModal({ isOpen, onClose, courseId, onCopied }: Li
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
     >
-      <div style={{ background: '#131c2e', border: '1px solid #334155', borderRadius: 12, padding: 24, width: '100%', maxWidth: 680, maxHeight: '85vh', overflowY: 'auto' }}>
+      <div style={{ background: '#181926', border: '1px solid #3F3F46', borderRadius: 12, padding: 24, width: '100%', maxWidth: 680, maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>📚 Biblioteca de Problemas</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#F4F4F5' }}>📚 Biblioteca de Problemas</h2>
           <button
             onClick={onClose}
             aria-label="Fechar modal"
-            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}
+            style={{ background: 'transparent', border: 'none', color: '#A1A1AA', cursor: 'pointer', fontSize: 16 }}
           >
             ✕
           </button>
@@ -119,9 +119,9 @@ export default function LibraryModal({ isOpen, onClose, courseId, onCopied }: Li
                 fontSize: 11,
                 fontWeight: 600,
                 cursor: 'pointer',
-                border: `1px solid ${selectedTag === null ? '#38bdf8' : '#334155'}`,
-                background: selectedTag === null ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                color: selectedTag === null ? '#38bdf8' : '#94a3b8',
+                border: `1px solid ${selectedTag === null ? '#996DFF' : '#3F3F46'}`,
+                background: selectedTag === null ? 'rgba(153, 109, 255, 0.15)' : 'transparent',
+                color: selectedTag === null ? '#996DFF' : '#A1A1AA',
               }}
             >
               Todos
@@ -136,9 +136,9 @@ export default function LibraryModal({ isOpen, onClose, courseId, onCopied }: Li
                   fontSize: 11,
                   fontWeight: 600,
                   cursor: 'pointer',
-                  border: `1px solid ${selectedTag === tag ? '#a855f7' : '#334155'}`,
+                  border: `1px solid ${selectedTag === tag ? '#a855f7' : '#3F3F46'}`,
                   background: selectedTag === tag ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
-                  color: selectedTag === tag ? '#c084fc' : '#94a3b8',
+                  color: selectedTag === tag ? '#c084fc' : '#A1A1AA',
                 }}
               >
                 {tag}
@@ -154,21 +154,21 @@ export default function LibraryModal({ isOpen, onClose, courseId, onCopied }: Li
         )}
 
         {isLoading ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando biblioteca...</div>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando biblioteca...</div>
         ) : loadError ? (
           <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>{loadError}</div>
         ) : filtered.length === 0 ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
             Nenhum problema encontrado para este conceito.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filtered.map((activity) => (
-              <div key={activity.id} style={{ background: '#0b1120', border: '1px solid #1e293b', borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div key={activity.id} style={{ background: '#12131D', border: '1px solid #27272A', borderRadius: 10, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{activity.title}</span>
-                    <span style={{ fontSize: 10, padding: '2px 6px', background: '#0284c7', borderRadius: 4, color: '#fff', fontWeight: 700 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#F4F4F5' }}>{activity.title}</span>
+                    <span style={{ fontSize: 10, padding: '2px 6px', background: '#8257E5', borderRadius: 4, color: '#fff', fontWeight: 700 }}>
                       {activity.language.toUpperCase()}
                     </span>
                     {activity.conceptTags.map((tag) => (
@@ -177,7 +177,7 @@ export default function LibraryModal({ isOpen, onClose, courseId, onCopied }: Li
                       </span>
                     ))}
                   </div>
-                  <p style={{ margin: '6px 0 0 0', fontSize: 11, color: '#94a3b8', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  <p style={{ margin: '6px 0 0 0', fontSize: 11, color: '#A1A1AA', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {activity.description}
                   </p>
                 </div>
@@ -186,10 +186,10 @@ export default function LibraryModal({ isOpen, onClose, courseId, onCopied }: Li
                   disabled={copyingId === activity.id}
                   style={{
                     padding: '6px 12px',
-                    background: copiedId === activity.id ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                    border: `1px solid ${copiedId === activity.id ? '#22c55e' : '#38bdf8'}`,
+                    background: copiedId === activity.id ? 'rgba(0, 230, 118, 0.15)' : 'rgba(153, 109, 255, 0.15)',
+                    border: `1px solid ${copiedId === activity.id ? '#22c55e' : '#996DFF'}`,
                     borderRadius: 6,
-                    color: copiedId === activity.id ? '#4ade80' : '#38bdf8',
+                    color: copiedId === activity.id ? '#4ade80' : '#996DFF',
                     cursor: copyingId === activity.id ? 'not-allowed' : 'pointer',
                     fontSize: 11,
                     fontWeight: 700,

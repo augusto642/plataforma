@@ -155,7 +155,7 @@ export default function GamePage(): JSX.Element {
               </div>
               <div className="w-24 sm:w-28 h-1.5 bg-[#12182B] rounded-full overflow-hidden border border-[#1E2B47]">
                 <div
-                  className="h-full bg-gradient-to-r from-[#0070F3] to-[#00E5FF] transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-[#00E5FF] to-[#00E5FF] transition-all duration-300"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>

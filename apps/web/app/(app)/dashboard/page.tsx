@@ -105,7 +105,7 @@ export default function StudentDashboardPage() {
       particleCount: 140,
       spread: 90,
       origin: { y: 0.6 },
-      colors: ['#00B37E', '#8257E5', '#0070F3', '#FFA116', '#04D361'],
+      colors: ['#00B37E', '#8257E5', '#00E5FF', '#FFA116', '#04D361'],
     });
 
     // Open celebration modal

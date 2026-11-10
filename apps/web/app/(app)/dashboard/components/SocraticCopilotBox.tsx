@@ -20,7 +20,7 @@ export const SocraticCopilotBox: React.FC<SocraticCopilotBoxProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#8257E5] to-[#0070F3] flex items-center justify-center text-sm shadow-md">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#8257E5] to-[#00E5FF] flex items-center justify-center text-sm shadow-md">
               🤖
             </div>
             <div>

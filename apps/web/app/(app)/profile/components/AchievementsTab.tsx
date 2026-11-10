@@ -147,7 +147,7 @@ export function AchievementsTab({ badges, certificates, onOpenCertificate }: Ach
             <div
               style={{
                 height: '130px',
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+                background: 'linear-gradient(135deg, #12131D 0%, #1e1b4b 100%)',
                 padding: '16px',
                 display: 'flex',
                 flexDirection: 'column',

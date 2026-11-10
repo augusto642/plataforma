@@ -304,14 +304,14 @@ export const BlackCatHudWidget: React.FC = () => {
                 setIsSpeechOpen(false);
                 setCatMessage(null);
               }}
-              className="text-slate-400 hover:text-white px-1 font-bold"
+              className="text-dark-on-surface-variant hover:text-white px-1 font-bold"
             >
               ✕
             </button>
           </div>
 
           {/* Texto com Typewriter */}
-          <p className="font-mono text-xs text-slate-200 leading-relaxed min-h-[38px]">
+          <p className="font-mono text-xs text-dark-on-surface leading-relaxed min-h-[38px]">
             {displayedSpeech}
             {isTyping && <span className="animate-ping text-[#00E5FF] font-black">▍</span>}
           </p>

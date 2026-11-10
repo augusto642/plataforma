@@ -58,7 +58,7 @@ export const OUTFIT_COLORS = [
   { id: '#1E293B', label: 'Slate Grey' },
   { id: '#8257E5', label: 'Royal Violet' },
   { id: '#04D361', label: 'Emerald Cyber' },
-  { id: '#0070F3', label: 'Electric Blue' },
+  { id: '#00E5FF', label: 'Electric Blue' },
   { id: '#E11D48', label: 'Crimson Crash' },
 ];
 
@@ -76,7 +76,7 @@ export const BACKDROP_COLORS = [
   { id: '#8257E5', label: 'Plasma Purple' },
   { id: '#FFA116', label: 'Solar Amber' },
   { id: '#F43F5E', label: 'Crimson Rose' },
-  { id: '#0070F3', label: 'Electric Blue' },
+  { id: '#00E5FF', label: 'Electric Blue' },
   { id: '#EC4899', label: 'Neon Pink' },
   { id: '#0B1021', label: 'Void Obsidian' },
 ];
@@ -291,7 +291,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
             <span className="text-[#00E5FF]">⚡</span> CUSTOMIZADOR DE PERSONAGEM
           </h2>
-          <p className="font-mono text-xs text-slate-400">
+          <p className="font-mono text-xs text-dark-on-surface-variant">
             Forje sua identidade pixel art no universo NEXUS.
           </p>
         </div>
@@ -372,7 +372,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
 
             {/* Seletor de Rotação (Direção 4-Way) */}
             <div className="mt-4 flex items-center space-x-2">
-              <span className="font-mono text-[11px] text-slate-400 mr-1">VISÃO:</span>
+              <span className="font-mono text-[11px] text-dark-on-surface-variant mr-1">VISÃO:</span>
               {(['down', 'up', 'left', 'right'] as const).map((dir) => (
                 <button
                   key={dir}
@@ -384,7 +384,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                   className={`rounded-md px-3 py-1 font-mono text-xs font-bold transition ${
                     direction === dir
                       ? 'bg-[#00E5FF] text-black shadow-md shadow-cyan-400/30'
-                      : 'bg-[#0A1428] text-slate-400 hover:text-white'
+                      : 'bg-[#0A1428] text-dark-on-surface-variant hover:text-white'
                   }`}
                 >
                   {dir === 'down' ? 'Frente' : dir === 'up' ? 'Costas' : dir === 'left' ? 'Esq.' : 'Dir.'}
@@ -424,7 +424,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                 className={`pb-3 px-4 font-mono text-xs font-bold transition border-b-2 ${
                   activeTab === tab.id
                     ? 'border-[#00E5FF] text-[#00E5FF]'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    : 'border-transparent text-dark-on-surface-variant hover:text-dark-on-surface'
                 }`}
               >
                 {tab.label}
@@ -435,7 +435,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           {/* Conteúdo da Aba 1: Pele */}
           {activeTab === 'skin' && (
             <div className="space-y-4">
-              <label className="font-mono text-xs text-slate-300 font-semibold block">
+              <label className="font-mono text-xs text-ink-body font-semibold block">
                 SELECIONE O TOM DE PELE:
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -457,7 +457,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                       className="h-6 w-6 rounded-full border border-white/20 shadow-sm"
                       style={{ backgroundColor: tone.id }}
                     />
-                    <span className="font-mono text-xs text-slate-300 font-medium">
+                    <span className="font-mono text-xs text-ink-body font-medium">
                       {tone.label}
                     </span>
                   </button>
@@ -470,7 +470,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           {activeTab === 'hair' && (
             <div className="space-y-5">
               <div>
-                <label className="font-mono text-xs text-slate-300 font-semibold block mb-3">
+                <label className="font-mono text-xs text-ink-body font-semibold block mb-3">
                   ESTILO DO CABELO:
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -485,7 +485,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                       className={`rounded-xl border py-2.5 px-3 font-mono text-xs transition ${
                         avatar.hairStyle === style.id
                           ? 'border-[#00E5FF] bg-cyan-950/50 text-[#00E5FF] font-bold shadow-md shadow-cyan-900/40'
-                          : 'border-cyan-950 bg-[#0A1324] text-slate-400 hover:text-white'
+                          : 'border-cyan-950 bg-[#0A1324] text-dark-on-surface-variant hover:text-white'
                       }`}
                     >
                       {style.label}
@@ -495,7 +495,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
               </div>
 
               <div>
-                <label className="font-mono text-xs text-slate-300 font-semibold block mb-3">
+                <label className="font-mono text-xs text-ink-body font-semibold block mb-3">
                   COR DO CABELO:
                 </label>
                 <div className="grid grid-cols-3 md:grid-cols-4 gap-2.5">
@@ -517,7 +517,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                         className="h-5 w-5 rounded-full border border-white/20"
                         style={{ backgroundColor: color.id }}
                       />
-                      <span className="font-mono text-xs text-slate-300">{color.label}</span>
+                      <span className="font-mono text-xs text-ink-body">{color.label}</span>
                     </button>
                   ))}
                 </div>
@@ -529,7 +529,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           {activeTab === 'outfit' && (
             <div className="space-y-5">
               <div>
-                <label className="font-mono text-xs text-slate-300 font-semibold block mb-3">
+                <label className="font-mono text-xs text-ink-body font-semibold block mb-3">
                   MODELO DE TRAJE:
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -544,7 +544,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                       className={`rounded-xl border py-2.5 px-3 font-mono text-xs transition ${
                         avatar.outfit === outfit.id
                           ? 'border-[#04D361] bg-emerald-950/40 text-[#04D361] font-bold shadow-md shadow-emerald-900/30'
-                          : 'border-cyan-950 bg-[#0A1324] text-slate-400 hover:text-white'
+                          : 'border-cyan-950 bg-[#0A1324] text-dark-on-surface-variant hover:text-white'
                       }`}
                     >
                       {outfit.label}
@@ -554,7 +554,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
               </div>
 
               <div>
-                <label className="font-mono text-xs text-slate-300 font-semibold block mb-3">
+                <label className="font-mono text-xs text-ink-body font-semibold block mb-3">
                   COR DO TRAJE:
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
@@ -576,7 +576,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                         className="h-5 w-5 rounded-full border border-white/20"
                         style={{ backgroundColor: color.id }}
                       />
-                      <span className="font-mono text-xs text-slate-300">{color.label}</span>
+                      <span className="font-mono text-xs text-ink-body">{color.label}</span>
                     </button>
                   ))}
                 </div>
@@ -587,7 +587,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           {/* Conteúdo da Aba 4: Cor de Fundo / Moldura Holográfica */}
           {activeTab === 'backdrop' && (
             <div className="space-y-4">
-              <label className="font-mono text-xs text-slate-300 font-semibold block">
+              <label className="font-mono text-xs text-ink-body font-semibold block">
                 SELECIONE O TOM RETRÔ DA MOLDURA HOLOGRÁFICA (8 CORES):
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -609,7 +609,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                       className="h-6 w-6 rounded-full border border-white/20 shadow-sm"
                       style={{ backgroundColor: bg.id }}
                     />
-                    <span className="font-mono text-xs text-slate-300 font-medium">
+                    <span className="font-mono text-xs text-ink-body font-medium">
                       {bg.label}
                     </span>
                   </button>
@@ -621,7 +621,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           {/* Conteúdo da Aba 5: Acessórios */}
           {activeTab === 'accessory' && (
             <div className="space-y-4">
-              <label className="font-mono text-xs text-slate-300 font-semibold block">
+              <label className="font-mono text-xs text-ink-body font-semibold block">
                 GADGETS & ACESSÓRIOS HACKER:
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -636,7 +636,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
                     className={`rounded-xl border p-3 font-mono text-xs transition text-left ${
                       avatar.accessory === acc.id
                         ? 'border-[#8257E5] bg-purple-950/40 text-[#8257E5] font-bold shadow-md shadow-purple-900/30'
-                        : 'border-cyan-950 bg-[#0A1324] text-slate-400 hover:text-white'
+                        : 'border-cyan-950 bg-[#0A1324] text-dark-on-surface-variant hover:text-white'
                     }`}
                   >
                     {acc.label}
@@ -649,7 +649,7 @@ export const PixelAvatarStudio: React.FC<PixelAvatarStudioProps> = ({ onComplete
           {/* Botão de Conclusão de Customização */}
           {onComplete && (
             <div className="pt-4 flex items-center justify-between">
-              <div className="font-mono text-xs text-slate-400">
+              <div className="font-mono text-xs text-dark-on-surface-variant">
                 {isAvailable === false && (
                   <span className="text-[#F43F5E]">Defina um codename válido e disponível para prosseguir.</span>
                 )}

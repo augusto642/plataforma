@@ -178,7 +178,7 @@ export const VisualLessonModal: React.FC = () => {
           <button
             type="button"
             onClick={closeVisualLesson}
-            className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm font-bold border border-slate-700 transition"
+            className="w-8 h-8 rounded-lg bg-dark-surface-container/80 hover:bg-dark-surface-container-high text-ink-body hover:text-white flex items-center justify-center text-sm font-bold border border-border-subtle transition"
             title="Fechar Lição"
           >
             ✕
@@ -186,7 +186,7 @@ export const VisualLessonModal: React.FC = () => {
         </div>
 
         {/* Subheader / Subtítulo */}
-        <div className="bg-[#040814] px-6 py-2.5 border-b border-cyan-950 font-mono text-xs text-slate-300">
+        <div className="bg-[#040814] px-6 py-2.5 border-b border-cyan-950 font-mono text-xs text-ink-body">
           {lesson.subtitle}
         </div>
 
@@ -207,7 +207,7 @@ export const VisualLessonModal: React.FC = () => {
               className={`py-3 px-4 font-mono text-xs font-bold transition border-b-2 ${
                 activeTab === tab.id
                   ? 'border-[#00E5FF] text-[#00E5FF]'
-                  : 'border-transparent text-slate-400 hover:text-white'
+                  : 'border-transparent text-dark-on-surface-variant hover:text-white'
               }`}
             >
               {tab.label}
@@ -230,7 +230,7 @@ export const VisualLessonModal: React.FC = () => {
                     <h4 className="text-lg font-heading font-black text-[#00E5FF] mb-2">
                       {lesson.metaphorTitle}
                     </h4>
-                    <p className="font-sans text-sm text-slate-200 leading-relaxed">
+                    <p className="font-sans text-sm text-dark-on-surface leading-relaxed">
                       {lesson.metaphorDesc}
                     </p>
                   </div>
@@ -238,24 +238,24 @@ export const VisualLessonModal: React.FC = () => {
               </div>
 
               {/* Diagrama Visual Conceitual */}
-              <div className="p-5 rounded-2xl border border-slate-800 bg-[#040714]">
-                <h5 className="font-mono text-xs text-slate-400 uppercase tracking-wider mb-3">
+              <div className="p-5 rounded-2xl border border-border-subtle bg-[#040714]">
+                <h5 className="font-mono text-xs text-dark-on-surface-variant uppercase tracking-wider mb-3">
                   DIAGRAMA DE FLUXO MENTAL:
                 </h5>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center font-mono text-xs">
                   <div className="p-3 rounded-xl bg-[#0A1428] border border-cyan-900/60">
                     <div className="text-xl mb-1">🏷️ Rótulo</div>
                     <div className="text-cyan-300 font-bold">Identificador Único</div>
-                    <div className="text-[10px] text-slate-400 mt-1">Nome no código fonte</div>
+                    <div className="text-[10px] text-dark-on-surface-variant mt-1">Nome no código fonte</div>
                   </div>
                   <div className="p-3 rounded-xl bg-[#0A1428] border border-cyan-900/60 flex flex-col justify-center">
                     <span className="text-[#04D361] font-bold text-base">➔ ATRIBUIÇÃO (=) ➔</span>
-                    <span className="text-[10px] text-slate-400">Armazena na célula</span>
+                    <span className="text-[10px] text-dark-on-surface-variant">Armazena na célula</span>
                   </div>
                   <div className="p-3 rounded-xl bg-[#0A1428] border border-cyan-900/60">
                     <div className="text-xl mb-1">📦 Célula RAM</div>
                     <div className="text-emerald-300 font-bold">Valor em Memória</div>
-                    <div className="text-[10px] text-slate-400 mt-1">Bytes alocados</div>
+                    <div className="text-[10px] text-dark-on-surface-variant mt-1">Bytes alocados</div>
                   </div>
                 </div>
               </div>
@@ -265,7 +265,7 @@ export const VisualLessonModal: React.FC = () => {
           {/* Aba 2: Código Didático */}
           {activeTab === 'code' && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="flex items-center justify-between font-mono text-xs text-slate-400">
+              <div className="flex items-center justify-between font-mono text-xs text-dark-on-surface-variant">
                 <span>EXEMPLO ANOTADO // {lesson.codeLanguage.toUpperCase()}:</span>
                 <span className="text-[#04D361]">SINTAXE LIMPA 100% EXPLICADA</span>
               </div>
@@ -287,7 +287,7 @@ export const VisualLessonModal: React.FC = () => {
                   <div className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider mb-1">
                     ANOTAÇÕES DO MASCOTE GATO PRETO:
                   </div>
-                  <p className="font-mono text-xs text-slate-200 leading-relaxed mb-3">
+                  <p className="font-mono text-xs text-dark-on-surface leading-relaxed mb-3">
                     {lesson.catNote}
                   </p>
                 </div>
@@ -298,7 +298,7 @@ export const VisualLessonModal: React.FC = () => {
                 <h5 className="text-xs font-mono font-bold text-[#00E5FF] uppercase tracking-wider mb-2">
                   PROVOCAÇÃO SOCRÁTICA (AUTO-AVALIAÇÃO):
                 </h5>
-                <p className="font-sans text-sm text-slate-100 leading-relaxed mb-4">
+                <p className="font-sans text-sm text-dark-on-surface leading-relaxed mb-4">
                   "{lesson.socraticQuestion}"
                 </p>
                 <button
@@ -322,7 +322,7 @@ export const VisualLessonModal: React.FC = () => {
 
         {/* Footer com Botão de Conclusão */}
         <div className="border-t border-cyan-950 bg-[#070D1E] px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-xs font-mono text-slate-400">
+          <div className="text-xs font-mono text-dark-on-surface-variant">
             Recompensa por compreensão:{' '}
             <strong className="text-[#04D361]">+{lesson.xpReward} XP</strong> e{' '}
             <strong className="text-cyan-400">+20 Bits</strong>
@@ -332,7 +332,7 @@ export const VisualLessonModal: React.FC = () => {
             <button
               type="button"
               onClick={closeVisualLesson}
-              className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/60 font-mono text-xs text-slate-300 hover:text-white transition"
+              className="px-4 py-2.5 rounded-xl border border-border-subtle bg-dark-surface-container/60 font-mono text-xs text-ink-body hover:text-white transition"
             >
               Voltar ao Mapa
             </button>

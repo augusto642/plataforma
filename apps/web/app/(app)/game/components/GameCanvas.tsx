@@ -296,7 +296,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveProp(null)}
-                className="text-zinc-400 hover:text-white font-mono text-xs px-2 py-1 rounded bg-slate-800/80 border border-slate-700"
+                className="text-zinc-400 hover:text-white font-mono text-xs px-2 py-1 rounded bg-dark-surface-container/80 border border-border-subtle"
               >
                 ✕
               </button>

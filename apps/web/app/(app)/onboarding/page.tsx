@@ -215,9 +215,9 @@ export default function OnboardingPage(): JSX.Element {
   };
 
   return (
-    <div className="min-h-screen bg-[#050814] text-slate-100 flex flex-col justify-between selection:bg-[#00E5FF] selection:text-black">
+    <div className="min-h-screen bg-[#050814] text-dark-on-surface flex flex-col justify-between selection:bg-[#00E5FF] selection:text-black">
       {/* Top Navbar Minimalista Dark Obsidian */}
-      <header className="border-b border-slate-800/80 bg-[#0B1021]/80 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
+      <header className="border-b border-border-subtle/80 bg-[#0B1021]/80 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link href="/" className="flex items-center space-x-2">
@@ -243,7 +243,7 @@ export default function OnboardingPage(): JSX.Element {
               className={`flex items-center space-x-1.5 transition ${
                 currentStep === 'mascot'
                   ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500 hover:text-slate-300'
+                  : 'text-dark-on-surface-variant hover:text-ink-body'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
@@ -251,13 +251,13 @@ export default function OnboardingPage(): JSX.Element {
               </span>
               <span>TERMINAL</span>
             </button>
-            <span className="text-slate-700">→</span>
+            <span className="text-dark-on-surface-variant">→</span>
 
             <span
               className={`flex items-center space-x-1.5 transition ${
                 currentStep === 'mission'
                   ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500'
+                  : 'text-dark-on-surface-variant'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
@@ -265,7 +265,7 @@ export default function OnboardingPage(): JSX.Element {
               </span>
               <span>MISSÃO 1</span>
             </span>
-            <span className="text-slate-700">→</span>
+            <span className="text-dark-on-surface-variant">→</span>
 
             <button
               type="button"
@@ -273,7 +273,7 @@ export default function OnboardingPage(): JSX.Element {
               className={`flex items-center space-x-1.5 transition ${
                 currentStep === 'tier'
                   ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500 hover:text-slate-300'
+                  : 'text-dark-on-surface-variant hover:text-ink-body'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
@@ -281,7 +281,7 @@ export default function OnboardingPage(): JSX.Element {
               </span>
               <span>NÍVEL DE CARREIRA</span>
             </button>
-            <span className="text-slate-700">→</span>
+            <span className="text-dark-on-surface-variant">→</span>
 
             <button
               type="button"
@@ -289,7 +289,7 @@ export default function OnboardingPage(): JSX.Element {
               className={`flex items-center space-x-1.5 transition ${
                 currentStep === 'starter'
                   ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500 hover:text-slate-300'
+                  : 'text-dark-on-surface-variant hover:text-ink-body'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
@@ -297,7 +297,7 @@ export default function OnboardingPage(): JSX.Element {
               </span>
               <span>PET & CURSO</span>
             </button>
-            <span className="text-slate-700">→</span>
+            <span className="text-dark-on-surface-variant">→</span>
 
             <button
               type="button"
@@ -305,7 +305,7 @@ export default function OnboardingPage(): JSX.Element {
               className={`flex items-center space-x-1.5 transition ${
                 currentStep === 'avatar'
                   ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500 hover:text-slate-300'
+                  : 'text-dark-on-surface-variant hover:text-ink-body'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
@@ -313,13 +313,13 @@ export default function OnboardingPage(): JSX.Element {
               </span>
               <span>AVATAR STUDIO</span>
             </button>
-            <span className="text-slate-700">→</span>
+            <span className="text-dark-on-surface-variant">→</span>
 
             <span
               className={`flex items-center space-x-1.5 transition ${
                 currentStep === 'account'
                   ? 'text-[#00E5FF] font-bold'
-                  : 'text-slate-500'
+                  : 'text-dark-on-surface-variant'
               }`}
             >
               <span className="h-5 w-5 rounded-full border border-current flex items-center justify-center text-[10px]">
@@ -334,14 +334,14 @@ export default function OnboardingPage(): JSX.Element {
             <button
               type="button"
               onClick={toggleMute}
-              className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-slate-300 hover:border-slate-600 transition"
+              className="rounded-lg border border-border-subtle bg-dark-surface-container-low/60 px-3 py-1.5 text-ink-body hover:border-border-strong transition"
             >
               {isMuted ? '🔇 ÁUDIO DESATIVADO' : '🔊 ÁUDIO 8-BIT ATIVO'}
             </button>
             {/* Atalho de convidado: rótulo explícito de teste sem conta */}
             <Link
               href="/game"
-              className="text-slate-400 hover:text-cyan-400 transition"
+              className="text-dark-on-surface-variant hover:text-cyan-400 transition"
             >
               Testar sem conta →
             </Link>
@@ -392,17 +392,17 @@ export default function OnboardingPage(): JSX.Element {
             <h2 className="font-mono text-3xl font-black text-[#00E5FF] tracking-tight mb-2">
               {finalizeTarget === 'ide' ? 'CONTA SALVA!' : 'NEURAL SYNC COMPLETO!'}
             </h2>
-            <p className="font-mono text-sm text-slate-300 mb-6">
+            <p className="font-mono text-sm text-ink-body mb-6">
               Operador <span className="text-[#04D361] font-bold">{player.name}</span> e{' '}
               <span className="text-[#FFA116] font-bold">{selectedStarter.name}</span>{' '}
               {finalizeTarget === 'ide'
                 ? 'com o progresso salvo. Sua primeira missão na IDE já está aberta.'
                 : 'inicializados no Circuit Valley...'}
             </p>
-            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-2 w-full bg-dark-surface-container rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#00E5FF] via-[#04D361] to-[#8257E5] animate-pulse w-full" />
             </div>
-            <div className="mt-4 font-mono text-xs text-slate-500">
+            <div className="mt-4 font-mono text-xs text-dark-on-surface-variant">
               {finalizeTarget === 'ide'
                 ? 'ABRINDO SUA PRIMEIRA MISSÃO NA IDE...'
                 : 'ENTRANDO NA ARENA EM 60 FPS...'}
@@ -412,7 +412,7 @@ export default function OnboardingPage(): JSX.Element {
       )}
 
       {/* Footer Minimalista */}
-      <footer className="border-t border-slate-900 bg-[#03060F] py-4 text-center font-mono text-xs text-slate-500">
+      <footer className="border-t border-border-subtle bg-[#03060F] py-4 text-center font-mono text-xs text-dark-on-surface-variant">
         NEXUS CODE RPG ENGINE // PROLOGUE ONBOARDING // DARK OBSIDIAN ARCHITECTURE
       </footer>
     </div>

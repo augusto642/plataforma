@@ -59,7 +59,7 @@ export const GitTierModal: React.FC<GitTierModalProps> = ({ onClose }) => {
                   GIT PROTOCOL
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-dark-on-surface-variant">
                 Engenharia real: commits assinados, branches e webhooks automáticos.
               </p>
             </div>
@@ -68,7 +68,7 @@ export const GitTierModal: React.FC<GitTierModalProps> = ({ onClose }) => {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition"
+            className="rounded-lg border border-border-subtle bg-dark-surface-container/80 px-3 py-1.5 text-xs text-ink-body hover:bg-dark-surface-container-high transition"
           >
             ✕ FECHAR
           </button>
@@ -82,7 +82,7 @@ export const GitTierModal: React.FC<GitTierModalProps> = ({ onClose }) => {
               <h4 className="text-lg font-black text-white mb-2">
                 Graduação para o Tier Júnior: Repositório Real
               </h4>
-              <p className="text-xs text-slate-300 max-w-lg mx-auto mb-6 leading-relaxed">
+              <p className="text-xs text-ink-body max-w-lg mx-auto mb-6 leading-relaxed">
                 Você já domina os loops do Overworld! Agora é hora de codificar como um engenheiro: submeta seu código via Git CLI e receba avaliação automática de testes por Webhooks.
               </p>
 
@@ -137,15 +137,15 @@ export const GitTierModal: React.FC<GitTierModalProps> = ({ onClose }) => {
                     { label: '3. Fazer commit da resolução:', cmd: 'git commit -am "feat: implement dynamic programming solution"' },
                     { label: '4. Enviar para validação:', cmd: 'git push origin feature/minha-solucao' },
                   ].map((step, idx) => (
-                    <div key={idx} className="rounded-xl border border-slate-800 bg-[#080F22] p-2.5 flex items-center justify-between">
+                    <div key={idx} className="rounded-xl border border-border-subtle bg-[#080F22] p-2.5 flex items-center justify-between">
                       <div className="truncate mr-3">
-                        <span className="text-slate-400 block text-[10px] mb-0.5">{step.label}</span>
+                        <span className="text-dark-on-surface-variant block text-[10px] mb-0.5">{step.label}</span>
                         <code className="text-cyan-300 select-all">{step.cmd}</code>
                       </div>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(step.cmd, idx)}
-                        className="rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[10px] text-slate-300 hover:text-white transition flex-shrink-0"
+                        className="rounded-lg border border-border-subtle bg-dark-surface-container/80 px-2.5 py-1 text-[10px] text-ink-body hover:text-white transition flex-shrink-0"
                       >
                         {copiedIndex === idx ? '✓ COPIADO' : 'COPIAR'}
                       </button>
@@ -157,10 +157,10 @@ export const GitTierModal: React.FC<GitTierModalProps> = ({ onClose }) => {
               {/* Status do Webhook de Testes */}
               <div className="rounded-2xl border border-purple-900/50 bg-[#091126] p-4 text-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-slate-300 font-bold">AUTOMATION PIPELINE // BULLMQ</span>
+                  <span className="text-ink-body font-bold">AUTOMATION PIPELINE // BULLMQ</span>
                   <span className="text-emerald-400 font-bold">WEBHOOK ATIVO (:3030)</span>
                 </div>
-                <p className="text-slate-400 leading-relaxed text-[11px]">
+                <p className="text-dark-on-surface-variant leading-relaxed text-[11px]">
                   A cada <code className="text-purple-300">git push</code>, o Gitea envia um payload assinado com HMAC-SHA256 para o NestJS backend na fila BullMQ. Os testes de integração são executados e a nota é sincronizada automaticamente com seu perfil de desenvolvedor.
                 </p>
               </div>
@@ -169,7 +169,7 @@ export const GitTierModal: React.FC<GitTierModalProps> = ({ onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-purple-900/50 bg-[#0C1226] px-6 py-3 flex items-center justify-between text-xs text-slate-400">
+        <div className="border-t border-purple-900/50 bg-[#0C1226] px-6 py-3 flex items-center justify-between text-xs text-dark-on-surface-variant">
           <span>GITEA CORE v1.24 // PORT 3030</span>
           <span>NEXUS CODE RECRUITER VERIFIED</span>
         </div>

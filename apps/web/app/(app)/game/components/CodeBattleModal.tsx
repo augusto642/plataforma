@@ -344,14 +344,14 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
                   </span>
                 )}
               </div>
-              <p className="font-mono text-[11px] text-slate-400">{challenge.title}</p>
+              <p className="font-mono text-[11px] text-dark-on-surface-variant">{challenge.title}</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 font-mono text-xs text-slate-300 hover:bg-slate-700 transition"
+            className="rounded-lg border border-border-subtle bg-dark-surface-container/80 px-3 py-1.5 font-mono text-xs text-ink-body hover:bg-dark-surface-container-high transition"
           >
             ✕ RECUAR
           </button>
@@ -433,7 +433,7 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
           {/* Editor Monaco Embutido (7 Colunas) */}
           <div className="lg:col-span-7 border-r border-cyan-950 flex flex-col h-[320px] sm:h-[360px]">
-            <div className="flex items-center justify-between bg-[#070E1F] px-4 py-2 border-b border-cyan-950 font-mono text-[11px] text-slate-400">
+            <div className="flex items-center justify-between bg-[#070E1F] px-4 py-2 border-b border-cyan-950 font-mono text-[11px] text-dark-on-surface-variant">
               <span className="text-cyan-300">code_attack.{challenge.language === 'javascript' ? 'js' : 'ts'}</span>
               <button
                 type="button"
@@ -473,7 +473,7 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
           {/* Painel de Resultados dos Casos de Teste (5 Colunas) */}
           <div className="lg:col-span-5 flex flex-col bg-[#030611] h-[320px] sm:h-[360px] overflow-y-auto p-4 font-mono text-xs">
             <div className="mb-2.5 flex items-center justify-between border-b border-cyan-950 pb-2">
-              <span className="text-slate-300 font-bold">VALIAÇÃO DE IMPACTO:</span>
+              <span className="text-ink-body font-bold">VALIAÇÃO DE IMPACTO:</span>
               {outcome && (
                 <span
                   className={`rounded px-2 py-0.5 font-bold ${
@@ -513,7 +513,7 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
                   </div>
 
                   {!t.passed && (
-                    <div className="text-[10px] text-slate-400 mt-1 border-t border-white/5 pt-1 space-y-0.5">
+                    <div className="text-[10px] text-dark-on-surface-variant mt-1 border-t border-white/5 pt-1 space-y-0.5">
                       {t.expected !== undefined && (
                         <div>Esperado: <code className="text-emerald-400">{JSON.stringify(t.expected)}</code></div>
                       )}
@@ -553,7 +553,7 @@ export const CodeBattleModal: React.FC<CodeBattleModalProps> = ({
 
         {/* 3. RODAPÉ COM BOTÃO DE ATAQUE */}
         <div className="flex flex-col sm:flex-row items-center justify-between border-t border-cyan-900/60 bg-[#0A1428] px-6 py-3.5 gap-3">
-          <div className="font-mono text-xs text-slate-300">
+          <div className="font-mono text-xs text-ink-body">
             {serverError ? (
               <span className="text-amber-400 font-bold">
                 Batalha não registrada — tente novamente.

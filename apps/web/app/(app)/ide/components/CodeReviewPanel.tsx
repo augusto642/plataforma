@@ -67,7 +67,7 @@ export function CodeReviewPanel({ submissionId }: { submissionId: string }) {
   return (
     <div style={{ borderTop: '1px solid #1e222d', padding: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', margin: 0 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#F4F4F5', margin: 0 }}>
           Revisão de código por IA
         </h3>
         <button
@@ -88,19 +88,19 @@ export function CodeReviewPanel({ submissionId }: { submissionId: string }) {
           {requesting ? 'Pedindo…' : 'Pedir revisão'}
         </button>
       </div>
-      <p style={{ fontSize: 12, color: '#94a3b8', margin: '6px 0 0' }}>
+      <p style={{ fontSize: 12, color: '#A1A1AA', margin: '6px 0 0' }}>
         Complementa o resultado dos testes — não o substitui. A revisão é específica ao
         seu código e não usa os testes ocultos.
       </p>
       {error && <p style={{ fontSize: 12, color: '#f87171' }}>{error}</p>}
       {reviews.length === 0 && (
-        <p style={{ fontSize: 12, color: '#94a3b8' }}>
+        <p style={{ fontSize: 12, color: '#A1A1AA' }}>
           Nenhuma revisão ainda. Peça uma acima (planos pagos; no Pro, só projetos finais).
         </p>
       )}
       {reviews.map((review) => (
-        <div key={review.id} style={{ marginTop: 12, fontSize: 13, color: '#cbd5e1' }}>
-          <p style={{ margin: 0, color: '#94a3b8', fontSize: 12 }}>
+        <div key={review.id} style={{ marginTop: 12, fontSize: 13, color: '#C0C0D1' }}>
+          <p style={{ margin: 0, color: '#A1A1AA', fontSize: 12 }}>
             {review.status === 'pending'
               ? 'Em fila…'
               : review.status === 'completed'

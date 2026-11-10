@@ -222,7 +222,7 @@ export const RetroCrtMascot: React.FC<RetroCrtMascotProps> = ({
                           ? 'w-6 bg-[#00E5FF]'
                           : idx < currentLineIndex
                           ? 'w-2 bg-[#04D361]'
-                          : 'w-2 bg-slate-700'
+                          : 'w-2 bg-dark-surface-container-high'
                       }`}
                     />
                   ))}

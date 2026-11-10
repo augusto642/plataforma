@@ -258,7 +258,7 @@ export const StarterEvolutionPreview: React.FC<StarterEvolutionPreviewProps> = (
               className={`cursor-pointer rounded-2xl border p-5 transition-all duration-300 relative overflow-hidden ${
                 isSelected
                   ? 'bg-[#0E172E] border-[#00E5FF] shadow-[0_0_30px_rgba(0,229,255,0.3)] scale-[1.02]'
-                  : 'bg-[#070D1E]/80 border-slate-800 hover:border-slate-600 hover:bg-[#0B1224]'
+                  : 'bg-[#070D1E]/80 border-border-subtle hover:border-border-strong hover:bg-[#0B1224]'
               }`}
             >
               {/* Glow de Fundo */}

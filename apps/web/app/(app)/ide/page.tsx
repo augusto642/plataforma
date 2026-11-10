@@ -941,7 +941,7 @@ export default function HomePage() {
           <span style={{ fontSize: 13, color: '#A1A1AA', borderLeft: '1px solid #3F3F46', paddingLeft: 10 }}>{user?.email}</span>
           <button
             onClick={handleLogout}
-            style={{ padding: '5px 12px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
+            style={{ padding: '5px 12px', background: 'transparent', border: '1px solid #3F3F46', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
           >
             Sair
           </button>
@@ -1001,7 +1001,7 @@ export default function HomePage() {
                   {isProvisioningGit ? 'Configurando...' : '🔗 Configurar Git'}
                 </button>
                 {gitInfo && (
-                  <div style={{ marginTop: 8, padding: 12, background: '#131c2e', border: '1px solid #27272A', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ marginTop: 8, padding: 12, background: '#181926', border: '1px solid #27272A', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#00E5FF' }}>Repositório configurado</div>
                     <div style={{ fontSize: 11, color: '#F4F4F5', fontFamily: 'monospace', wordBreak: 'break-all' }}>{gitInfo.repoFullName}</div>
                     <div style={{ fontSize: 11, color: '#A1A1AA', fontFamily: 'monospace', wordBreak: 'break-all' }}>{gitInfo.cloneUrl}</div>
@@ -1074,7 +1074,7 @@ export default function HomePage() {
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="Ex.: ALGO2024"
                   maxLength={12}
-                  style={{ flex: 1, minWidth: 0, padding: '7px 9px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase' }}
+                  style={{ flex: 1, minWidth: 0, padding: '7px 9px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase' }}
                 />
                 <button
                   type="submit"
@@ -1104,7 +1104,7 @@ export default function HomePage() {
 
               <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '440px 1fr', minHeight: 0 }}>
                 {/* Left Column: Instructions, Socratic Guidance & Validation Results */}
-                <div style={{ borderRight: '1px solid #27272A', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#0b1120' }}>
+                <div style={{ borderRight: '1px solid #27272A', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#12131D' }}>
                   {/* Instructions & Socratic Prompting */}
                   <InstructionsPanel
                     title={selectedActivity.title}
@@ -1211,7 +1211,7 @@ export default function HomePage() {
                         disabled={isLoadingReference}
                         style={{
                           padding: '6px 12px',
-                          background: 'rgba(34, 197, 94, 0.12)',
+                          background: 'rgba(0, 230, 118, 0.12)',
                           border: '1px solid #22c55e',
                           borderRadius: 8,
                           color: '#00E676',
@@ -1223,7 +1223,7 @@ export default function HomePage() {
                         {isLoadingReference ? 'Carregando...' : showReference ? 'Ocultar Solução' : '💡 Solução de Referência'}
                       </button>
                       {showReference && referenceCode !== null && (
-                        <div style={{ marginTop: 8, background: '#131c2e', border: '1px solid #22c55e', borderRadius: 8, padding: 12 }}>
+                        <div style={{ marginTop: 8, background: '#181926', border: '1px solid #22c55e', borderRadius: 8, padding: 12 }}>
                           <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5, color: '#F4F4F5', background: '#0D0E15', padding: 10, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                             {referenceCode}
                           </pre>
@@ -1264,7 +1264,7 @@ export default function HomePage() {
 
                   {/* Line Feedback Block */}
                   {lineFeedback !== null && submission?.status === 'failed' && (
-                    <div style={{ margin: '12px 16px', background: '#131c2e', border: '1px solid #3F3F46', borderRadius: 8, padding: 14 }}>
+                    <div style={{ margin: '12px 16px', background: '#181926', border: '1px solid #3F3F46', borderRadius: 8, padding: 14 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#F4F4F5', marginBottom: 8 }}>
                         🔍 Análise por Linha
                       </div>
@@ -1283,7 +1283,7 @@ export default function HomePage() {
                                 gap: 8,
                                 padding: '6px 10px',
                                 borderRadius: 4,
-                                background: '#0b1120',
+                                background: '#12131D',
                                 borderLeft: `3px solid ${item.severity === 'warning' ? '#f59e0b' : '#A1A1AA'}`,
                               }}
                             >
@@ -1429,7 +1429,7 @@ export default function HomePage() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowCourseModal(false); }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
         >
-          <div style={{ width: '100%', maxWidth: 460, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #3F3F46' }}>
+          <div style={{ width: '100%', maxWidth: 460, background: '#181926', padding: 24, borderRadius: 12, border: '1px solid #3F3F46' }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px 0' }}>Cadastrar Novo Curso</h2>
             <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
@@ -1439,7 +1439,7 @@ export default function HomePage() {
                   required
                   value={newCourseTitle}
                   onChange={(e) => setNewCourseTitle(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div>
@@ -1449,7 +1449,7 @@ export default function HomePage() {
                   value={newCourseSlug}
                   onChange={(e) => setNewCourseSlug(e.target.value)}
                   placeholder="ex.: estruturas-de-dados"
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div>
@@ -1458,14 +1458,14 @@ export default function HomePage() {
                   value={newCourseDesc}
                   onChange={(e) => setNewCourseDesc(e.target.value)}
                   rows={3}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => setShowCourseModal(false)}
-                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
+                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #3F3F46', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
                 >
                   Cancelar
                 </button>
@@ -1490,7 +1490,7 @@ export default function HomePage() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowActivityModal(false); }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
         >
-          <div style={{ width: '100%', maxWidth: 540, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #3F3F46', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ width: '100%', maxWidth: 540, background: '#181926', padding: 24, borderRadius: 12, border: '1px solid #3F3F46', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px 0' }}>Nova Atividade em {selectedCourse?.title}</h2>
             <form onSubmit={handleCreateActivity} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
@@ -1500,7 +1500,7 @@ export default function HomePage() {
                   required
                   value={newActTitle}
                   onChange={(e) => setNewActTitle(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -1509,7 +1509,7 @@ export default function HomePage() {
                   <select
                     value={newActLang}
                     onChange={(e) => setNewActLang(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                    style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                   >
                     <option value="javascript">JavaScript</option>
                     <option value="python">Python</option>
@@ -1523,7 +1523,7 @@ export default function HomePage() {
                     type="text"
                     value={newActSlug}
                     onChange={(e) => setNewActSlug(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                    style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                   />
                 </div>
               </div>
@@ -1534,7 +1534,7 @@ export default function HomePage() {
                   value={newActDesc}
                   onChange={(e) => setNewActDesc(e.target.value)}
                   rows={2}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div>
@@ -1544,7 +1544,7 @@ export default function HomePage() {
                   onChange={(e) => setNewActInitialCode(e.target.value)}
                   placeholder="function minhaFuncao() { ... }"
                   rows={3}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
                 />
               </div>
               <div>
@@ -1554,7 +1554,7 @@ export default function HomePage() {
                   onChange={(e) => setNewActTestCode(e.target.value)}
                   placeholder="if (minhaFuncao(2) !== 4) throw new Error('Falha no teste');"
                   rows={3}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
                 />
               </div>
               <div>
@@ -1564,14 +1564,14 @@ export default function HomePage() {
                   onChange={(e) => setNewActHiddenTests(e.target.value)}
                   placeholder="if (minhaFuncao(0) !== 0) throw new Error('Falha caso zero');"
                   rows={2}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => setShowActivityModal(false)}
-                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
+                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #3F3F46', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
                 >
                   Cancelar
                 </button>
