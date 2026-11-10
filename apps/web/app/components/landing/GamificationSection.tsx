@@ -22,6 +22,15 @@ const MAP_PHASES = [
     n: '01',
     state: 'concluida' as const,
     stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
+    // Central 219 (D4 residual) — variante curta SÓ para o mobile
+    // (<640px): o rótulo completo a 11px precisa de ~179px e o
+    // container do selo no mobile 390px tem ~131px, por isso o selo
+    // ocupava 2 linhas mesmo com o NBSP. A variante curta a 10px
+    // precisa de 22 × 6,0px = 132px e cabe no container alargado
+    // (p-3 + gap-2 no mobile). O desktop mantém o texto literal do
+    // protótipo (hidden sm:inline). O NBSP entre "3" e "ESTRELAS"
+    // é \u00a0 explícito — nunca quebrar "3 ESTRELAS" ao meio.
+    stateLabelShort: 'CONCLUÍDA • 3 ESTRELAS',
     title: 'O Desafio das Variáveis Mágicas',
     xp: '+200 XP',
   },
@@ -29,6 +38,7 @@ const MAP_PHASES = [
     n: '02',
     state: 'concluida' as const,
     stateLabel: 'FASE CONCLUÍDA • 3 ESTRELAS',
+    stateLabelShort: 'CONCLUÍDA • 3 ESTRELAS',
     title: 'Portas Lógicas e Condicionais IF/ELSE',
     xp: '+250 XP',
   },
@@ -36,6 +46,9 @@ const MAP_PHASES = [
     n: '03',
     state: 'atual' as const,
     stateLabel: 'FASE ATUAL • DESAFIO DE CÓDIGO',
+    // "FASE ATUAL • DESAFIO DE CÓDIGO" a 10px precisa de ~180px e
+    // também ocuparia 2 linhas no mobile — mesma variante curta.
+    stateLabelShort: 'ATUAL • DESAFIO',
     title: 'O Guardião dos Loops e Arrays',
     xp: '+450 XP',
   },
@@ -43,6 +56,7 @@ const MAP_PHASES = [
     n: '04',
     state: 'bloqueada' as const,
     stateLabel: 'BLOQUEADO',
+    stateLabelShort: 'BLOQUEADO',
     title: 'Recursão e Árvores de Decisão',
     xp: '+600 XP',
   },
@@ -83,7 +97,7 @@ export const GamificationSection: React.FC = () => (
         <div className="relative py-2 space-y-6">
           {MAP_PHASES.map((phase, i) => (
             <div key={phase.n}>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <div
                   className={`w-12 h-12 shrink-0 rounded-full border-2 flex items-center justify-center font-code font-bold ${
                     phase.state === 'concluida'
@@ -102,7 +116,7 @@ export const GamificationSection: React.FC = () => (
                   )}
                 </div>
                 <div
-                  className={`flex-1 p-4 rounded-xl border flex items-center justify-between gap-3 ${
+                  className={`flex-1 p-3 sm:p-4 rounded-xl border flex items-center justify-between gap-2 sm:gap-3 ${
                     phase.state === 'atual'
                       ? 'bg-brand-purple/10 border-brand-purple/50'
                       : phase.state === 'bloqueada'
@@ -111,8 +125,9 @@ export const GamificationSection: React.FC = () => (
                   }`}
                 >
                   <div>
-                    <span className={`text-[11px] font-code ${phase.state === 'atual' ? 'text-dark-primary font-bold' : phase.state === 'bloqueada' ? 'text-ink-span' : 'text-secondary'}`}>
-                      {phase.stateLabel}
+                    <span className={`whitespace-nowrap text-[10px] sm:text-[11px] font-code ${phase.state === 'atual' ? 'text-dark-primary font-bold' : phase.state === 'bloqueada' ? 'text-ink-span' : 'text-secondary'}`}>
+                      <span className="sm:hidden">{phase.stateLabelShort}</span>
+                      <span className="hidden sm:inline">{phase.stateLabel}</span>
                     </span>
                     <h4 className={`font-headline font-semibold text-body-md ${phase.state === 'bloqueada' ? 'text-ink-span' : 'text-white'}`}>
                       {phase.n}. {phase.title}

@@ -121,6 +121,23 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).not.toContain('produto-missao-1.webp');
   });
 
+  // Central 219 (D4 residual) — o selo de fase tem variante curta
+  // mobile (<640px) e mantém o texto literal do protótipo no desktop:
+  // SSR renderiza as duas (o CSS esconde uma). O NBSP entre "3" e
+  // "ESTRELAS" é \u00a0 explícito — a variante curta nunca parte
+  // "3 ESTRELAS" ao meio.
+  it('D4: selo de fase com variante curta mobile e texto literal no desktop', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    // "CONCLUÍDA • 3 ESTRELAS" é substring do rótulo completo, por
+    // isso conta 4× (2 curtas + 2 dentro das completas); o rótulo
+    // completo conta 2×.
+    expect(countOccurrences(html, 'CONCLUÍDA • 3 ESTRELAS')).toBe(4);
+    expect(countOccurrences(html, 'FASE CONCLUÍDA • 3 ESTRELAS')).toBe(2);
+    expect(html).toContain('ATUAL • DESAFIO');
+    expect(html).toContain('FASE ATUAL • DESAFIO DE CÓDIGO');
+    expect(html).toContain('BLOQUEADO');
+  });
+
   // Redesign v2 (Central 213) — correções 1, 3, 4 e 6 do prompt v2:
   // hero com trilha de RPG sugerida pela IA, itens do Iniciante e Pro
   // sem "ilimitado". Retrabalho Central 213 (D1 + D4): a prova "4
