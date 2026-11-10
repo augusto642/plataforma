@@ -501,8 +501,8 @@ export default function DesafiosPage() {
           <h2 className="font-bold text-white">Minhas ligas</h2>
           {leagueError ? (
             <p className="text-sm text-zinc-400 mt-2">
-              As ligas persistentes fazem parte dos planos pagos. Você ainda participa do
-              desafio e do ranking da semana acima.
+              As ligas persistentes fazem parte dos planos pagos. Quando houver um
+              desafio ativo, ele aparece aqui com o ranking da semana.
             </p>
           ) : leagues.length === 0 ? (
             <p className="text-sm text-zinc-400 mt-2">
