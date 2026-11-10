@@ -16,8 +16,10 @@ import { appendTranscript } from '../../../hooks/voice-support';
 import { InterviewVoiceControls } from '../InterviewVoiceControls';
 import {
   INTERVIEW_TURN_CAP,
+  criterionLabel,
   currentQuestionLabel,
   latestFeedbackText,
+  orderedEvaluationEntries,
   userInitials,
 } from '../session-view';
 import { IdeEditorPane } from '../../ide/components/IdeEditorPane';
@@ -257,7 +259,9 @@ export default function EntrevistaSessaoPage() {
     [...session.turns]
       .reverse()
       .find((t) => t.role === 'candidate' && t.evaluation)?.evaluation ?? null;
-  const feedbackText = lastEvaluation ? latestFeedbackText(lastEvaluation) : null;
+  const feedbackText = lastEvaluation
+    ? latestFeedbackText(lastEvaluation, session.mode)
+    : null;
 
   return (
     <div className="min-h-screen bg-dark-surface text-dark-on-surface flex flex-col">
@@ -353,10 +357,12 @@ export default function EntrevistaSessaoPage() {
                     {turn.evaluation && (
                       <div className="pt-1 text-xs text-zinc-300 space-y-1">
                         {/* Redesign v2 (correção 15): avaliação por critérios
-                            SEM números — só o nome do critério e a evidência. */}
-                        {Object.entries(turn.evaluation).map(([key, v]) => (
+                            SEM números — só o nome do critério e a evidência.
+                            Lote 4 (D12): rótulo legível da rubrica, nunca a
+                            chave crua; ordem da rubrica, nunca a do jsonb. */}
+                        {orderedEvaluationEntries(turn.evaluation, session.mode).map(([key, v]) => (
                           <p key={key}>
-                            <span className="font-bold">{key}</span>
+                            <span className="font-bold">{criterionLabel(key)}</span>
                             {' — '}
                             {v.evidence}
                           </p>
@@ -455,12 +461,17 @@ export default function EntrevistaSessaoPage() {
             </button>
           </div>
           <div className="h-[380px] shrink-0">
+            {/* Lote 4 (D14): a barra da sessão já é a chrome bar do
+                painel direito ("debounce.js • Live Coding com IA" +
+                "Testar implementação") — a barra interna do editor
+                duplicava o chrome. */}
             <IdeEditorPane
               language="javascript"
               code={code}
               onChange={setCode}
               onRun={() => void testCode()}
               isSubmitting={testingCode}
+              hideChromeBar
             />
           </div>
           {liveTest && (
@@ -496,12 +507,13 @@ export default function EntrevistaSessaoPage() {
               </div>
               {lastEvaluation ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {Object.entries(lastEvaluation).map(([key], i) => (
+                  {/* Lote 4 (D12): rótulos da rubrica, na ordem da rubrica. */}
+                  {orderedEvaluationEntries(lastEvaluation, session.mode).map(([key], i) => (
                     <div
                       key={key}
                       className="bg-dark-surface p-2.5 rounded border border-border-subtle text-center"
                     >
-                      <span className="text-xs text-white font-medium block mb-1">{key}</span>
+                      <span className="text-xs text-white font-medium block mb-1">{criterionLabel(key)}</span>
                       <span className={`font-code text-xs ${CRITERION_COLORS[i % CRITERION_COLORS.length]}`}>
                         Avaliado
                       </span>
@@ -554,9 +566,10 @@ export default function EntrevistaSessaoPage() {
             <div>
               <h3 className="text-sm font-bold text-zinc-300">Avaliação por critério</h3>
               <ul className="text-sm text-zinc-400 mt-1 space-y-1">
-                {Object.entries(report.scores).map(([key, v]) => (
+                {/* Lote 4 (D12): rótulos da rubrica, na ordem da rubrica. */}
+                {orderedEvaluationEntries(report.scores, session.mode).map(([key, v]) => (
                   <li key={key}>
-                    <span className="font-bold text-zinc-200">{key}</span>
+                    <span className="font-bold text-zinc-200">{criterionLabel(key)}</span>
                     {' — '}
                     {v.evidence}
                   </li>

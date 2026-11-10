@@ -30,6 +30,15 @@ interface IdeEditorPaneProps {
   onRun: () => void;
   isSubmitting: boolean;
   onFormat?: () => void;
+  /**
+   * Central 219 lote 4 (D14) — esconde a chrome bar interna do editor
+   * (arquivo + "Executar Código"). Usar quando o painel que hospeda o
+   * editor já tem a sua própria chrome bar (ex.: a sessão de
+   * entrevista, com "debounce.js • Live Coding com IA" + "Testar
+   * implementação", que executa o mesmo teste): duas barras empilhadas
+   * são duplicação visual. O atalho Ctrl/Cmd+Enter continua ativo.
+   */
+  hideChromeBar?: boolean;
 }
 
 export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
@@ -39,6 +48,7 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
   onRun,
   isSubmitting,
   onFormat,
+  hideChromeBar = false,
 }) => {
   const editorRef = useRef<any>(null);
 
@@ -62,7 +72,8 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-[#070A13] border-l border-[#1E222D]">
-      {/* Editor Toolbar */}
+      {/* Editor Toolbar — omitida com hideChromeBar (D14). */}
+      {!hideChromeBar && (
       <div className="h-11 px-4 bg-[#0D1017] border-b border-[#1E222D] flex items-center justify-between backdrop-blur-md">
         <div className="flex items-center gap-3">
           <span className="font-mono text-xs text-zinc-400">
@@ -103,6 +114,7 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
           )}
         </button>
       </div>
+      )}
 
       {/* Monaco Container */}
       <div className="flex-1 min-h-0 relative">

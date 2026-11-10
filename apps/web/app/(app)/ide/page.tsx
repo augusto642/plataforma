@@ -20,6 +20,8 @@ import { LeaderboardEntry, UserProgress, CourseProgress, UserBadge, LineFeedback
 import { fireConfetti } from '../dashboard/utils/confetti';
 import { useAuth } from '../../context/AuthContext';
 import { apiFetch, API_BASE } from '../../lib/apiClient';
+// Central 219 lote 4 (D4) — lógica pura da tela de jogo em 3 colunas.
+import { nextActivity, passedTestSummary } from './game-layout';
 // Sprint 5 — fundo do funil: primeira atividade concluída (B08 completo)
 import { track } from '../../lib/analytics';
 
@@ -169,7 +171,10 @@ export default function HomePage() {
     model?: string;
     fallbackReason?: string;
   } | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  // Central 219 lote 4 (D4) — a tutora é a 3ª coluna do protótipo
+  // (desafio-jogo.html), visível por padrão; o botão "Tutora de IA" do
+  // topo abre/fecha a coluna (e o ✕ do painel também fecha).
+  const [isChatOpen, setIsChatOpen] = useState(true);
   const editorRef = useRef<any>(null);
   const submissionStreamAbortRef = useRef<AbortController | null>(null);
   const courseFetchAbortRef = useRef<AbortController | null>(null);
@@ -809,6 +814,11 @@ export default function HomePage() {
 
   const isInstructor = user?.role === 'instructor' || user?.role === 'admin';
 
+  // Central 219 lote 4 (D4) — barra de ações do protótipo: só dados
+  // reais (resumo da submissão atual + próxima atividade real).
+  const nextAct = selectedActivity ? nextActivity(activities, selectedActivity.id) : null;
+  const testSummary = submission ? passedTestSummary(submission.testResults) : null;
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0D0E15', color: '#F4F4F5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
@@ -935,7 +945,7 @@ export default function HomePage() {
               gap: 6,
             }}
           >
-            <span>🤖</span> Tutor IA {isChatOpen ? '(Aberto)' : ''}
+            <span>🤖</span> Tutora de IA {isChatOpen ? '(Aberta)' : ''}
           </button>
 
           <span style={{ fontSize: 13, color: '#A1A1AA', borderLeft: '1px solid #3F3F46', paddingLeft: 10 }}>{user?.email}</span>
@@ -949,7 +959,7 @@ export default function HomePage() {
       </header>
 
       {/* Main Grid */}
-      <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+      <div className="flex-1 flex relative overflow-y-auto lg:overflow-hidden">
         {/* Sidebar: Courses & Activities */}
         <aside style={{ width: 280, borderRight: '1px solid #27272A', background: '#0D0E15', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 16, borderBottom: '1px solid #27272A' }}>
@@ -1089,9 +1099,9 @@ export default function HomePage() {
         </aside>
 
         {/* Workspace Center */}
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {selectedActivity ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+            <div className="flex-1 flex flex-col lg:h-[calc(100vh-60px)] lg:overflow-hidden">
               {/* Contextual Activity Header */}
               <IdeHeader
                 activityTitle={selectedActivity.title}
@@ -1102,9 +1112,13 @@ export default function HomePage() {
                 isInstructor={isInstructor}
               />
 
-              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '440px 1fr', minHeight: 0 }}>
-                {/* Left Column: Instructions, Socratic Guidance & Validation Results */}
-                <div style={{ borderRight: '1px solid #27272A', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#12131D' }}>
+              {/* Central 219 lote 4 (D4) — tela de jogo em 3 colunas do
+                  protótipo desafio-jogo.html: enunciado + casos de teste
+                  | editor + terminal + barra de ações | tutora. No
+                  mobile as colunas empilham (1 coluna). */}
+              <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
+                {/* Coluna 1 — enunciado + casos de teste. */}
+                <div className="lg:col-span-3 lg:border-r border-[#27272A] flex flex-col lg:overflow-y-auto bg-[#12131D] min-w-0">
                   {/* Instructions & Socratic Prompting */}
                   <InstructionsPanel
                     title={selectedActivity.title}
@@ -1236,7 +1250,7 @@ export default function HomePage() {
                   {aiHints && (
                     <div style={{ margin: '12px 16px', background: '#1e1b4b', border: '1px solid #996DFF', borderRadius: 8, padding: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: '#c7d2fe', fontWeight: 700, fontSize: 12 }}>
-                        <span>🤖 Tutor IA — {aiHints.suggestedConcept}</span>
+                        <span>🤖 Tutora de IA — {aiHints.suggestedConcept}</span>
                       </div>
                       {/* Sprint 22 — rótulo honesto: heurística nunca se passa por IA */}
                       {aiHints.source === 'heuristic' && (
@@ -1319,9 +1333,23 @@ export default function HomePage() {
                   {submission && (
                     <CodeReviewPanel submissionId={submission.id} />
                   )}
+                </div>
 
-                  {/* Sandbox Telemetry & Terminal Console */}
-                  <div style={{ height: 180, borderTop: '1px solid #1e222d' }}>
+                {/* Coluna 2 — editor + terminal + barra de ações. */}
+                <div className={`${isChatOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex flex-col min-h-0 min-w-0 bg-[#0A0B10]`}>
+                  <div className="h-[420px] lg:h-auto lg:flex-1 lg:min-h-0">
+                    <IdeEditorPane
+                      language={selectedActivity.language}
+                      code={code}
+                      onChange={(val) => setCode(val)}
+                      onRun={handleRunCode}
+                      isSubmitting={isSubmitting}
+                      onFormat={handleFormatCode}
+                    />
+                  </div>
+
+                  {/* Terminal (Console de Execução) — no protótipo, abaixo do editor. */}
+                  <div className="h-[180px] shrink-0">
                     <TerminalConsole
                       logs={isSubmitting ? ['Executando testes no Sandbox isolado...'] : []}
                       stdout={submission ? (submission.status === 'passed' ? 'Todos os testes foram validados com sucesso no Sandbox Piston.' : undefined) : undefined}
@@ -1331,19 +1359,54 @@ export default function HomePage() {
                       status={submission?.status}
                     />
                   </div>
+
+                  {/* Barra de ações do protótipo: status real + próxima fase real. */}
+                  <div className="shrink-0 border-t border-[#27272A] bg-[#12131D] px-4 py-3 flex items-center justify-between gap-3">
+                    <span className="text-xs font-code text-zinc-400">
+                      {isSubmitting
+                        ? 'Executando testes no Sandbox isolado…'
+                        : submission
+                          ? submission.status === 'passed'
+                            ? `✓ Atividade concluída${testSummary ? ` — ${testSummary}` : ''}`
+                            : submission.status === 'failed'
+                              ? `${testSummary ?? 'Alguns testes falharam'} — revise o código e execute novamente.`
+                              : `Erro na execução: ${submission.errorMessage ?? 'verifique o código.'}`
+                          : 'Nenhuma execução ainda — execute os testes para ver o resultado.'}
+                    </span>
+                    {submission?.status === 'passed' && nextAct && (
+                      <button
+                        onClick={() => void selectActivity(nextAct)}
+                        className="px-4 py-2 bg-[#00E676] hover:bg-emerald-400 text-black text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
+                      >
+                        <span>Próxima atividade</span>
+                        <span>→</span>
+                      </button>
+                    )}
+                    {submission?.status === 'passed' && !nextAct && (
+                      <a
+                        href="/dashboard"
+                        className="px-4 py-2 bg-[#00E676] hover:bg-emerald-400 text-black text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
+                      >
+                        <span>Voltar ao mapa</span>
+                        <span>→</span>
+                      </a>
+                    )}
+                  </div>
                 </div>
 
-                {/* Right Column: Dynamic Monaco Code Editor Pane with Zero-CLS */}
-                <div style={{ minHeight: 0, height: '100%' }}>
-                  <IdeEditorPane
-                    language={selectedActivity.language}
-                    code={code}
-                    onChange={(val) => setCode(val)}
-                    onRun={handleRunCode}
-                    isSubmitting={isSubmitting}
-                    onFormat={handleFormatCode}
-                  />
-                </div>
+                {/* Coluna 3 — tutora (protótipo: coluna da direita). */}
+                {isChatOpen && (
+                  <div className="lg:col-span-3 h-[560px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#27272A] min-h-0 min-w-0">
+                    <AITutorPanel
+                      variant="inline"
+                      activityId={selectedActivity.id}
+                      activityTitle={selectedActivity.title}
+                      code={code}
+                      token={token}
+                      onClose={() => setIsChatOpen(false)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -1353,16 +1416,6 @@ export default function HomePage() {
           )}
         </main>
 
-        {/* AI Tutor Chat Drawer (Floating / Collapsible) */}
-        {isChatOpen && selectedActivity && (
-          <AITutorPanel
-            activityId={selectedActivity.id}
-            activityTitle={selectedActivity.title}
-            code={code}
-            token={token}
-            onClose={() => setIsChatOpen(false)}
-          />
-        )}
       </div>
 
       {/* Progress Modal */}
