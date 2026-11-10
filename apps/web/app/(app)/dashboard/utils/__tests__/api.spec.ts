@@ -203,10 +203,10 @@ describe('fetchDashboardData (D5)', () => {
       const data = await fetchDashboardData();
       expect(data).not.toBeNull();
       expect(data!.activeMission).toBeNull();
-      // A missão (o dado que se apresentava como progresso do aluno)
-      // não traz texto do molde; o roadmap curricular do molde ainda
-      // existe como seção separada (sem endpoint — pendência registrada
-      // no relatório da 216, não parte deste item).
+      // Retrabalho Central 216 (D7) — o molde foi removido como base:
+      // roadmap, radar e dica socrática não têm endpoint e voltam
+      // vazios/nulos (a página omite as seções); a missão é o único
+      // dado que se apresentava como progresso do aluno.
       expect(JSON.stringify(data!.activeMission)).not.toContain('Kafka');
       expect(JSON.stringify(data!.user)).not.toContain('Mestre');
     });

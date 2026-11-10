@@ -54,6 +54,9 @@ export interface StudentDashboardData {
     badgeName?: string;
     prerequisite?: string;
   }>;
+  // Central 216 retrabalho (D7) — radar e dica socrática NÃO têm
+  // endpoint: null = seção omitida, nunca o molde (88.4 / "fila com
+  // duas pilhas").
   radarSkills: {
     overallIndex: number;
     skills: Array<{
@@ -61,7 +64,7 @@ export interface StudentDashboardData {
       value: number; // 0 - 100
       benchmark: number; // 0 - 100
     }>;
-  };
+  } | null;
   heatmap: {
     totalSubmissions: number;
     maxStreak: number;
@@ -87,5 +90,5 @@ export interface StudentDashboardData {
     strength: string;
     attentionPoint: string;
     lastActivityId?: string;
-  };
+  } | null;
 }
