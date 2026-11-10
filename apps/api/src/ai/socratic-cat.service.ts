@@ -3,6 +3,7 @@ import { SocraticCatHintDto } from './dto/socratic-cat-hint.dto';
 import {
   LlmClient,
   LlmQuotaExceededError,
+  LlmQuotaUnavailableError,
   type LlmUnavailableReason,
   type TutorResponseSource,
 } from './llm-client';
@@ -129,7 +130,11 @@ export class SocraticCatService {
         };
       } catch (err: any) {
         fallbackReason =
-          err instanceof LlmQuotaExceededError ? 'quota-exceeded' : 'provider-error';
+          err instanceof LlmQuotaUnavailableError
+            ? 'quota-unavailable'
+            : err instanceof LlmQuotaExceededError
+              ? 'quota-exceeded'
+              : 'provider-error';
         this.logger.warn(`AI LLM call failed in SocraticCatService, falling back to heuristic engine: ${err.message}`);
       }
     }

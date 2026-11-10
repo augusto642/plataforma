@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -8,7 +9,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { Plan, SubscriptionStatus } from '@prisma/client';
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -22,13 +23,27 @@ import {
  * Fase 1 premium (desenho §2.1–2.2) — checkout em MODO TESTE.
  *
  * Fluxo completo, sem pagamento real:
- * 1. `createCheckout` → sessão no provedor (simulado) → `checkoutUrl`.
- * 2. Webhook do provedor → `recordWebhook` grava `PaymentEvent`
+ * 1. `createCheckout` → sessão no provedor (simulado) → `checkoutUrl`,
+ *    e a sessão é PERSISTIDA em `CheckoutSession` (C1, Lote 1 P0).
+ * 2. Webhook do provedor → `parseWebhook` (HMAC obrigatório, segredo
+ *    exigido no boot) → `recordWebhook` grava `PaymentEvent`
  *    (idempotente por (provider, providerEventId)) → fila `billing-events`.
+ *    Antes de gravar, eventos que liberam plano (`payment_approved`,
+ *    `subscription_active`) precisam de uma sessão de checkout daquele
+ *    `userId` com aquele `providerSubscriptionId` — sem ela, 400 e nada
+ *    é persistido nem enfileirado.
  * 3. Worker (`billing-events.processor`) → `applyPaymentEvent`:
- *    upsert de `Subscription` + `User.plan` — replay não duplica.
+ *    revalida o vínculo com a sessão (defesa em profundidade) e usa o
+ *    plano/ciclo DA SESSÃO como autoridade — nunca os do corpo do
+ *    webhook; upsert de `Subscription` + `User.plan` — replay não duplica.
  * 4. `EntitlementsService.getUserPlan()` resolve o plano efetivo
  *    (assinatura ativa → senão `User.plan`).
+ *
+ * Simulação (botão "Simular pagamento aprovado" da UI): NÃO chama o
+ * webhook público. A rota autenticada `POST /billing/simulate-payment`
+ * usa `simulatePaymentApproval`, que monta o evento a partir da sessão
+ * persistida e o assina no servidor com `BILLING_WEBHOOK_SECRET` — o
+ * mesmo caminho de validação do webhook real, ponta a ponta.
  *
  * Preços exibidos (fonte: preços da landing, `pricing-data.ts`):
  * Pro mensal R$ 39,90; anual R$ 29,90/mês (R$ 358,80/ano). O Carreira
@@ -102,6 +117,20 @@ export class BillingService {
       successUrl: `${webUrl}/checkout/sucesso`,
       failureUrl: `${webUrl}/checkout/falha`,
     });
+    // C1 (Lote 1 P0) — a sessão é a prova do checkout: só um webhook
+    // cujo providerSubscriptionId + userId casem com esta linha pode
+    // liberar o plano (ver validateGrantEventSession).
+    await this.prisma.checkoutSession.create({
+      data: {
+        sessionId: session.sessionId,
+        providerSubscriptionId: session.providerSubscriptionId,
+        userId,
+        plan,
+        billingCycle,
+        amountCents: PRO_PRICE_CENTS[billingCycle],
+        provider: this.provider.name,
+      },
+    });
     return {
       checkoutUrl: session.checkoutUrl,
       sessionId: session.sessionId,
@@ -123,9 +152,11 @@ export class BillingService {
       return { subscription: null, hasAccess: false, effectivePlan: Plan.free as Plan };
     }
     const now = new Date();
+    // M10 (Lote 4) — mesmo critério de `EntitlementsService`: trial
+    // ativo concede acesso; past_due/expirado, não.
     const hasAccess =
       subscription.status === 'active' ||
-      (subscription.status === 'canceled' &&
+      ((subscription.status === 'trialing' || subscription.status === 'canceled') &&
         !!subscription.currentPeriodEnd &&
         subscription.currentPeriodEnd > now);
     return {
@@ -176,15 +207,61 @@ export class BillingService {
   }
 
   /**
+   * C1 (Lote 1 P0) — vínculo checkout → webhook. Eventos que LIBERAM
+   * plano (`payment_approved`, `subscription_active`) só valem quando
+   * existe uma sessão de checkout criada por aquele `userId` com aquele
+   * `providerSubscriptionId`. Sem sessão (ou com userId divergente), o
+   * evento é rejeitado com 400 — sem tocar `User.plan`, sem criar
+   * `Subscription` e, no caminho HTTP, sem nem persistir `PaymentEvent`.
+   * Retorna a sessão: o plano/ciclo DELA são a autoridade na aplicação
+   * (o corpo do webhook nunca decide o que foi comprado).
+   * Outros tipos de evento não passam por aqui: não liberam nada e já
+   * são no-op quando não há assinatura correspondente.
+   */
+  private async validateGrantEventSession(event: NormalizedBillingEvent) {
+    const providerSubscriptionId = event.providerSubscriptionId;
+    if (!providerSubscriptionId || !event.userId) {
+      this.logger.warn(
+        `Evento de liberação sem sessão vinculada rejeitado: type=${event.type} providerEventId=${event.providerEventId}`,
+      );
+      throw new BadRequestException(
+        'Evento de liberação sem sessão de checkout vinculada',
+      );
+    }
+    const session = await this.prisma.checkoutSession.findUnique({
+      where: {
+        providerSubscriptionId_userId: {
+          providerSubscriptionId,
+          userId: event.userId,
+        },
+      },
+    });
+    if (!session) {
+      this.logger.warn(
+        `Evento de liberação sem sessão de checkout correspondente rejeitado: type=${event.type} providerEventId=${event.providerEventId} userId=${event.userId} providerSubscriptionId=${providerSubscriptionId}`,
+      );
+      throw new BadRequestException(
+        'Evento de liberação sem sessão de checkout correspondente',
+      );
+    }
+    return session;
+  }
+
+  /**
    * Grava o evento do webhook (idempotente) e enfileira a aplicação.
    * Replay com o mesmo (provider, providerEventId) retorna
    * `alreadyProcessed: true` sem enfileirar de novo.
+   * Evento que libera plano sem sessão de checkout vinculada é rejeitado
+   * com 400 ANTES de persistir (ver validateGrantEventSession).
    */
   async recordWebhook(
     provider: string,
     event: NormalizedBillingEvent,
     rawBody: Buffer,
   ): Promise<{ alreadyProcessed: boolean; paymentEventId: string }> {
+    if (event.type === 'payment_approved' || event.type === 'subscription_active') {
+      await this.validateGrantEventSession(event);
+    }
     const payloadHash = createHash('sha256').update(rawBody).digest('hex');
     try {
       const created = await this.prisma.paymentEvent.create({
@@ -219,6 +296,52 @@ export class BillingService {
   }
 
   /**
+   * Simulação do webhook para o botão "Simular pagamento aprovado" da
+   * UI (C1, Lote 1 P0). O cliente NÃO toca no webhook público: esta é
+   * uma rota autenticada (JWT + TestModeGuard) que recebe só o
+   * `sessionId`. O evento é montado AQUI, a partir da sessão de
+   * checkout persistida (usuário, plano e ciclo da sessão — nunca do
+   * corpo da requisição), assinado no servidor com
+   * `BILLING_WEBHOOK_SECRET` e processado pelo MESMO caminho do
+   * webhook real (`parseWebhook` → `recordWebhook` → fila). Sem sessão
+   * desse usuário, 404; sem segredo configurado, o boot já falhou —
+   * este erro é só defesa em profundidade.
+   */
+  async simulatePaymentApproval(
+    userId: string,
+    sessionId: string,
+  ): Promise<{ alreadyProcessed: boolean; paymentEventId: string }> {
+    this.assertTestMode();
+    const session = await this.prisma.checkoutSession.findUnique({
+      where: { sessionId },
+    });
+    if (!session || session.userId !== userId) {
+      throw new NotFoundException(
+        'Sessão de checkout não encontrada para este usuário',
+      );
+    }
+    const secret = this.config.get<string>('BILLING_WEBHOOK_SECRET');
+    if (!secret) {
+      throw new Error(
+        'BILLING_WEBHOOK_SECRET não configurado: simulação indisponível',
+      );
+    }
+    const payload = {
+      providerEventId: `sim-ev-${session.sessionId}`,
+      type: 'payment_approved',
+      sessionId: session.sessionId,
+      providerSubscriptionId: session.providerSubscriptionId,
+      userId: session.userId,
+      plan: session.plan,
+      billingCycle: session.billingCycle,
+    };
+    const rawBody = Buffer.from(JSON.stringify(payload), 'utf8');
+    const signature = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
+    const event = this.provider.parseWebhook(rawBody, signature);
+    return this.recordWebhook(this.provider.name, event, rawBody);
+  }
+
+  /**
    * Aplica um evento normalizado. Idempotente: a assinatura é localizada
    * por `providerSubscriptionId` (sessão do provedor) e atualizada em
    * vez de duplicada; reprocessar o mesmo evento chega ao mesmo estado.
@@ -232,31 +355,49 @@ export class BillingService {
     switch (event.type) {
       case 'payment_approved':
       case 'subscription_active': {
-        if (!event.userId || !event.plan) {
-          throw new Error('Evento de aprovação sem userId ou plano');
-        }
-        if (event.plan === Plan.career) {
+        // Defesa em profundidade: o worker revalida o vínculo — um job
+        // enfileirado antes desta trava (ou injetado direto na fila)
+        // nunca libera plano sem sessão de checkout correspondente.
+        const session = await this.validateGrantEventSession(event);
+        if (session.plan === Plan.career) {
           // Tier sem preço: nunca liberar por webhook até decisão.
           this.logger.warn(
             `Evento de aprovação para o plano Carreira ignorado (sem preço decidido): ${event.providerEventId}`,
           );
           return;
         }
-        const billingCycle: BillingCycle = event.billingCycle ?? 'monthly';
+        // Autoridade é a SESSÃO (o que o usuário de fato comprou), não
+        // o corpo do webhook: um evento assinado com plano/ciclo
+        // divergentes não amplia o que foi contratado.
+        if (
+          event.plan !== undefined &&
+          event.plan !== session.plan
+        ) {
+          this.logger.warn(
+            `Evento ${event.providerEventId} traz plano ${event.plan}, divergente da sessão (${session.plan}): aplicado o plano da sessão`,
+          );
+        }
+        const plan = session.plan;
+        // Autoridade também para o usuário: a sessão já casou
+        // (providerSubscriptionId, userId) com o evento, então
+        // `session.userId` é o dono da liberação — nunca o corpo.
+        const userId = session.userId;
+        const billingCycle: BillingCycle =
+          session.billingCycle === 'annual' ? 'annual' : 'monthly';
         const currentPeriodEnd =
           event.currentPeriodEnd && !Number.isNaN(event.currentPeriodEnd.getTime())
             ? event.currentPeriodEnd
             : periodEndFromNow(billingCycle);
         const existing = providerSubscriptionId
           ? await this.prisma.subscription.findFirst({
-              where: { providerSubscriptionId, userId: event.userId },
+              where: { providerSubscriptionId, userId },
             })
           : null;
         if (existing) {
           await this.prisma.subscription.update({
             where: { id: existing.id },
             data: {
-              plan: event.plan,
+              plan,
               billingCycle,
               status: 'active',
               currentPeriodEnd,
@@ -265,8 +406,8 @@ export class BillingService {
         } else {
           await this.prisma.subscription.create({
             data: {
-              userId: event.userId,
-              plan: event.plan,
+              userId,
+              plan,
               billingCycle,
               provider: this.provider.name,
               providerSubscriptionId: providerSubscriptionId ?? null,
@@ -277,11 +418,11 @@ export class BillingService {
           });
         }
         await this.prisma.user.update({
-          where: { id: event.userId },
-          data: { plan: event.plan },
+          where: { id: userId },
+          data: { plan },
         });
         this.logger.log(
-          `Plano ${event.plan} liberado para o usuário ${event.userId} (evento ${event.providerEventId})`,
+          `Plano ${plan} liberado para o usuário ${userId} (evento ${event.providerEventId})`,
         );
         return;
       }

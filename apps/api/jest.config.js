@@ -19,6 +19,11 @@ module.exports = {
     '**/*.service.ts',
     '**/*.controller.ts',
     '**/*.guard.ts',
+    // A10 (Lote 3 · portões do merge) — os workers que aplicam eventos
+    // (ex.: BillingEventsProcessor, que libera o plano) ficavam FORA
+    // do mapa de cobertura: nem 0% apareciam. Processor é código de
+    // produção como os demais e passa a ser coletado.
+    '**/*.processor.ts',
   ],
   coveragePathIgnorePatterns: [
     '\\.spec\\.ts$',

@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiUsageService } from './llm/ai-usage.service';
 import { GeminiProvider } from './llm/gemini.provider';
@@ -7,6 +8,7 @@ import {
   LlmChatMessage,
   LlmProvider,
   LlmQuotaExceededError,
+  LlmQuotaUnavailableError,
   LlmRequestError,
   LlmUnavailableReason,
 } from './llm/llm-provider';
@@ -15,6 +17,7 @@ import { OpenAiCompatibleProvider } from './llm/openai-compatible.provider';
 export type { LlmChatMessage } from './llm/llm-provider';
 export {
   LlmQuotaExceededError,
+  LlmQuotaUnavailableError,
   LlmRequestError,
 } from './llm/llm-provider';
 export type {
@@ -85,6 +88,12 @@ export class LlmClient {
     private readonly config: ConfigService,
     @Optional() private readonly usage?: AiUsageService,
     @Optional() private readonly prisma?: PrismaService,
+    // M10 (Lote 4) — opcional: quando injetado (AiModule importa o
+    // PlansModule), o plano da cota vem da RESOLUÇÃO ÚNICA de
+    // entitlements — um `past_due` não mantém a cota de 200/dia do
+    // Pro por causa do `User.plan` defasado. Sem ele (construção
+    // manual/testes), vale a leitura direta com fallback seguro.
+    @Optional() private readonly entitlements?: EntitlementsService,
   ) {
     this.enabled = this.resolveEnabled();
     this.provider = this.enabled ? this.resolveProvider() : null;
@@ -220,7 +229,17 @@ export class LlmClient {
     const cached = this.planCache.get(userId);
     if (cached && Date.now() - cached.at < 60_000) return cached.plan;
     let plan = 'free';
-    if (this.prisma) {
+    // M10 (Lote 4) — o plano EFETIVO (assinatura vigente) decide a
+    // cota; ler `user.plan` direto manteria a cota do Pro para um
+    // `past_due` (o webhook grava `User.plan` na concessão e não o
+    // zera quando a assinatura atrasa).
+    if (this.entitlements) {
+      try {
+        plan = await this.entitlements.getUserPlan(userId);
+      } catch {
+        // Sem plano legível, vale o MENOR limite (free): default seguro.
+      }
+    } else if (this.prisma) {
       try {
         const user = await this.prisma.user.findUnique({
           where: { id: userId },
@@ -235,12 +254,32 @@ export class LlmClient {
     return plan;
   }
 
-  /** Reserva cota (quando há userId); lança LlmQuotaExceededError se estourou. */
+  /**
+   * Reserva cota (quando há userId); lança LlmQuotaExceededError se
+   * estourou e LlmQuotaUnavailableError se o backend da cota está
+   * fora (M17: fail-closed — nunca concede uso sem cota verificada).
+   */
   private async reserveQuota(opts: LlmRequestOptions): Promise<boolean> {
     if (!opts.userId || !this.usage) return false;
     const plan = await this.resolvePlan(opts.userId);
     const reservation = await this.usage.reserve(opts.userId, plan);
     if (!reservation.ok) {
+      if (reservation.error === 'quota-unavailable') {
+        this.logger.warn(
+          `AI quota backend unavailable for user ${opts.userId}; tutor degrades to labeled heuristic.`,
+        );
+        // Observabilidade: o bloqueio por indisponibilidade ganha
+        // evento próprio — sem tocar na semântica da reserva.
+        void this.usage.recordBlocked({
+          userId: opts.userId,
+          reason: 'quota-unavailable',
+          plan,
+          purpose: opts.purpose,
+          used: reservation.used,
+          limit: reservation.limit,
+        });
+        throw new LlmQuotaUnavailableError();
+      }
       this.logger.warn(
         `AI daily quota exceeded for user ${opts.userId} (${reservation.used}/${reservation.limit}); tutor degrades to labeled heuristic.`,
       );

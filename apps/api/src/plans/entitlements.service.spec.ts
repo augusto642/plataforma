@@ -41,13 +41,17 @@ describe('EntitlementsService', () => {
       findUnique: jest.fn(),
     },
     // Fase 1 premium — resolução única: assinatura ativa vence User.plan.
+    // M10 (Lote 4) — a resolução lê TODAS as assinaturas (a mais
+    // recente que concede acesso vence); o mock devolve a lista.
     subscription: {
-      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn(),
     },
   };
 
   beforeEach(async () => {
     mockPrismaService.user.findUnique.mockReset();
+    mockPrismaService.subscription.findMany.mockReset();
+    mockPrismaService.subscription.findMany.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EntitlementsService,
@@ -73,14 +77,16 @@ describe('EntitlementsService', () => {
 
   it('getUserPlan: assinatura ativa vence o User.plan (resolução única Fase 1)', async () => {
     mockPrismaService.user.findUnique.mockResolvedValue({ plan: Plan.free });
-    mockPrismaService.subscription.findFirst.mockResolvedValue({ plan: Plan.pro });
+    mockPrismaService.subscription.findMany.mockResolvedValue([
+      { plan: Plan.pro, status: 'active', currentPeriodEnd: null },
+    ]);
     await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
-    mockPrismaService.subscription.findFirst.mockResolvedValue(null);
+    mockPrismaService.subscription.findMany.mockResolvedValue([]);
   });
 
   it('assertFeature bloqueia free no simulador de entrevista e libera pro', async () => {
     mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.student, plan: Plan.free });
-    mockPrismaService.subscription.findFirst.mockResolvedValue(null);
+    mockPrismaService.subscription.findMany.mockResolvedValue([]);
     await expect(
       service.assertFeature('user-1', 'interview-simulator'),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -130,8 +136,150 @@ describe('EntitlementsService', () => {
   });
 });
 
-describe('AiTutorPlanGuard', () => {
-  const mockEntitlements = {
+/**
+ * M10 (Lote 4) — `past_due`/`trialing` nunca revogam... na verdade,
+ * nunca DEVEM manter acesso pago indevido: o achado do Tech Lead era
+ * que `getUserPlan` só considerava `active` + `canceled` vigente e
+ * caía no `User.plan` — que o webhook deixa em `pro` quando a
+ * assinatura atrasa (nunca há evento que o zere). Matriz por status:
+ */
+describe('EntitlementsService — M10 (status da assinatura × acesso pago)', () => {
+  let service: EntitlementsService;
+
+  const mockPrismaService = {
+    user: { findUnique: jest.fn() },
+    subscription: { findMany: jest.fn() },
+  };
+
+  const future = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+  const past = new Date(Date.now() - 24 * 3600 * 1000);
+
+  function setup(userPlan: Plan, subscriptions: unknown[]) {
+    mockPrismaService.user.findUnique.mockResolvedValue({ plan: userPlan });
+    mockPrismaService.subscription.findMany.mockResolvedValue(subscriptions);
+  }
+
+  function sub(
+    status: string,
+    plan: Plan = Plan.pro,
+    currentPeriodEnd: Date | null = null,
+  ) {
+    return { plan, status, currentPeriodEnd };
+  }
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EntitlementsService,
+        { provide: PrismaService, useValue: mockPrismaService },
+      ],
+    }).compile();
+
+    service = module.get<EntitlementsService>(EntitlementsService);
+  });
+
+  it('active concede o plano da assinatura', async () => {
+    setup(Plan.free, [sub('active')]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
+  });
+
+  it('trialing ATIVO (período vigente) concede acesso', async () => {
+    setup(Plan.free, [sub('trialing', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
+  });
+
+  it('trialing EXPIRADO revoga: User.plan defasado em pro NÃO vale', async () => {
+    setup(Plan.pro, [sub('trialing', Plan.pro, past)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('past_due revoga IMEDIATAMENTE (sem tolerância definida no produto)', async () => {
+    // O caso do achado: webhook deixou User.plan=pro; a assinatura
+    // atrasada não pode manter o acesso pago.
+    setup(Plan.pro, [sub('past_due', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('past_due sem User.plan pago também é free', async () => {
+    setup(Plan.free, [sub('past_due', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('canceled com período vigente mantém o acesso (regra anterior, preservada)', async () => {
+    setup(Plan.free, [sub('canceled', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
+  });
+
+  it('canceled com período vencido revoga (regra anterior, preservada)', async () => {
+    setup(Plan.pro, [sub('canceled', Plan.pro, past)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('expired revoga', async () => {
+    setup(Plan.pro, [sub('expired', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('status desconhecido (ex.: incomplete) nega por padrão — fail-closed', async () => {
+    setup(Plan.pro, [sub('incomplete', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('sem assinatura, vale o User.plan (concessão manual do admin)', async () => {
+    setup(Plan.pro, []);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
+    setup(Plan.free, []);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.free);
+  });
+
+  it('concessão manual DIVERGENTE da assinatura morta é honrada', async () => {
+    // Admin concedeu Carreira manualmente; a assinatura Pro morreu.
+    setup(Plan.career, [sub('past_due', Plan.pro, future)]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.career);
+  });
+
+  it('assinatura ativa mais ANTIGA vence past_due mais recente', async () => {
+    setup(Plan.free, [
+      sub('past_due', Plan.pro, future),
+      sub('active', Plan.pro, null),
+    ]);
+    await expect(service.getUserPlan('user-1')).resolves.toBe(Plan.pro);
+  });
+
+  it('assertFeature bloqueia past_due e libera trialing ativo', async () => {
+    mockPrismaService.user.findUnique.mockResolvedValue({ role: Role.student, plan: Plan.pro });
+    mockPrismaService.subscription.findMany.mockResolvedValue([
+      sub('past_due', Plan.pro, future),
+    ]);
+    await expect(
+      service.assertFeature('user-1', 'interview-simulator'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    mockPrismaService.subscription.findMany.mockResolvedValue([
+      sub('trialing', Plan.pro, future),
+    ]);
+    await expect(
+      service.assertFeature('user-1', 'interview-simulator'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('assertAiTutorAccess bloqueia past_due a partir do Júnior', async () => {
+    mockPrismaService.user.findUnique.mockResolvedValue({
+      plan: Plan.pro,
+      careerTier: CareerTier.junior,
+      role: Role.student,
+    });
+    mockPrismaService.subscription.findMany.mockResolvedValue([
+      sub('past_due', Plan.pro, future),
+    ]);
+    await expect(service.assertAiTutorAccess('user-1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+});
+
+describe('AiTutorPlanGuard', () => {  const mockEntitlements = {
     assertAiTutorAccess: jest.fn(),
   };
 

@@ -94,7 +94,13 @@ export const PlanInterestForm: React.FC<PlanInterestFormProps> = ({
           disabled={status === 'sending'}
           className="cursor-pointer shrink-0 inline-flex items-center justify-center px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-heading text-body-sm font-mono font-bold whitespace-nowrap transition-all duration-200 active:scale-95 border border-border-1 disabled:opacity-50"
         >
-          {status === 'sending' ? 'Entrando…' : 'Entrar com e-mail'}
+          {/* A9 (Lote 3) — o rótulo do botão É a ação da lista: a fase 1
+              premium trocou o CTA do card Pro pelo checkout em modo de
+              testes e a frase "Entrar na lista de interessados" sumiu
+              do HTML (landing-render.spec.ts esperava encontrá-la).
+              O formulário continua sendo a captura só-e-mail da lista,
+              então o botão diz exatamente o que faz. */}
+          {status === 'sending' ? 'Entrando…' : 'Entrar na lista de interessados'}
         </button>
       </div>
       {invalidEmail && (

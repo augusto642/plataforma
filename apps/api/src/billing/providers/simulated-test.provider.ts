@@ -18,12 +18,13 @@ import type {
  * chega pelo webhook simulado (`POST /billing/webhooks/simulated`),
  * que é o harness de teste do fluxo completo.
  *
- * Assinatura do webhook: quando `BILLING_WEBHOOK_SECRET` está definido,
- * exige HMAC-SHA256 hex do corpo bruto no header `x-signature`
- * (`sha256=<hex>` ou hex puro). Sem segredo configurado, aceita o
- * evento sem assinatura — SOMENTE em modo teste e com aviso em log;
- * em qualquer outro modo o TestModeGuard já bloqueou o checkout e a
- * validação de segredos bloqueia o boot com BILLING_MODE != test.
+ * Assinatura do webhook: `BILLING_WEBHOOK_SECRET` é OBRIGATÓRIO
+ * (C1, Lote 1 P0 — o boot já falha sem ele, ver secrets.validation.ts)
+ * e o webhook exige HMAC-SHA256 hex do corpo bruto no header
+ * `x-signature` (`sha256=<hex>` ou hex puro). Sem segredo configurado
+ * o evento é REJEITADO com 401 — nunca aceito sem assinatura, em
+ * nenhum ambiente. O caminho antigo ("aceita sem assinatura em modo
+ * teste, só com warn") era o próprio C1 e foi removido.
  */
 const KNOWN_TYPES: readonly string[] = [
   'payment_approved',
@@ -62,22 +63,24 @@ export class SimulatedTestProvider implements BillingProvider {
   }
 
   parseWebhook(rawBody: Buffer, signature: string | undefined): NormalizedBillingEvent {
-    if (this.webhookSecret) {
-      const expected = crypto
-        .createHmac('sha256', this.webhookSecret)
-        .update(rawBody)
-        .digest('hex');
-      const provided = (signature ?? '').replace(/^sha256=/, '');
-      const ok =
-        provided.length === expected.length &&
-        crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
-      if (!ok) {
-        throw new UnauthorizedException('Assinatura do webhook inválida');
-      }
-    } else {
-      this.logger.warn(
-        'Webhook simulado sem BILLING_WEBHOOK_SECRET: aceito sem assinatura (modo teste apenas)',
+    // C1 (Lote 1 P0) — fail-closed: sem segredo não há webhook válido.
+    // O boot já exige BILLING_WEBHOOK_SECRET; este ramo é defesa em
+    // profundidade para uso fora do boot (ex.: testes, construção manual).
+    if (!this.webhookSecret) {
+      throw new UnauthorizedException(
+        'BILLING_WEBHOOK_SECRET não configurado: webhook rejeitado',
       );
+    }
+    const expected = crypto
+      .createHmac('sha256', this.webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+    const provided = (signature ?? '').replace(/^sha256=/, '');
+    const ok =
+      provided.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+    if (!ok) {
+      throw new UnauthorizedException('Assinatura do webhook inválida');
     }
 
     let payload: Record<string, unknown>;

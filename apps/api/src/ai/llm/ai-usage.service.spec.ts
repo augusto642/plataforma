@@ -99,16 +99,38 @@ describe('AiUsageService — cota', () => {
     await expect(service.reserve('user-1', 'free')).resolves.toMatchObject({ ok: true });
   });
 
-  it('sem Redis (cache indisponível): fail-open declarado — a tutora não cai por causa da cota', async () => {
+  it('M17: sem Redis (cache indisponível) a reserva FALHA FECHADA — nada de fail-open', async () => {
     const service = new AiUsageService(makeConfig(), makePrisma(), undefined);
-    await expect(service.reserve('user-1', 'free')).resolves.toMatchObject({ ok: true });
+    await expect(service.reserve('user-1', 'free')).resolves.toEqual({
+      ok: false,
+      used: 0,
+      limit: 20,
+      error: 'quota-unavailable',
+    });
 
     const brokenCache = {
       increment: jest.fn().mockRejectedValue(new Error('redis down')),
       decrement: jest.fn(),
     };
     const service2 = new AiUsageService(makeConfig(), makePrisma(), brokenCache as any);
-    await expect(service2.reserve('user-1', 'free')).resolves.toMatchObject({ ok: true });
+    await expect(service2.reserve('user-1', 'free')).resolves.toEqual({
+      ok: false,
+      used: 0,
+      limit: 20,
+      error: 'quota-unavailable',
+    });
+  });
+
+  it('M17: erro no Redis NÃO estoura a cota nem concede uso (sem INCR bem-sucedido, sem DECR)', async () => {
+    const brokenCache = {
+      increment: jest.fn().mockRejectedValue(new Error('redis down')),
+      decrement: jest.fn(),
+    };
+    const service = new AiUsageService(makeConfig(), makePrisma(), brokenCache as any);
+    const result = await service.reserve('user-1', 'free');
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('quota-unavailable');
+    expect(brokenCache.decrement).not.toHaveBeenCalled();
   });
 });
 

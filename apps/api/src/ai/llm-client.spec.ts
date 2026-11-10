@@ -6,7 +6,7 @@
  * (Gemini ⇄ OpenAI-compatível ⇄ modelo local) não exige tocar em
  * nenhum consumidor: muda o ambiente, muda o destino da chamada.
  */
-import { LlmClient, LlmQuotaExceededError, LlmRequestError } from './llm-client';
+import { LlmClient, LlmQuotaExceededError, LlmQuotaUnavailableError, LlmRequestError } from './llm-client';
 
 const fetchMock = jest.fn();
 const originalFetch = global.fetch;
@@ -26,7 +26,7 @@ function makeConfig(values: Record<string, string> = {}) {
   } as any;
 }
 
-function makeUsage(reserveResult: { ok: boolean; used: number; limit: number } = { ok: true, used: 1, limit: 20 }) {
+function makeUsage(reserveResult: { ok: boolean; used: number; limit: number; error?: 'quota-unavailable' } = { ok: true, used: 1, limit: 20 }) {
   return {
     reserve: jest.fn().mockResolvedValue(reserveResult),
     refund: jest.fn().mockResolvedValue(undefined),
@@ -175,6 +175,47 @@ describe('LlmClient — cota integrada', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     // O plano do aluno foi resolvido e usado na reserva
     expect(usage.reserve).toHaveBeenCalledWith('user-1', 'free');
+  });
+
+  it('M10: com entitlements, a cota usa o plano EFETIVO (past_due não mantém cota Pro)', async () => {
+    fetchMock.mockResolvedValue(geminiOk());
+    const usage = makeUsage();
+    // User.plan defasado em pro (webhook não o zerou); o plano
+    // efetivo é free porque a assinatura está past_due.
+    const entitlements = { getUserPlan: jest.fn().mockResolvedValue('free') };
+    const client = new LlmClient(
+      makeConfig({ AI_API_KEY: 'AIza-x' }),
+      usage,
+      makePrisma('pro'),
+      entitlements as never,
+    );
+    await client.complete({
+      messages: [{ role: 'user', content: 'oi' }],
+      userId: 'user-9',
+      purpose: 'chat',
+    });
+    expect(entitlements.getUserPlan).toHaveBeenCalledWith('user-9');
+    expect(usage.reserve).toHaveBeenCalledWith('user-9', 'free');
+  });
+
+  it('M17: backend de cota fora → LlmQuotaUnavailableError ANTES do provedor (fetch intocado, sem uso concedido)', async () => {
+    const usage = makeUsage({ ok: false, used: 0, limit: 20, error: 'quota-unavailable' });
+    const client = new LlmClient(makeConfig({ AI_API_KEY: 'AIza-x' }), usage, makePrisma('free'));
+    const err = await client
+      .complete({ messages: [{ role: 'user', content: 'oi' }], userId: 'user-1', purpose: 'hint' })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(LlmQuotaUnavailableError);
+    expect(err.reason).toBe('quota-unavailable');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(usage.recordBlocked).toHaveBeenCalledWith({
+      userId: 'user-1',
+      reason: 'quota-unavailable',
+      plan: 'free',
+      purpose: 'hint',
+      used: 0,
+      limit: 20,
+    });
+    expect(usage.recordUsage).not.toHaveBeenCalled();
   });
 
   it('sucesso: reserva → chama → registra uso com tokens', async () => {

@@ -140,7 +140,8 @@ async function runCaseLive(
     },
   };
 
-  const service = new AiService(prismaMock as any, llm);
+  // M12 — AiService é fachada: construção fora do Nest via fromRawDeps.
+  const service = AiService.fromRawDeps(prismaMock as any, llm);
   const feedback = await service.generatePedagogicalHint(`sub-${gc.id}`, 'user-golden');
   const feedbackText = [feedback.summary, ...feedback.hints, feedback.suggestedConcept].join('\n');
   const persistedText = update.mock.calls

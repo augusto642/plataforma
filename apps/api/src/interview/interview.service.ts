@@ -51,11 +51,28 @@ export class InterviewService {
     private readonly entitlements: EntitlementsService,
   ) {}
 
-  /** 1 chamada LLM debitada da cota; sem reserva = 429 `quota-exceeded`. */
+  /**
+   * 1 chamada LLM debitada da cota; sem reserva = 429 `quota-exceeded`.
+   * M17 (Lote 4) — backend de cota fora = 503 `quota-unavailable`:
+   * erro explícito e temporário, sem conceder uso e sem mentir que a
+   * cota esgotou (o aluno não gastou nada).
+   */
   private async reserveOneCall(userId: string): Promise<void> {
     const plan = await this.entitlements.getUserPlan(userId);
     const reservation = await this.usage.reserve(userId, plan);
     if (!reservation.ok) {
+      if (reservation.error === 'quota-unavailable') {
+        throw new HttpException(
+          {
+            message:
+              'O serviço de cota de IA está temporariamente indisponível. Tente novamente em instantes.',
+            reason: 'quota-unavailable',
+            used: reservation.used,
+            limit: reservation.limit,
+          },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
       throw new HttpException(
         {
           message: `Cota diária de IA esgotada (${reservation.used}/${reservation.limit} chamadas). Tente novamente amanhã.`,

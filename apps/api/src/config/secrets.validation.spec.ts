@@ -1,6 +1,9 @@
 import { ConfigError, validateRequiredSecrets } from './secrets.validation';
 
 const STRONG = (prefix: string) => `${prefix}_0123456789abcdef0123456789abcdef`; // >= 32 chars
+// C1 (Lote 1 P0): BILLING_WEBHOOK_SECRET é obrigatório em QUALQUER
+// ambiente, inclusive NODE_ENV=test — quase todos os envs abaixo o incluem.
+const BILLING_SECRET = STRONG('billing-whsec');
 
 describe('validateRequiredSecrets', () => {
   it('throws when no secrets are provided', () => {
@@ -14,6 +17,7 @@ describe('validateRequiredSecrets', () => {
     } catch (e: any) {
       message = e.message;
     }
+    expect(message).toContain('BILLING_WEBHOOK_SECRET');
     expect(message).toContain('JWT_ACCESS_SECRET');
     expect(message).toContain('JWT_REFRESH_SECRET');
     expect(message).toContain('GITEA_TOKEN');
@@ -29,6 +33,7 @@ describe('validateRequiredSecrets', () => {
   it('throws when GITEA is enabled and Gitea secrets are missing', () => {
     expect(() =>
       validateRequiredSecrets({
+        BILLING_WEBHOOK_SECRET: BILLING_SECRET,
         JWT_ACCESS_SECRET: STRONG('access'),
         JWT_REFRESH_SECRET: STRONG('refresh'),
       }),
@@ -37,6 +42,7 @@ describe('validateRequiredSecrets', () => {
 
   it('passes with all secrets and GITEA disabled', () => {
     const env = {
+      BILLING_WEBHOOK_SECRET: BILLING_SECRET,
       JWT_ACCESS_SECRET: STRONG('access'),
       JWT_REFRESH_SECRET: STRONG('refresh'),
       GITEA_ENABLED: 'false',
@@ -46,6 +52,7 @@ describe('validateRequiredSecrets', () => {
 
   it('passes with all required secrets and GITEA enabled', () => {
     const env = {
+      BILLING_WEBHOOK_SECRET: BILLING_SECRET,
       JWT_ACCESS_SECRET: STRONG('access'),
       JWT_REFRESH_SECRET: STRONG('refresh'),
       GITEA_TOKEN: 'tok',
@@ -54,14 +61,23 @@ describe('validateRequiredSecrets', () => {
     expect(validateRequiredSecrets(env)).toBe(env);
   });
 
-  it('passes with NODE_ENV=test even without secrets', () => {
-    expect(validateRequiredSecrets({ NODE_ENV: 'test' })).toEqual({
+  it('passes with NODE_ENV=test when only the billing webhook secret is set', () => {
+    // O bypass de test segue valendo para os demais segredos, mas NÃO
+    // para BILLING_WEBHOOK_SECRET (C1): sem ele, o boot falha.
+    expect(
+      validateRequiredSecrets({
+        NODE_ENV: 'test',
+        BILLING_WEBHOOK_SECRET: BILLING_SECRET,
+      }),
+    ).toEqual({
       NODE_ENV: 'test',
+      BILLING_WEBHOOK_SECRET: BILLING_SECRET,
     });
   });
 
   it('rejects placeholder secrets containing change_me (A2 regression)', () => {
     const env = {
+      BILLING_WEBHOOK_SECRET: BILLING_SECRET,
       JWT_ACCESS_SECRET: `change_me_access_secret_${'0123456789abcdef'.repeat(3)}`,
       JWT_REFRESH_SECRET: STRONG('refresh'),
       GITEA_TOKEN: 'tok',
@@ -76,6 +92,7 @@ describe('validateRequiredSecrets', () => {
   it('rejects CHANGE_ME case-insensitively on webhook secret', () => {
     expect(() =>
       validateRequiredSecrets({
+        BILLING_WEBHOOK_SECRET: BILLING_SECRET,
         JWT_ACCESS_SECRET: STRONG('access'),
         JWT_REFRESH_SECRET: STRONG('refresh'),
         GITEA_TOKEN: 'tok',
@@ -90,6 +107,7 @@ describe('validateRequiredSecrets', () => {
     it("rejects short secrets like '123456'", () => {
       expect(() =>
         validateRequiredSecrets({
+          BILLING_WEBHOOK_SECRET: BILLING_SECRET,
           JWT_ACCESS_SECRET: '123456',
           JWT_REFRESH_SECRET: STRONG('refresh'),
           GITEA_TOKEN: 'tok',
@@ -101,6 +119,7 @@ describe('validateRequiredSecrets', () => {
     it('rejects weak GITEA_WEBHOOK_SECRET even when JWT secrets are strong', () => {
       expect(() =>
         validateRequiredSecrets({
+          BILLING_WEBHOOK_SECRET: BILLING_SECRET,
           JWT_ACCESS_SECRET: STRONG('access'),
           JWT_REFRESH_SECRET: STRONG('refresh'),
           GITEA_TOKEN: 'tok',
@@ -111,6 +130,7 @@ describe('validateRequiredSecrets', () => {
 
     it('rejects secrets with exactly 31 chars and accepts 32', () => {
       const base = {
+        BILLING_WEBHOOK_SECRET: BILLING_SECRET,
         GITEA_TOKEN: 'tok',
         GITEA_ENABLED: 'false',
       };
@@ -135,6 +155,7 @@ describe('validateRequiredSecrets', () => {
       let message = '';
       try {
         validateRequiredSecrets({
+          BILLING_WEBHOOK_SECRET: BILLING_SECRET,
           JWT_ACCESS_SECRET: '123456',
           JWT_REFRESH_SECRET: 'abc',
           GITEA_TOKEN: 'tok',
@@ -153,7 +174,72 @@ describe('validateRequiredSecrets', () => {
       expect(
         validateRequiredSecrets({
           NODE_ENV: 'test',
+          BILLING_WEBHOOK_SECRET: BILLING_SECRET,
           JWT_ACCESS_SECRET: '123456',
+        }),
+      ).toBeDefined();
+    });
+  });
+
+  // C1 (Lote 1 P0) — BILLING_WEBHOOK_SECRET obrigatório em QUALQUER
+  // ambiente: sem ele o webhook simulado aceitaria eventos sem assinatura.
+  describe('BILLING_WEBHOOK_SECRET is required in any environment', () => {
+    const validEnv = {
+      JWT_ACCESS_SECRET: STRONG('access'),
+      JWT_REFRESH_SECRET: STRONG('refresh'),
+      GITEA_ENABLED: 'false',
+    };
+
+    it('boot fails without BILLING_WEBHOOK_SECRET (dev)', () => {
+      expect(() => validateRequiredSecrets(validEnv)).toThrow(
+        /BILLING_WEBHOOK_SECRET/,
+      );
+    });
+
+    it('boot fails without BILLING_WEBHOOK_SECRET even with NODE_ENV=test', () => {
+      expect(() =>
+        validateRequiredSecrets({ NODE_ENV: 'test' }),
+      ).toThrow(/BILLING_WEBHOOK_SECRET/);
+      expect(() =>
+        validateRequiredSecrets({ ...validEnv, NODE_ENV: 'test' }),
+      ).toThrow(/BILLING_WEBHOOK_SECRET/);
+    });
+
+    it('boot fails with a weak BILLING_WEBHOOK_SECRET in any environment', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          ...validEnv,
+          BILLING_WEBHOOK_SECRET: 'curto-demais',
+        }),
+      ).toThrow(/Weak secret value.*BILLING_WEBHOOK_SECRET/s);
+      expect(() =>
+        validateRequiredSecrets({
+          NODE_ENV: 'test',
+          BILLING_WEBHOOK_SECRET: 'curto-demais',
+        }),
+      ).toThrow(/Weak secret value.*BILLING_WEBHOOK_SECRET/s);
+    });
+
+    it('boot fails with a placeholder BILLING_WEBHOOK_SECRET', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          ...validEnv,
+          BILLING_WEBHOOK_SECRET: `change_me_${'0123456789abcdef'.repeat(3)}`,
+        }),
+      ).toThrow(/placeholder.*BILLING_WEBHOOK_SECRET/is);
+    });
+
+    it('rejects 31 chars and accepts 32 chars', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          ...validEnv,
+          BILLING_WEBHOOK_SECRET: 'a'.repeat(31),
+        }),
+      ).toThrow(/Weak secret value.*BILLING_WEBHOOK_SECRET/s);
+      expect(
+        validateRequiredSecrets({
+          ...validEnv,
+          BILLING_WEBHOOK_SECRET: 'a'.repeat(32),
         }),
       ).toBeDefined();
     });

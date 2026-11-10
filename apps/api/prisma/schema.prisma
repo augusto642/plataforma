@@ -89,6 +89,7 @@ model User {
   companion         UserCompanion?
   planInterest      PlanInterest?
   subscriptions     Subscription[]
+  checkoutSessions  CheckoutSession[]
   certificates      Certificate[]
   interviewSessions InterviewSession[]
   refreshTokens     RefreshToken[]
@@ -673,6 +674,32 @@ model Subscription {
 
   @@index([userId, status])
   @@map("subscriptions")
+}
+
+// C1 (Lote 1 P0) — vínculo checkout → webhook: a sessão criada em
+// `createCheckout` é a única prova de que um `payment_approved` pode
+// liberar um plano para um usuário. Sem linha aqui com
+// (`providerSubscriptionId`, `userId`), o evento é rejeitado (4xx) e
+// nada é liberado — o corpo do webhook nunca é confiado sozinho.
+// `providerSubscriptionId` é a chave que o webhook traz (no provedor
+// simulado, igual ao `sessionId`).
+model CheckoutSession {
+  id                     String   @id @default(uuid()) @db.Uuid
+  sessionId              String   @unique @map("session_id")
+  providerSubscriptionId String   @map("provider_subscription_id")
+  userId                 String   @map("user_id") @db.Uuid
+  plan                   Plan
+  billingCycle           String   @map("billing_cycle") @db.VarChar(16)
+  amountCents            Int      @map("amount_cents")
+  provider               String   @db.VarChar(32)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerSubscriptionId, userId])
+  @@index([userId])
+  @@map("checkout_sessions")
 }
 
 // Idempotência do webhook de pagamento: (provider, providerEventId) é

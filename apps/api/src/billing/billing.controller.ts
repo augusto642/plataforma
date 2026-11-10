@@ -21,7 +21,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { BILLING_PROVIDER_TOKEN, type BillingProvider } from './billing-provider.interface';
 import { BillingService } from './billing.service';
-import { CreateCheckoutDto, ListSubscriptionsQueryDto } from './dto/billing.dto';
+import {
+  CreateCheckoutDto,
+  ListSubscriptionsQueryDto,
+  SimulatePaymentDto,
+} from './dto/billing.dto';
 import { TestModeGuard } from './test-mode.guard';
 
 /**
@@ -56,10 +60,27 @@ export class BillingController {
   }
 
   /**
-   * Webhook do provedor. Sem JWT; autenticado pela assinatura do
-   * provedor (quando configurada). Resposta 200 rápida; a aplicação
-   * é assíncrona via fila `billing-events`. Provedor desativado
-   * (ex.: mercadopago) responde 503 — nunca processa pela metade.
+   * Simulação da confirmação do provedor (botão "Simular pagamento
+   * aprovado" da UI). C1 (Lote 1 P0): o cliente NÃO chama o webhook
+   * público — esta rota é autenticada (JWT) + TestModeGuard, recebe só
+   * o `sessionId` e o service monta e assina o evento no servidor a
+   * partir da sessão de checkout daquele usuário. O selo "Ambiente de
+   * testes" da UI não muda: continua sendo só modo teste, sem cobrança.
+   */
+  @Post('simulate-payment')
+  @UseGuards(TestModeGuard)
+  simulatePayment(@CurrentUser() user: JwtPayload, @Body() dto: SimulatePaymentDto) {
+    return this.billing.simulatePaymentApproval(user.sub, dto.sessionId);
+  }
+
+  /**
+   * Webhook do provedor. Sem JWT; autenticado pela assinatura HMAC do
+   * provedor (`BILLING_WEBHOOK_SECRET`, obrigatório no boot — sem ele
+   * o evento é rejeitado com 401). Eventos que liberam plano ainda
+   * precisam de uma sessão de checkout vinculada àquele usuário
+   * (400 sem ela). Resposta 200 rápida; a aplicação é assíncrona via
+   * fila `billing-events`. Provedor desativado (ex.: mercadopago)
+   * responde 503 — nunca processa pela metade.
    */
   @Public()
   @Post('webhooks/:provider')

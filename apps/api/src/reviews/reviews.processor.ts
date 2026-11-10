@@ -60,15 +60,20 @@ export class ReviewsProcessor extends WorkerHost {
     const plan = await this.entitlements.getUserPlan(review.submission.userId);
     const reservation = await this.usage.reserve(review.submission.userId, plan);
     if (!reservation.ok) {
-      // Sem cota: fica pending com aviso — sem loop, sem consumo.
+      // M17 (Lote 4) — backend de cota fora: fica pending com aviso de
+      // indisponibilidade temporária (não de cota esgotada) — sem loop,
+      // sem consumo, sem chamar o LLM.
+      const unavailable = reservation.error === 'quota-unavailable';
       await this.prisma.codeReview.update({
         where: { id: review.id },
         data: {
           status: 'pending',
-          note: `Cota diária de IA esgotada (${reservation.used}/${reservation.limit}). Peça a revisão novamente amanhã.`,
+          note: unavailable
+            ? 'O serviço de cota de IA está temporariamente indisponível. Peça a revisão novamente em instantes.'
+            : `Cota diária de IA esgotada (${reservation.used}/${reservation.limit}). Peça a revisão novamente amanhã.`,
         },
       });
-      return { status: 'quota-exceeded' };
+      return { status: unavailable ? 'quota-unavailable' : 'quota-exceeded' };
     }
 
     let raw: string;

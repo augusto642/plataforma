@@ -1,4 +1,5 @@
 import { apiFetch } from './apiClient';
+import { parseError } from './parse-error';
 
 /**
  * Fase 2 premium (desenho §3.1) — client do simulador de entrevista.
@@ -30,14 +31,6 @@ export interface InterviewSession {
   endedAt: string | null;
   turns: InterviewTurn[];
   report: InterviewReport | null;
-}
-
-async function parseError(res: Response): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  const message =
-    (body as { message?: string | string[] }).message ??
-    'Não foi possível completar a operação.';
-  return new Error(Array.isArray(message) ? message.join(' ') : message);
 }
 
 export async function createInterviewSession(

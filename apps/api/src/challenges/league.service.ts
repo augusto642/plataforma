@@ -16,6 +16,22 @@ const MIN_ENTRIES_FOR_RELEGATION = 6;
 export const LEAGUE_CHAMPION_BADGE = 'league_champion';
 
 /**
+ * M3 (Lote 4) — cálculo puro de pontos a partir das submissões de UM
+ * aluno na janela (a regra que `computePoints` aplicava por leitura):
+ * 0 sem submissão; senão bônus de participação + melhor nota APROVADA
+ * (nota de reprovada não soma; `score` nulo vale 0).
+ */
+export function pointsFromSubmissions(
+  submissions: Array<{ status: string; score: number | null }>,
+): number {
+  if (submissions.length === 0) return 0;
+  const bestPassed = submissions
+    .filter((s) => s.status === 'passed')
+    .reduce((max, s) => Math.max(max, Math.floor(s.score ?? 0)), 0);
+  return PARTICIPATION_BONUS + bestPassed;
+}
+
+/**
  * Fase 3 premium (desenho §4.1) — ligas por nível e pontuação.
  *
  * Regra anti-desmotivação (explícita, não emergente): nunca uma única
@@ -65,6 +81,14 @@ export class LeagueService {
    * base±2. Mudar isso para uma escada cumulativa (liga anterior
    * ±1) exige decisão explícita de produto, pois altera a
    * progressão de todos os alunos.
+   *
+   * M3 (Lote 4) — SEM N+1 e SEM carregar a season inteira: a versão
+   * anterior trazia TODAS as entradas da season (`include` sem
+   * filtro) só para achar a posição do aluno. Agora são 4 leituras
+   * limitadas: o usuário, a season (só a entrada do aluno),
+   * quantos estão à frente dele e o total de entradas. A posição é
+   * derivada da mesma ordenação (pontos desc, id asc) — semântica
+   * idêntica, sem varrer a season.
    */
   async resolveTier(userId: string): Promise<LeagueTier> {
     const user = await this.prisma.user.findUnique({
@@ -81,14 +105,35 @@ export class LeagueService {
         entries: { some: { userId } },
       },
       orderBy: { endsAt: 'desc' },
-      include: {
-        entries: { orderBy: [{ points: 'desc' }, { id: 'asc' }], select: { userId: true } },
+      select: {
+        id: true,
+        entries: {
+          where: { userId },
+          select: { id: true, points: true },
+        },
       },
     });
     if (!lastSeason) return base;
+    // O filtro `entries.some` garante ao menos uma entrada do aluno;
+    // a guarda é só defesa contra um estado inconsistente.
+    const myEntry = lastSeason.entries[0];
+    if (!myEntry) return base;
 
-    const rank = lastSeason.entries.findIndex((e) => e.userId === userId) + 1;
-    const total = lastSeason.entries.length;
+    // Posição (1-based) na mesma ordenação do ranking: pontos desc,
+    // desempate por id asc. `ahead + 1` == índice na lista ordenada.
+    const ahead = await this.prisma.leagueEntry.count({
+      where: {
+        seasonId: lastSeason.id,
+        OR: [
+          { points: { gt: myEntry.points } },
+          { points: myEntry.points, id: { lt: myEntry.id } },
+        ],
+      },
+    });
+    const total = await this.prisma.leagueEntry.count({
+      where: { seasonId: lastSeason.id },
+    });
+    const rank = ahead + 1;
     const order: LeagueTier[] = [LeagueTier.bronze, LeagueTier.silver, LeagueTier.gold];
     const idx = order.indexOf(base);
     if (rank >= 1 && rank <= 3 && idx < order.length - 1) return order[idx + 1];
@@ -112,34 +157,83 @@ export class LeagueService {
    * submissão na janela, aprovada ou não) + melhor nota APROVADA.
    * Submissão fora da janela não conta; nota de submissão reprovada
    * não conta (só o bônus de ter tentado).
+   *
+   * M3 (Lote 4) — delega ao cálculo em lote: 1 aluno ou 100, o
+   * número de leituras é o mesmo (desafio + 1 `findMany`).
    */
   async computePoints(challengeId: string, userId: string): Promise<number> {
+    const points = await this.computePointsMany(challengeId, [userId]);
+    return points.get(userId) ?? 0;
+  }
+
+  /**
+   * M3 (Lote 4) — pontos de VÁRIOS alunos num desafio com UMA
+   * leitura de submissões (`userId IN (...)`) em vez de 1 `findMany`
+   * por aluno. Usado pelo refresh das ligas e pelo ranking do
+   * desafio. Semântica idêntica à de `computePoints`: 0 sem
+   * submissão na janela; senão bônus + melhor nota aprovada.
+   */
+  async computePointsMany(
+    challengeId: string,
+    userIds: string[],
+  ): Promise<Map<string, number>> {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       select: { activityId: true, startsAt: true, endsAt: true },
     });
     if (!challenge) throw new NotFoundException('Desafio não encontrado');
+    return this.pointsForUsers(challenge, userIds);
+  }
+
+  /**
+   * Núcleo do cálculo em lote (desafio já carregado): 1 `findMany`
+   * para todos os alunos + agregação em memória. O mapa devolve 0
+   * para quem não tem submissão na janela — igual a `computePoints`.
+   */
+  private async pointsForUsers(
+    challenge: { activityId: string; startsAt: Date; endsAt: Date },
+    userIds: string[],
+  ): Promise<Map<string, number>> {
+    const points = new Map<string, number>(userIds.map((id) => [id, 0]));
+    if (userIds.length === 0) return points;
 
     const submissions = await this.prisma.submission.findMany({
       where: {
         activityId: challenge.activityId,
-        userId,
+        userId: { in: userIds },
         createdAt: { gte: challenge.startsAt, lte: challenge.endsAt },
       },
-      select: { status: true, score: true },
+      select: { userId: true, status: true, score: true },
     });
-    if (submissions.length === 0) return 0;
-    const bestPassed = submissions
-      .filter((s) => s.status === 'passed')
-      .reduce((max, s) => Math.max(max, Math.floor(s.score ?? 0)), 0);
-    return PARTICIPATION_BONUS + bestPassed;
+    const byUser = new Map<string, Array<{ status: string; score: number | null }>>();
+    for (const s of submissions) {
+      const list = byUser.get(s.userId) ?? [];
+      list.push(s);
+      byUser.set(s.userId, list);
+    }
+    for (const [userId, list] of byUser) {
+      points.set(userId, pointsFromSubmissions(list));
+    }
+    return points;
   }
 
-  /** Recalcula os pontos das entradas da liga na janela do desafio. */
+  /**
+   * Recalcula os pontos das entradas da liga na janela do desafio.
+   *
+   * M3 (Lote 4) — o N+1 real: a versão anterior fazia, POR ENTRADA,
+   * 1 `findMany` de submissões + 1 `findUnique` do desafio (dentro de
+   * `computePoints`) + 1 `update`. Agora são 4 chamadas do Prisma
+   * qualquer que seja o nº de entradas: desafio, seasons, 1
+   * `findMany` em lote (`pointsForUsers`) e 1 transação com 1
+   * `updateMany` por valor distinto de pontos (agrupa as entradas
+   * por pontos — no máximo 101 valores, 10–110). A transação também
+   * torna o refresh atômico: antes, uma falha no meio deixava
+   * metade das entradas recalculadas e metade defasada.
+   */
   async refreshEntriesForChallenge(challengeId: string): Promise<void> {
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
-      select: { startsAt: true, endsAt: true },
+      select: { activityId: true, startsAt: true, endsAt: true },
     });
     if (!challenge) throw new NotFoundException('Desafio não encontrado');
 
@@ -147,15 +241,28 @@ export class LeagueService {
       where: { startsAt: challenge.startsAt, endsAt: challenge.endsAt },
       include: { entries: { select: { id: true, userId: true } } },
     });
-    for (const season of seasons) {
-      for (const entry of season.entries) {
-        const points = await this.computePoints(challengeId, entry.userId);
-        await this.prisma.leagueEntry.update({
-          where: { id: entry.id },
-          data: { points },
-        });
-      }
+    const entries = seasons.flatMap((s) => s.entries);
+    if (entries.length === 0) return;
+
+    const pointsByUser = await this.pointsForUsers(
+      challenge,
+      entries.map((e) => e.userId),
+    );
+    const idsByPoints = new Map<number, string[]>();
+    for (const entry of entries) {
+      const points = pointsByUser.get(entry.userId) ?? 0;
+      const ids = idsByPoints.get(points) ?? [];
+      ids.push(entry.id);
+      idsByPoints.set(points, ids);
     }
+    await this.prisma.$transaction(
+      [...idsByPoints.entries()].map(([points, ids]) =>
+        this.prisma.leagueEntry.updateMany({
+          where: { id: { in: ids } },
+          data: { points },
+        }),
+      ),
+    );
   }
 
   /** Classificação de uma season, com posição (1-based, desempate por id). */
@@ -186,28 +293,53 @@ export class LeagueService {
     };
   }
 
-  /** Ligas do aluno (entrada + posição em cada season), mais recente primeiro. */
+  /**
+   * Ligas do aluno (entrada + posição em cada season), mais recente primeiro.
+   *
+   * M3 (Lote 4) — SEM N+1: a versão anterior trazia, num `include`
+   * aninhado, TODAS as entradas de cada season do aluno. Agora são 2
+   * leituras: as entradas do aluno (com a season) + TODAS as entradas
+   * dessas seasons num só `findMany` (`seasonId IN (...)`), com a
+   * posição calculada em memória na mesma ordenação (pontos desc,
+   * id asc). Semântica idêntica, sem varrer season por season.
+   */
   async myLeagues(userId: string) {
     const entries = await this.prisma.leagueEntry.findMany({
       where: { userId },
       include: {
-        season: {
-          include: {
-            entries: { orderBy: [{ points: 'desc' }, { id: 'asc' }], select: { userId: true } },
-          },
-        },
+        season: { select: { id: true, tier: true, startsAt: true, endsAt: true } },
       },
       orderBy: { season: { endsAt: 'desc' } },
     });
-    return entries.map((e) => ({
-      seasonId: e.season.id,
-      tier: e.season.tier,
-      startsAt: e.season.startsAt,
-      endsAt: e.season.endsAt,
-      points: e.points,
-      position: e.season.entries.findIndex((e2) => e2.userId === userId) + 1,
-      participants: e.season.entries.length,
-    }));
+    if (entries.length === 0) return [];
+
+    const seasonIds = [...new Set(entries.map((e) => e.season.id))];
+    const seasonEntries = await this.prisma.leagueEntry.findMany({
+      where: { seasonId: { in: seasonIds } },
+      select: { seasonId: true, userId: true, points: true, id: true },
+    });
+    const bySeason = new Map<string, Array<{ userId: string; points: number; id: string }>>();
+    for (const se of seasonEntries) {
+      const list = bySeason.get(se.seasonId) ?? [];
+      list.push(se);
+      bySeason.set(se.seasonId, list);
+    }
+    // Mesma ordenação do ranking: pontos desc, desempate por id asc.
+    for (const list of bySeason.values()) {
+      list.sort((a, b) => b.points - a.points || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    }
+    return entries.map((e) => {
+      const list = bySeason.get(e.season.id) ?? [];
+      return {
+        seasonId: e.season.id,
+        tier: e.season.tier,
+        startsAt: e.season.startsAt,
+        endsAt: e.season.endsAt,
+        points: e.points,
+        position: list.findIndex((e2) => e2.userId === userId) + 1,
+        participants: list.length,
+      };
+    });
   }
 
   /**
