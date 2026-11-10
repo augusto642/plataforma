@@ -27,14 +27,15 @@ import { PlanInterestForm } from './PlanInterestForm';
 /* Fase 1 premium (desenho §2.4) — o CTA de plano pago passa da lista
    de interessados para o checkout (em modo de testes). A lista de
    interessados segue válida só para o Carreira, sem preço definido.
-   A9 (Lote 3 · portões do merge) — o aviso de cobrança RESTAURADO:
-   a fase 1 o trocou por "Checkout em modo de testes", e sem ele a
-   página passou a sugerir cobrança ativa (landing-render.spec.ts:69
-   esperava o aviso 2× e recebia 0). O checkout segue em modo de
-   testes (nenhuma cobrança real), e o aviso diz o estado real: a
-   cobrança ainda não está ativa e o cadastro hoje é gratuito. */
+   A9 (Lote 3 · portões do merge) — o aviso de cobrança RESTAURADO: a
+   fase 1 removeu o aviso e a página passou a sugerir cobrança ativa; o
+   P1 do merge fatiado restaurou o aviso com o texto atualizado para a
+   realidade do checkout (landing-render.spec.ts:71 espera o aviso 2×).
+   O P6 do premium restaurou o texto ANTIGO ("Cobrança ainda não ativa")
+   sem saber do P1; no merge, vale o texto do P1 — a propriedade de
+   segurança é a mesma (aviso honesto 2×, nenhuma cobrança real). */
 export const PAID_PLAN_BILLING_NOTE =
-  'Cobrança ainda não ativa — hoje o cadastro é gratuito.';
+  'Checkout em modo de testes — nenhuma cobrança real é feita.';
 
 export const PricingSection: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
