@@ -110,7 +110,16 @@ export default function EntrevistaSessaoPage() {
   const [testingCode, setTestingCode] = useState(false);
 
   useEffect(() => {
-    if (isLoading || !user || !id) return;
+    if (isLoading) return;
+    // Central 216 r3 (Q-1) — sem usuário não há fetch: encerrar o
+    // carregamento aqui; o card de login é renderizado abaixo (mesma
+    // ordem do D5 em /trilha/sugerida). Antes, o efeito retornava sem
+    // fazer nada e `loading` ficava true para sempre — "Carregando…"
+    // infinito para o visitante deslogado.
+    if (!user || !id) {
+      setLoading(false);
+      return;
+    }
     getInterviewSession(id)
       .then((s) => {
         setSession(s);
@@ -155,7 +164,38 @@ export default function EntrevistaSessaoPage() {
     setTestingCode(false);
   }
 
-  if (isLoading || loading) {
+  // Central 216 r3 (Q-1) — ordem D5: authLoading → !user → fetch.
+  // O visitante deslogado vê o card de login, nunca "Carregando…".
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
+        <div className="max-w-7xl mx-auto text-sm text-zinc-400">Carregando…</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-xl border border-border-strong bg-dark-surface-container-low p-6 text-center">
+          <h1 className="text-lg font-headline font-bold text-white mb-2">
+            Faça login para treinar
+          </h1>
+          <p className="text-sm text-dark-on-surface-variant mb-5">
+            A sessão de entrevista fica na sua conta.
+          </p>
+          <Link
+            href="/login"
+            className="inline-block bg-primary hover:bg-dark-primary text-white text-sm font-bold px-5 py-2.5 rounded transition-colors"
+          >
+            Entrar
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
         <div className="max-w-7xl mx-auto text-sm text-zinc-400">Carregando…</div>
