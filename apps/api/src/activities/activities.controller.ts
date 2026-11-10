@@ -68,6 +68,16 @@ export class ActivitiesController {
     return this.activities.findById(id, user.role, user.sub);
   }
 
+  // Fase 5 premium (§6.2) — fila offline de revisão do PWA.
+  @Post(':id/review-sync')
+  syncReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: { clientId: string; score: number; passed: boolean },
+  ) {
+    return this.activities.syncReview(user.sub, id, dto);
+  }
+
   @Get(':id/reference-solution')
   getReferenceSolution(
     @Param('id', ParseUUIDPipe) id: string,

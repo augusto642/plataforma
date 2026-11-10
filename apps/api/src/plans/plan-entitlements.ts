@@ -40,6 +40,8 @@ export interface PlanEntitlements {
   communityPost: boolean;
   /** Mapa completo de gaps + recomendações (free: diagnóstico B09). */
   diagnosticFullMap: boolean;
+  /** Preparação para certificações (simulados + relatório de prontidão). */
+  certPrep: boolean;
   /** Talent Match: perfil destacado (só Carreira; Pro é só visível). */
   talentSpotlight: boolean;
   /** PWA/offline não é pago: liberado em todos os planos. */
@@ -57,6 +59,7 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     challengesFull: false,
     communityPost: false,
     diagnosticFullMap: false,
+    certPrep: false,
     talentSpotlight: false,
     pwa: true,
     b2b: false,
@@ -69,6 +72,7 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     challengesFull: true,
     communityPost: true,
     diagnosticFullMap: true,
+    certPrep: true,
     talentSpotlight: false,
     pwa: true,
     b2b: false,
@@ -81,6 +85,7 @@ export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     challengesFull: true,
     communityPost: true,
     diagnosticFullMap: true,
+    certPrep: true,
     talentSpotlight: true,
     pwa: true,
     b2b: false,
@@ -95,6 +100,7 @@ export type PremiumFeature =
   | 'challenges-full'
   | 'community-post'
   | 'diagnostic-full-map'
+  | 'cert-prep'
   | 'talent-spotlight';
 
 export const PREMIUM_FEATURES: readonly PremiumFeature[] = [
@@ -104,6 +110,7 @@ export const PREMIUM_FEATURES: readonly PremiumFeature[] = [
   'challenges-full',
   'community-post',
   'diagnostic-full-map',
+  'cert-prep',
   'talent-spotlight',
 ];
 
@@ -123,6 +130,8 @@ export function planHasFeature(plan: Plan, feature: PremiumFeature): boolean {
       return ent.communityPost;
     case 'diagnostic-full-map':
       return ent.diagnosticFullMap;
+    case 'cert-prep':
+      return ent.certPrep;
     case 'talent-spotlight':
       return ent.talentSpotlight;
   }

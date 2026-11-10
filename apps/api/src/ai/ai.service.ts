@@ -12,6 +12,7 @@ import { UNTRUSTED_DATA_SYSTEM_NOTE, buildFullContentRefusal, buildUntrustedStud
 import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 import { KnowledgeService, type KnowledgeEntryView } from '../knowledge/knowledge.service';
 import { ResearchService } from '../knowledge/research/research.service';
+import { LearnerModelService } from '../adaptation/learner-model.service';
 import {
   AnalogousExample,
   ConceptReinforcement,
@@ -130,6 +131,12 @@ export class AiService {
     @Optional() private readonly cache?: CacheService,
     @Optional() private readonly knowledge?: KnowledgeService,
     @Optional() private readonly research?: ResearchService,
+    // Fase 5 (§6.4) — INTERFACE do tutor adaptativo: o modelo do aluno
+    // alimenta o prompt da tutora. @Optional para não quebrar testes
+    // que constroem o AiService sem o módulo de adaptação; sem ele, o
+    // bloco é '' e o comportamento Sprint 22 fica inalterado.
+    // O motor adaptativo completo está DEFERIDO (ver learner-model.service).
+    @Optional() private readonly learnerModel?: LearnerModelService,
   ) {}
 
   /**
@@ -741,6 +748,15 @@ export class AiService {
       this.llm.unavailableReason ?? 'provider-error';
     let sourceEmitted = false;
 
+    // Fase 5 (§6.4) — modelo do aluno no prompt (interface adaptativa).
+    // Fail-open: sem modelo ou sem dados, '' — nunca quebra o chat.
+    const streamLearnerBlock = userId
+      ? await this.learnerModel
+          ?.buildTutorPromptBlock(userId, activity.conceptTags || [])
+          .catch(() => '')
+      : '';
+    const learnerBlock = streamLearnerBlock ?? '';
+
     if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
@@ -749,6 +765,7 @@ export class AiService {
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
           tierInstructions[tier],
+          learnerBlock,
           UNTRUSTED_DATA_SYSTEM_NOTE,
           sanitizedCode
             ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
@@ -951,6 +968,13 @@ export class AiService {
       ? formatKmsSources(chatKmsEntries.map((e) => ({ slug: e.slug, title: e.title, version: e.version, courseName: e.courseName, lessonTitle: e.lessonTitle, summary: e.summary })))
       : '';
 
+    // Fase 5 (§6.4) — modelo do aluno no prompt (interface adaptativa).
+    const chatLearnerBlock = userId
+      ? await this.learnerModel
+          ?.buildTutorPromptBlock(userId, activity.conceptTags || [])
+          .catch(() => '')
+      : '';
+
     if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
@@ -961,6 +985,7 @@ export class AiService {
           tierInstructions[tier],
           UNTRUSTED_DATA_SYSTEM_NOTE,
           chatKmsBlock,
+          chatLearnerBlock ?? '',
           sanitizedCode
             ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
             : '',
