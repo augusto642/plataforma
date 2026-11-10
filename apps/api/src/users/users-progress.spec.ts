@@ -35,12 +35,14 @@ describe('UsersService.getUserProgress (Sprint 21)', () => {
         ]),
       },
       submission: {
-        findMany: jest.fn().mockResolvedValue(
+        // M2 (Lote 4): o serviço agrega via groupBy, não findMany — o mock
+        // devolve uma linha por atividade aprovada (1 submissão, score 100).
+        groupBy: jest.fn().mockResolvedValue(
           passedIds.map((activityId) => ({
-            id: `s-${activityId}`,
             activityId,
             status: 'passed',
-            score: 100,
+            _count: { _all: 1, score: 1 },
+            _sum: { score: 100 },
           })),
         ),
       },

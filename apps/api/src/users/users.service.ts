@@ -305,7 +305,7 @@ export class UsersService {
           slug: '',
           title: a.title,
           order: a.order,
-          conceptTags: a.conceptTags,
+          conceptTags: a.conceptTags ?? [],
         })),
         passedActivityIds,
       );
