@@ -2,7 +2,20 @@
 
 import React, { useRef } from 'react';
 import dynamic from 'next/dynamic';
+import { loader } from '@monaco-editor/react';
 import { IdeEditorSkeleton } from './IdeEditorSkeleton';
+
+// Central 216 r3 (Q-2) — Monaco LOCAL: o loader padrão do
+// @monaco-editor/react busca `loader.js` no CDN jsdelivr, bloqueado
+// pelo CSP (`script-src 'self'`) — o editor ficava em "Loading..."
+// para sempre. Os arquivos do `monaco-editor` instalado (0.56.0)
+// são copiados para `public/monaco/vs` pelo script
+// `scripts/copy-monaco-vs.cjs` (invocado em `next.config.js`) e o
+// loader é apontado para lá. `loader.config` é puro (só valida e
+// guarda estado), seguro em escopo de módulo inclusive no SSR.
+// Tem que rodar antes de qualquer `Editor` montar: escopo de módulo,
+// não useEffect (efeitos do filho rodam antes dos do pai).
+loader.config({ paths: { vs: '/monaco/vs' } });
 
 // Carregamento dinâmico do Monaco com skeleton visual zero-CLS
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
