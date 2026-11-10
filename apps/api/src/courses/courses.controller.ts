@@ -59,6 +59,19 @@ export class CoursesController {
     return this.courses.findPublicCatalog();
   }
 
+  /**
+   * B77 (Sprint 19 · destravamento B3) — estatísticas públicas da
+   * landing: só contagens agregadas com fonte viva no banco (cursos
+   * e atividades do catálogo, alunos cadastrados por papel,
+   * interessados nos planos pagos). Nenhum dado individual sai por
+   * aqui. Declarada ANTES de @Get(':id'), como a public-catalog.
+   */
+  @Public()
+  @Get('public-stats')
+  findPublicStats() {
+    return this.courses.findPublicStats();
+  }
+
   @Post('join')
   joinByCode(@CurrentUser() user: JwtPayload, @Body() dto: JoinCourseDto) {
     return this.courses.joinByCode(user.sub, dto);

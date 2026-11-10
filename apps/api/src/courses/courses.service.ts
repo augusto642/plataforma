@@ -1,6 +1,6 @@
 import { BadGatewayException, BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { GiteaService } from '../gitea/gitea.service';
 import { ConfigError } from '../config/secrets.validation';
@@ -125,6 +125,7 @@ export class CoursesService {
 
         await this.cache.del('courses:list');
         await this.cache.del('courses:public-catalog');
+        await this.cache.del('courses:public-stats');
         return course;
       } catch (error) {
         if (isEnrollmentCodeConflict(error)) {
@@ -199,6 +200,60 @@ export class CoursesService {
     return catalog;
   }
 
+  /**
+   * B77 (Sprint 19 · destravamento B3) — os números reais que a
+   * landing passa a exibir na faixa de estatísticas. TODOS saem de
+   * contagens vivas do banco, com a mesma definição das fontes que
+   * a página já usa — nada hardcoded, nada estimado:
+   * - publishedCourses: cursos do catálogo público (a MESMA régua
+   *   do findPublicCatalog: fora a biblioteca interna);
+   * - publishedActivities: atividades desses cursos;
+   * - registeredStudents: contas com papel de aluno — admin e
+   *   instrutor ficam fora pela própria role, e nenhum dado
+   *   individual sai daqui, só o agregado;
+   * - planInterestTotal: interessados nos planos pagos, na mesma
+   *   soma do PlanInterestService.counts() (leads por e-mail +
+   *   registros de conta; a vinculação no cadastro impede contar
+   *   a mesma pessoa duas vezes).
+   * Zero é devolvido como zero: quem formata a exibição é a
+   * landing, e zero real se exibe como zero (padrão B50/B72).
+   */
+  async findPublicStats() {
+    const cached = await this.cache.get<{
+      publishedCourses: number;
+      publishedActivities: number;
+      registeredStudents: number;
+      planInterestTotal: number;
+    }>('courses:public-stats');
+    if (cached) return cached;
+
+    const [
+      publishedCourses,
+      publishedActivities,
+      registeredStudents,
+      interestLeads,
+      interestAccounts,
+    ] = await Promise.all([
+      this.prisma.course.count({ where: { isPublicLibrary: false } }),
+      this.prisma.activity.count({
+        where: { course: { isPublicLibrary: false } },
+      }),
+      this.prisma.user.count({ where: { role: Role.student } }),
+      this.prisma.planInterestLead.count(),
+      this.prisma.planInterest.count(),
+    ]);
+
+    const stats = {
+      publishedCourses,
+      publishedActivities,
+      registeredStudents,
+      planInterestTotal: interestLeads + interestAccounts,
+    };
+
+    await this.cache.set('courses:public-stats', stats, 60);
+    return stats;
+  }
+
   async findById(id: string) {
     const cached = await this.cache.get<any>(`courses:${id}`);
     if (cached) return cached;
@@ -247,6 +302,7 @@ export class CoursesService {
     await this.cache.del(`courses:${id}`);
     await this.cache.del('courses:list');
     await this.cache.del('courses:public-catalog');
+    await this.cache.del('courses:public-stats');
   }
 
   async enroll(courseId: string, dto: EnrollStudentDto, actorId?: string, actorRole?: string) {
@@ -367,6 +423,7 @@ export class CoursesService {
         await this.cache.del(`courses:${id}`);
         await this.cache.del('courses:list');
         await this.cache.del('courses:public-catalog');
+        await this.cache.del('courses:public-stats');
         return { enrollmentCode: updated.enrollmentCode };
       } catch (error) {
         if (isEnrollmentCodeConflict(error)) {
@@ -421,6 +478,7 @@ export class CoursesService {
     await this.cache.del(`courses:${id}`);
     await this.cache.del('courses:list');
     await this.cache.del('courses:public-catalog');
+    await this.cache.del('courses:public-stats');
   }
 
   async getCourseAnalytics(courseId: string, userId?: string, userRole?: string) {

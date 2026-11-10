@@ -31,6 +31,14 @@ const organizationJsonLd = {
   name: 'Nexus Code',
   url: SITE_URL,
   logo: `${SITE_URL}/logo.svg`,
+  // B79 (Sprint 19 · destravamento B4) — o fundador nomeado também
+  // no dado estruturado, espelho da FounderSection visível: nome e
+  // cargo verdadeiros, sem foto (a foto dele entra depois).
+  founder: {
+    '@type': 'Person',
+    name: 'Augusto Fortes',
+    jobTitle: 'Professor de Informática',
+  },
 };
 
 const productJsonLd = (plan: PlanPrice, description: string) => ({

@@ -5,6 +5,8 @@ import { HeroSection } from '../components/landing/HeroSection';
 import { MethodologySection } from '../components/landing/MethodologySection';
 import { LumiMascotHero } from '../components/landing/LumiMascotHero';
 import { TracksSection } from '../components/landing/TracksSection';
+import { PlatformStatsSection } from '../components/landing/PlatformStatsSection';
+import { FounderSection } from '../components/landing/FounderSection';
 import { SandboxDemo } from '../components/landing/SandboxDemo';
 import { NexusPillarsGrid } from '../components/landing/NexusPillarsGrid';
 import { TcgCardsShowcase } from '../components/landing/TcgCardsShowcase';
@@ -76,9 +78,15 @@ export default function HomePage() {
       DEPOIS da Metodologia. Sprint 17 (Volta 2 · B59): a Pricing sobe
       para logo depois da Sandbox. Ordem atual: Hero → Metodologia →
       Tutora → Trilhas → Sandbox → Preços → Pilares → TCG → Versus →
-      Stack → FAQ → CTA final → Rodapé */}
+      Stack → FAQ → CTA final → Rodapé. Sprint 19 (B3/B4): a faixa
+      de NÚMEROS REAIS entra logo depois das Trilhas (resume a
+      vitrine + alunos + interessados) e a seção do FUNDADOR entra
+      depois da Stack, antes da FAQ. */}
   <LumiMascotHero />
         <TracksSection />
+        {/* B78 (Sprint 19 · B3) — números reais da plataforma,
+            contados da API; sem resposta, a seção não renderiza. */}
+        <PlatformStatsSection />
   {/* 5. TERMINAL INTERATIVO COM AS CORES DA PÁGINA PRINCIPAL */}
   <section id="sandbox" className="relative z-10 py-24 px-6 sm:px-8 max-w-7xl mx-auto border-t border-border-2/70">
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
@@ -159,6 +167,9 @@ export default function HomePage() {
         {/* O COMPARATIVO BRUTAL: VELHO MUNDO VS ARENA NEXUS */}
         <ComparisonVersus />
         <StackSection />
+        {/* B79 (Sprint 19 · B4) — o fundador nomeado, sem foto
+            (monograma até a foto dele chegar). */}
+        <FounderSection />
         <FaqSection />
         <FinalCtaSection />
         <LandingFooter />
