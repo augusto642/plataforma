@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import './dashboard.css';
 import { Topbar } from './components/Topbar';
 import { HeroActiveMission } from './components/HeroActiveMission';
-import { WeeklyGoalRing } from './components/WeeklyGoalRing';
 import { SkillRoadmapTree } from './components/SkillRoadmapTree';
 import { SkillsRadarChart } from './components/SkillsRadarChart';
 import { AnnualHeatmap } from './components/AnnualHeatmap';
@@ -16,6 +15,8 @@ import { CelebrationModal } from './components/CelebrationModal';
 import { TutorModal } from './components/TutorModal';
 import { CareerPetBanner } from './components/CareerPetBanner';
 import { DynamicTrackCard } from './components/DynamicTrackCard';
+import { DailyMissions } from './components/DailyMissions';
+import { LeagueCard } from './components/LeagueCard';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import { PetEvolutionModal } from '../game/components/PetEvolutionModal';
 import { fetchDashboardData } from './utils/api';
@@ -197,17 +198,16 @@ export default function StudentDashboardPage() {
             (GET /dynamic-track/me) — nunca uma sugestão inventada. */}
         <DynamicTrackCard />
 
-        {/* SECTION 1: HERO ACTIVE MISSION & WEEKLY GOAL */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 flex flex-col">
-            <HeroActiveMission
-              mission={data.activeMission}
-              onOpenTutor={() => setTutorOpen(true)}
-            />
-          </div>
-          <div className="lg:col-span-4 flex flex-col">
-            <WeeklyGoalRing goal={data.weeklyGoal} />
-          </div>
+        {/* SECTION 1: HERO ACTIVE MISSION — Central 216 (auditoria do
+            Designer, item 4): a meta semanal (8,5/10h, 85%) era dado
+            do molde sem endpoint e foi removida do modelo; o Hero
+            ocupa a largura cheia e, sem curso iniciado, mostra o
+            estado vazio honesto. */}
+        <section>
+          <HeroActiveMission
+            mission={data.activeMission}
+            onOpenTutor={() => setTutorOpen(true)}
+          />
         </section>
 
         {/* SECTION 2: SKILL TREE / ROADMAP DE NÓS */}
@@ -275,6 +275,16 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
+        {/* SECTION 3.6: MISSÕES DE HOJE (Central 216 · F3) — só com
+            dados reais (submissões e simulações de hoje); o componente
+            some sozinho quando a API não responde. */}
+        <DailyMissions />
+
+        {/* SECTION 3.7: SUA LIGA (Central 216 · auditoria §5) — tiers
+            reais bronze/prata/ouro (A4); o componente some sozinho sem
+            liga ativa ou sem acesso (free). */}
+        <LeagueCard />
+
         {/* SECTION 4: RANKING DO CURSO + TUTOR SOCRÁTICO */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 flex flex-col">
@@ -309,7 +319,7 @@ export default function StudentDashboardPage() {
       <TutorModal
         isOpen={tutorOpen}
         onClose={() => setTutorOpen(false)}
-        activityTitle={data.activeMission.title}
+        activityTitle={data.activeMission?.title ?? ''}
       />
 
       {/* 5. PET EVOLUTION / METAMORFOSE CELEBRATION MODAL */}

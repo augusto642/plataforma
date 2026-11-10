@@ -72,6 +72,16 @@ export function progressByCourseId(
   return new Map(entries.map((entry) => [entry.courseId, entry]));
 }
 
+// Central 216 (F2) — o catálogo público não traz `id`, só `slug`:
+// o progresso do usuário logado é casado pelo slug do curso.
+export function progressByCourseSlug(
+  entries: CourseProgressEntry[],
+): Map<string, CourseProgressEntry> {
+  return new Map(
+    entries.filter((entry) => entry.slug).map((entry) => [entry.slug, entry]),
+  );
+}
+
 export type CourseProgressStatusKind = 'not-started' | 'in-progress' | 'completed';
 
 /**

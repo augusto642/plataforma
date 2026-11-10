@@ -143,8 +143,10 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     const html = await renderHtml(React.createElement(HomePage));
     expect(html).toContain('id="como-funciona"');
     expect(html).toContain('Sua trilha, sugerida pela IA');
+    // Central 216 (A1) — o passo 01 descreve a investigação (até 2
+    // dias) e o começo imediato; o texto da 213 foi substituído.
     expect(html).toContain(
-      'Responda sobre seu nível e seus objetivos e a IA sugere a trilha ideal para você — e se preferir, você pode fazer cursos avulsos.',
+      'Responda sobre seu nível e seus objetivos e a IA investiga seu perfil, o mercado e as vagas para sugerir a trilha ideal — em até 2 dias. E você já começa na hora: a trilha inicial e os desafios ficam liberados no cadastro.',
     );
     expect(html).toContain('Aprenda jogando');
     expect(html).toContain('Ligas competitivas e ranking semanal');

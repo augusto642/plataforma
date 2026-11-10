@@ -23,34 +23,27 @@ export interface StudentDashboardData {
     avatarInitials: string;
     xp: number;
     level: number;
-    levelTitle: string;
     streakDays: number;
   };
+  // Central 216 (auditoria do Designer, item 4) — a missão só existe
+  // com progresso real (GET /users/me/progress): sem curso iniciado,
+  // é null e o Hero mostra o estado vazio honesto. Os campos sem
+  // fonte real (dificuldade, módulo, descrição, clone URL) são
+  // opcionais e só renderizam quando existem — nunca o molde
+  // Kafka/NestJS.
   activeMission: {
     trackTitle: string;
-    difficulty: 'Fácil' | 'Média' | 'Difícil' | 'Extremo';
-    moduleInfo: string;
+    difficulty?: 'Fácil' | 'Média' | 'Difícil' | 'Extremo';
+    moduleInfo?: string;
     title: string;
-    description: string;
+    description?: string;
     progressPercent: number;
     completedLabs: number;
     totalLabs: number;
-    gitCloneUrl: string;
+    gitCloneUrl?: string;
     activityId?: string;
     courseId?: string;
-  };
-  weeklyGoal: {
-    studiedHours: number;
-    targetHours: number;
-    percent: number;
-    remainingTimeText: string;
-    days: Array<{
-      day: string;
-      completed: boolean;
-      isToday: boolean;
-      hasFlame?: boolean;
-    }>;
-  };
+  } | null;
   skillRoadmap: Array<{
     id: string;
     title: string;

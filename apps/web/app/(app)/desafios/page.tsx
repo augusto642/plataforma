@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import { MaterialIcon } from '../../components/MaterialIcon';
 import {
   getChallengeLeaderboard,
   getCurrentChallenge,
@@ -20,7 +21,17 @@ import {
  * uma única liga global; bônus por participação, não só por vitória.
  * A liga persistente é Pro/Carreira — free vê o desafio e o ranking
  * do desafio, e recebe o aviso de plano na seção de ligas.
+ *
+ * Central 216 (A4) — as ligas exibidas são os tiers REAIS do
+ * league.service (bronze/silver/gold, via GET /leagues/me): nenhuma
+ * "Liga Diamante" existe no produto.
  */
+const TIER_LABEL: Record<string, string> = {
+  bronze: 'Bronze',
+  silver: 'Prata',
+  gold: 'Ouro',
+};
+
 export default function DesafiosPage() {
   const { user, isLoading } = useAuth();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
@@ -74,7 +85,7 @@ export default function DesafiosPage() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
         <div className="max-w-[720px] mx-auto text-sm text-zinc-400">Carregando…</div>
       </div>
     );
@@ -82,7 +93,7 @@ export default function DesafiosPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
         <div className="max-w-[720px] mx-auto">
           <h1 className="text-2xl font-black text-white">Desafio da semana</h1>
           <p className="text-sm text-zinc-400 mt-2">Faça login para participar.</p>
@@ -92,7 +103,7 @@ export default function DesafiosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+    <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
       <div className="max-w-[720px] mx-auto">
         <h1 className="text-2xl font-black text-white">Desafio da semana</h1>
         <p className="text-sm text-zinc-400 mt-2">
@@ -131,6 +142,15 @@ export default function DesafiosPage() {
               >
                 {challenge.joined ? 'Sair do desafio' : 'Participar (opt-in)'}
               </button>
+              {challenge.joined && (
+                <Link
+                  href="/ide"
+                  className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#6f46cc] text-white text-sm font-bold inline-flex items-center gap-1.5"
+                >
+                  <MaterialIcon name="code" className="text-[16px]" />
+                  Abrir o editor
+                </Link>
+              )}
               <Link
                 href="/comunidade"
                 className="px-4 py-2 rounded-xl bg-[#18181B] border border-zinc-800 text-zinc-300 text-sm font-semibold"
@@ -188,7 +208,7 @@ export default function DesafiosPage() {
                   className="flex justify-between rounded-xl border border-zinc-800 bg-[#121217] px-4 py-2 text-sm"
                 >
                   <span className="text-zinc-300">
-                    Liga {l.tier} · {l.position}º de {l.participants}
+                    Liga {TIER_LABEL[l.tier] ?? l.tier} · {l.position}º de {l.participants}
                   </span>
                   <span className="font-bold text-white">{l.points} pts</span>
                 </li>

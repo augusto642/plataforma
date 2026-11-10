@@ -2,7 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch, API_BASE } from '../../../lib/apiClient';
+import {
+  fetchMyInvestigation,
+  formatTrackDate,
+  markInvestigationSeen,
+  startInvestigation,
+  type DynamicTrackView,
+} from '../../../lib/dynamic-track';
 
 // Redesign v2 (Central 213) — card "Sua trilha" do dashboard, adaptado
 // do DynamicTrackCard da trilha dinâmica (Central 209). Consome o
@@ -15,42 +21,13 @@ import { apiFetch, API_BASE } from '../../../lib/apiClient';
 // renderiza quando a API devolver uma sugestão real (status ready) —
 // NUNCA uma sugestão inventada. Sem investigação (conta anterior à
 // trilha dinâmica), o card oferece iniciar (POST /me/start, fiação 209).
-
-interface MarketEvidenceView {
-  titulo: string;
-  tecnologia: string;
-  tipo: string;
-  publishedAt: string;
-  sourceName: string;
-  sourceUrl: string;
-  evidencia?: string | null;
-  score: number;
-}
-
-interface DynamicTrackView {
-  id: string;
-  status: 'investigating' | 'ready' | 'failed';
-  suggestedTrack: string | null;
-  trackName: string | null;
-  reasons: string[];
-  rationaleText: string | null;
-  basis: string | null;
-  marketEvidence: MarketEvidenceView[];
-  slaDueAt: string;
-  overdue: boolean;
-  completedAt: string | null;
-  notifiedAt: string | null;
-  failureReason: string | null;
-  startCourse: { slug: string; title: string } | null;
-}
+//
+// Central 216 (F1) — o tipo e a fiação vivem em lib/dynamic-track.ts
+// (compartilhados com as rotas /trilha/aguardando e /trilha/sugerida);
+// o card linka para essas rotas em vez de só exibir o estado.
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  return formatTrackDate(iso);
 }
 
 // Etapas da investigação (brief Tela 1) — exibidas sem prometer
@@ -144,6 +121,16 @@ function PreparingView({
             : ''}
         </p>
       )}
+      {!onStart && (
+        <div className="mt-3">
+          <Link
+            href="/trilha/aguardando"
+            className="text-xs font-bold text-[#996DFF] hover:underline"
+          >
+            Acompanhar o andamento da investigação →
+          </Link>
+        </div>
+      )}
       {onStart && (
         <>
           {startError && (
@@ -179,55 +166,26 @@ export function DynamicTrackCard() {
   // Fiação 209 — POST /dynamic-track/me/start: contas criadas antes da
   // trilha dinâmica (ou com investigação falha) iniciam/tentam de novo.
   async function load() {
-    try {
-      const res = await apiFetch(`${API_BASE}/dynamic-track/me`);
-      if (!res.ok) {
-        setInvestigation(null);
-        return;
-      }
-      const data = await res.json();
-      setInvestigation((data?.investigation ?? null) as DynamicTrackView | null);
-    } catch {
-      setInvestigation(null);
-    }
+    setInvestigation(await fetchMyInvestigation());
   }
 
   async function handleStart() {
     setStarting(true);
     setStartError(null);
-    try {
-      const res = await apiFetch(`${API_BASE}/dynamic-track/me/start`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setStartError(
-          (data?.message as string) ||
-            'Não foi possível iniciar a investigação agora. Tente novamente.',
-        );
-        return;
-      }
+    const result = await startInvestigation();
+    if (!result.ok) {
+      setStartError(result.error ?? 'Não foi possível iniciar a investigação agora.');
+    } else {
       await load();
-    } catch {
-      setStartError(
-        'Não foi possível conectar ao servidor. Tente novamente.',
-      );
-    } finally {
-      setStarting(false);
     }
+    setStarting(false);
   }
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch(`${API_BASE}/dynamic-track/me`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled) return;
-        setInvestigation((data?.investigation ?? null) as DynamicTrackView | null);
-      })
-      .catch(() => {
-        if (!cancelled) setInvestigation(null);
-      });
+    fetchMyInvestigation().then((inv) => {
+      if (!cancelled) setInvestigation(inv);
+    });
     return () => {
       cancelled = true;
     };
@@ -244,9 +202,7 @@ export function DynamicTrackCard() {
     ) {
       seenRef.current = true;
       setToastVisible(true);
-      apiFetch(`${API_BASE}/dynamic-track/me/seen`, { method: 'POST' }).catch(
-        () => {},
-      );
+      void markInvestigationSeen();
     }
   }, [investigation]);
 
@@ -331,10 +287,16 @@ export function DynamicTrackCard() {
             Sua trilha personalizada está pronta — Começar agora
           </span>
           <span className="flex items-center gap-2">
+            <Link
+              href="/trilha/sugerida"
+              className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
+            >
+              Ver trilha sugerida
+            </Link>
             {investigation.startCourse ? (
               <Link
                 href={`/courses/${investigation.startCourse.slug}`}
-                className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
+                className="text-xs font-bold px-3 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
               >
                 Começar agora
               </Link>
@@ -408,10 +370,16 @@ export function DynamicTrackCard() {
           </div>
         )}
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/trilha/sugerida"
+            className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+          >
+            Ver trilha sugerida
+          </Link>
           {investigation.startCourse ? (
             <Link
               href={`/courses/${investigation.startCourse.slug}`}
-              className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+              className="text-xs font-bold px-4 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
             >
               🚀 Começar minha trilha — {investigation.startCourse.title}
             </Link>

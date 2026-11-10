@@ -3,20 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 
+import type { StudentDashboardData } from '../types';
+
+type ActiveMission = NonNullable<StudentDashboardData['activeMission']>;
+
 interface HeroActiveMissionProps {
-  mission: {
-    trackTitle: string;
-    difficulty: 'Fácil' | 'Média' | 'Difícil' | 'Extremo';
-    moduleInfo: string;
-    title: string;
-    description: string;
-    progressPercent: number;
-    completedLabs: number;
-    totalLabs: number;
-    gitCloneUrl: string;
-    activityId?: string;
-    courseId?: string;
-  };
+  mission: ActiveMission | null;
   onOpenTutor: () => void;
 }
 
@@ -26,7 +18,49 @@ export const HeroActiveMission: React.FC<HeroActiveMissionProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
 
+  // Central 216 (auditoria do Designer, item 4) — sem curso iniciado
+  // não há missão: estado vazio honesto, nunca a missão Kafka do
+  // molde. O Hero ocupa a largura cheia nessa condição (a meta
+  // semanal, que dividia a seção, foi removida do modelo).
+  if (!mission) {
+    return (
+      <div className="bento-card spotlight-card p-6 md:p-8 flex flex-col justify-between overflow-hidden shadow-2xl relative border-t-2 border-t-[#8257E5]/50">
+        <div className="absolute -right-16 -top-16 w-80 h-80 bg-[#8257E5]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 space-y-4">
+          <span className="inline-block px-2.5 py-1 rounded-md bg-[#8257E5]/20 text-[#996DFF] font-mono text-[11px] font-bold border border-[#8257E5]/30 uppercase">
+            Trilha ativa
+          </span>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-snug">
+              Nenhuma missão ativa ainda
+            </h2>
+            <p className="text-sm text-[#A1A1AA] mt-2 max-w-2xl leading-relaxed">
+              Você ainda não começou nenhum curso. Entre em um desafio ou
+              explore os cursos avulsos — sua primeira missão aparece aqui.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Link
+              href="/desafios"
+              className="px-6 py-2.5 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-extrabold text-xs transition-all glow-purple shadow-lg flex items-center gap-2 active:scale-95 text-decoration-none"
+            >
+              <span>Explorar desafios</span>
+              <span>→</span>
+            </Link>
+            <Link
+              href="/courses"
+              className="px-6 py-2.5 rounded-xl bg-[#202024] hover:bg-[#27272A] text-[#EDEDED] font-semibold text-xs border border-[#27272A] transition-all active:scale-95 text-decoration-none"
+            >
+              Ver cursos avulsos
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleCopy = () => {
+    if (!mission.gitCloneUrl) return;
     navigator.clipboard.writeText(mission.gitCloneUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -43,19 +77,23 @@ export const HeroActiveMission: React.FC<HeroActiveMissionProps> = ({
           <span className="px-2.5 py-1 rounded-md bg-[#8257E5]/20 text-[#996DFF] font-mono text-[11px] font-bold border border-[#8257E5]/30 uppercase">
             {mission.trackTitle}
           </span>
-          <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#FFA116]/10 text-[#FFA116] border border-[#FFA116]/30">
-            Dificuldade: {mission.difficulty}
-          </span>
-          <span className="text-xs text-[#71717A]">• {mission.moduleInfo}</span>
+          {mission.difficulty && (
+            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#FFA116]/10 text-[#FFA116] border border-[#FFA116]/30">
+              Dificuldade: {mission.difficulty}
+            </span>
+          )}
+          {mission.moduleInfo && <span className="text-xs text-[#71717A]">• {mission.moduleInfo}</span>}
         </div>
 
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-snug">
             {mission.title}
           </h2>
-          <p className="text-sm text-[#A1A1AA] mt-2 max-w-2xl leading-relaxed">
-            {mission.description}
-          </p>
+          {mission.description && (
+            <p className="text-sm text-[#A1A1AA] mt-2 max-w-2xl leading-relaxed">
+              {mission.description}
+            </p>
+          )}
         </div>
 
         {/* Progress Bar — Redesign v2 (correção 19): sem contagens nem
@@ -79,21 +117,23 @@ export const HeroActiveMission: React.FC<HeroActiveMissionProps> = ({
 
       {/* Footer Git & Action Buttons */}
       <div className="relative z-10 pt-6 mt-6 border-t border-[#27272A] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs text-[#71717A] font-mono">
-          <span>Repo Git:</span>
-          <div
-            onClick={handleCopy}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#09090A] text-[#996DFF] border border-[#27272A] hover:border-[#8257E5]/50 cursor-pointer transition-colors group"
-            title="Clique para copiar"
-          >
-            <code className="text-[11px] truncate max-w-[220px] sm:max-w-[280px]">
-              {mission.gitCloneUrl}
-            </code>
-            <span className="text-[10px] text-[#A1A1AA] group-hover:text-white">
-              {copied ? '✓ Copiado' : '📋'}
-            </span>
+        {mission.gitCloneUrl && (
+          <div className="flex items-center gap-2 text-xs text-[#71717A] font-mono">
+            <span>Repo Git:</span>
+            <div
+              onClick={handleCopy}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#09090A] text-[#996DFF] border border-[#27272A] hover:border-[#8257E5]/50 cursor-pointer transition-colors group"
+              title="Clique para copiar"
+            >
+              <code className="text-[11px] truncate max-w-[220px] sm:max-w-[280px]">
+                {mission.gitCloneUrl}
+              </code>
+              <span className="text-[10px] text-[#A1A1AA] group-hover:text-white">
+                {copied ? '✓ Copiado' : '📋'}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex items-center gap-3">
           <button

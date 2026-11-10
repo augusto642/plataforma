@@ -8,36 +8,13 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
     avatarInitials: 'AS',
     xp: 4850,
     level: 25,
-    levelTitle: 'Mestre',
     streakDays: 14,
   },
-  activeMission: {
-    trackTitle: 'TRILHA ATIVA: ARQUITETURA DE MICROSSERVIÇOS',
-    difficulty: 'Média',
-    moduleInfo: 'Módulo 04 de 08',
-    title: 'Event-Driven Architecture com Apache Kafka & NestJS',
-    description:
-      'Implemente o padrão Saga Coreografada com tópicos particionados, idempotência de mensagens via Redis e recuperação de transações compensatórias.',
-    progressPercent: 75,
-    completedLabs: 6,
-    totalLabs: 8,
-    gitCloneUrl: 'git clone https://gitea.lms.local/kafka-saga.git',
-  },
-  weeklyGoal: {
-    studiedHours: 8.5,
-    targetHours: 10,
-    percent: 85,
-    remainingTimeText: '1h 30min para bater a meta',
-    days: [
-      { day: 'SEG', completed: true, isToday: false },
-      { day: 'TER', completed: true, isToday: false },
-      { day: 'QUA', completed: true, isToday: false },
-      { day: 'QUI', completed: true, isToday: false },
-      { day: 'SEX', completed: true, isToday: false },
-      { day: 'SÁB', completed: true, isToday: false },
-      { day: 'DOM', completed: true, isToday: true, hasFlame: true },
-    ],
-  },
+  // Central 216 (auditoria do Designer, item 4) — o molde da missão
+  // Kafka/NestJS e da meta semanal (8,5/10h, 85%) NÃO existe mais:
+  // sem progresso real, activeMission é null (estado vazio honesto);
+  // a meta semanal não tem endpoint e foi removida do modelo.
+  activeMission: null,
   skillRoadmap: [
     {
       id: 'node-1',
@@ -173,11 +150,13 @@ export async function fetchDashboardData(): Promise<StudentDashboardData | null>
   // "Augusto Silva (Você)" como atual com outra pessoa logada.
   //
   // DECISÃO (com evidência): tudo-ou-nada fail-closed. As seções sem
-  // endpoint próprio (meta semanal, dica socrática, radar, roadmap)
-  // só existem no molde — não há como marcá-las "indisponível por
-  // seção" sem inventar fonte — e o aceite exige que, com /leaderboard
-  // e /submissions em 500, NENHUM dado fictício apareça (nem missão,
-  // nem meta, nem dica). Logo: qualquer endpoint central falhando
+  // endpoint próprio (dica socrática, radar, roadmap) só existem no
+  // molde — não há como marcá-las "indisponível por seção" sem
+  // inventar fonte — e o aceite exige que, com /leaderboard e
+  // /submissions em 500, NENHUM dado fictício apareça (nem missão,
+  // nem meta, nem dica). A meta semanal foi removida do modelo
+  // (Central 216) e a missão sem progresso é null. Logo: qualquer
+  // endpoint central falhando
   // (não-ok ou rede) → null, e a página mostra o erro honesto
   // (page.tsx já trata null). Endpoints centrais: /users/me,
   // /users/me/progress, /courses, /courses/:id/leaderboard (quando há
@@ -234,12 +213,24 @@ export async function fetchDashboardData(): Promise<StudentDashboardData | null>
       merged.user.streakDays = data.streakDays;
       merged.heatmap.currentStreak = data.streakDays;
     }
+    // Central 216 (auditoria do Designer, item 4) — a missão é
+    // construída SÓ com campos reais do progresso: título, % e
+    // contagens vêm de coursesProgress[0]; dificuldade, módulo,
+    // descrição e clone URL não têm fonte e ficam ausentes (o Hero
+    // omite). Sem curso iniciado → null (estado vazio honesto), nunca
+    // a missão Kafka do molde. `??` em vez de `||`: 0% é progresso
+    // real, não motivo para cair no molde.
     if (data.coursesProgress && data.coursesProgress.length > 0) {
       const primary = data.coursesProgress[0];
-      merged.activeMission.title = primary.courseTitle || merged.activeMission.title;
-      merged.activeMission.progressPercent = primary.progressPercent || merged.activeMission.progressPercent;
-      merged.activeMission.completedLabs = primary.completedActivities || merged.activeMission.completedLabs;
-      merged.activeMission.totalLabs = primary.totalActivities || merged.activeMission.totalLabs;
+      merged.activeMission = {
+        trackTitle: primary.courseTitle ? `TRILHA ATIVA: ${primary.courseTitle}` : 'TRILHA ATIVA',
+        title: primary.courseTitle || 'Seu curso',
+        progressPercent: primary.progressPercent ?? 0,
+        completedLabs: primary.completedActivities ?? 0,
+        totalLabs: primary.totalActivities ?? 0,
+      };
+    } else {
+      merged.activeMission = null;
     }
 
     // 2. Fetch Courses — central (missão + ranking dependem dele).
@@ -252,12 +243,14 @@ export async function fetchDashboardData(): Promise<StudentDashboardData | null>
       if (typeof firstCourse.id === 'string' && firstCourse.id) {
         primaryCourseId = firstCourse.id;
       }
-      merged.activeMission.courseId = firstCourse.id;
-      if (firstCourse.activities && firstCourse.activities.length > 0) {
-        const firstAct = firstCourse.activities[0];
-        merged.activeMission.activityId = firstAct.id;
-        if (firstAct.giteaCloneUrl) {
-          merged.activeMission.gitCloneUrl = `git clone ${firstAct.giteaCloneUrl}`;
+      if (merged.activeMission) {
+        merged.activeMission.courseId = firstCourse.id;
+        if (firstCourse.activities && firstCourse.activities.length > 0) {
+          const firstAct = firstCourse.activities[0];
+          merged.activeMission.activityId = firstAct.id;
+          if (firstAct.giteaCloneUrl) {
+            merged.activeMission.gitCloneUrl = `git clone ${firstAct.giteaCloneUrl}`;
+          }
         }
       }
     }

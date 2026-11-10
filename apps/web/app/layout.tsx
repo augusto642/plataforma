@@ -82,7 +82,7 @@ export default function RootLayout({
   // AuthContext (PUBLIC_PATHS) foi aposentada junto.
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
-      <body className="bg-[#09090A] text-[#F4F4F5] antialiased">
+      <body className="bg-[#0D0E15] text-[#F4F4F5] antialiased">
         <ServiceWorkerRegister />
         {children}
       </body>

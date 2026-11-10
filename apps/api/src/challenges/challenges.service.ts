@@ -19,6 +19,16 @@ export interface CreateChallengeInput {
   optIn?: boolean;
 }
 
+// Central 216 (auditoria do Designer, item 2) — ids de desafio/
+// temporada são UUIDs: um segmento não-UUID (ex.: GET
+// /challenges/weekly, que cai na rota :id) chegava ao Prisma e
+// explodia em P2007 → 400 DATABASE_ERROR. Id malformado é 404.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function assertUuidOrNotFound(id: string, what = 'Desafio não encontrado'): void {
+  if (!UUID_RE.test(id)) throw new NotFoundException(what);
+}
+
 /**
  * Fase 3 premium (desenho §4.1) — desafio curto toda semana.
  *
@@ -95,6 +105,7 @@ export class ChallengesService {
   }
 
   async getById(challengeId: string, userId?: string) {
+    assertUuidOrNotFound(challengeId);
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       include: { activity: { select: { id: true, title: true } } },
@@ -123,6 +134,7 @@ export class ChallengesService {
 
   /** Opt-in: registra a participação e, se elegível, a entrada na liga. */
   async join(userId: string, challengeId: string) {
+    assertUuidOrNotFound(challengeId);
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
     });
@@ -160,6 +172,7 @@ export class ChallengesService {
 
   /** Opt-out: sai do desafio e da liga daquela janela. */
   async leave(userId: string, challengeId: string) {
+    assertUuidOrNotFound(challengeId);
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
       select: { startsAt: true, endsAt: true },
@@ -184,6 +197,7 @@ export class ChallengesService {
    * divergirem.
    */
   async leaderboard(challengeId: string) {
+    assertUuidOrNotFound(challengeId);
     const challenge = await this.prisma.challenge.findUnique({
       where: { id: challengeId },
     });
@@ -227,6 +241,7 @@ export class ChallengesService {
   }
 
   async seasonStandings(seasonId: string) {
+    assertUuidOrNotFound(seasonId, 'Temporada não encontrada');
     return this.league.seasonStandings(seasonId);
   }
 

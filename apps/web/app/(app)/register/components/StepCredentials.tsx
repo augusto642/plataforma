@@ -219,7 +219,7 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
             </span>
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="••••••••••••"
+              placeholder="Crie sua senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{

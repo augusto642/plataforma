@@ -179,20 +179,29 @@ export const LandingChrome: React.FC = () => {
 
           {/* Botões do Navbar na Direita */}
           <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/login" className="text-sm font-semibold text-ink-body hover:text-ink-heading px-3 py-2 transition-colors">
+            {/* Central 216 (checagem visual) — a 390px "Entrar" + CTA +
+                hambúrguer não cabiam e o CTA era cortado na borda. O
+                "Entrar" some abaixo de sm (já existe no drawer). */}
+            <Link href="/login" className="hidden sm:inline text-sm font-semibold text-ink-body hover:text-ink-heading px-3 py-2 transition-colors">
               Entrar
             </Link>
 
             {/* Sprint 5 — primário unificado: roxo sólido + rótulo único (o
                 gradiente verde com glow foi aposentado dos CTAs de conta) */}
+            {/* Central 216 (auditoria do Designer, item 5) — a 390px o
+                rótulo quebrava em 3 linhas dentro do botão (linha
+                estreita demais: "Entrar" + CTA + hambúrguer). Rótulo
+                curto no mobile ("Começar grátis", como o protótipo) e
+                sem quebra em nenhuma largura. */}
             <Link
               href="/onboarding"
               data-cta-id="nav_primary"
               onClick={() => track('nav_cta', 'nav_primary')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
+              className="inline-flex shrink-0 whitespace-nowrap items-center gap-2 px-3 sm:px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm sm:text-sm font-heading font-black tracking-tight transition-all duration-200 cursor-pointer active:scale-95 shadow-lg shadow-brand-purple/30 group"
             >
-              <span>Começar grátis agora</span>
-              <span className="group-hover:translate-x-1 transition-transform font-bold">→</span>
+              <span className="sm:hidden">Começar grátis</span>
+              <span className="hidden sm:inline">Começar grátis agora</span>
+              <span className="hidden sm:inline group-hover:translate-x-1 transition-transform font-bold">→</span>
             </Link>
 
 
@@ -253,7 +262,7 @@ export const LandingChrome: React.FC = () => {
               <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-body-sm font-semibold text-ink-body hover:text-ink-heading py-2">
                 Entrar
               </Link>
-              <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="px-4 py-2 rounded-xl bg-brand-purple text-white text-body-sm font-bold shadow-md">
+              <Link href="/register" data-cta-id="nav_mobile_register" onClick={() => { track('nav_cta', 'nav_mobile_register'); setIsMobileMenuOpen(false); }} className="whitespace-nowrap px-4 py-2 rounded-xl bg-brand-purple text-white text-body-sm font-bold shadow-md">
                 Começar grátis agora
               </Link>
             </div>

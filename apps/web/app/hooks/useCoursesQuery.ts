@@ -13,6 +13,23 @@ export function useCoursesQuery() {
   });
 }
 
+// Central 216 (F2/A5) — o catálogo de "cursos avulsos" consome o
+// catálogo PÚBLICO da API (GET /courses/public-catalog): a vitrine da
+// landing já o usava; a página /courses passa a usá-lo também —
+// visitante vê o catálogo sem login, e a busca/chips filtram o dado
+// real da API. O detalhe continua por /courses/[slug] (que resolve
+// slug → id em GET /courses, com sessão).
+export function usePublicCatalogQuery() {
+  return useQuery({
+    queryKey: [...queryKeys.courses.all, 'public-catalog'],
+    queryFn: async () => {
+      const res = await apiFetch(`${API_BASE}/courses/public-catalog`);
+      if (!res.ok) throw new Error('Falha ao carregar o catálogo de cursos.');
+      return res.json();
+    },
+  });
+}
+
 export function useCourseActivitiesQuery(courseId?: string) {
   return useQuery({
     queryKey: queryKeys.courses.activities(courseId || ''),

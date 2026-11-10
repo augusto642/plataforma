@@ -11,6 +11,7 @@ import {
   moduleStatusLabel,
   pickActiveProgress,
   progressByCourseId,
+  progressByCourseSlug,
 } from '../utils';
 import type { CourseProgressEntry } from '../types';
 
@@ -250,5 +251,33 @@ describe('moduleStatusLabel', () => {
     expect(moduleStatusLabel('in-progress')).toBe('Em andamento');
     expect(moduleStatusLabel('not-started')).toBe('Não iniciado');
     expect(moduleStatusLabel('qualquer-outro')).toBe('Não iniciado');
+  });
+});
+
+// Central 216 (F2) — o catálogo público não traz `id`, só `slug`:
+// o progresso casa por slug; entrada sem slug não entra no mapa.
+describe('progressByCourseSlug', () => {
+  it('casa o progresso pelo slug do curso', () => {
+    const entries: CourseProgressEntry[] = [
+      {
+        courseId: 'c1',
+        courseTitle: 'JS',
+        slug: 'javascript-moderno',
+        totalActivities: 10,
+        completedActivities: 3,
+        progressPercent: 30,
+      },
+      {
+        courseId: 'c2',
+        courseTitle: 'Sem slug',
+        slug: '',
+        totalActivities: 5,
+        completedActivities: 0,
+        progressPercent: 0,
+      },
+    ];
+    const map = progressByCourseSlug(entries);
+    expect(map.get('javascript-moderno')?.progressPercent).toBe(30);
+    expect(map.size).toBe(1);
   });
 });

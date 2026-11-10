@@ -2,53 +2,58 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import type { CourseListItem } from './types';
+import type { CatalogCourse } from '../../lib/catalog';
+import { courseLanguage, languageLabel, mapCatalogCourse } from '../../lib/catalog';
 import {
   extractCoursesProgress,
   extractMyStats,
   initialsOf,
-  mapApiCourses,
   pickActiveProgress,
-  progressByCourseId,
+  progressByCourseSlug,
 } from './utils';
 import Logo from '../../components/Logo';
+import { MaterialIcon } from '../../components/MaterialIcon';
 import { ActiveMissionBanner } from './components/ActiveMissionBanner';
 import { CourseFilters } from './components/CourseFilters';
 import { CourseCard } from './components/CourseCard';
-import { CourseModal } from './components/CourseModal';
-import { useCoursesQuery, useMyProgressQuery } from '../../hooks/useCoursesQuery';
+import { usePublicCatalogQuery, useMyProgressQuery } from '../../hooks/useCoursesQuery';
 import { useAuth } from '../../context/AuthContext';
 
-// B41 (Sprint 14) — a listagem pública de cursos exibia um catálogo
-// estático inventado (COURSES_DATA) justamente para quem não estava
-// logado, "enriquecia" cursos reais com defaults fabricados ('40h',
-// '3.000 XP', descrição pronta) e mostrava progresso pessoal falso
-// (68%) e estatísticas fixas no cabeçalho. Agora:
-// - deslogado: estado honesto — nenhum curso, número ou avatar é
-//   exibido, porque GET /courses exige sessão;
-// - logado: catálogo somente da API, progresso somente de
-//   GET /users/me/progress e cabeçalho somente do usuário real.
+// Central 216 (F2/A5) — catálogo no visual do protótipo Stitch v2
+// (catalogo-cursos-mobile.html): "Cursos Avulsos / Aprenda no seu
+// ritmo", busca + chips de linguagem, capas locais (F4) e "Acessar
+// curso" → rota real /courses/[slug].
+// Fonte: GET /courses/public-catalog (público — visitante vê o
+// catálogo sem login; o detalhe pede sessão, como já fazia a rota
+// [slug]). A busca filtra título/descrição reais e os chips filtram
+// a linguagem real das atividades — nada de curso inventado.
+// O progresso só aparece para o usuário logado, casado por slug.
 export default function CoursesPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState<CourseListItem | null>(null);
+  const [selectedChip, setSelectedChip] = useState('Todos');
 
   const {
-    data: apiCoursesRaw,
-    isLoading: coursesLoading,
-    isError: coursesError,
-    refetch: refetchCourses,
-  } = useCoursesQuery();
+    data: catalogRaw,
+    isLoading: catalogLoading,
+    isError: catalogError,
+    refetch: refetchCatalog,
+  } = usePublicCatalogQuery();
   const { data: progressRaw } = useMyProgressQuery(Boolean(user));
 
-  const allCourses = useMemo(() => mapApiCourses(apiCoursesRaw), [apiCoursesRaw]);
+  const allCourses = useMemo(() => {
+    if (!Array.isArray(catalogRaw)) return [];
+    return catalogRaw
+      .map((item) => mapCatalogCourse(item))
+      .filter((course): course is CatalogCourse => course !== null);
+  }, [catalogRaw]);
 
   const progressEntries = useMemo(
     () => extractCoursesProgress(progressRaw),
     [progressRaw],
   );
   const progressMap = useMemo(
-    () => progressByCourseId(progressEntries),
+    () => progressByCourseSlug(progressEntries),
     [progressEntries],
   );
   const activeProgress = useMemo(
@@ -61,30 +66,38 @@ export default function CoursesPage() {
   const headerXp = myStats?.xp ?? null;
   const headerStreak = myStats?.streakDays ?? null;
 
+  // Chips: linguagens reais presentes no catálogo, na ordem em que
+  // aparecem — "Todos" primeiro. Sem linguagem presente, sem chip.
+  const chips = useMemo(() => {
+    const seen = new Set<string>();
+    for (const course of allCourses) {
+      seen.add(languageLabel(courseLanguage(course)));
+    }
+    return ['Todos', ...seen];
+  }, [allCourses]);
+
   const filteredCourses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return allCourses;
-    return allCourses.filter(
-      (course) =>
+    return allCourses.filter((course) => {
+      if (selectedChip !== 'Todos' && languageLabel(courseLanguage(course)) !== selectedChip) {
+        return false;
+      }
+      if (!query) return true;
+      return (
         course.title.toLowerCase().includes(query) ||
-        (course.description ?? '').toLowerCase().includes(query) ||
-        (course.instructorName ?? '').toLowerCase().includes(query),
-    );
-  }, [allCourses, searchQuery]);
+        course.description.toLowerCase().includes(query)
+      );
+    });
+  }, [allCourses, searchQuery, selectedChip]);
 
-  const isLoading = authLoading || (Boolean(user) && coursesLoading);
+  const isLoading = catalogLoading;
 
   return (
-    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans selection:bg-[#04D361] selection:text-black">
-      {/* ========================================================================= */}
-      {/* 1. TOP NAVBAR                                                             */}
-      {/* ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-[#08080B]/85 backdrop-blur-md border-b border-[#27272A] h-16">
+    <div className="min-h-screen bg-dark-surface text-dark-on-surface font-body selection:bg-[#04D361] selection:text-black flex flex-col">
+      {/* 1. TOP NAVBAR */}
+      <header className="sticky top-0 z-40 bg-dark-surface/85 backdrop-blur-md border-b border-border-subtle h-16">
         <div className="max-w-[1200px] mx-auto px-5 h-full flex items-center justify-between">
-          {/* Brand Logo */}
           <Logo size="md" href="/" />
-
-          {/* Navigation Links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             <Link
               href="/courses"
@@ -111,7 +124,7 @@ export default function CoursesPage() {
             <div className="flex items-center gap-3">
               {headerStreak !== null ? (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-[#F59E0B] text-xs font-mono font-bold">
-                  <span>🔥</span>
+                  <MaterialIcon name="local_fire_department" className="text-[14px]" />
                   <span>
                     {headerStreak} {headerStreak === 1 ? 'Dia' : 'Dias'}
                   </span>
@@ -119,7 +132,7 @@ export default function CoursesPage() {
               ) : null}
               {headerXp !== null ? (
                 <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#8257E5]/10 border border-[#8257E5]/30 text-[#996DFF] text-xs font-mono font-bold">
-                  <span>⚡</span>
+                  <MaterialIcon name="bolt" className="text-[14px]" />
                   <span>{headerXp.toLocaleString('pt-BR')} XP</span>
                 </div>
               ) : null}
@@ -149,158 +162,105 @@ export default function CoursesPage() {
         </div>
       </header>
 
-      {/* ========================================================================= */}
-      {/* 2. HERO SECTION & CONTENT CONTAINER                                       */}
-      {/* ========================================================================= */}
-      <main className="max-w-[1200px] mx-auto px-5 pb-20">
-        <section className="pt-10 pb-6">
-          <div className="inline-block px-3 py-1 rounded-full bg-[#04D361]/10 border border-[#04D361]/30 text-[#04D361] text-[11px] font-mono font-bold mb-3">
-            🎯 TRILHAS DE FORMAÇÃO DE ELITE
-          </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-[38px] font-extrabold font-heading tracking-tight leading-[1.15] mb-2 text-white">
-            Aprenda Construindo{' '}
-            <span className="bg-gradient-to-r from-[#996DFF] via-[#00E5FF] to-[#04D361] bg-clip-text text-transparent">
-              Projetos Reais
-            </span>
+      {/* 2. HERO SECTION & CONTENT CONTAINER */}
+      <main className="flex-1 max-w-[1200px] w-full mx-auto px-5 pb-20">
+        <section className="pt-10 pb-2">
+          <span className="font-code text-[10px] text-primary font-bold uppercase tracking-wider block mb-1">
+            Cursos Avulsos
+          </span>
+          <h1 className="font-headline text-display-md-mobile text-white font-extrabold tracking-tight">
+            Aprenda no seu ritmo
           </h1>
-          <p className="text-zinc-400 text-[15px] max-w-[650px] leading-relaxed">
-            Zero vídeo passivo. Desafios integrados ao Git real, testes automatizados e mentoria socrática por IA linha a linha.
+          <p className="text-xs text-dark-on-surface-variant mt-1.5 leading-relaxed">
+            Módulos práticos focados em linguagens e ferramentas pontuais com desafios no
+            navegador.
           </p>
         </section>
 
-        {authLoading ? (
-          <div className="bg-[#121217] border border-[#27272A] rounded-[20px] p-12 text-center my-8 animate-pulse">
-            <p className="text-sm font-mono text-zinc-500">Verificando sua sessão…</p>
-          </div>
-        ) : !user ? (
-          /* Estado honesto para o visitante: o catálogo exige sessão. */
-          <div className="bg-[#121217] border border-[#27272A] rounded-[20px] p-12 text-center my-8">
-            <div className="text-3xl mb-3">🔒</div>
-            <h3 className="text-lg font-bold text-white font-heading mb-1">
-              Catálogo disponível para alunos conectados
+        {/* ACTIVE MISSION BANNER — só com matrícula real em andamento */}
+        {activeProgress ? <ActiveMissionBanner progress={activeProgress} /> : null}
+
+        {/* SEARCH + CHIPS — sobre o catálogo público real */}
+        <CourseFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          chips={chips}
+          selectedChip={selectedChip}
+          onChipChange={setSelectedChip}
+        />
+
+        {/* 3. COURSES GRID & SKELETONS */}
+        {isLoading ? (
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div
+                key={idx}
+                className="bg-dark-surface-container-low border border-border-strong rounded-xl h-[260px]"
+              />
+            ))}
+          </section>
+        ) : catalogError ? (
+          <div className="bg-dark-surface-container-low border border-border-strong rounded-xl p-12 text-center my-8">
+            <h3 className="text-lg font-bold text-white font-headline mb-1">
+              Não foi possível carregar os cursos
             </h3>
             <p className="text-sm text-zinc-400 max-w-md mx-auto mb-5">
-              A lista de cursos e trilhas é carregada da plataforma para quem tem
-              uma conta e está conectado. Entre ou crie sua conta para ver os
-              cursos reais e o seu progresso neles.
+              A plataforma não respondeu com o catálogo agora. Nenhum curso de exemplo é
+              exibido no lugar — tente novamente.
             </p>
-            <div className="flex items-center justify-center gap-2">
-              <Link
-                href="/login"
-                className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
-              >
-                Entrar
-              </Link>
-              <Link
-                href="/register"
-                className="bg-transparent border border-zinc-700 hover:border-[#8257E5] text-zinc-200 text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
-              >
-                Criar conta
-              </Link>
-            </div>
+            <button
+              type="button"
+              onClick={() => void refetchCatalog()}
+              className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : filteredCourses.length > 0 ? (
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCourses.map((course) => (
+              <CourseCard
+                key={course.slug}
+                course={course}
+                progress={progressMap.get(course.slug)}
+              />
+            ))}
+          </section>
+        ) : allCourses.length === 0 ? (
+          <div className="bg-dark-surface-container-low border border-border-strong rounded-xl p-12 text-center my-8">
+            <h3 className="text-lg font-bold text-white font-headline mb-1">
+              Nenhum curso publicado no momento
+            </h3>
+            <p className="text-sm text-zinc-400 max-w-md mx-auto">
+              O catálogo real da plataforma não retornou nenhum curso agora.
+            </p>
           </div>
         ) : (
-          <>
-            {/* ACTIVE MISSION BANNER — só com matrícula real em andamento */}
-            {activeProgress ? <ActiveMissionBanner progress={activeProgress} /> : null}
-
-            {/* SEARCH */}
-            <CourseFilters searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-
-            {/* ===================================================================== */}
-            {/* 3. COURSES GRID & SKELETONS                                           */}
-            {/* ===================================================================== */}
-            {isLoading ? (
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-                {[1, 2, 3, 4, 5, 6].map((idx) => (
-                  <div
-                    key={idx}
-                    className="bg-[#121217] border border-[#27272A] rounded-[20px] p-6 h-[260px] flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="w-10 h-10 rounded-xl bg-zinc-800/60" />
-                        <div className="w-20 h-5 rounded-full bg-zinc-800/60" />
-                      </div>
-                      <div className="w-3/4 h-5 rounded bg-zinc-800/80 mb-2" />
-                      <div className="w-full h-3 rounded bg-zinc-800/40 mb-1" />
-                      <div className="w-2/3 h-3 rounded bg-zinc-800/40" />
-                    </div>
-                    <div className="flex items-center justify-between pt-4 border-t border-zinc-800/40">
-                      <div className="w-16 h-4 rounded bg-zinc-800/50" />
-                      <div className="w-24 h-4 rounded bg-zinc-800/50" />
-                    </div>
-                  </div>
-                ))}
-              </section>
-            ) : coursesError ? (
-              <div className="bg-[#121217] border border-[#27272A] rounded-[20px] p-12 text-center my-8">
-                <div className="text-3xl mb-3">⚠️</div>
-                <h3 className="text-lg font-bold text-white font-heading mb-1">
-                  Não foi possível carregar os cursos
-                </h3>
-                <p className="text-sm text-zinc-400 max-w-md mx-auto mb-5">
-                  A plataforma não respondeu com o catálogo agora. Nenhum curso de
-                  exemplo é exibido no lugar — tente novamente.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void refetchCourses()}
-                  className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
-                >
-                  Tentar novamente
-                </button>
-              </div>
-            ) : filteredCourses.length > 0 ? (
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCourses.map((course) => (
-                  <CourseCard
-                    key={course.id}
-                    course={course}
-                    progress={progressMap.get(course.id)}
-                    onSelect={(selected) => setSelectedCourse(selected)}
-                  />
-                ))}
-              </section>
-            ) : allCourses.length === 0 ? (
-              <div className="bg-[#121217] border border-[#27272A] rounded-[20px] p-12 text-center my-8">
-                <div className="text-3xl mb-3">📚</div>
-                <h3 className="text-lg font-bold text-white font-heading mb-1">
-                  Nenhum curso publicado no momento
-                </h3>
-                <p className="text-sm text-zinc-400 max-w-md mx-auto">
-                  O catálogo real da plataforma não retornou nenhum curso agora.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-[#121217] border border-[#27272A] rounded-[20px] p-12 text-center my-8">
-                <div className="text-3xl mb-3">🔍</div>
-                <h3 className="text-lg font-bold text-white font-heading mb-1">
-                  Nenhum curso encontrado
-                </h3>
-                <p className="text-sm text-zinc-400 max-w-md mx-auto mb-5">
-                  Não encontramos nenhum curso para &quot;{searchQuery}&quot;.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
-                >
-                  Limpar Busca
-                </button>
-              </div>
-            )}
-          </>
+          <div className="bg-dark-surface-container-low border border-border-strong rounded-xl p-12 text-center my-8">
+            <h3 className="text-lg font-bold text-white font-headline mb-1">
+              Nenhum curso encontrado
+            </h3>
+            <p className="text-sm text-zinc-400 max-w-md mx-auto mb-5">
+              Não encontramos nenhum curso para &quot;{searchQuery}
+              {selectedChip !== 'Todos' ? `&quot; em ${selectedChip}` : '&quot;'}.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedChip('Todos');
+              }}
+              className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              Limpar busca
+            </button>
+          </div>
         )}
       </main>
 
-      {/* ========================================================================= */}
-      {/* 4. COURSE DETAILS MODAL / DRAWER                                          */}
-      {/* ========================================================================= */}
-      <CourseModal
-        course={selectedCourse}
-        onClose={() => setSelectedCourse(null)}
-      />
+      <footer className="h-16 border-t border-border-subtle px-8 flex items-center justify-center text-xs font-code text-dark-on-surface-variant">
+        © 2026 Nexus Code • Catálogo de cursos avulsos
+      </footer>
     </div>
   );
 }

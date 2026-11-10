@@ -63,10 +63,17 @@ describe('ChallengesController', () => {
     expect(result).toEqual({ id: 'ch-1' });
   });
 
-  it('getCurrent usa o userId do JWT', async () => {
+  it('getCurrent usa o userId do JWT e devolve o envelope { challenge }', async () => {
     mockService.getCurrent.mockResolvedValue({ id: 'ch-1' });
-    await expect(controller.getCurrent(user)).resolves.toEqual({ id: 'ch-1' });
+    await expect(controller.getCurrent(user)).resolves.toEqual({
+      challenge: { id: 'ch-1' },
+    });
     expect(mockService.getCurrent).toHaveBeenCalledWith('user-1');
+  });
+
+  it('getCurrent sem desafio devolve { challenge: null } — nunca corpo vazio', async () => {
+    mockService.getCurrent.mockResolvedValue(null);
+    await expect(controller.getCurrent(user)).resolves.toEqual({ challenge: null });
   });
 
   it('getById repassa id e userId (ordem: id, user)', async () => {

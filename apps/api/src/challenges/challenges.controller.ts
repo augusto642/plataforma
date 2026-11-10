@@ -35,9 +35,15 @@ export class ChallengesController {
     });
   }
 
+  // Central 216 (auditoria do Designer, item 1) — GET /challenges/current
+  // SEM desafio ativo devolvia `null` e o Nest responde 200 com corpo
+  // VAZIO para nil (ExpressAdapter.reply: isNil → response.send()):
+  // o front fazia res.json() e quebrava com erro vermelho visível em
+  // /desafios. O envelope `{ challenge }` garante corpo JSON sempre.
   @Get('current')
-  getCurrent(@CurrentUser() user: JwtPayload) {
-    return this.challenges.getCurrent(user.sub);
+  async getCurrent(@CurrentUser() user: JwtPayload) {
+    const challenge = await this.challenges.getCurrent(user.sub);
+    return { challenge };
   }
 
   @Get(':id')

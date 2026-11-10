@@ -18,7 +18,7 @@ describe('ChallengesService', () => {
 
   const mockPrisma = {
     activity: { findUnique: jest.fn() },
-    challenge: { findUnique: jest.fn(), create: jest.fn() },
+    challenge: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
     challengeParticipant: { upsert: jest.fn(), deleteMany: jest.fn(), count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
     leagueEntry: { upsert: jest.fn(), deleteMany: jest.fn() },
     user: { findUnique: jest.fn() },
@@ -36,7 +36,7 @@ describe('ChallengesService', () => {
   const mockEntitlements = { getUserPlan: jest.fn() };
 
   const challenge = {
-    id: 'ch-1',
+    id: '11111111-1111-4111-8111-111111111111',
     activityId: 'act-1',
     title: 'Soma de dois números',
     startsAt: new Date('2026-10-20'),
@@ -74,7 +74,7 @@ describe('ChallengesService', () => {
     expect(created.forumThreadId).toBe('th-1');
     expect(mockCommunity.createChallengeThread).toHaveBeenCalledWith(
       'admin-1',
-      expect.objectContaining({ id: 'ch-1', activityId: 'act-1' }),
+      expect.objectContaining({ id: '11111111-1111-4111-8111-111111111111', activityId: 'act-1' }),
     );
   });
 
@@ -86,7 +86,7 @@ describe('ChallengesService', () => {
     mockPrisma.leagueEntry.upsert.mockResolvedValue({ id: 'e1' });
 
     mockEntitlements.getUserPlan.mockResolvedValue('pro');
-    const pro = await service.join('user-pro', 'ch-1');
+    const pro = await service.join('user-pro', '11111111-1111-4111-8111-111111111111');
     expect(pro.leagueEntry).toEqual({ id: 'e1' });
     expect(mockLeague.resolveTier).toHaveBeenCalledWith('user-pro');
     expect(mockLeague.getOrCreateSeason).toHaveBeenCalledWith(
@@ -99,7 +99,7 @@ describe('ChallengesService', () => {
     mockPrisma.challenge.findUnique.mockResolvedValue(challenge);
     mockPrisma.challengeParticipant.upsert.mockResolvedValue({ id: 'p2' });
     mockEntitlements.getUserPlan.mockResolvedValue('free');
-    const free = await service.join('user-free', 'ch-1');
+    const free = await service.join('user-free', '11111111-1111-4111-8111-111111111111');
     expect(free.participant).toEqual({ id: 'p2' });
     expect(free.leagueEntry).toBeNull();
     expect(mockPrisma.leagueEntry.upsert).not.toHaveBeenCalled();
@@ -109,12 +109,12 @@ describe('ChallengesService', () => {
     mockPrisma.challenge.findUnique.mockResolvedValue(challenge);
     mockPrisma.challengeParticipant.upsert.mockResolvedValue({ id: 'p1' });
     mockEntitlements.getUserPlan.mockResolvedValue('free');
-    await service.join('user-1', 'ch-1');
-    await service.join('user-1', 'ch-1');
+    await service.join('user-1', '11111111-1111-4111-8111-111111111111');
+    await service.join('user-1', '11111111-1111-4111-8111-111111111111');
     expect(mockPrisma.challengeParticipant.upsert).toHaveBeenCalledTimes(2);
     expect(mockPrisma.challengeParticipant.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { challengeId_userId: { challengeId: 'ch-1', userId: 'user-1' } },
+        where: { challengeId_userId: { challengeId: '11111111-1111-4111-8111-111111111111', userId: 'user-1' } },
       }),
     );
   });
@@ -131,7 +131,7 @@ describe('ChallengesService', () => {
         ['u2', 90],
       ]),
     );
-    const board = await service.leaderboard('ch-1');
+    const board = await service.leaderboard('11111111-1111-4111-8111-111111111111');
     expect(board.ranking[0]).toMatchObject({ userId: 'u2', position: 1, points: 90 });
     expect(board.ranking[1]).toMatchObject({ userId: 'u1', position: 2, points: 30 });
   });
@@ -148,9 +148,46 @@ describe('ChallengesService', () => {
         ['u2', 90],
       ]),
     );
-    await service.leaderboard('ch-1');
+    await service.leaderboard('11111111-1111-4111-8111-111111111111');
     expect(mockLeague.computePointsMany).toHaveBeenCalledTimes(1);
-    expect(mockLeague.computePointsMany).toHaveBeenCalledWith('ch-1', ['u1', 'u2']);
+    expect(mockLeague.computePointsMany).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111', ['u1', 'u2']);
     expect(mockLeague.computePoints).not.toHaveBeenCalled();
+  });
+
+  // Central 216 (auditoria do Designer) — sem desafio ativo, getCurrent
+  // devolve null (o controller envolve em { challenge } para o Nest
+  // não responder 200 com corpo vazio); com desafio ativo, devolve-o.
+  it('getCurrent devolve null sem desafio ativo ou futuro', async () => {
+    mockPrisma.challenge.findFirst.mockResolvedValue(null);
+    await expect(service.getCurrent('user-1')).resolves.toBeNull();
+    expect(mockPrisma.challenge.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it('getCurrent prefere o desafio ativo ao futuro', async () => {
+    mockPrisma.challenge.findFirst.mockResolvedValueOnce(challenge);
+    mockPrisma.challengeParticipant.count.mockResolvedValue(3);
+    mockPrisma.challengeParticipant.findUnique.mockResolvedValue(null);
+    const current = await service.getCurrent('user-1');
+    expect(current?.id).toBe('11111111-1111-4111-8111-111111111111');
+    expect(current?.participantCount).toBe(3);
+    expect(mockPrisma.challenge.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  // Central 216 (auditoria do Designer, item 2) — id não-UUID (ex.:
+  // GET /challenges/weekly caindo na rota :id) é 404, nunca P2007.
+  it.each(['weekly', 'current', 'abc', ''])(
+    'id malformado %p → NotFoundException sem tocar no Prisma',
+    async (badId) => {
+      await expect(service.getById(badId)).rejects.toThrow('Desafio não encontrado');
+      await expect(service.join('user-1', badId)).rejects.toThrow('Desafio não encontrado');
+      await expect(service.leave('user-1', badId)).rejects.toThrow('Desafio não encontrado');
+      await expect(service.leaderboard(badId)).rejects.toThrow('Desafio não encontrado');
+      expect(mockPrisma.challenge.findUnique).not.toHaveBeenCalled();
+    },
+  );
+
+  it('seasonStandings com id malformado → 404 sem tocar na liga', async () => {
+    await expect(service.seasonStandings('weekly')).rejects.toThrow('Temporada não encontrada');
+    expect(mockLeague.seasonStandings).not.toHaveBeenCalled();
   });
 });

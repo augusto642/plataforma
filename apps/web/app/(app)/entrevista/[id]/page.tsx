@@ -10,6 +10,8 @@ import {
   type InterviewReport,
   type InterviewSession,
 } from '../../../lib/interview';
+import Link from 'next/link';
+import { MaterialIcon } from '../../../components/MaterialIcon';
 import { appendTranscript } from '../../../hooks/voice-support';
 import { InterviewVoiceControls } from '../InterviewVoiceControls';
 
@@ -74,7 +76,7 @@ export default function EntrevistaSessaoPage() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
         <div className="max-w-[720px] mx-auto text-sm text-zinc-400">Carregando…</div>
       </div>
     );
@@ -82,7 +84,7 @@ export default function EntrevistaSessaoPage() {
 
   if (error && !session) {
     return (
-      <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
         <div className="max-w-[720px] mx-auto text-sm text-red-400">{error}</div>
       </div>
     );
@@ -99,9 +101,21 @@ export default function EntrevistaSessaoPage() {
     .find((t) => t.role === 'interviewer') ?? null;
 
   return (
-    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+    <div className="min-h-screen bg-dark-surface text-dark-on-surface px-5 py-16">
       <div className="max-w-[720px] mx-auto">
-        <h1 className="text-2xl font-black text-white">
+        {/* Central 216 (A7) — "Sair da simulação" do protótipo; os
+            controles de voz (InterviewVoiceControls) foram mantidos. */}
+        <Link
+          href="/entrevista"
+          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-6"
+        >
+          <MaterialIcon name="arrow_back" className="text-[18px]" />
+          Sair da simulação
+        </Link>
+        <p className="font-code text-[11px] text-primary font-bold uppercase tracking-wider">
+          Simulador de Entrevista
+        </p>
+        <h1 className="text-2xl font-black text-white mt-1">
           Entrevista {session.mode === 'technical' ? 'técnica' : 'comportamental'}
           {session.track ? ` · ${session.track}` : ''}
         </h1>

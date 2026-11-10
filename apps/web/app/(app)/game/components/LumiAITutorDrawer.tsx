@@ -152,8 +152,10 @@ export const LumiAITutorDrawer: React.FC = () => {
           </div>
 
           <div className="text-left font-mono">
+            {/* A11 — o nome interno "Lumi" não pode vazar para o visível:
+                o botão e o título do drawer renderizam "Tutora de IA". */}
             <div className="text-xs font-black text-white group-hover:text-[#00E5FF] transition">
-              LUMI AI TUTOR
+              TUTORA DE IA
             </div>
             <div className="text-[10px] text-emerald-400 font-bold">
               {lumiQuota.remaining}/{lumiQuota.maxDaily} CONSULTAS
@@ -173,7 +175,7 @@ export const LumiAITutorDrawer: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-mono text-sm font-black text-white">
-                  LUMI // SOCRATIC TUTOR
+                  TUTORA DE IA // SOCRÁTICA
                 </h3>
                 {/* Bateria de Cotas */}
                 <div className="flex items-center space-x-1 mt-0.5">

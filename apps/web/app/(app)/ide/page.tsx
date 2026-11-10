@@ -798,7 +798,7 @@ export default function HomePage() {
 
   if (authLoading && !user) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f1d', color: '#94a3b8' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f1d', color: '#A1A1AA' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 32, height: 32, border: '3px solid rgba(130, 87, 229, 0.2)', borderTopColor: '#8257e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           <span>Carregando ambiente NEXUS...</span>
@@ -810,9 +810,9 @@ export default function HomePage() {
   const isInstructor = user?.role === 'instructor' || user?.role === 'admin';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0f1d', color: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0f1d', color: '#F4F4F5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
-      <header style={{ height: 60, borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#0f172a' }}>
+      <header style={{ height: 60, borderBottom: '1px solid #27272A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#12131D' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {BRAND_LOGO_URL ? (
@@ -820,11 +820,11 @@ export default function HomePage() {
             ) : (
               <span style={{ fontSize: 20 }}>⚡</span>
             )}
-            <span style={{ fontSize: 18, fontWeight: 800, background: 'linear-gradient(to right, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span style={{ fontSize: 18, fontWeight: 800, background: 'linear-gradient(to right, #00E5FF, #996DFF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               {BRAND}
             </span>
           </div>
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', background: isInstructor ? 'rgba(168, 85, 247, 0.2)' : 'rgba(56, 189, 248, 0.2)', border: `1px solid ${isInstructor ? '#a855f7' : '#38bdf8'}`, borderRadius: 12, color: isInstructor ? '#c084fc' : '#38bdf8' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', background: isInstructor ? 'rgba(130, 87, 229, 0.2)' : 'rgba(0, 229, 255, 0.2)', border: `1px solid ${isInstructor ? '#8257E5' : '#00E5FF'}`, borderRadius: 12, color: isInstructor ? '#996DFF' : '#00E5FF' }}>
             {user?.role.toUpperCase()}
           </span>
         </div>
@@ -840,14 +840,14 @@ export default function HomePage() {
 
           <button
             onClick={handleDailyChallenge}
-            style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#fbbf24', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+            style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#F59E0B', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
           >
             🎯 Desafio do Dia
           </button>
 
           <button
             onClick={handleOpenProgress}
-            style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#38bdf8', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+            style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#00E5FF', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
           >
             📊 Meu Progresso
           </button>
@@ -855,7 +855,7 @@ export default function HomePage() {
           {selectedCourse && (
             <button
               onClick={handleOpenLeaderboard}
-              style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#f59e0b', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+              style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#f59e0b', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
             >
               🏆 Ranking
             </button>
@@ -864,7 +864,7 @@ export default function HomePage() {
           {user?.role === 'admin' && (
             <button
               onClick={() => setShowTalentModal(true)}
-              style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#34d399', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+              style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#00E676', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >
               🏢 Portal de Talentos
             </button>
@@ -874,14 +874,14 @@ export default function HomePage() {
             <>
               <button
                 onClick={() => setShowCourseModal(true)}
-                style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#38bdf8', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#00E5FF', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
               >
                 + Novo Curso
               </button>
               {selectedCourse && (
                 <button
                   onClick={() => setShowActivityModal(true)}
-                  style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#a855f7', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                  style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#8257E5', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                 >
                   + Nova Atividade
                 </button>
@@ -890,27 +890,27 @@ export default function HomePage() {
                 <>
                   <button
                     onClick={handleRevealCode}
-                    style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#4ade80', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                    style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#00E676', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                   >
                     🔑 Código da Turma
                   </button>
                   {courseCode && (
                     <span
                       title="Código de matrícula da turma"
-                      style={{ fontSize: 12, fontWeight: 800, fontFamily: 'monospace', letterSpacing: 1, padding: '5px 10px', background: 'rgba(74, 222, 128, 0.12)', border: '1px dashed #4ade80', borderRadius: 6, color: '#4ade80' }}
+                      style={{ fontSize: 12, fontWeight: 800, fontFamily: 'monospace', letterSpacing: 1, padding: '5px 10px', background: 'rgba(74, 222, 128, 0.12)', border: '1px dashed #00E676', borderRadius: 6, color: '#00E676' }}
                     >
                       {courseCode}
                     </span>
                   )}
                   <button
                     onClick={() => setShowLibraryModal(true)}
-                    style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#c084fc', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                    style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#996DFF', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                   >
                     📚 Biblioteca
                   </button>
                   <button
                     onClick={() => setShowReportModal(true)}
-                    style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#38bdf8', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                    style={{ padding: '6px 12px', background: '#27272A', border: '1px solid #3F3F46', borderRadius: 6, color: '#00E5FF', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                   >
                     📊 Relatórios
                   </button>
@@ -923,10 +923,10 @@ export default function HomePage() {
             onClick={() => setIsChatOpen(!isChatOpen)}
             style={{
               padding: '6px 14px',
-              background: isChatOpen ? '#38bdf8' : 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid #38bdf8',
+              background: isChatOpen ? '#00E5FF' : 'rgba(0, 229, 255, 0.15)',
+              border: '1px solid #00E5FF',
               borderRadius: 6,
-              color: isChatOpen ? '#090d16' : '#38bdf8',
+              color: isChatOpen ? '#0D0E15' : '#00E5FF',
               cursor: 'pointer',
               fontSize: 12,
               fontWeight: 700,
@@ -938,10 +938,10 @@ export default function HomePage() {
             <span>🤖</span> Tutor IA {isChatOpen ? '(Aberto)' : ''}
           </button>
 
-          <span style={{ fontSize: 13, color: '#94a3b8', borderLeft: '1px solid #334155', paddingLeft: 10 }}>{user?.email}</span>
+          <span style={{ fontSize: 13, color: '#A1A1AA', borderLeft: '1px solid #3F3F46', paddingLeft: 10 }}>{user?.email}</span>
           <button
             onClick={handleLogout}
-            style={{ padding: '5px 12px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#cbd5e1', cursor: 'pointer', fontSize: 12 }}
+            style={{ padding: '5px 12px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
           >
             Sair
           </button>
@@ -951,11 +951,11 @@ export default function HomePage() {
       {/* Main Grid */}
       <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
         {/* Sidebar: Courses & Activities */}
-        <aside style={{ width: 280, borderRight: '1px solid #1e293b', background: '#0b101d', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: 16, borderBottom: '1px solid #1e293b' }}>
-            <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#64748b', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Cursos Disponíveis</h3>
+        <aside style={{ width: 280, borderRight: '1px solid #27272A', background: '#0D0E15', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: 16, borderBottom: '1px solid #27272A' }}>
+            <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#71717A', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Cursos Disponíveis</h3>
             {courses.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#64748b' }}>Nenhum curso cadastrado.</div>
+              <div style={{ fontSize: 12, color: '#71717A' }}>Nenhum curso cadastrado.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {courses.map((c) => (
@@ -966,8 +966,8 @@ export default function HomePage() {
                       textAlign: 'left',
                       padding: '8px 10px',
                       borderRadius: 6,
-                      background: selectedCourse?.id === c.id ? '#1e293b' : 'transparent',
-                      color: selectedCourse?.id === c.id ? '#38bdf8' : '#cbd5e1',
+                      background: selectedCourse?.id === c.id ? '#27272A' : 'transparent',
+                      color: selectedCourse?.id === c.id ? '#00E5FF' : '#C0C0D1',
                       border: 'none',
                       cursor: 'pointer',
                       fontSize: 13,
@@ -990,9 +990,9 @@ export default function HomePage() {
                     textAlign: 'center',
                     padding: '8px 10px',
                     borderRadius: 6,
-                    background: 'rgba(56, 189, 248, 0.12)',
-                    border: '1px solid #38bdf8',
-                    color: '#38bdf8',
+                    background: 'rgba(0, 229, 255, 0.12)',
+                    border: '1px solid #00E5FF',
+                    color: '#00E5FF',
                     cursor: isProvisioningGit ? 'not-allowed' : 'pointer',
                     fontSize: 12,
                     fontWeight: 700,
@@ -1001,11 +1001,11 @@ export default function HomePage() {
                   {isProvisioningGit ? 'Configurando...' : '🔗 Configurar Git'}
                 </button>
                 {gitInfo && (
-                  <div style={{ marginTop: 8, padding: 12, background: '#131c2e', border: '1px solid #1e293b', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8' }}>Repositório configurado</div>
-                    <div style={{ fontSize: 11, color: '#f8fafc', fontFamily: 'monospace', wordBreak: 'break-all' }}>{gitInfo.repoFullName}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', wordBreak: 'break-all' }}>{gitInfo.cloneUrl}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
+                  <div style={{ marginTop: 8, padding: 12, background: '#131c2e', border: '1px solid #27272A', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#00E5FF' }}>Repositório configurado</div>
+                    <div style={{ fontSize: 11, color: '#F4F4F5', fontFamily: 'monospace', wordBreak: 'break-all' }}>{gitInfo.repoFullName}</div>
+                    <div style={{ fontSize: 11, color: '#A1A1AA', fontFamily: 'monospace', wordBreak: 'break-all' }}>{gitInfo.cloneUrl}</div>
+                    <div style={{ fontSize: 11, color: '#A1A1AA', lineHeight: 1.5 }}>
                       Clone com <code style={{ fontFamily: 'monospace', color: '#93c5fd' }}>git clone {gitInfo.cloneUrl}</code> e faça seus commits na branch main ou master. Cada push dispara a correção automática das atividades.
                     </div>
                   </div>
@@ -1020,7 +1020,7 @@ export default function HomePage() {
                     borderRadius: 6,
                     background: 'rgba(245, 158, 11, 0.12)',
                     border: '1px solid #f59e0b',
-                    color: '#fbbf24',
+                    color: '#F59E0B',
                     cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: 700,
@@ -1033,9 +1033,9 @@ export default function HomePage() {
           </div>
 
           <div style={{ padding: 16, flex: 1, overflowY: 'auto' }}>
-            <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#64748b', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Exercícios do Módulo</h3>
+            <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#71717A', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Exercícios do Módulo</h3>
             {activities.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#64748b' }}>Selecione um curso para ver as atividades.</div>
+              <div style={{ fontSize: 12, color: '#71717A' }}>Selecione um curso para ver as atividades.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {activities.map((a, idx) => (
@@ -1046,8 +1046,8 @@ export default function HomePage() {
                       textAlign: 'left',
                       padding: '8px 10px',
                       borderRadius: 6,
-                      background: selectedActivity?.id === a.id ? '#1e293b' : 'transparent',
-                      color: selectedActivity?.id === a.id ? '#38bdf8' : '#94a3b8',
+                      background: selectedActivity?.id === a.id ? '#27272A' : 'transparent',
+                      color: selectedActivity?.id === a.id ? '#00E5FF' : '#A1A1AA',
                       border: 'none',
                       cursor: 'pointer',
                       fontSize: 13,
@@ -1057,7 +1057,7 @@ export default function HomePage() {
                     }}
                   >
                     <span>{idx + 1}. {a.title}</span>
-                    <span style={{ fontSize: 10, padding: '2px 6px', background: '#090d16', borderRadius: 4, color: '#64748b' }}>{a.language}</span>
+                    <span style={{ fontSize: 10, padding: '2px 6px', background: '#0D0E15', borderRadius: 4, color: '#71717A' }}>{a.language}</span>
                   </button>
                 ))}
               </div>
@@ -1065,8 +1065,8 @@ export default function HomePage() {
           </div>
 
           {!isInstructor && (
-            <div style={{ padding: 16, borderTop: '1px solid #1e293b' }}>
-              <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#64748b', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Entrar com Código</h3>
+            <div style={{ padding: 16, borderTop: '1px solid #27272A' }}>
+              <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#71717A', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Entrar com Código</h3>
               <form onSubmit={handleJoinCourse} style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="text"
@@ -1074,12 +1074,12 @@ export default function HomePage() {
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="Ex.: ALGO2024"
                   maxLength={12}
-                  style={{ flex: 1, minWidth: 0, padding: '7px 9px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase' }}
+                  style={{ flex: 1, minWidth: 0, padding: '7px 9px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase' }}
                 />
                 <button
                   type="submit"
                   disabled={isJoining || !joinCode.trim()}
-                  style={{ padding: '7px 10px', background: isJoining || !joinCode.trim() ? '#334155' : '#38bdf8', color: isJoining || !joinCode.trim() ? '#94a3b8' : '#090d16', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: isJoining || !joinCode.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                  style={{ padding: '7px 10px', background: isJoining || !joinCode.trim() ? '#3F3F46' : '#00E5FF', color: isJoining || !joinCode.trim() ? '#A1A1AA' : '#0D0E15', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: isJoining || !joinCode.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                 >
                   {isJoining ? '...' : 'Entrar'}
                 </button>
@@ -1104,7 +1104,7 @@ export default function HomePage() {
 
               <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '440px 1fr', minHeight: 0 }}>
                 {/* Left Column: Instructions, Socratic Guidance & Validation Results */}
-                <div style={{ borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#0b1120' }}>
+                <div style={{ borderRight: '1px solid #27272A', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#0b1120' }}>
                   {/* Instructions & Socratic Prompting */}
                   <InstructionsPanel
                     title={selectedActivity.title}
@@ -1124,9 +1124,9 @@ export default function HomePage() {
                         style={{
                           flex: 1,
                           padding: '6px 12px',
-                          background: 'rgba(56, 189, 248, 0.12)',
-                          color: '#38bdf8',
-                          border: '1px solid #38bdf8',
+                          background: 'rgba(0, 229, 255, 0.12)',
+                          color: '#00E5FF',
+                          border: '1px solid #00E5FF',
                           borderRadius: 8,
                           fontSize: 11,
                           fontWeight: 700,
@@ -1194,7 +1194,7 @@ export default function HomePage() {
                             : ' (sua trilha)'}
                         </button>
                       ) : (
-                        <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
+                        <p style={{ margin: '8px 0 0', fontSize: 11, color: '#A1A1AA', lineHeight: 1.5 }}>
                           Não há atividade de reforço disponível para este conceito agora —
                           a dica da tutora usa o exemplo análogo desta atividade, que trabalha
                           o mesmo conceito.
@@ -1214,7 +1214,7 @@ export default function HomePage() {
                           background: 'rgba(34, 197, 94, 0.12)',
                           border: '1px solid #22c55e',
                           borderRadius: 8,
-                          color: '#4ade80',
+                          color: '#00E676',
                           cursor: isLoadingReference ? 'not-allowed' : 'pointer',
                           fontSize: 11,
                           fontWeight: 700,
@@ -1224,7 +1224,7 @@ export default function HomePage() {
                       </button>
                       {showReference && referenceCode !== null && (
                         <div style={{ marginTop: 8, background: '#131c2e', border: '1px solid #22c55e', borderRadius: 8, padding: 12 }}>
-                          <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5, color: '#e2e8f0', background: '#090d16', padding: 10, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                          <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5, color: '#F4F4F5', background: '#0D0E15', padding: 10, borderRadius: 6, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                             {referenceCode}
                           </pre>
                         </div>
@@ -1234,7 +1234,7 @@ export default function HomePage() {
 
                   {/* AI Hints Block */}
                   {aiHints && (
-                    <div style={{ margin: '12px 16px', background: '#1e1b4b', border: '1px solid #818cf8', borderRadius: 8, padding: 14 }}>
+                    <div style={{ margin: '12px 16px', background: '#1e1b4b', border: '1px solid #996DFF', borderRadius: 8, padding: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: '#c7d2fe', fontWeight: 700, fontSize: 12 }}>
                         <span>🤖 Tutor IA — {aiHints.suggestedConcept}</span>
                       </div>
@@ -1264,12 +1264,12 @@ export default function HomePage() {
 
                   {/* Line Feedback Block */}
                   {lineFeedback !== null && submission?.status === 'failed' && (
-                    <div style={{ margin: '12px 16px', background: '#131c2e', border: '1px solid #334155', borderRadius: 8, padding: 14 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', marginBottom: 8 }}>
+                    <div style={{ margin: '12px 16px', background: '#131c2e', border: '1px solid #3F3F46', borderRadius: 8, padding: 14 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#F4F4F5', marginBottom: 8 }}>
                         🔍 Análise por Linha
                       </div>
                       {lineFeedback.length === 0 ? (
-                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                        <div style={{ fontSize: 12, color: '#71717A' }}>
                           Nenhuma observação detectada nesta submissão.
                         </div>
                       ) : (
@@ -1284,13 +1284,13 @@ export default function HomePage() {
                                 padding: '6px 10px',
                                 borderRadius: 4,
                                 background: '#0b1120',
-                                borderLeft: `3px solid ${item.severity === 'warning' ? '#f59e0b' : '#94a3b8'}`,
+                                borderLeft: `3px solid ${item.severity === 'warning' ? '#f59e0b' : '#A1A1AA'}`,
                               }}
                             >
-                              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: item.severity === 'warning' ? '#f59e0b' : '#94a3b8', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: item.severity === 'warning' ? '#f59e0b' : '#A1A1AA', whiteSpace: 'nowrap' }}>
                                 Linha {item.line}
                               </span>
-                              <span style={{ fontSize: 12, color: item.severity === 'warning' ? '#f59e0b' : '#94a3b8', lineHeight: 1.4 }}>
+                              <span style={{ fontSize: 12, color: item.severity === 'warning' ? '#f59e0b' : '#A1A1AA', lineHeight: 1.4 }}>
                                 {item.comment}
                               </span>
                             </div>
@@ -1347,7 +1347,7 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#71717A' }}>
               Selecione uma atividade para começar a praticar.
             </div>
           )}
@@ -1429,49 +1429,49 @@ export default function HomePage() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowCourseModal(false); }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
         >
-          <div style={{ width: '100%', maxWidth: 460, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #334155' }}>
+          <div style={{ width: '100%', maxWidth: 460, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #3F3F46' }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px 0' }}>Cadastrar Novo Curso</h2>
             <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Título do Curso</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Título do Curso</label>
                 <input
                   type="text"
                   required
                   value={newCourseTitle}
                   onChange={(e) => setNewCourseTitle(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Slug (Opcional)</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Slug (Opcional)</label>
                 <input
                   type="text"
                   value={newCourseSlug}
                   onChange={(e) => setNewCourseSlug(e.target.value)}
                   placeholder="ex.: estruturas-de-dados"
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Descrição</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Descrição</label>
                 <textarea
                   value={newCourseDesc}
                   onChange={(e) => setNewCourseDesc(e.target.value)}
                   rows={3}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => setShowCourseModal(false)}
-                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#cbd5e1', cursor: 'pointer', fontSize: 12 }}
+                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 16px', background: '#38bdf8', color: '#090d16', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                  style={{ padding: '8px 16px', background: '#00E5FF', color: '#0D0E15', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
                 >
                   Salvar Curso
                 </button>
@@ -1490,26 +1490,26 @@ export default function HomePage() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowActivityModal(false); }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
         >
-          <div style={{ width: '100%', maxWidth: 540, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #334155', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ width: '100%', maxWidth: 540, background: '#131c2e', padding: 24, borderRadius: 12, border: '1px solid #3F3F46', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px 0' }}>Nova Atividade em {selectedCourse?.title}</h2>
             <form onSubmit={handleCreateActivity} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Título da Atividade</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Título da Atividade</label>
                 <input
                   type="text"
                   required
                   value={newActTitle}
                   onChange={(e) => setNewActTitle(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Linguagem</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Linguagem</label>
                   <select
                     value={newActLang}
                     onChange={(e) => setNewActLang(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                    style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                   >
                     <option value="javascript">JavaScript</option>
                     <option value="python">Python</option>
@@ -1518,66 +1518,66 @@ export default function HomePage() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Slug (Opcional)</label>
+                  <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Slug (Opcional)</label>
                   <input
                     type="text"
                     value={newActSlug}
                     onChange={(e) => setNewActSlug(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                    style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                   />
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Enunciado / Descrição</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Enunciado / Descrição</label>
                 <textarea
                   required
                   value={newActDesc}
                   onChange={(e) => setNewActDesc(e.target.value)}
                   rows={2}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Código Inicial</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Código Inicial</label>
                 <textarea
                   value={newActInitialCode}
                   onChange={(e) => setNewActInitialCode(e.target.value)}
                   placeholder="function minhaFuncao() { ... }"
                   rows={3}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Código de Testes (Públicos)</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Código de Testes (Públicos)</label>
                 <textarea
                   value={newActTestCode}
                   onChange={(e) => setNewActTestCode(e.target.value)}
                   placeholder="if (minhaFuncao(2) !== 4) throw new Error('Falha no teste');"
                   rows={3}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Testes Ocultos (Opcional)</label>
+                <label style={{ display: 'block', fontSize: 12, color: '#A1A1AA', marginBottom: 4 }}>Testes Ocultos (Opcional)</label>
                 <textarea
                   value={newActHiddenTests}
                   onChange={(e) => setNewActHiddenTests(e.target.value)}
                   placeholder="if (minhaFuncao(0) !== 0) throw new Error('Falha caso zero');"
                   rows={2}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
+                  style={{ width: '100%', padding: '8px 10px', background: '#0b1120', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13, fontFamily: 'monospace' }}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => setShowActivityModal(false)}
-                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#cbd5e1', cursor: 'pointer', fontSize: 12 }}
+                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#C0C0D1', cursor: 'pointer', fontSize: 12 }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 16px', background: '#a855f7', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                  style={{ padding: '8px 16px', background: '#8257E5', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
                 >
                   Criar Atividade
                 </button>

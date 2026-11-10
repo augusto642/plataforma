@@ -44,7 +44,19 @@ export interface LeagueStanding {
 export async function getCurrentChallenge(): Promise<Challenge | null> {
   const res = await apiFetch('/challenges/current');
   if (!res.ok) throw await parseError(res);
-  return res.json();
+  // Central 216 (auditoria do Designer, item 1) — a API antiga
+  // devolvia `null` sem desafio ativo e o Nest respondia 200 com
+  // corpo VAZIO: res.json() direto quebrava com erro vermelho em
+  // /desafios. Corpo vazio = sem desafio ativo. A API nova devolve
+  // o envelope `{ challenge }`; o formato antigo (desafio direto)
+  // continua aceito durante o deploy.
+  const text = await res.text();
+  if (!text.trim()) return null;
+  const data: unknown = JSON.parse(text);
+  if (data && typeof data === 'object' && 'challenge' in data) {
+    return (data as { challenge: Challenge | null }).challenge ?? null;
+  }
+  return data as Challenge;
 }
 
 export async function joinChallenge(challengeId: string) {

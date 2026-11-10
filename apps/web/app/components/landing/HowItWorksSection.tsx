@@ -39,7 +39,7 @@ export const HowItWorksSection: React.FC = () => (
           <span className="font-mono text-xs text-brand-purple-light font-bold block mb-1">PASSO 01</span>
           <h3 className="text-lg font-heading font-bold text-ink-heading mb-2.5">Sua trilha, sugerida pela IA</h3>
           <p className="text-body-sm sm:text-sm text-ink-body leading-relaxed font-sans">
-            Responda sobre seu nível e seus objetivos e a IA sugere a trilha ideal para você — e se preferir, você pode fazer cursos avulsos.
+            Responda sobre seu nível e seus objetivos e a IA investiga seu perfil, o mercado e as vagas para sugerir a trilha ideal — em até 2 dias. E você já começa na hora: a trilha inicial e os desafios ficam liberados no cadastro.
           </p>
         </div>
         <div className="mt-5 pt-3 border-t border-border-2 text-body-sm font-mono text-brand-purple-light">

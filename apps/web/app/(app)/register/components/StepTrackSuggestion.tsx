@@ -98,10 +98,25 @@ export const StepTrackSuggestion: React.FC<StepTrackSuggestionProps> = ({
           A IA está analisando seu perfil, o mercado e as vagas para montar sua trilha
           personalizada. Ela chega em até 2 dias — avisaremos você aqui na plataforma.
         </p>
+        {/* Central 216 (auditoria do Designer, §4) — o brief pede as
+            etapas da investigação listadas, não em frase corrida (as
+            mesmas 4 da tela "Aguardando Trilha"). */}
+        <ol style={{ color: '#9499AD', fontSize: '14px', lineHeight: 1.7, margin: '12px 0 0', paddingLeft: '20px' }}>
+          <li>
+            <strong style={{ color: '#EDEDED' }}>01 · Motivo e objetivo</strong> — o que você quer alcançar
+          </li>
+          <li>
+            <strong style={{ color: '#EDEDED' }}>02 · Mercado e vagas</strong> — o que o mercado está pedindo
+          </li>
+          <li>
+            <strong style={{ color: '#EDEDED' }}>03 · Stack</strong> — as tecnologias da sua trilha
+          </li>
+          <li>
+            <strong style={{ color: '#EDEDED' }}>04 · Desafios</strong> — os primeiros desafios do seu nível
+          </li>
+        </ol>
         <p style={{ color: '#9499AD', fontSize: '14px', lineHeight: 1.5, margin: '12px 0 0' }}>
-          Vamos analisar seu perfil e suas metas — seu motivo, o mercado, a stack,
-          os desafios e as vagas — e sugerir a melhor trilha para você. Quando ela
-          estiver pronta, avisamos no seu dashboard.
+          Quando ela estiver pronta, avisamos no seu dashboard.
         </p>
       </div>
 

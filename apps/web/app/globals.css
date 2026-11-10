@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Central 216 — fidelidade visual ao protótipo Stitch v2
+   (~/workspace/nexus-redesign-stitch/prototipo-2026-11-10/).
+   Ícones Material Symbols auto-hospedados (a fonte variável completa
+   vive em /public/fonts/material-symbols-outlined.woff2 — nada de CDN
+   no runtime; o Google Fonts só foi usado para baixar o arquivo).
+   A classe .material-symbols-outlined reproduz a API do Stitch:
+   <span class="material-symbols-outlined">nome_do_icone</span>. */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+}
+
+/* Grade de fundo do protótipo (login e telas de trilha). */
+.code-grid {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -9,19 +52,25 @@
 }
 
 :root {
-  /* D1 — fundo único e superfícies na escala nomeada (espelho do tailwind.config) */
-  --bg-app: #0B0B10;
-  --bg-surface-base: #13131B;
-  --bg-surface-card: #1A1A24;
-  --bg-surface-elevated: #22222F;
-  --border-subtle: #22222F;
-  --border-card: #2B2B3B;
+  /* Central 216 — tokens alinhados ao Stitch v2 (antes: escala própria
+     #0B0B10/#13131B/#1A1A24/#22222F/#2B2B3B/#E0E0EE/#8B8B9A).
+     dark-surface #0D0E15 · container-low #12131D · container #181926 ·
+     container-high #222335 · border-subtle #27272A · border-strong
+     #3F3F46 · on-surface #F4F4F5 · on-surface-variant #A1A1AA. */
+  --bg-app: #0D0E15;
+  --bg-surface-base: #12131D;
+  --bg-surface-card: #181926;
+  --bg-surface-elevated: #222335;
+  --border-subtle: #27272A;
+  --border-card: #3F3F46;
   /* Textos em 3 níveis */
-  --text-heading: #E0E0EE;
+  --text-heading: #F4F4F5;
   --text-body: #C0C0D1;
-  --text-span: #8B8B9A;
+  --text-span: #A1A1AA;
   --brand-green: #00B37E;
   --brand-green-neon: #04D361;
+  /* secondary do Stitch (#00E676) — verde vivo dos selos/eyebrows. */
+  --brand-secondary: #00E676;
   --brand-purple: #8257E5;
   --brand-purple-light: #996DFF;
   /* D2 — escala da marca e semânticas */

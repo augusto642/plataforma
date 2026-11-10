@@ -11,7 +11,6 @@ interface TopbarProps {
     avatarInitials: string;
     xp: number;
     level: number;
-    levelTitle: string;
     streakDays: number;
   };
   onSimulateChallenge: () => void;
@@ -88,8 +87,12 @@ export const Topbar: React.FC<TopbarProps> = ({
             <span className="text-xs font-mono font-black text-[#996DFF]">
               {user.xp.toLocaleString('pt-BR')} XP
             </span>
+            {/* Central 216 (auditoria do Designer, item 4) — o título de
+                nível ("MESTRE") vinha do molde e não tinha fonte real:
+                usuário nível 1 com 0 XP aparecia como "MESTRE". Só o
+                nível numérico, que vem de /users/me. */}
             <span className="text-[9px] text-[#8257E5] font-bold uppercase hidden sm:inline">
-              Nível {user.level} • {user.levelTitle}
+              Nível {user.level}
             </span>
           </div>
         </div>

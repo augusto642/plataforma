@@ -11,36 +11,61 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // D1 — fundo único do app (guia Nexus × Rocketseat)
-        background: '#0B0B10',
+        // Central 216 — tokens alinhados ao Stitch v2 (antes: escala
+        // própria #0B0B10/#13131B/#1A1A24/#22222F/#2B2B3B/#E0E0EE/#8B8B9A).
+        // Os nomes legados (background/surface/border/ink) são mantidos
+        // como aliases — só os valores mudam para os do protótipo.
+        background: '#0D0E15',
         surface: {
           // Escala nomeada de superfícies (elevação por clareamento sutil)
-          '1': '#13131B',
-          '2': '#1A1A24',
-          '3': '#22222F',
+          '1': '#12131D',
+          '2': '#181926',
+          '3': '#222335',
           '4': '#2B2B3B',
           // Compat: chaves legadas reapontadas para a escala nova
-          base: '#13131B', // = surface-1
-          card: '#1A1A24', // = surface-2
-          elevated: '#22222F', // = surface-3
-          alt: '#22222F', // = surface-3 (antes gêmeo do elevated)
+          base: '#12131D', // = surface-1
+          card: '#181926', // = surface-2
+          elevated: '#222335', // = surface-3
+          alt: '#222335', // = surface-3 (antes gêmeo do elevated)
           hover: '#2B2B3B', // = surface-4
         },
         border: {
           // 3 níveis: divisória, card e destaque de marca
-          '1': '#22222F',
-          '2': '#2B2B3B',
+          '1': '#27272A',
+          '2': '#3F3F46',
           brand: '#8257E5',
           // Compat: chaves legadas reapontadas
-          subtle: '#22222F', // = border-1
-          card: '#2B2B3B', // = border-2
+          subtle: '#27272A', // = border-1
+          card: '#3F3F46', // = border-2
         },
         // Textos em 3 níveis (nunca branco puro no título)
         ink: {
-          heading: '#E0E0EE',
+          heading: '#F4F4F5',
           body: '#C0C0D1',
-          span: '#8B8B9A',
+          span: '#A1A1AA',
         },
+        // Aliases com os nomes exatos do Stitch v2 — as telas novas
+        // usam as mesmas classes do protótipo (bg-dark-surface,
+        // text-dark-on-surface-variant, border-border-subtle…).
+        primary: '#8257E5',
+        'on-primary': '#FFFFFF',
+        'dark-surface': '#0D0E15',
+        'dark-on-surface': '#F4F4F5',
+        'dark-surface-container-low': '#12131D',
+        'dark-surface-container': '#181926',
+        'dark-surface-container-high': '#222335',
+        'dark-on-surface-variant': '#A1A1AA',
+        'dark-primary': '#996DFF',
+        'dark-on-primary': '#180D35',
+        'border-subtle': '#27272A',
+        'border-strong': '#3F3F46',
+        secondary: '#00E676',
+        'on-secondary': '#000000',
+        tertiary: '#00E5FF',
+        'on-tertiary': '#000000',
+        success: '#10B981',
+        warning: '#F59E0B',
+        error: '#EF4444',
         // D2 — token de foco visível (anel global em globals.css)
         // B59 (Sprint 17) — alinhado ao ciano da marca (#00E5FF)
         focus: '#00E5FF',
@@ -81,6 +106,13 @@ module.exports = {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
         heading: ['var(--font-space)', 'Space Grotesk', 'sans-serif'],
+        // Aliases do Stitch v2 (display/headline/body/code/label = Inter,
+        // code = JetBrains Mono) — as telas novas usam font-display etc.
+        display: ['Inter', 'sans-serif'],
+        headline: ['Inter', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
+        code: ['JetBrains Mono', 'monospace'],
+        label: ['Inter', 'sans-serif'],
       },
       fontSize: {
         // Sprint 9 (item 4 do Designer) — o degrau de 13px eleito na
@@ -88,6 +120,30 @@ module.exports = {
         // texto miúdo de card). Substitui o text-[13px] arbitrário que
         // estava espalhado pelo conjunto renderizado.
         'body-sm': '13px',
+        // Central 216 — escala tipográfica do Stitch v2.
+        'display-lg': ['56px', { lineHeight: '64px', letterSpacing: '-1.5px', fontWeight: '800' }],
+        'display-lg-mobile': ['32px', { lineHeight: '38px', letterSpacing: '-0.75px', fontWeight: '800' }],
+        'display-md': ['44px', { lineHeight: '52px', letterSpacing: '-1px', fontWeight: '800' }],
+        'display-md-mobile': ['28px', { lineHeight: '34px', letterSpacing: '-0.5px', fontWeight: '800' }],
+        'headline-lg': ['36px', { lineHeight: '44px', letterSpacing: '-0.5px', fontWeight: '700' }],
+        'headline-lg-mobile': ['24px', { lineHeight: '30px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-md': ['24px', { lineHeight: '32px', letterSpacing: '-0.2px', fontWeight: '700' }],
+        'headline-sm': ['20px', { lineHeight: '28px', fontWeight: '600' }],
+        'body-lg': ['18px', { lineHeight: '28px', fontWeight: '400' }],
+        'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }],
+        'code-md': ['14px', { lineHeight: '22px', fontWeight: '500' }],
+        'code-sm': ['12px', { lineHeight: '18px', fontWeight: '500' }],
+        'label-lg': ['16px', { lineHeight: '24px', fontWeight: '600' }],
+        'label-md': ['14px', { lineHeight: '20px', fontWeight: '600' }],
+        'label-sm': ['12px', { lineHeight: '16px', fontWeight: '600' }],
+      },
+      borderRadius: {
+        // Central 216 — raios do Stitch v2 (DEFAULT 10px = rounded).
+        sm: '6px',
+        DEFAULT: '10px',
+        md: '14px',
+        lg: '20px',
+        xl: '28px',
       },
       spacing: {
         // Sprint 10 (B36) — a análise profunda achou classes MORTAS na

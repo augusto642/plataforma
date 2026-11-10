@@ -178,4 +178,71 @@ describe('fetchDashboardData (D5)', () => {
       expect(data!.leaderboard).toEqual([]);
     });
   });
+
+  // Central 216 (auditoria do Designer, item 4) — usuário zerado (sem
+  // curso iniciado) exibia missão Kafka/NestJS, "85% CONCLUÍDO" e
+  // "NÍVEL 1 · MESTRE" do molde. Agora: sem coursesProgress a missão
+  // é null (estado vazio honesto); com progresso, só campos reais —
+  // nunca texto do molde — e 0% continua 0%.
+  describe('missão só com dado real (216)', () => {
+    function stubProgress(progress: unknown) {
+      stubFetch((url: string) => {
+        if (url.includes('/users/me/progress')) return okResponse(progress);
+        if (url.includes('/users/me'))
+          return okResponse({ id: 'user-1', name: 'Maria Teste', email: 'maria@teste.local', xp: 0, level: 1, streakDays: 0 });
+        if (url.includes('/leaderboard')) return okResponse([]);
+        if (url.includes('/courses'))
+          return okResponse([{ id: 'c1', activities: [{ id: 'a1', giteaCloneUrl: 'https://gitea.real/curso.git' }] }]);
+        if (url.includes('/submissions')) return okResponse([]);
+        return okResponse({});
+      });
+    }
+
+    it('sem coursesProgress → activeMission null, nunca Kafka/NestJS', async () => {
+      stubProgress({ xp: 0, level: 1, streakDays: 0, coursesProgress: [] });
+      const data = await fetchDashboardData();
+      expect(data).not.toBeNull();
+      expect(data!.activeMission).toBeNull();
+      // A missão (o dado que se apresentava como progresso do aluno)
+      // não traz texto do molde; o roadmap curricular do molde ainda
+      // existe como seção separada (sem endpoint — pendência registrada
+      // no relatório da 216, não parte deste item).
+      expect(JSON.stringify(data!.activeMission)).not.toContain('Kafka');
+      expect(JSON.stringify(data!.user)).not.toContain('Mestre');
+    });
+
+    it('com progresso → missão com título/% reais, sem texto do molde', async () => {
+      stubProgress({
+        xp: 120,
+        level: 2,
+        streakDays: 3,
+        coursesProgress: [
+          { courseId: 'c1', courseTitle: 'JavaScript Moderno', totalActivities: 10, completedActivities: 3, progressPercent: 30 },
+        ],
+      });
+      const data = await fetchDashboardData();
+      expect(data).not.toBeNull();
+      expect(data!.activeMission?.title).toBe('JavaScript Moderno');
+      expect(data!.activeMission?.progressPercent).toBe(30);
+      expect(data!.activeMission?.completedLabs).toBe(3);
+      expect(data!.activeMission?.totalLabs).toBe(10);
+      expect(data!.activeMission?.gitCloneUrl).toBe('git clone https://gitea.real/curso.git');
+      expect(JSON.stringify(data!.activeMission)).not.toContain('Kafka');
+      expect(JSON.stringify(data!.activeMission)).not.toContain('MICROSSERVIÇOS');
+    });
+
+    it('progresso 0% fica 0% (não volta ao 75% do molde)', async () => {
+      stubProgress({
+        xp: 0,
+        level: 1,
+        streakDays: 0,
+        coursesProgress: [
+          { courseId: 'c1', courseTitle: 'JavaScript Moderno', totalActivities: 10, completedActivities: 0, progressPercent: 0 },
+        ],
+      });
+      const data = await fetchDashboardData();
+      expect(data!.activeMission?.progressPercent).toBe(0);
+      expect(data!.activeMission?.completedLabs).toBe(0);
+    });
+  });
 });
