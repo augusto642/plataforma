@@ -2,7 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import Logo from './Logo';
+import { OAuthButtons } from './OAuthButtons';
+import { oauthErrorMessage } from '../lib/oauth-errors';
 import { useAuth } from '../context/AuthContext';
 
 interface AuthViewProps {
@@ -11,10 +14,15 @@ interface AuthViewProps {
 
 export default function AuthView({ onAuth }: AuthViewProps) {
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+  // OAuth: o callback da API volta para /login?oauth_error=<código> quando
+  // o login com Google/GitHub falha (ex.: e-mail não verificado, OAuth
+  // não configurado). A mensagem é exibida aqui, sem inventar sessão.
+  const oauthError = oauthErrorMessage(searchParams.get('oauth_error'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(oauthError);
   const [isLoading, setIsLoading] = useState(false);
 
   // C2/C3 (Lote 1): sem botões demo, sem credenciais hardcoded e sem
@@ -142,6 +150,9 @@ export default function AuthView({ onAuth }: AuthViewProps) {
             Cadastre-se gratuitamente
           </Link>
         </div>
+
+        {/* OAuth real (Google/GitHub) — links para a API, sem sessão local. */}
+        <OAuthButtons />
       </div>
     </div>
   );

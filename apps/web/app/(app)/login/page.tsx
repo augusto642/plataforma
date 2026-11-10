@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthView from '../../components/AuthView';
 
@@ -13,5 +13,12 @@ export default function LoginPage() {
     router.push('/dashboard');
   };
 
-  return <AuthView onAuth={handleAuth} />;
+  // Suspense: o AuthView lê `?oauth_error=` com useSearchParams (o
+  // callback OAuth volta para cá em caso de falha) e o App Router exige
+  // o boundary em volta.
+  return (
+    <Suspense>
+      <AuthView onAuth={handleAuth} />
+    </Suspense>
+  );
 }

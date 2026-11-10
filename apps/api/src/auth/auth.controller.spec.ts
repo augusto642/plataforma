@@ -42,7 +42,10 @@ describe('AuthController (cookie-only auth)', () => {
       verifyEmail: jest.fn().mockResolvedValue(tokens),
       resendCode: jest.fn().mockResolvedValue({ message: 'ok' }),
     };
-    controller = new AuthController(auth as unknown as AuthService);
+    controller = new AuthController(
+      auth as unknown as AuthService,
+      { get: jest.fn() } as any,
+    );
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
     req = { headers: {} };
   });

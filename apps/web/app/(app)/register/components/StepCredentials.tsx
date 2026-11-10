@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { OAuthButtons } from '../../../components/OAuthButtons';
 
 export type RoleType = 'student';
 
@@ -39,9 +40,9 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
-  // C2 (Lote 1): sem botões "Continuar com GitHub/Google" — não existe
-  // OAuth real no front; os botões antigos só preenchiam nome/e-mail/
-  // senha hardcoded. Cadastro é só com e-mail/senha até haver OAuth real.
+  // OAuth real (Google/GitHub): os botões abaixo criam a conta direto pelo
+  // provedor (e-mail já verificado por ele) — não preenchem nada aqui.
+  // O cadastro por e-mail/senha continua exigindo o código (C5).
 
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const isNameValid = name.trim().length >= 3;
@@ -107,6 +108,9 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
           Acesse o laboratório interativo com sandbox Docker dedicada, tutor IA socrático e desafios de elite.
         </p>
       </div>
+
+      {/* OAuth real (Google/GitHub): cria a conta direto pelo provedor. */}
+      <OAuthButtons />
 
       {/* Form Fields Stack */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>

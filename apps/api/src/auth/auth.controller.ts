@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -8,6 +9,8 @@ import {
   Res,
   SetMetadata,
   UnauthorizedException,
+  UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -20,6 +23,10 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendCodeDto } from './dto/resend-code.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { GitHubAuthGuard, GoogleAuthGuard } from './guards/oauth.guard';
+import { OAuthCallbackExceptionFilter } from './oauth-callback.filter';
+import { OAuthProfile, webAppBaseUrl } from './oauth.config';
+import { ConfigService } from '@nestjs/config';
 import {
   ACCESS_TOKEN_COOKIE,
   ACCESS_TOKEN_TTL_MS,
@@ -38,7 +45,75 @@ import {
 @Controller('auth')
 @Public()
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly config: ConfigService,
+  ) {}
+
+  /**
+   * OAuth 2.0 real (Google/GitHub) — Authorization Code Flow via Passport.
+   *
+   * - `GET /auth/google` e `GET /auth/github`: o guard redireciona o
+   *   navegador ao provedor (sem OAuth configurado → 503 honesto, sem
+   *   quebrar o login por senha). GET é seguro aqui: nada muda estado —
+   *   o CSRF por Origin/Referer (M15) só vale para mutações.
+   * - `GET /auth/<provider>/callback`: a strategy valida o perfil
+   *   (e-mail verificado ou recusa) e o service emite OS MESMOS cookies
+   *   do login por senha (access JWT + refresh com detecção de reuso A2).
+   *   Sucesso → redirect 302 para o web app (`/dashboard`); falha →
+   *   o `OAuthCallbackExceptionFilter` redireciona para
+   *   `/login?oauth_error=<código>` com a mensagem em pt-BR na tela.
+   * - Nenhum token aparece no corpo nem na URL: os cookies httpOnly são
+   *   gravados na resposta do redirect (o navegador os guarda antes de
+   *   seguir para o web app).
+   */
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  @UseFilters(OAuthCallbackExceptionFilter)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  googleLogin() {
+    // O guard (Passport) redireciona ao Google; o handler nunca executa.
+    return null;
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  @UseFilters(OAuthCallbackExceptionFilter)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
+    return this.handleOAuthCallback(req, res);
+  }
+
+  @Get('github')
+  @UseGuards(GitHubAuthGuard)
+  @UseFilters(OAuthCallbackExceptionFilter)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  githubLogin() {
+    // O guard (Passport) redireciona ao GitHub; o handler nunca executa.
+    return null;
+  }
+
+  @Get('github/callback')
+  @UseGuards(GitHubAuthGuard)
+  @UseFilters(OAuthCallbackExceptionFilter)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async githubCallback(@Req() req: Request, @Res() res: Response) {
+    return this.handleOAuthCallback(req, res);
+  }
+
+  private async handleOAuthCallback(req: Request, res: Response) {
+    const profile = (req as Request & { user?: OAuthProfile }).user;
+    if (!profile) {
+      // O guard deveria ter populado `req.user`; sem ele, não há login
+      // para concluir — volta ao login com erro genérico, sem 500.
+      return res.redirect(
+        `${webAppBaseUrl(this.config)}/login?oauth_error=oauth_failed`,
+      );
+    }
+    const tokens = await this.auth.loginWithOAuth(profile);
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return res.redirect(`${webAppBaseUrl(this.config)}/dashboard`);
+  }
 
   /**
    * C5: o cadastro NÃO cria sessão. A resposta é { user,

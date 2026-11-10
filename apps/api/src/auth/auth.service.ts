@@ -20,6 +20,7 @@ import { MailerService } from '../mail/mailer.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { OAuthProfile } from './oauth.config';
 import { generateRefreshToken, hashToken } from './tokens.util';
 
 const BCRYPT_ROUNDS = 12;
@@ -332,6 +333,13 @@ export class AuthService {
         withErrorCode('Invalid credentials', ErrorCodes.AUTH_INVALID_CREDENTIALS),
       );
     }
+    // Conta criada SÓ via OAuth nasce sem senha (passwordHash NULL): não há
+    // senha para comparar — credencial inválida, sem vazar o motivo.
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        withErrorCode('Invalid credentials', ErrorCodes.AUTH_INVALID_CREDENTIALS),
+      );
+    }
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException(
@@ -348,6 +356,95 @@ export class AuthService {
         ),
       );
     }
+    return this.issueTokensForUser(user);
+  }
+
+  /**
+   * OAuth 2.0 (Google/GitHub) — login / criação / vínculo de conta.
+   *
+   * O `profile` já chega validado pela strategy (e-mail presente E
+   * verificado pelo provedor — sem e-mail verificado a strategy recusa
+   * antes; aqui a checagem é a segunda camada, fail-closed).
+   *
+   * Resolução em UMA transação (sem corrida entre "existe?" e "cria?"):
+   * 1. Já existe `OAuthAccount` (provider + providerId) → loga nela.
+   * 2. Existe usuário com o mesmo e-mail (conta por senha) → VINCULA o
+   *    provedor à conta existente (nunca cria duplicata) e marca o e-mail
+   *    como verificado (o provedor acabou de afirmá-lo — C5 não é furado:
+   *    a conta por senha continua exigindo o código de 6 dígitos).
+   * 3. Ninguém com esse e-mail → cria a conta (sem senha — `passwordHash`
+   *    NULL; o login por senha rejeita conta sem hash) já verificada, com
+   *    a `OAuthAccount` vinculada.
+   *
+   * Os tokens emitidos são os MESMOS do login por senha
+   * (`issueTokensForUser`: access JWT 15 min + refresh com detecção de
+   * reuso A2) — o controller grava os mesmos cookies httpOnly.
+   */
+  async loginWithOAuth(profile: OAuthProfile): Promise<AuthTokens> {
+    if (!profile.email) {
+      throw new BadRequestException(
+        withErrorCode(
+          'O provedor não informou um e-mail para esta conta. Use uma conta com e-mail verificado ou entre com e-mail e senha.',
+          ErrorCodes.AUTH_OAUTH_EMAIL_REQUIRED,
+        ),
+      );
+    }
+    if (!profile.emailVerified) {
+      throw new BadRequestException(
+        withErrorCode(
+          'O e-mail desta conta ainda não foi verificado no provedor. Confirme o e-mail e tente novamente.',
+          ErrorCodes.AUTH_OAUTH_EMAIL_UNVERIFIED,
+        ),
+      );
+    }
+    const email = profile.email.toLowerCase().trim();
+    const name = profile.name?.trim() || email.split('@')[0];
+    const user = await this.prisma.$transaction(async (tx) => {
+      const linked = await tx.oAuthAccount.findUnique({
+        where: {
+          provider_providerId: {
+            provider: profile.provider,
+            providerId: profile.providerId,
+          },
+        },
+        include: { user: true },
+      });
+      if (linked) return linked.user;
+
+      const byEmail = await tx.user.findUnique({ where: { email } });
+      if (byEmail) {
+        await tx.oAuthAccount.create({
+          data: {
+            provider: profile.provider,
+            providerId: profile.providerId,
+            userId: byEmail.id,
+          },
+        });
+        if (!byEmail.emailVerifiedAt) {
+          await tx.user.update({
+            where: { id: byEmail.id },
+            data: { emailVerifiedAt: new Date() },
+          });
+        }
+        return byEmail;
+      }
+
+      return tx.user.create({
+        data: {
+          email,
+          name,
+          passwordHash: null,
+          role: Role.student,
+          emailVerifiedAt: new Date(),
+          oAuthAccounts: {
+            create: {
+              provider: profile.provider,
+              providerId: profile.providerId,
+            },
+          },
+        },
+      });
+    });
     return this.issueTokensForUser(user);
   }
 

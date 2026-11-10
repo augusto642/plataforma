@@ -68,7 +68,10 @@ model User {
   email        String    @unique
   nickname     String?   @unique @db.VarChar(30)
   name         String
-  passwordHash String    @map("password_hash")
+  passwordHash String?   @map("password_hash")
+  // OAuth 2.0 (Google/GitHub): conta criada SÓ via OAuth nasce sem senha
+  // (NULL) — o login por senha rejeita conta sem hash (AuthService.login).
+  // A senha nunca é NULL para conta criada por e-mail/senha (register).
   role         Role      @default(student)
   emailVerifiedAt DateTime? @map("email_verified_at")
   plan         Plan      @default(free)
@@ -94,6 +97,7 @@ model User {
   certificates      Certificate[]
   interviewSessions InterviewSession[]
   refreshTokens     RefreshToken[]
+  oAuthAccounts     OAuthAccount[]
   emailVerificationCodes EmailVerificationCode[]
   diagnosticResults DiagnosticResult[]
   instructedCourses Course[]        @relation("InstructedCourses")
@@ -239,6 +243,30 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+// OAuth 2.0 (Google/GitHub) — contas vinculadas a um usuário.
+// - Um usuário pode vincular os dois provedores (um registro por
+//   provedor: @@unique([provider, userId])).
+// - Um providerId pertence a no máximo um usuário (@@unique([provider,
+//   providerId])) — é o que impede duas contas Nexus para o mesmo
+//   Google/GitHub e permite o login direto pela conta vinculada.
+// - `provider` é String (não enum) de propósito: adicionar um provedor
+//   futuro não exige migration de tipo.
+model OAuthAccount {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  provider   String   @db.VarChar(20)
+  providerId String   @map("provider_id") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@unique([provider, userId])
+  @@index([userId])
+  @@map("oauth_accounts")
 }
 
 model Course {

@@ -21,7 +21,10 @@ describe('AuthController — A2 POST /auth/logout-all', () => {
       revokeAllForUser: jest.fn().mockResolvedValue(undefined),
       logout: jest.fn().mockResolvedValue(undefined),
     };
-    controller = new AuthController(auth as unknown as AuthService);
+    controller = new AuthController(
+      auth as unknown as AuthService,
+      { get: jest.fn() } as any,
+    );
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
   });
 
