@@ -30,7 +30,7 @@
  * stream dentro do handler de clique. O contrato permite os dois caminhos.
  */
 
-import { apiFetch } from '../../lib/apiClient';
+import { apiFetch } from '../../../lib/apiClient';
 import type { BattleChallenge } from './BattleChallenges';
 import type { ExecutionOutcome, TestOutcome } from './CodeSandboxEvaluator';
 

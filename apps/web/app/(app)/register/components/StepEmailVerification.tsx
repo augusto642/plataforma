@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { API_BASE } from '../../lib/apiClient';
+import { API_BASE } from '../../../lib/apiClient';
 
 /**
  * C5 (Lote 1) — Passo de verificação de e-mail no cadastro.
