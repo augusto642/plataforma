@@ -70,12 +70,11 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
     },
     {
       id: 'node-5',
-      title: 'BOSS FIGHT',
-      progressText: '+1.000 XP • Badge Ouro',
+      title: 'Guardião',
+      // Redesign v2 (correção 21): missões sem valores de XP.
+      progressText: 'Guardião da trilha',
       status: 'boss',
       icon: '👑',
-      xpReward: 1000,
-      badgeName: 'Badge Ouro',
     },
   ],
   radarSkills: {

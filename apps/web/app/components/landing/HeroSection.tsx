@@ -53,6 +53,7 @@ export const HeroSection: React.FC = () => (
         <p className="hero-rise font-sans text-base sm:text-lg text-ink-body leading-relaxed mb-4 max-w-xl" style={{ animationDelay: '180ms' }}>
           Sem horas de vídeo que não viram prática: aqui, <strong className="text-ink-heading">cada conceito vira um exercício</strong> — código escrito por você e corrigido na hora.
           Você começa hoje pelo prólogo jogável e pelos cursos introdutórios de JavaScript e Python que já estão no ar — e a jornada continua em estágios: projetos guiados, níveis avançados e o portfólio verificável são o caminho até o mercado.
+          Você avança numa <strong className="text-ink-heading">trilha de RPG sugerida pela IA para você</strong>, com base no seu nível e nos seus objetivos.
           O destino não é um certificado. É você, <strong className="text-ink-heading">dev completo, pronto para o mercado</strong>.
         </p>
 
@@ -110,6 +111,14 @@ export const HeroSection: React.FC = () => (
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>
               <span>Comece no navegador, sem instalar nada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-brand-green-neon font-black">✔</span>
+              {/* Redesign v2 (correção 3) — "4 linguagens no sandbox":
+                  JavaScript, Python, Java e Portugol. TypeScript roda
+                  no mesmo runtime do JavaScript no Piston, por isso
+                  conta como uma só família na contagem. */}
+              <span>4 linguagens no sandbox: JavaScript, Python, Java e Portugol</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-brand-green-neon font-black">✔</span>

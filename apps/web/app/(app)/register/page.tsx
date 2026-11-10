@@ -7,7 +7,7 @@ import { ConfettiCanvas, ConfettiCanvasHandle } from './components/ConfettiCanva
 import { RegisterStepper } from './components/RegisterStepper';
 import { StepCredentials, RoleType } from './components/StepCredentials';
 import { StepEmailVerification } from './components/StepEmailVerification';
-import { StepTracks, TrackId } from './components/StepTracks';
+import { StepTrackSuggestion } from './components/StepTrackSuggestion';
 import { StepGoals, ExpLevel, TimeCommitment, CareerGoal } from './components/StepGoals';
 import { StepTerminalProvision } from './components/StepTerminalProvision';
 import { useAuth } from '../../context/AuthContext';
@@ -36,22 +36,25 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
-  // Sprint 8 — trilha de origem (landing): o valor cru viaja nas props
-  // do funil (sourceTrack) mesmo quando o mapeamento o aproxima de
-  // outra especialização na etapa 2
+  // Redesign v2 (Central 213) — a trilha NÃO é escolhida aqui: o ?track=
+  // da landing vira hint (sourceTrack) da investigação, e o front não
+  // envia mais preferredTrack (depreciado na 209).
+  // landingTrack = id RESOLVIDO (web3|backend|frontend|ai); landingTrackRaw
+  // = valor cru da URL, preservado nas props do funil (leitura de origem).
   const [landingTrack, setLandingTrack] = useState<string | null>(null);
+  const [landingTrackRaw, setLandingTrackRaw] = useState<string | null>(null);
 
   // B07 — captura as UTMs da URL de chegada uma única vez, na montagem
-  // Sprint 8 — e o ?track= da landing: pré-seleciona a etapa 2 com a
-  // especialização correspondente à trilha clicada
+  // Redesign v2 — o ?track= da landing é validado e guardado como hint
+  // (sourceTrack); nada é pré-selecionado.
   useEffect(() => {
     captureUtmFromUrl();
     trackPageview();
     const rawTrack = new URLSearchParams(window.location.search).get('track');
     const resolvedTrack = resolveRegisterTrackParam(rawTrack);
     if (resolvedTrack) {
-      setSelectedTrack(resolvedTrack);
-      setLandingTrack(rawTrack);
+      setLandingTrack(resolvedTrack);
+      setLandingTrackRaw(rawTrack);
     }
   }, []);
 
@@ -66,8 +69,7 @@ export default function RegisterPage() {
   // o cadastro só libera com o aceite explícito do visitante.
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
 
-  // Step 2 & 3 State
-  const [selectedTrack, setSelectedTrack] = useState<TrackId>('web3');
+  // Step 2 State (Perfil & Metas — a trilha é sugerida, não escolhida)
   const [expLevel, setExpLevel] = useState<ExpLevel>('mid');
   const [timeCommitment, setTimeCommitment] = useState<TimeCommitment>('10h');
   const [careerGoal, setCareerGoal] = useState<CareerGoal>('global');
@@ -108,17 +110,17 @@ export default function RegisterPage() {
     // B08 — o funil mede a tentativa e a conversão do cadastro.
     // Sprint 5 — a intenção de plano (escolha nos preços) e a campanha
     // acompanham o cadastro nas props, para a leitura do funil fechar.
-    // Sprint 8 — as escolhas das etapas 2–3 (trilha/nível/tempo/objetivo)
-    // entram nas props: até aqui eram coletadas e descartadas.
+    // Redesign v2 — as escolhas da etapa 2 (nível/tempo/objetivo)
+    // entram nas props; o hint da landing viaja como sourceTrack (a
+    // trilha não é mais escolhida no cadastro).
     const signupProps = {
       ...readPlanIntentProps(),
       ...readAttributionProps(),
       source: 'register',
-      track: selectedTrack,
       expLevel,
       timeCommitment,
       careerGoal,
-      ...(landingTrack ? { sourceTrack: landingTrack } : {}),
+      ...(landingTrackRaw ? { sourceTrack: landingTrackRaw } : {}),
     };
     track('signup_submit', 'register_submit', signupProps);
 
@@ -132,9 +134,14 @@ export default function RegisterPage() {
         ...readStoredUtm(),
         // B09 — inclui o token do diagnóstico; quem não fez o quiz não envia nada
         ...readStoredDiagnosticToken(),
-        // Sprint 8 — as escolhas da porta fria valem de verdade: a API
-        // persiste o nível como careerTier da conta (ver RegisterDto)
-        preferredTrack: selectedTrack,
+        // Redesign v2 — o nível persiste como careerTier da conta
+        // (ver RegisterDto); o hint da landing viaja como sourceTrack.
+        // preferredTrack NÃO é mais enviado (depreciado: a trilha é
+        // sugerida pela investigação, não escolhida no cadastro).
+        // sourceTrack NÃO vai no corpo aqui: a API deste branch não tem
+        // o campo (só a 209 o adiciona) e o ValidationPipe tem
+        // forbidNonWhitelisted — enviá-lo daria 400 e quebraria o
+        // cadastro. O hint segue nas props do funil (signupProps).
         experienceLevel: expLevel,
         weeklyTimeCommitment: timeCommitment,
         careerGoal,
@@ -171,7 +178,7 @@ export default function RegisterPage() {
     // Só avança após 2xx real da API (conta criada de fato).
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [email, password, name, authRegister, selectedTrack, expLevel, timeCommitment, careerGoal, landingTrack]);
+  }, [email, password, name, authRegister, expLevel, timeCommitment, careerGoal, landingTrackRaw]);
 
   const handleProvisionFinished = useCallback(() => {
     confettiRef.current?.fire();
@@ -389,18 +396,8 @@ export default function RegisterPage() {
             />
           )}
 
-          {/* STEP 2: TRILHAS TECH */}
+          {/* STEP 2: METAS E NÍVEL */}
           {currentStep === 2 && (
-            <StepTracks
-              selectedTrack={selectedTrack}
-              onSelectTrack={setSelectedTrack}
-              onPrev={() => setCurrentStep(1)}
-              onNext={handleStep2Next}
-            />
-          )}
-
-          {/* STEP 3: METAS E NÍVEL */}
-          {currentStep === 3 && (
             <StepGoals
               expLevel={expLevel}
               setExpLevel={setExpLevel}
@@ -408,8 +405,17 @@ export default function RegisterPage() {
               setTimeCommitment={setTimeCommitment}
               careerGoal={careerGoal}
               setCareerGoal={setCareerGoal}
+              onPrev={() => setCurrentStep(1)}
+              onNext={handleStep2Next}
+            />
+          )}
+
+          {/* STEP 3: TRILHA SUGERIDA (preparando — sem backend neste branch) */}
+          {currentStep === 3 && (
+            <StepTrackSuggestion
               onPrev={() => setCurrentStep(2)}
               onNext={handleStep3Next}
+              isSubmitting={isRegistering}
             />
           )}
 
@@ -428,7 +434,6 @@ export default function RegisterPage() {
               name={name}
               email={email}
               role={role}
-              selectedTrack={selectedTrack}
               expLevel={expLevel}
               timeCommitment={timeCommitment}
               careerGoal={careerGoal}

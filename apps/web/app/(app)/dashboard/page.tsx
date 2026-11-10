@@ -15,6 +15,7 @@ import { ConceptsToReinforce } from './components/ConceptsToReinforce';
 import { CelebrationModal } from './components/CelebrationModal';
 import { TutorModal } from './components/TutorModal';
 import { CareerPetBanner } from './components/CareerPetBanner';
+import { DynamicTrackCard } from './components/DynamicTrackCard';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import { PetEvolutionModal } from '../game/components/PetEvolutionModal';
 import { DEFAULT_DASHBOARD_DATA, fetchDashboardData } from './utils/api';
@@ -129,6 +130,11 @@ export default function StudentDashboardPage() {
 
         {/* SECTION 0: CARREIRA & PET COMPANION STATUS BANNER */}
         <CareerPetBanner />
+
+        {/* SECTION 0.5: TRILHA DINÂMICA (Redesign v2) — preparando /
+            sugerida / toast. Sem backend neste branch, mostra o estado
+            "preparando" — nunca uma sugestão inventada. */}
+        <DynamicTrackCard />
 
         {/* SECTION 1: HERO ACTIVE MISSION & WEEKLY GOAL */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">

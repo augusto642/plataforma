@@ -6,10 +6,14 @@ interface RegisterStepperProps {
   currentStep: number;
 }
 
+// Redesign v2 (Central 213) — mesma ordem da trilha dinâmica (Central
+// 209): a trilha NÃO é escolhida no cadastro; o passo 3 é a sugestão
+// (estado "preparando" enquanto não há backend de investigação neste
+// branch — nunca uma sugestão inventada).
 const STEPS = [
   { num: 1, tag: 'Etapa 01', title: 'Credenciais' },
-  { num: 2, tag: 'Etapa 02', title: 'Trilha Tech' },
-  { num: 3, tag: 'Etapa 03', title: 'Perfil & Metas' },
+  { num: 2, tag: 'Etapa 02', title: 'Perfil & Metas' },
+  { num: 3, tag: 'Etapa 03', title: 'Trilha Sugerida' },
   { num: 4, tag: 'Etapa 04', title: 'Workspace' },
 ];
 

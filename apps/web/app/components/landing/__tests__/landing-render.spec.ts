@@ -117,6 +117,20 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('Visão ilustrativa da jornada');
   });
 
+  // Redesign v2 (Central 213) — correções 1, 3, 4 e 6 do prompt v2:
+  // hero com trilha de RPG sugerida pela IA, prova "4 linguagens no
+  // sandbox", itens do Iniciante e Pro sem "ilimitado".
+  it('redesign v2: hero, prova social e planos sem os textos do mockup antigo', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    expect(html).toContain('trilha de RPG sugerida pela IA para você');
+    expect(html).toContain('4 linguagens no sandbox: JavaScript, Python, Java e Portugol');
+    expect(html).toContain('Acesso aos desafios iniciais de lógica');
+    expect(html).toContain('Comunidade de alunos');
+    expect(html).toContain('Acesso a todas as trilhas e níveis disponíveis na plataforma');
+    expect(html).not.toContain('ilimitado');
+    expect(html).not.toContain('Escolha sua trilha');
+  });
+
   it('tutora: H2 em escala de seção, fora do card', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     expect(html).toMatch(/<h2 class="[^"]*text-3xl[^"]*">\s*Mentoria Socrática\s*<\/h2>/);

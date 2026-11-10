@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrackId, TRACKS } from './StepTracks';
 import { ExpLevel, TimeCommitment, CareerGoal } from './StepGoals';
 
 interface LogItem {
@@ -12,11 +11,12 @@ interface LogItem {
   color: string;
 }
 
+// Redesign v2 (Central 213) — sem selectedTrack: a trilha é sugerida
+// pela investigação (até 2 dias), não escolhida no cadastro.
 interface StepTerminalProvisionProps {
   name: string;
   email: string;
   role: string;
-  selectedTrack: TrackId;
   expLevel: ExpLevel;
   timeCommitment: TimeCommitment;
   careerGoal: CareerGoal;
@@ -46,7 +46,6 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
   name,
   email,
   role,
-  selectedTrack,
   expLevel,
   timeCommitment,
   careerGoal,
@@ -57,8 +56,6 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [isDone, setIsDone] = useState(false);
   const terminalScreenRef = useRef<HTMLDivElement | null>(null);
-
-  const currentTrack = TRACKS.find((t) => t.id === selectedTrack) || TRACKS[0];
 
   useEffect(() => {
     let isCancelled = false;
@@ -73,7 +70,7 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
       {
         pct: 25,
         time: '00:00:02',
-        msg: `📦 Pulling pre-cached Docker image (nexus/${selectedTrack}-devcontainer:latest)...`,
+        msg: '📦 Pulling pre-cached Docker image (nexus/devcontainer:latest)...',
         color: '#00E5FF',
       },
       {
@@ -97,7 +94,9 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
       {
         pct: 85,
         time: '00:00:06',
-        msg: `🎯 Compiling personalized track curriculum: "${currentTrack.name}"...`,
+        // Redesign v2 — a trilha é sugerida pela investigação (até 2
+        // dias), não compilada aqui: sem nome de trilha no log.
+        msg: '🎯 Analisando seu perfil para sugerir sua trilha personalizada...',
         color: '#F59E0B',
       },
       {
@@ -137,7 +136,7 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
       isCancelled = true;
       clearTimeout(initialTimer);
     };
-  }, [selectedTrack, expLevel, currentTrack.name, onFinished]);
+  }, [expLevel, onFinished]);
 
   // Auto scroll terminal logs
   useEffect(() => {
@@ -373,7 +372,7 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
                 fontFamily: '"Fira Code", monospace',
               }}
             >
-              ⚡ {currentTrack.name}
+              ⚡ {EXP_LABELS[expLevel]}
             </span>
             <span
               style={{

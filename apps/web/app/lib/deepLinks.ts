@@ -6,7 +6,15 @@
 // perdendo a trilha clicada. Aqui vivem os dois mapeamentos — puros e
 // testáveis — usados na montagem de cada porta.
 
-import type { TrackId } from '../(app)/register/components/StepTracks';
+// Trilha dinâmica v1 (Central 209) / Redesign v2 (Central 213): o ?track=
+// NÃO pré-seleciona mais nada no cadastro (o aluno não escolhe a
+// trilha) — ele é validado aqui e viaja como hint (sourceTrack) da
+// investigação. O tipo TrackId vivia em StepTracks.tsx, removido com
+// o passo de escolha; agora é local.
+
+// Identificadores de trilha do produto (os mesmos `TrackId` do
+// antigo StepTracks): sugestões possíveis da investigação.
+export type TrackId = 'web3' | 'backend' | 'frontend' | 'ai';
 
 // Card TCG (landing) → starter do catálogo do jogo, pela LINGUAGEM da
 // trilha: o card é a vitrine, o starter é a criatura jogável da mesma
