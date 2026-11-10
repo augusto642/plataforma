@@ -17,8 +17,8 @@ test.describe('NEXUS CODE - Pokémon RPG Platform E2E Flow', () => {
     await expect(page.locator('text=Iniciante // A Forja do Código')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=Júnior // Engenharia Aplicada & APIs')).toBeVisible();
     
-    // Verifica que Júnior tem indicação de bloqueio
-    await expect(page.locator('text=BLOQUEADO • Requer Trilha Iniciante').first()).toBeVisible();
+    // Verifica que Júnior tem indicação de bloqueio (label atual do CareerTierSelector)
+    await expect(page.locator('text=Desbloqueia no Nível 15').first()).toBeVisible();
 
     // Clica no botão de selecionar Iniciante
     const selectBeginnerBtn = page.locator('button:has-text("Iniciar Como Iniciante & Adotar Pet")');
@@ -61,10 +61,17 @@ test.describe('NEXUS CODE - Pokémon RPG Platform E2E Flow', () => {
     const codenameInput = page.locator('input[placeholder="Seu codename hacker..."]');
     await codenameInput.fill('AshKetchum');
 
-    // Clica no botão de finalizar criação
-    const finalizeBtn = page.locator('button:has-text("FINALIZAR & ENTRAR NO JOGO")');
-    await expect(finalizeBtn).toBeVisible();
-    await finalizeBtn.click();
+    // O estúdio agora termina em "CONTINUAR PARA SALVAR A CONTA →" (submitLabel
+    // passado pela página de onboarding); a etapa de conta oferece
+    // "Testar sem conta →", que leva a /game sem criar conta — o caminho
+    // adequado a este teste não autenticado.
+    const continueBtn = page.locator('button:has-text("CONTINUAR PARA SALVAR A CONTA →")');
+    await expect(continueBtn).toBeVisible();
+    await continueBtn.click();
+
+    const skipBtn = page.locator('button:has-text("Testar sem conta →")');
+    await expect(skipBtn).toBeVisible({ timeout: 10000 });
+    await skipBtn.click();
 
     // Verifica transição para a rota /game
     await expect(page).toHaveURL(/.*game/, { timeout: 15000 });
