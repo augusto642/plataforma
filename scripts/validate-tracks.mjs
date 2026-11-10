@@ -14,6 +14,14 @@
  *   4. referenceSolution vazia — ou que NÃO passa nos próprios testes
  *      visíveis + ocultos (a solução é executada de verdade: JavaScript
  *      via `vm`, Python via `python3` lendo o programa do stdin);
+ *      Atividades Portugol (Sprint 23): testCode/hiddenTests são um
+ *      array JSON de casos { "stdin", "expected" } (programa inteiro,
+ *      entrada→saída — o mesmo formato que o runner executa) e este
+ *      gate reprova formato inválido ou array vazio; a referenceSolution
+ *      é executada caso a caso com o console oficial quando ele está
+ *      disponível (PORTUGOL_CONSOLE_HOME ou a instalação padrão do
+ *      Portugol Studio); sem console, a checagem é ESTRUTURAL e o fato
+ *      é declarado em warning — nunca silencioso;
  *   5. lessonPayload sem exemplo análogo completo
  *      (title/statement/solution/explanation/concept, strings não
  *      vazias — a mesma forma mínima que
@@ -28,17 +36,20 @@
  * vocabulário legado de tags que alimenta o registro por conceito da
  * tutora — está fora deste gate por decisão da Sprint 20A.
  *
- * Linguagens executadas na checagem 4: javascript e python (as duas
- * linguagens do catálogo hoje). Atividade em outra linguagem reprova
- * com mensagem explícita — quando uma trilha nova entrar (Sprint 23+),
- * o harness dela entra aqui junto.
+ * Linguagens executadas na checagem 4: javascript, python e portugol
+ * (portugol com o console oficial, quando disponível — ver item 4).
+ * Atividade em outra linguagem reprova com mensagem explícita.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import vm from 'node:vm';
 import { CATALOG_TRACK_ACTIVITIES } from './track-content.mjs';
 
 const TIMEOUT_MS = 5000;
+// JVM + compilação interna do núcleo Portugol: folga por caso.
+const PORTUGOL_TIMEOUT_MS = 30000;
 
 const spine = JSON.parse(
   readFileSync(new URL('../content/concept-spine.json', import.meta.url), 'utf8'),
@@ -93,6 +104,180 @@ function checkPythonSyntax(code) {
   }
 }
 
+// ── Portugol (Sprint 23): casos entrada→saída ───────────────────────
+// Espelha o runner (apps/api/src/submissions/runner/runner.service.ts):
+// testCode/hiddenTests são um array JSON de { "stdin", "expected" };
+// a comparação remove o sufixo do console oficial e ignora whitespace
+// no fim das saídas. Manter os dois lados em sincronia.
+
+const PORTUGOL_SUCCESS_SUFFIX =
+  '\nPrograma finalizado\n\nPressione ENTER para continuar\n';
+const PORTUGOL_PROMPT_SUFFIX = '\nPressione ENTER para continuar\n';
+
+function stripPortugolSuffix(stdout) {
+  if (stdout.endsWith(PORTUGOL_SUCCESS_SUFFIX)) {
+    return stdout.slice(0, -PORTUGOL_SUCCESS_SUFFIX.length);
+  }
+  if (stdout.endsWith(PORTUGOL_PROMPT_SUFFIX)) {
+    return stdout.slice(0, -PORTUGOL_PROMPT_SUFFIX.length);
+  }
+  return stdout;
+}
+
+function normalizePortugolOutput(value) {
+  return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\s+$/, '');
+}
+
+function parsePortugolCases(script, field) {
+  if (!isNonEmptyString(script)) {
+    throw new Error(
+      `${field} vazio — casos Portugol são um array JSON de { "stdin", "expected" }`,
+    );
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(script);
+  } catch {
+    throw new Error(
+      `${field} não é JSON válido — casos Portugol são um array JSON de { "stdin", "expected" }`,
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      `${field} deve ser um array JSON de casos { "stdin", "expected" }`,
+    );
+  }
+  parsed.forEach((item, i) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new Error(`${field}, caso ${i + 1}: deve ser um objeto { "stdin", "expected" }`);
+    }
+    if (typeof item.expected !== 'string') {
+      throw new Error(`${field}, caso ${i + 1}: "expected" é obrigatório e deve ser string`);
+    }
+    if (item.stdin !== undefined && typeof item.stdin !== 'string') {
+      throw new Error(
+        `${field}, caso ${i + 1}: "stdin" deve ser string (um valor por linha para cada leia)`,
+      );
+    }
+  });
+  return parsed.map((item) => ({
+    stdin: typeof item.stdin === 'string' ? item.stdin : '',
+    expected: item.expected,
+  }));
+}
+
+let portugolConsoleCache;
+function portugolConsole() {
+  if (portugolConsoleCache !== undefined) return portugolConsoleCache;
+  const candidates = [
+    process.env.PORTUGOL_CONSOLE_HOME,
+    '/usr/local/portugol-studio',
+  ].filter(Boolean);
+  for (const home of candidates) {
+    const jar = join(home, 'aplicacao', 'portugol-console.jar');
+    const java = join(home, 'java', 'java-linux', 'bin', 'java');
+    const jdkBin = join(home, 'java', 'java-linux', 'bin');
+    if (existsSync(jar) && existsSync(java)) {
+      portugolConsoleCache = { jar, java, jdkBin };
+      return portugolConsoleCache;
+    }
+  }
+  portugolConsoleCache = null;
+  return null;
+}
+
+function runPortugol(code, stdin) {
+  const home = portugolConsole();
+  const dir = mkdtempSync(join(tmpdir(), 'validate-tracks-portugol-'));
+  try {
+    writeFileSync(join(dir, 'programa.por'), code, 'utf8');
+    const result = spawnSync(
+      home.java,
+      [
+        '-Dfile.encoding=UTF-8',
+        `-Djava.io.tmpdir=${dir}`,
+        '-jar',
+        home.jar,
+        'programa.por',
+      ],
+      {
+        cwd: dir,
+        input: stdin,
+        encoding: 'utf8',
+        timeout: PORTUGOL_TIMEOUT_MS,
+        env: { ...process.env, PATH: `${home.jdkBin}:${process.env.PATH ?? ''}` },
+      },
+    );
+    return {
+      status: result.status,
+      stdout: result.stdout ?? '',
+      stderr: result.stderr ?? '',
+      timedOut: Boolean(result.error && result.error.code === 'ETIMEDOUT'),
+    };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function executePortugolReference(activity, visibleCases, hiddenCases) {
+  if (!portugolConsole()) {
+    warnings.push(
+      `[${activity.courseSlug}/${activity.slug}] console do Portugol indisponível neste ambiente — casos validados só ESTRUTURALMENTE (formato JSON); a execução da referenceSolution fica para um ambiente com o console (PORTUGOL_CONSOLE_HOME)`,
+    );
+    return;
+  }
+  const all = [
+    ...visibleCases.map((c) => ({ ...c, hidden: false })),
+    ...hiddenCases.map((c) => ({ ...c, hidden: true })),
+  ];
+  all.forEach((testCase, index) => {
+    const label = testCase.hidden
+      ? `caso oculto ${index - visibleCases.length + 1}`
+      : `caso visível ${index + 1}`;
+    const result = runPortugol(activity.referenceSolution, testCase.stdin);
+    if (result.timedOut) {
+      throw new Error(`${label}: a execução excedeu ${PORTUGOL_TIMEOUT_MS / 1000}s (timeout)`);
+    }
+    const stderrLines = result.stderr.split('\n');
+    const compileLine = stderrLines.find((l) => l.startsWith('ERRO:'));
+    if (compileLine) {
+      throw new Error(`${label}: erro de compilação da referenceSolution (${compileLine})`);
+    }
+    if (result.status !== 0) {
+      const runtimeLine =
+        stderrLines.find((l) => l.startsWith('Erro de execução:')) ??
+        'erro de execução sem mensagem do console';
+      throw new Error(`${label}: ${runtimeLine}`);
+    }
+    const actual = normalizePortugolOutput(stripPortugolSuffix(result.stdout));
+    const expected = normalizePortugolOutput(testCase.expected);
+    if (actual !== expected) {
+      // Caso oculto: não vazar esperado/obtido no relatório do gate.
+      throw new Error(
+        testCase.hidden
+          ? `${label}: saída divergente do esperado`
+          : `${label}: saída divergente — esperado "${expected}", obtido "${actual}"`,
+      );
+    }
+  });
+}
+
+function checkPortugolSyntax(code) {
+  // Sem console no ambiente, a checagem do exemplo análogo é só
+  // estrutural (declarado no cabeçalho) — não reprova por ausência
+  // da ferramenta.
+  if (!portugolConsole()) return;
+  const result = runPortugol(code, '');
+  const compileLine = result.stderr
+    .split('\n')
+    .find((l) => l.startsWith('ERRO:'));
+  if (compileLine) {
+    throw new Error(`erro de compilação no exemplo análogo (${compileLine})`);
+  }
+  // Erro de EXECUÇÃO (ex.: leia com stdin vazio) não reprova aqui: a
+  // checagem é de sintaxe/compilação, como nas outras linguagens.
+}
+
 function executeReferenceSolution(activity) {
   const program = [
     activity.referenceSolution,
@@ -105,7 +290,7 @@ function executeReferenceSolution(activity) {
     runPython(program);
   } else {
     throw new Error(
-      `linguagem "${activity.language}" sem harness de execução neste validador (suportadas: javascript, python)`,
+      `linguagem "${activity.language}" sem harness de execução neste validador (suportadas: javascript, python; portugol tem harness próprio)`,
     );
   }
 }
@@ -117,6 +302,8 @@ function checkAnalogousSolutionSyntax(activity, solution) {
     runJavaScript(solution, `${activity.slug}.analogous.js`);
   } else if (activity.language === 'python') {
     checkPythonSyntax(solution);
+  } else if (activity.language === 'portugol') {
+    checkPortugolSyntax(solution);
   }
 }
 
@@ -137,19 +324,50 @@ function validateActivity(activity) {
   }
 
   // 2–4. testes e solução de referência
-  if (!isNonEmptyString(activity.testCode)) {
-    fail(activity, 'testCode (testes visíveis) vazio');
-  }
-  if (!isNonEmptyString(activity.hiddenTests)) {
-    fail(activity, 'hiddenTests (testes ocultos) vazio');
-  }
-  if (!isNonEmptyString(activity.referenceSolution)) {
-    fail(activity, 'referenceSolution vazia');
-  } else if (isNonEmptyString(activity.testCode) && isNonEmptyString(activity.hiddenTests)) {
+  if (activity.language === 'portugol') {
+    // Formato entrada→saída (Sprint 23): array JSON de casos.
+    let visibleCases = null;
+    let hiddenCases = null;
     try {
-      executeReferenceSolution(activity);
+      visibleCases = parsePortugolCases(activity.testCode, 'testCode');
     } catch (error) {
-      fail(activity, `referenceSolution NÃO passa nos próprios testes: ${error.message}`);
+      fail(activity, error.message);
+    }
+    try {
+      hiddenCases = parsePortugolCases(activity.hiddenTests, 'hiddenTests');
+    } catch (error) {
+      fail(activity, error.message);
+    }
+    if (visibleCases && visibleCases.length === 0) {
+      fail(activity, 'testCode sem nenhum caso Portugol (array JSON vazio)');
+    }
+    if (hiddenCases && hiddenCases.length === 0) {
+      fail(activity, 'hiddenTests sem nenhum caso Portugol (array JSON vazio)');
+    }
+    if (!isNonEmptyString(activity.referenceSolution)) {
+      fail(activity, 'referenceSolution vazia');
+    } else if (visibleCases?.length && hiddenCases?.length) {
+      try {
+        executePortugolReference(activity, visibleCases, hiddenCases);
+      } catch (error) {
+        fail(activity, `referenceSolution NÃO passa nos próprios testes: ${error.message}`);
+      }
+    }
+  } else {
+    if (!isNonEmptyString(activity.testCode)) {
+      fail(activity, 'testCode (testes visíveis) vazio');
+    }
+    if (!isNonEmptyString(activity.hiddenTests)) {
+      fail(activity, 'hiddenTests (testes ocultos) vazio');
+    }
+    if (!isNonEmptyString(activity.referenceSolution)) {
+      fail(activity, 'referenceSolution vazia');
+    } else if (isNonEmptyString(activity.testCode) && isNonEmptyString(activity.hiddenTests)) {
+      try {
+        executeReferenceSolution(activity);
+      } catch (error) {
+        fail(activity, `referenceSolution NÃO passa nos próprios testes: ${error.message}`);
+      }
     }
   }
 

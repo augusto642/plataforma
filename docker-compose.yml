@@ -108,12 +108,30 @@ services:
       - PISTON_MAX_PROCESS_COUNT=64
     volumes:
       - piston-packages:/piston/packages
+    depends_on:
+      piston-portugol-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:2000/api/v2/packages', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 5
       start_period: 5s
+
+  # Sprint 23: provisiona o pacote customizado "portugol" (console
+  # oficial do Portugol Studio) no volume do Piston. A API de pacotes
+  # do Piston (usada pelo piston-init) só instala do índice oficial —
+  # pacote customizado é copiado para o volume com os marcadores do
+  # instalador. Ver infra/piston/packages/portugol/README.md.
+  piston-portugol-init:
+    build:
+      context: ./infra/piston/packages/portugol/2.7.5
+      dockerfile: Dockerfile
+    volumes:
+      - piston-packages:/piston/packages
+    restart: "no"
+    networks:
+      - sandbox-net
 
   piston-init:
     image: curlimages/curl:latest
