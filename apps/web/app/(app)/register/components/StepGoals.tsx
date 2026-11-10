@@ -355,7 +355,9 @@ export const StepGoals: React.FC<StepGoalsProps> = ({
             e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          ⚡ Finalizar & Provisionar Sandbox
+          {/* Trilha dinâmica v1 — este passo leva à Trilha Sugerida
+              (passo 3); o cadastro só é enviado no passo seguinte */}
+          ⚡ Ver minha trilha sugerida
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="5" y1="12" x2="19" y2="12" />
             <polyline points="12 5 19 12 12 19" />

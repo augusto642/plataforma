@@ -8,8 +8,8 @@ interface RegisterStepperProps {
 
 const STEPS = [
   { num: 1, tag: 'Etapa 01', title: 'Credenciais' },
-  { num: 2, tag: 'Etapa 02', title: 'Trilha Tech' },
-  { num: 3, tag: 'Etapa 03', title: 'Perfil & Metas' },
+  { num: 2, tag: 'Etapa 02', title: 'Perfil & Metas' },
+  { num: 3, tag: 'Etapa 03', title: 'Trilha Sugerida' },
   { num: 4, tag: 'Etapa 04', title: 'Workspace' },
 ];
 

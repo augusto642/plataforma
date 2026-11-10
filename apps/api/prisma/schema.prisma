@@ -123,6 +123,8 @@ model User {
   studentRepos      StudentRepo[]
   towerProgress     TowerProgress?
   towerMoves        TowerMove[]
+  // Trilha dinâmica v1 (Central 209): 1 investigação por usuário.
+  trackInvestigation TrackInvestigation?
 
   @@index([role])
   @@index([createdAt])
@@ -1148,4 +1150,88 @@ model OrgMember {
 
   @@unique([orgId, userId])
   @@map("org_members")
+}
+
+// ---------------------------------------------------------------------------
+// Trilha dinâmica v1 (Central 209 — DESIGN D2/D3)
+// A sugestão de trilha é uma função determinística sobre o perfil do aluno
+// (dynamic-track.rules.ts); os sinais de mercado seguem a spec last30days
+// (§6/§7) e NUNCA são inventados: sem fonte com data e URL, a investigação
+// registra `basis: 'profile-only'` e `marketEvidence` vazio.
+// ---------------------------------------------------------------------------
+
+enum TrackInvestigationStatus {
+  investigating
+  ready
+  failed
+}
+
+model TrackInvestigation {
+  id              String                   @id @default(uuid()) @db.Uuid
+  userId          String                   @unique @map("user_id") @db.Uuid
+  status          TrackInvestigationStatus @default(investigating)
+  // Foto do perfil no momento do cadastro: expLevel, timeCommitment,
+  // careerGoal, sourceTrack? (hint da landing), diagnosticTrackId?
+  profileSnapshot Json                     @map("profile_snapshot")
+  // Trilha sugerida (web3 | backend | frontend | ai) — nula até `ready`.
+  suggestedTrack  String?                  @map("suggested_track") @db.VarChar(16)
+  // { reasons: string[], basis: 'profile-only' | 'profile+market',
+  //   researchDocId?: string, researchSourcesAvailable?: string[],
+  //   researchSourcesUnavailable?: string[] }
+  rationale       Json?
+  // Sinais com score >= 70 (spec last30days §7), com fonte+URL+data —
+  // ou lista vazia quando basis é 'profile-only'. JSON, não tabela
+  // própria de evidência: a tabela MarketSignal guarda TODOS os sinais
+  // coletados (inclusive < 70, para auditoria); aqui só vão os exibidos.
+  marketEvidence  Json?                    @map("market_evidence")
+  slaDueAt        DateTime                 @map("sla_due_at")
+  completedAt     DateTime?                @map("completed_at")
+  notifiedAt      DateTime?                @map("notified_at")
+  // 'not-attempted' | 'sent' | 'pending-smtp' (sem SMTP, a investigação
+  // continua `ready` — o e-mail nunca bloqueia o aluno; DESIGN D5).
+  emailStatus     String                   @default("not-attempted") @map("email_status") @db.VarChar(16)
+  emailNotifiedAt DateTime?                @map("email_notified_at")
+  failureReason   String?                  @map("failure_reason")
+  // Rate-limit da re-tentativa manual: 1 por usuário a cada 24h (D3).
+  lastRetryAt     DateTime?                @map("last_retry_at")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketSignals MarketSignal[]
+
+  @@index([status])
+  @@map("track_investigations")
+}
+
+model MarketSignal {
+  id           String   @id @default(uuid()) @db.Uuid
+  // Nulo = sinal avulso (ex.: coleta admin sem investigação vinculada).
+  investigationId String? @map("investigation_id") @db.Uuid
+  // Campos obrigatórios da spec last30days §6.
+  titulo         String
+  tecnologia     String   @db.VarChar(64)
+  tipo           String   @db.VarChar(32)
+  publishedAt    DateTime @map("published_at")
+  retrievedAt    DateTime @default(now()) @map("retrieved_at")
+  sourceName     String   @map("source_name")
+  sourceUrl      String   @map("source_url")
+  evidencia      String?
+  objetivoAfetado String? @map("objetivo_afetado") @db.VarChar(32)
+  passoAfetado   String?  @map("passo_afetado")
+  // Pontuação da spec §7 (default): oficial 50 + 2ª fonte 25 + afeta
+  // objetivo 15 + versão estável em uso 10; >= 70 vira evidência.
+  // Beta/RC/rumor = 0, sempre ignorado.
+  score          Int      @default(0)
+  isBetaOrRumor  Boolean  @default(false) @map("is_beta_or_rumor")
+  // URL da 2ª fonte independente que confirmou o sinal (dedupe: mesma
+  // URL = confirmação, não sinal novo).
+  confirmedByUrl String?  @map("confirmed_by_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  investigation TrackInvestigation? @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@unique([investigationId, sourceUrl])
+  @@index([investigationId])
+  @@map("market_signals")
 }

@@ -36,8 +36,11 @@ interface AuthContextType {
     utmMedium?: string;
     utmCampaign?: string;
     diagnosticSessionToken?: string;
-    // Sprint 8 — escolhas da porta fria (etapas 2–3 do /register)
-    preferredTrack?: string;
+    // Trilha dinâmica v1 — escolhas da etapa 2 do /register
+    // (nível/tempo/objetivo) + hint da landing (sourceTrack).
+    // preferredTrack foi REMOVIDO: depreciado na API, a trilha é
+    // sugerida pela investigação, não escolhida no cadastro.
+    sourceTrack?: string;
     experienceLevel?: string;
     weeklyTimeCommitment?: string;
     careerGoal?: string;
@@ -168,10 +171,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // B09 — token da sessão do quiz diagnóstico: presente quando o aluno fez
     // o quiz antes de se cadastrar; a API vincula o resultado à conta nova
     diagnosticSessionToken?: string;
-    // Sprint 8 — escolhas das etapas 2–3 do /register (porta fria): a API
-    // persiste o nível como careerTier; os demais campos são aceitos no
-    // contrato e analisados via props do funil (ver RegisterDto)
-    preferredTrack?: string;
+    // Trilha dinâmica v1 — escolhas da etapa 2 do /register: a API
+    // persiste o nível como careerTier; o hint da landing viaja como
+    // sourceTrack (ver RegisterDto). preferredTrack removido (depreciado).
+    sourceTrack?: string;
     experienceLevel?: string;
     weeklyTimeCommitment?: string;
     careerGoal?: string;

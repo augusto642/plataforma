@@ -71,6 +71,45 @@ export class MailerService {
     this.logger.log(`Verification code e-mail sent to ${email} via SMTP.`);
   }
 
+  /**
+   * Trilha dinâmica v1 (Central 209 — DESIGN D5): avisa que a sugestão
+   * de trilha está pronta. Mesmo padrão fail-closed do
+   * sendVerificationCode: provider `log` fora de produção só registra;
+   * sem SMTP configurado, ConfigError — o chamador (DynamicTrackService)
+   * captura e marca `emailStatus: 'pending-smtp'` sem derrubar a
+   * investigação, que continua `ready`.
+   */
+  async sendTrackReady(email: string, name: string, trackName: string): Promise<void> {
+    if (this.provider === 'log') {
+      if (this.config.get<string>('NODE_ENV') === 'production') {
+        throw new ConfigError(
+          'MAILER_PROVIDER=log is forbidden in production: track-ready notifications must never be written to logs. Configure SMTP (MAILER_PROVIDER=smtp + SMTP_HOST/SMTP_USER/SMTP_PASS/SMTP_FROM).',
+        );
+      }
+      this.logger.log(
+        `[DEV-ONLY MAILER] Trilha pronta para ${email} (${trackName}); este log só existe com MAILER_PROVIDER=log fora de produção`,
+      );
+      return;
+    }
+
+    const transporter = this.getTransporter();
+    const from = this.config.get<string>('SMTP_FROM');
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: 'Sua trilha está pronta! — Nexus Code',
+      text:
+        `Olá, ${name}!\n\n` +
+        `Sua trilha personalizada está pronta: ${trackName}.\n\n` +
+        `Entre na plataforma para ver a sugestão e começar.\n`,
+      html:
+        `<p>Olá, ${name}!</p>` +
+        `<p>Sua trilha personalizada está pronta: <strong>${trackName}</strong>.</p>` +
+        `<p>Entre na plataforma para ver a sugestão e começar.</p>`,
+    });
+    this.logger.log(`Track-ready e-mail sent to ${email} via SMTP.`);
+  }
+
   private getTransporter(): nodemailer.Transporter {
     if (this.transporter) return this.transporter;
     const host = this.config.get<string>('SMTP_HOST');
