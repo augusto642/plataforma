@@ -25,6 +25,8 @@ Thumbs.db
 .agents/
 apps/web/playwright-report/
 apps/web/test-results/
+# Estado autenticado da suíte e2e (cookies de sessão — nunca commitar)
+apps/web/playwright/.auth/
 *.tsbuildinfo
 
 # Estado operacional do pipeline de conhecimento (cursor de revarredura, logs) — nunca versionado (Q8)

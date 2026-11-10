@@ -4,11 +4,11 @@ test.describe('NEXUS CODE — WCAG 2.1 AA & Critical Flow E2E Audits', () => {
   test('Landing page should render semantic landmarks and have accessible title', async ({ page }) => {
     await page.goto('/');
 
-    // Check title
-    await expect(page).toHaveTitle(/NEXUS CODE/);
+    // Check title (título real desde o pacote SEO da Sprint 10)
+    await expect(page).toHaveTitle(/Nexus Code/);
 
-    // Verify main landmarks
-    const main = page.locator('main, body');
+    // Verify main landmarks (seletor único: 'main, body' viola o strict mode com 2 elementos)
+    const main = page.locator('main');
     await expect(main).toBeVisible();
 
     // Verify contrast elements and headings
@@ -17,6 +17,9 @@ test.describe('NEXUS CODE — WCAG 2.1 AA & Critical Flow E2E Audits', () => {
   });
 
   test('Course catalog should have navigable cards and accessible filters', async ({ page }) => {
+    // /courses é auth-gated desde a B41 (deslogado, zero cursos). A sessão
+    // vem do setup de autenticação (storageState) — logar aqui de novo
+    // somaria logins via UI e bateria no throttler da API.
     await page.goto('/courses');
     await expect(page.locator('h1, h2').first()).toBeVisible();
 

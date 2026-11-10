@@ -21,6 +21,9 @@ test.describe('Smoke tests', () => {
   });
 
   test('authenticated student can view courses and open course modal', async ({ page }) => {
+    // /courses é auth-gated desde a B41. A sessão vem do setup de
+    // autenticação (storageState); o login via UI é exercido pelo
+    // próprio teste de login do smoke.
     await page.goto('/courses');
     const firstCourseBtn = page.locator('button:has-text("Ver Ementa")').first();
     await expect(firstCourseBtn).toBeVisible({ timeout: 10000 });
@@ -29,7 +32,13 @@ test.describe('Smoke tests', () => {
     await expect(page.locator('text=Ementa Completa').or(page.locator('text=Iniciar Trilha')).first()).toBeVisible();
   });
 
-  test('web ide loads', async ({ page }) => {
+  // O /ide abre com a sessão do setup (storageState). O ramo demo
+  // não-autenticado foi removido: o botão "Preencher Demo Aluno" é
+  // estruturalmente instável — ora visível mas nunca acionável, ora some
+  // do DOM entre o isVisible e o click (reprovado pelo QA em 2 modos de
+  // falha distintos). O login via UI já é coberto pelo teste de login
+  // do smoke; aqui o que se assertiona é o editor abrindo autenticado.
+  test('web ide loads and allows authentication to open code editor', async ({ page }) => {
     await page.goto('/ide');
     await expect(page.locator('body')).toBeVisible();
 
