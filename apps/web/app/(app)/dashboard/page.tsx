@@ -1,59 +1,65 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import './dashboard.css';
-import { Topbar } from './components/Topbar';
-import { HeroActiveMission } from './components/HeroActiveMission';
-import { SkillRoadmapTree } from './components/SkillRoadmapTree';
-import { SkillsRadarChart } from './components/SkillsRadarChart';
-import { AnnualHeatmap } from './components/AnnualHeatmap';
-import { CourseRankingTable } from './components/CourseRankingTable';
-import { SocraticCopilotBox } from './components/SocraticCopilotBox';
-import { ConceptsToReinforce } from './components/ConceptsToReinforce';
-import { CelebrationModal } from './components/CelebrationModal';
-import { TutorModal } from './components/TutorModal';
-import { CareerPetBanner } from './components/CareerPetBanner';
+import Logo from '../../../components/Logo';
+import { MaterialIcon } from '../../../components/MaterialIcon';
 import { DynamicTrackCard } from './components/DynamicTrackCard';
 import { DailyMissions } from './components/DailyMissions';
 import { LeagueCard } from './components/LeagueCard';
 import PwaInstallBanner from './components/PwaInstallBanner';
-import { PetEvolutionModal } from '../game/components/PetEvolutionModal';
 import { fetchDashboardData } from './utils/api';
-import { fireConfetti } from './utils/confetti';
+import { apiFetch, API_BASE } from '../../../lib/apiClient';
 import { StudentDashboardData } from './types';
 
+// Central 216 retrabalho (D2 + D7) — rebuild do dashboard para a
+// estrutura do protótipo Stitch v2 (dashboard-aluno.html): header com
+// nav + streak/XP reais, hero da fase atual, "Trilha Ativa" com
+// fases, "Simulador de Entrevista", "Sua Liga" (tiers reais
+// bronze/prata/ouro, via LeagueCard) e "Missões de Hoje" (reais, via
+// DailyMissions). Sai o bento grid (Topbar com simulação de +250 XP,
+// CareerPetBanner, SkillRoadmapTree, SkillsRadarChart, AnnualHeatmap,
+// CourseRankingTable, SocraticCopilotBox, HeroActiveMission).
+// Regra D7: seção sem dado real é omitida — "Revisões da IA Salvas"
+// não tem endpoint de listagem e não aparece; fases sem curso ativo
+// mostram estado vazio honesto. Nenhum número do molde ("Liga
+// Diamante", Kafka, 88.4, 348 submissões) existe mais nesta tela.
+
+interface CourseActivity {
+  id: string;
+  title: string;
+}
+
+interface CourseSummary {
+  id: string;
+  title: string;
+  activities?: CourseActivity[];
+}
+
 export default function StudentDashboardPage() {
-  const router = useRouter();
-  // Retrabalho Central 213 (D5) — o estado inicial é VAZIO: antes, o
-  // dashboard nascia com DEFAULT_DASHBOARD_DATA e exibia "Augusto
-  // Silva / 4.850 XP / nível 25" e leaderboard fictício mesmo com a API
-  // fora do ar. Agora só há dados na tela quando a API respondeu.
   const [data, setData] = useState<StudentDashboardData | null>(null);
-  const [userXp, setUserXp] = useState<number | null>(null);
-  const [userLevel, setUserLevel] = useState<number | null>(null);
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [celebrationOpen, setCelebrationOpen] = useState(false);
-  const [tutorOpen, setTutorOpen] = useState(false);
-  const [searchNotice, setSearchNotice] = useState<string | null>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     let isMounted = true;
     fetchDashboardData().then((fetched) => {
       if (!isMounted) return;
-      if (fetched) {
-        setData(fetched);
-        setUserXp(fetched.user.xp);
-        setUserLevel(fetched.user.level);
-      } else {
-        setLoadFailed(true);
-      }
+      if (fetched) setData(fetched);
+      else setLoadFailed(true);
       setIsLoading(false);
     });
-
+    // Fases da "Trilha Ativa": atividades reais do curso primário
+    // (GET /courses). Sem curso, sem fases — estado vazio honesto.
+    apiFetch(`${API_BASE}/courses`)
+      .then(async (res) => {
+        if (!isMounted || !res.ok) return;
+        const list = await res.json();
+        if (Array.isArray(list)) setCourses(list);
+      })
+      .catch(() => undefined);
     return () => {
       isMounted = false;
     };
@@ -63,68 +69,12 @@ export default function StudentDashboardPage() {
     setIsLoading(true);
     setLoadFailed(false);
     fetchDashboardData().then((fetched) => {
-      if (fetched) {
-        setData(fetched);
-        setUserXp(fetched.user.xp);
-        setUserLevel(fetched.user.level);
-      } else {
-        setLoadFailed(true);
-      }
+      if (fetched) setData(fetched);
+      else setLoadFailed(true);
       setIsLoading(false);
     });
   };
 
-  // Spotlight mouse tracking effect for bento cards (throttled with rAF)
-  const rafRef = useRef<number | null>(null);
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (rafRef.current) return;
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-    rafRef.current = requestAnimationFrame(() => {
-      const cards = document.querySelectorAll('.spotlight-card');
-      cards.forEach((card) => {
-        const rect = (card as HTMLElement).getBoundingClientRect();
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-        (card as HTMLElement).style.setProperty('--mouse-x', `${x}px`);
-        (card as HTMLElement).style.setProperty('--mouse-y', `${y}px`);
-      });
-      rafRef.current = null;
-    });
-  };
-
-  const handleSimulateChallenge = async () => {
-    if (userXp === null || userLevel === null) return;
-    const newXp = userXp + 250;
-    const newLvl = Math.floor(newXp / 200) + 1;
-    setUserXp(newXp);
-    setUserLevel(newLvl);
-
-    // Fire Confetti explosion
-    await fireConfetti({
-      particleCount: 140,
-      spread: 90,
-      origin: { y: 0.6 },
-      colors: ['#00B37E', '#8257E5', '#00E5FF', '#FFA116', '#04D361'],
-    });
-
-    // Open celebration modal
-    setCelebrationOpen(true);
-  };
-
-  // B05: busca sem alert() — aviso temporário não-bloqueante + leva o aluno
-  // até a árvore de habilidades, onde estão os desafios.
-  const handleSearch = (query: string) => {
-    const q = query.trim();
-    if (!q) return;
-    setSearchNotice(`Busca por "${q}" — explore os desafios na árvore de habilidades abaixo.`);
-    document.getElementById('skill-roadmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => setSearchNotice(null), 4000);
-  };
-
-  // D5 — estados honestos: carregando não mostra número nenhum e a
-  // falha da API não mostra dado inventado, só o erro e a nova tentativa.
   if (isLoading) {
     return (
       <div className="dashboard-root min-h-screen flex flex-col items-center justify-center antialiased bg-background text-ink-heading p-6">
@@ -158,172 +108,263 @@ export default function StudentDashboardPage() {
     );
   }
 
-  const currentUserData = {
-    ...data.user,
-    xp: userXp ?? data.user.xp,
-    level: userLevel ?? data.user.level,
-  };
+  const mission = data.activeMission;
+  const primaryCourse =
+    courses.find((c) => c.id === mission?.courseId) ?? courses[0] ?? null;
+  // Fases: as 4 primeiras atividades do curso, em ordem. O status é
+  // derivado da contagem REAL de atividades concluídas do progresso:
+  // as N primeiras são concluídas, a seguinte é a ativa, o resto
+  // bloqueado. Sem progresso, nenhuma fase é marcada como concluída.
+  const completed = mission?.completedLabs ?? 0;
+  const phases = (primaryCourse?.activities ?? []).slice(0, 4).map((act, idx) => ({
+    id: act.id,
+    title: act.title,
+    status: idx < completed ? 'concluída' : idx === completed ? 'ativa' : 'bloqueada',
+  }));
 
   return (
-    <div
-      onMouseMove={handleMouseMove}
-      className="dashboard-root min-h-screen flex flex-col antialiased selection:bg-[#8257E5] selection:text-white bg-background text-ink-heading"
-    >
-      {/* Aviso temporário da busca (não-bloqueante) */}
-      {searchNotice && (
-        <div
-          role="status"
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-surface-3 border border-border-2 text-ink-body text-xs font-medium shadow-2xl"
-        >
-          {searchNotice}
+    <div className="dashboard-root min-h-screen flex flex-col antialiased selection:bg-[#8257E5] selection:text-white bg-background text-ink-heading">
+      {/* Header do protótipo: nav de seções + streak/XP reais + avatar. */}
+      <header className="h-16 bg-dark-surface-container-low border-b border-border-subtle px-4 md:px-8 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-6 min-w-0">
+          <Logo size="md" href="/" />
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-ink-body">
+            <Link href="/dashboard" className="text-ink-heading">
+              Trilha do Jogo
+            </Link>
+            <Link href="/entrevista" className="hover:text-ink-heading transition-colors">
+              Simulador de Entrevista
+            </Link>
+            <Link href="/leaderboard" className="hover:text-ink-heading transition-colors">
+              Ligas &amp; Ranking
+            </Link>
+            <Link href="/certificacoes" className="hover:text-ink-heading transition-colors">
+              Certificados
+            </Link>
+          </nav>
         </div>
-      )}
-      {/* 1. TOPBAR */}
-      <Topbar
-        user={currentUserData}
-        onSimulateChallenge={handleSimulateChallenge}
-        onSearch={handleSearch}
-      />
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 min-w-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-surface-container border border-border-subtle text-xs font-bold text-brand-amber">
+            <MaterialIcon name="local_fire_department" className="text-[16px]" />
+            {data.user.streakDays} dias
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-surface-container border border-border-subtle text-xs font-bold text-ink-heading">
+            <MaterialIcon name="bolt" className="text-[16px] text-secondary" />
+            {data.user.xp} XP
+          </span>
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-purple text-white text-xs font-bold">
+              {data.user.avatarInitials}
+            </span>
+            <span className="hidden md:block text-sm font-semibold truncate max-w-[140px]">
+              {data.user.name}
+            </span>
+          </span>
+        </div>
+      </header>
 
-      {/* 2. MAIN BENTO GRID */}
-      <main ref={mainRef} className="flex-1 max-w-[1520px] w-full mx-auto p-4 md:p-8 space-y-6">
-        {/* Fase 5 premium (§6.2) — banner de instalação do PWA. */}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 space-y-6">
         <PwaInstallBanner />
 
-        {/* SECTION 0: CARREIRA & PET COMPANION STATUS BANNER */}
-        <CareerPetBanner />
-
-        {/* SECTION 0.5: TRILHA DINÂMICA (Redesign v2 + 209) — preparando /
-            sugerida / toast. A sugestão só renderiza com dado real da API
-            (GET /dynamic-track/me) — nunca uma sugestão inventada. */}
+        {/* Trilha dinâmica (209): sugestão real ou estado de espera. */}
         <DynamicTrackCard />
 
-        {/* SECTION 1: HERO ACTIVE MISSION — Central 216 (auditoria do
-            Designer, item 4): a meta semanal (8,5/10h, 85%) era dado
-            do molde sem endpoint e foi removida do modelo; o Hero
-            ocupa a largura cheia e, sem curso iniciado, mostra o
-            estado vazio honesto. */}
-        <section>
-          <HeroActiveMission
-            mission={data.activeMission}
-            onOpenTutor={() => setTutorOpen(true)}
-          />
+        {/* Hero — fase atual: trilha ativa real ou estado vazio. */}
+        <section className="rounded-xl bg-dark-surface-container border border-border-subtle p-6 md:p-8">
+          <p className="font-code text-xs text-secondary font-bold uppercase tracking-wider">
+            {mission ? mission.trackTitle : 'Sua trilha'}
+          </p>
+          <h1 className="font-headline text-headline-lg-mobile md:text-headline-lg text-white font-bold mt-2">
+            {mission ? mission.title : 'Comece sua jornada'}
+          </h1>
+          {mission ? (
+            <>
+              <p className="text-sm text-dark-on-surface-variant mt-2">
+                Progresso em andamento
+                {mission.totalLabs > 0 &&
+                  ` · ${mission.completedLabs} de ${mission.totalLabs} atividades`}
+              </p>
+              <div className="mt-4 h-2 rounded-full bg-dark-surface-container-high overflow-hidden max-w-xl">
+                <div
+                  className="h-full bg-secondary rounded-full transition-all"
+                  style={{ width: `${Math.min(100, Math.max(0, mission.progressPercent))}%` }}
+                />
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/ide"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded bg-primary hover:bg-dark-primary text-white text-sm font-bold transition-colors"
+                >
+                  <MaterialIcon name="play_arrow" className="text-[18px]" />
+                  Continuar desafio
+                </Link>
+                <Link
+                  href="/entrevista"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded bg-dark-surface-container border border-border-strong text-dark-on-surface hover:text-white text-sm font-semibold transition-colors"
+                >
+                  <MaterialIcon name="record_voice_over" className="text-[18px]" />
+                  Treinar entrevista
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-dark-on-surface-variant mt-2 max-w-xl leading-relaxed">
+                Você ainda não começou uma trilha. Peça uma sugestão à IA com
+                base no seu perfil e nas suas metas, ou comece direto pelos
+                desafios.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/trilha/sugerida"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded bg-primary hover:bg-dark-primary text-white text-sm font-bold transition-colors"
+                >
+                  Sugerir minha trilha
+                </Link>
+                <Link
+                  href="/desafios"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded bg-dark-surface-container border border-border-strong text-dark-on-surface hover:text-white text-sm font-semibold transition-colors"
+                >
+                  Ver desafios
+                </Link>
+              </div>
+            </>
+          )}
         </section>
 
-        {/* SECTION 2: SKILL TREE / ROADMAP DE NÓS */}
-        <div id="skill-roadmap">
-          <SkillRoadmapTree
-            nodes={data.skillRoadmap}
-            onSelectActiveNode={() => {
-              router.push('/ide');
-            }}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-7 space-y-6">
+            {/* Trilha Ativa — fases reais do curso primário. */}
+            <section
+              aria-label="Trilha ativa"
+              className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-5"
+            >
+              <h2 className="font-headline text-lg font-bold text-white">Trilha Ativa</h2>
+              {primaryCourse && (
+                <p className="text-sm text-dark-on-surface-variant mt-1">
+                  {primaryCourse.title}
+                  {mission && mission.totalLabs > 0 && (
+                    <> · em andamento ({mission.completedLabs}/{mission.totalLabs})</>
+                  )}
+                </p>
+              )}
+              {phases.length > 0 ? (
+                <ol className="mt-4 space-y-2">
+                  {phases.map((phase, idx) => (
+                    <li
+                      key={phase.id}
+                      className="flex items-center gap-3 rounded-xl border border-border-subtle bg-dark-surface-container px-4 py-3"
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                          phase.status === 'concluída'
+                            ? 'bg-secondary/15 text-secondary'
+                            : phase.status === 'ativa'
+                              ? 'bg-primary/15 text-dark-primary'
+                              : 'bg-dark-surface-container-high text-dark-on-surface-variant'
+                        }`}
+                      >
+                        {phase.status === 'concluída' ? (
+                          <MaterialIcon name="check" className="text-[18px]" />
+                        ) : phase.status === 'ativa' ? (
+                          <MaterialIcon name="swords" className="text-[18px]" />
+                        ) : (
+                          <MaterialIcon name="lock" className="text-[18px]" />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-code text-dark-on-surface-variant uppercase tracking-wider">
+                          Fase 0{idx + 1} · {phase.status}
+                        </span>
+                        <span className="block text-sm font-semibold text-white truncate">
+                          {phase.title}
+                        </span>
+                      </span>
+                      {phase.status === 'ativa' && (
+                        <Link
+                          href="/ide"
+                          className="shrink-0 inline-flex items-center gap-1 text-sm font-bold text-dark-primary hover:underline"
+                        >
+                          Jogar agora
+                          <MaterialIcon name="arrow_forward" className="text-[16px]" />
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-dark-on-surface-variant mt-3 leading-relaxed">
+                  {primaryCourse
+                    ? 'Este curso ainda não tem fases listadas.'
+                    : 'Nenhuma trilha ativa no momento — comece pela trilha sugerida ou pelos desafios.'}
+                </p>
+              )}
+            </section>
+
+            {/* Simulador de Entrevista — sem números inventados. */}
+            <section
+              aria-label="Simulador de entrevista"
+              className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-5"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 border border-primary/40 text-dark-primary">
+                  <MaterialIcon name="record_voice_over" className="text-[22px]" />
+                </span>
+                <div>
+                  <h2 className="font-headline text-base font-bold text-white">
+                    Simulador de Entrevista
+                  </h2>
+                  <p className="text-sm text-dark-on-surface-variant">
+                    Treine para entrevistas técnicas com perguntas e live coding.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/entrevista"
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-dark-primary hover:underline"
+              >
+                Nova simulação
+                <MaterialIcon name="arrow_forward" className="text-[16px]" />
+              </Link>
+            </section>
+          </div>
+
+          <div className="lg:col-span-5 space-y-6">
+            {/* Sua Liga — tiers reais (LeagueCard some sem liga/acesso). */}
+            <LeagueCard />
+            {/* Missões de Hoje — só com dados reais (DailyMissions some sem). */}
+            <DailyMissions />
+            {/* Ranking do curso primário — só entradas reais. */}
+            {data.leaderboard.length > 0 && (
+              <section
+                aria-label="Ranking do curso"
+                className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-5"
+              >
+                <h2 className="font-headline text-base font-bold text-white">Ranking do curso</h2>
+                <ol className="mt-3 space-y-2">
+                  {data.leaderboard.map((entry) => (
+                    <li
+                      key={entry.rank}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="text-dark-on-surface truncate">
+                        {entry.rank}º {entry.name}
+                        {entry.isCurrentUser ? ' (Você)' : ''}
+                      </span>
+                      <span className="font-bold text-white shrink-0">{entry.xp} XP</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+            {data.heatmap.totalSubmissions > 0 && (
+              <p className="text-xs text-dark-on-surface-variant px-1">
+                {data.heatmap.totalSubmissions} submissões registradas.
+              </p>
+            )}
+          </div>
         </div>
-
-        {/* SECTION 2.5: CONCEITOS PARA REFORÇAR (Sprint 21 — só aparece
-            quando há conceito frágil derivado das submissões reais) */}
-        <ConceptsToReinforce />
-
-        {/* SECTION 3: RADAR DE HABILIDADES + HEATMAP ANUAL */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 flex flex-col">
-            <SkillsRadarChart
-              overallIndex={data.radarSkills.overallIndex}
-              skills={data.radarSkills.skills}
-            />
-          </div>
-          <div className="lg:col-span-7 flex flex-col">
-            <AnnualHeatmap heatmap={data.heatmap} />
-          </div>
-        </section>
-
-        {/* SECTION 3.5: DESAFIO DA SEMANA + COMUNIDADE (Fase 3 premium) */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-6 flex flex-col">
-            <a
-              href="/desafios"
-              className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5 hover:border-[#8257E5]/60 transition-colors"
-            >
-              <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
-                Desafio da semana
-              </span>
-              <span className="block font-bold text-white mt-2">
-                Participe, suba na liga e ganhe pontos
-              </span>
-              <span className="block text-sm text-zinc-400 mt-1">
-                Um problema curto por semana, com ranking por nível — iniciante compete com
-                iniciante. Participar já rende pontos.
-              </span>
-            </a>
-          </div>
-          <div className="lg:col-span-6 flex flex-col">
-            <a
-              href="/comunidade"
-              className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5 hover:border-[#8257E5]/60 transition-colors"
-            >
-              <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
-                Comunidade
-              </span>
-              <span className="block font-bold text-white mt-2">
-                Fórum, galeria de soluções e revisão por pares
-              </span>
-              <span className="block text-sm text-zinc-400 mt-1">
-                Discuta o desafio da semana, compartilhe sua solução aprovada e revise o
-                código de colegas.
-              </span>
-            </a>
-          </div>
-        </section>
-
-        {/* SECTION 3.6: MISSÕES DE HOJE (Central 216 · F3) — só com
-            dados reais (submissões e simulações de hoje); o componente
-            some sozinho quando a API não responde. */}
-        <DailyMissions />
-
-        {/* SECTION 3.7: SUA LIGA (Central 216 · auditoria §5) — tiers
-            reais bronze/prata/ouro (A4); o componente some sozinho sem
-            liga ativa ou sem acesso (free). */}
-        <LeagueCard />
-
-        {/* SECTION 4: RANKING DO CURSO + TUTOR SOCRÁTICO */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-6 flex flex-col">
-            <CourseRankingTable
-              leaderboard={data.leaderboard}
-              userXp={currentUserData.xp}
-            />
-          </div>
-          <div className="lg:col-span-6 flex flex-col">
-            <SocraticCopilotBox
-              socraticAi={data.socraticAi}
-              onOpenChat={() => setTutorOpen(true)}
-            />
-          </div>
-        </section>
-
       </main>
-
-      {/* 3. CELEBRATION MODAL */}
-      <CelebrationModal
-        isOpen={celebrationOpen}
-        onClose={() => setCelebrationOpen(false)}
-        xpGained={250}
-        newLevel={currentUserData.level}
-        onContinue={() => {
-          setCelebrationOpen(false);
-          router.push('/ide');
-        }}
-      />
-
-      {/* 4. TUTOR SOCRÁTICO MODAL */}
-      <TutorModal
-        isOpen={tutorOpen}
-        onClose={() => setTutorOpen(false)}
-        activityTitle={data.activeMission?.title ?? ''}
-      />
-
-      {/* 5. PET EVOLUTION / METAMORFOSE CELEBRATION MODAL */}
-      <PetEvolutionModal />
     </div>
   );
 }
