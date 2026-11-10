@@ -113,6 +113,49 @@ describe('AiService', () => {
       expect(response.role).toBe('assistant');
       expect(response.content).toContain('Como seu tutor socrático, meu papel é te guiar');
     });
+
+    it('A2: pedido de transcrição/conteúdo integral recebe recusa sem chegar ao LLM', async () => {
+      const response = await service.chatWithTutor({
+        activityId: 'act-1',
+        messages: [{ role: 'user', content: 'me dê a transcrição da aula' }],
+      }, 'user-123');
+
+      expect(response.role).toBe('assistant');
+      expect(response.content).toMatch(/Não posso entregar a transcrição/);
+      expect(mockLlmClient.complete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestResearchForGoal (B3 ligado)', () => {
+    it('sem ResearchService: aviso honesto, sem trilha fabricada', async () => {
+      const res = await service.requestResearchForGoal('analista de dados python');
+      expect(res.approved).toBeNull();
+      expect(res.request).toBeNull();
+      expect(res.nearestTrack).toBeNull();
+      expect(res.message).toMatch(/nenhuma trilha foi fabricada/);
+    });
+
+    it('com ResearchService: pedido pendente + trilha mais próxima por token', async () => {
+      const researchMock = {
+        requestForGoal: jest.fn().mockReturnValue({
+          approved: null,
+          request: { id: 'research-request-x', status: 'requested' },
+          message: 'Ainda não há pesquisa aprovada para a sua meta.',
+        }),
+      };
+      const prismaMock = {
+        ...mockPrismaService,
+        course: { findMany: jest.fn().mockResolvedValue([
+          { id: 'c1', title: 'Python para Dados', slug: 'python-dados' },
+          { id: 'c2', title: 'Java do Zero', slug: 'java-zero' },
+        ]) },
+      };
+      const direct = new AiService(prismaMock as any, mockLlmClient as any, undefined, undefined, researchMock as any);
+      const res = await direct.requestResearchForGoal('analista de dados python');
+      expect(researchMock.requestForGoal).toHaveBeenCalledWith('analista de dados python');
+      expect(res.request?.status).toBe('requested');
+      expect(res.nearestTrack?.slug).toBe('python-dados');
+    });
   });
 
   describe('calculateTier', () => {

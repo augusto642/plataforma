@@ -71,3 +71,94 @@ export function buildUntrustedStudentContext(fields: {
   }
   return parts.join('\n\n');
 }
+
+/**
+ * ── Sistema de conhecimento (DESIGN §6.2) ──────────────────────────────
+ * Regras de citação/recusa, aplicadas em código, não só em prompt:
+ * - a tutora NUNCA afirma ter assistido ao curso, nunca reproduz falas do
+ *   instrutor, nunca inventa minutagem ("aos 12:34…") — a base não guarda
+ *   minutagem nem transcrição, então qualquer minutagem seria invenção;
+ * - pedido de conteúdo integral/transcrição => recusa honesta + resumo +
+ *   indicação da fonte original, sem entregar mais que o resumo condensado;
+ * - citação sem lição correspondente é erro de prompt (testado em QA).
+ */
+export interface KnowledgeCitationLesson {
+  id: string;
+  title: string;
+  courseName: string;
+  summary: string;
+}
+
+export interface KnowledgeCitationEntry {
+  slug: string;
+  title: string;
+  version: number;
+  courseName: string;
+  lessonTitle: string;
+  summary: string;
+}
+
+/** Citação estendida KMS (§13.5): `Fontes: <entryTitle> (KMS v<n>) — <courseName> — <lessonTitle>`. */
+export function formatKmsSources(entries: KnowledgeCitationEntry[]): string {
+  if (!entries.length) return '';
+  const blocks = entries.map(
+    (e) => `- ${e.title} (KMS v${e.version}): ${e.summary}`,
+  );
+  const cite = (e: KnowledgeCitationEntry) =>
+    [`${e.title} (KMS v${e.version})`, e.courseName, e.lessonTitle].filter(Boolean).join(' — ');
+  return [
+    'CONHECIMENTO CURADO (KMS, resumos em linguagem própria):',
+    ...blocks,
+    '',
+    `Fontes: ${entries.map((e) => `${cite(e)} (referência; resumo em linguagem própria)`).join('; ')}`,
+  ].join('\n');
+}
+
+export function formatKmsCitation(entries: KnowledgeCitationEntry[]): string {
+  if (!entries.length) return '';
+  const cite = (e: KnowledgeCitationEntry) =>
+    [`${e.title} (KMS v${e.version})`, e.courseName, e.lessonTitle].filter(Boolean).join(' — ');
+  return entries.map((e) => `${cite(e)} (referência; resumo em linguagem própria)`).join('; ');
+}
+
+export const KNOWLEDGE_CITATION_RULES = [
+  'Cite apenas lições que existem na base de conhecimento (lista abaixo).',
+  'Nunca afirme ter assistido ao curso, nunca reproduza falas do instrutor e nunca invente minutagem.',
+  'A base guarda resumos condensados em linguagem própria, nunca transcrição nem conteúdo integral.',
+].join(' ');
+
+export function formatKnowledgeSources(lessons: KnowledgeCitationLesson[]): string {
+  if (!lessons.length) return '';
+  const blocks = lessons.map(
+    (l) => `- ${l.courseName} — ${l.title}: ${l.summary}`,
+  );
+  return [
+    'CONHECIMENTO DE REFERÊNCIA (resumos em linguagem própria):',
+    ...blocks,
+    '',
+    `Fontes: ${lessons.map((l) => `${l.courseName} — ${l.title} (referência; resumo em linguagem própria)`).join('; ')}`,
+  ].join('\n');
+}
+
+const FULL_CONTENT_PATTERNS = [
+  /transcri(ç|c)ão/i, /conteúdo integral/i, /conteudo integral/i, /texto integral/i,
+  /me (dê|de|mostre|passe) (a|o) (aula|vídeo|video) (completa|inteira|toda)/i,
+  /aula completa/i, /vídeo completo/i, /video completo/i,
+];
+
+export function isFullContentRequest(text: string): boolean {
+  return FULL_CONTENT_PATTERNS.some((p) => p.test(text || ''));
+}
+
+export function buildFullContentRefusal(lessons: KnowledgeCitationLesson[]): string {
+  const summary = lessons.length
+    ? `O que posso oferecer é o resumo condensado: ${lessons.map((l) => `${l.courseName} — ${l.title}: ${l.summary}`).join(' ')}`
+    : 'Ainda não há resumo aprovado para essa aula na base de conhecimento.';
+  return [
+    'Não posso entregar a transcrição nem o conteúdo integral da aula: a base guarda apenas resumos condensados em linguagem própria, e o curso é material de terceiros usado como referência.',
+    summary,
+    lessons.length
+      ? `Para o conteúdo completo, consulte a fonte original: ${lessons.map((l) => `${l.courseName} — ${l.title}`).join('; ')}.`
+      : '',
+  ].filter(Boolean).join('\n');
+}

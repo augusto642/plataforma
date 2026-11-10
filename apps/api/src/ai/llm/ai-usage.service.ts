@@ -11,9 +11,9 @@ import type { LlmUsage } from './llm-provider';
  * (props JSON), consultável por SQL — o mesmo padrão de agregação por
  * props que o funil já usa para campanhas.
  *
- * COTA (defaults PROPOSTOS pelo PM no plano B1/B6/B8, pergunta Q5 —
- * pendentes de confirmação do Augusto; são constantes de configuração,
- * não verdade gravada em pedra):
+ * COTA (defaults propostos pelo PM no plano B1/B6/B8, pergunta Q5 —
+ * CONFIRMADOS pelo Augusto em 2026-10-23; seguem constantes de
+ * configuração, ajustáveis por env, não verdade gravada em pedra):
  * - plano free: 20 chamadas LLM/dia por aluno (AI_DAILY_QUOTA_FREE)
  * - plano pro: 200 chamadas LLM/dia por aluno (AI_DAILY_QUOTA_PRO)
  * Acima da cota, a tutora degrada para a heurística ROTULADA — nunca
@@ -29,6 +29,18 @@ import type { LlmUsage } from './llm-provider';
 
 export const AI_USAGE_EVENT = 'ai_llm_usage';
 
+/**
+ * Consolidação 22+23 — evento de BLOQUEIO da tutora (dívida de
+ * observabilidade apontada pelo QA da Sprint 22): chamada que NÃO
+ * chegou ao provedor porque a cota estourou ou o kill switch está
+ * desligado. É um evento PRÓPRIO, separado do `ai_llm_usage` (que
+ * mede gasto real de LLM — chamada bloqueada não gasta token), para
+ * os estouros de cota e os períodos de kill switch deixarem de ser
+ * invisíveis na analítica. Não altera a semântica da cota nem do
+ * estorno: é só registro, no mesmo padrão props JSON dos demais.
+ */
+export const AI_BLOCKED_EVENT = 'ai_llm_blocked';
+
 export const DEFAULT_DAILY_QUOTA_FREE = 20;
 export const DEFAULT_DAILY_QUOTA_PRO = 200;
 
@@ -39,6 +51,19 @@ export interface QuotaReservation {
   limit: number;
   /** true quando o backend de cota falhou e a chamada passou aberta. */
   degraded?: boolean;
+}
+
+export interface LlmBlockedRecord {
+  userId?: string;
+  /** Motivo do bloqueio: 'quota-exceeded' | 'disabled' | 'no-provider'. */
+  reason: string;
+  /** Plano do aluno, quando houver contexto de usuário. */
+  plan?: string;
+  /** Superfície que tentou chamar ('hint', 'chat', ...). */
+  purpose?: string;
+  /** Uso/limite no momento do bloqueio por cota. */
+  used?: number;
+  limit?: number;
 }
 
 export interface LlmUsageRecord {
@@ -163,6 +188,46 @@ export class AiUsageService {
     } catch (err) {
       this.logger.warn(
         `Failed to persist ai_llm_usage event: ${(err as Error)?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Persiste um BLOQUEIO (cota estourada / kill switch / sem
+   * provedor) como evento `ai_llm_blocked` + log estruturado.
+   * NUNCA lança: telemetria não pode derrubar a resposta da tutora.
+   */
+  async recordBlocked(record: LlmBlockedRecord): Promise<void> {
+    this.logger.warn(
+      `ai_llm_blocked ${JSON.stringify({
+        reason: record.reason,
+        userId: record.userId ?? null,
+        plan: record.plan ?? null,
+        purpose: record.purpose ?? null,
+        used: record.used ?? null,
+        limit: record.limit ?? null,
+      })}`,
+    );
+
+    if (!this.prisma) return;
+    try {
+      await this.prisma.analyticsEvent.create({
+        data: {
+          event: AI_BLOCKED_EVENT,
+          props: {
+            schemaVersion: 1,
+            userId: record.userId ?? null,
+            reason: record.reason,
+            plan: record.plan ?? null,
+            purpose: record.purpose ?? null,
+            used: record.used ?? null,
+            limit: record.limit ?? null,
+          },
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to persist ai_llm_blocked event: ${(err as Error)?.message || err}`,
       );
     }
   }

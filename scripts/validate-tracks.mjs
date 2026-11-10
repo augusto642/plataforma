@@ -56,6 +56,20 @@ const spine = JSON.parse(
 );
 const spineTags = new Set(spine.modules.map((m) => m.tag));
 
+// F1 — taxonomia própria de mercado (content/knowledge-topics.json): trilhas
+// GERADAS (lessonPayload.generatedTrack === true) podem usar tags da espinha
+// OU desta lista; trilhas de catálogo continuam restritas à espinha, e a
+// espinha v1 fica intocada. Tag fora dos dois universos reprova sempre.
+let knowledgeTopicTags = new Set();
+try {
+  const topicsDoc = JSON.parse(
+    readFileSync(new URL('../content/knowledge-topics.json', import.meta.url), 'utf8'),
+  );
+  knowledgeTopicTags = new Set((topicsDoc.topics || []).map((t) => t.id));
+} catch {
+  // Sem knowledge-topics.json, o universo é só a espinha (fail-closed).
+}
+
 const failures = [];
 const warnings = [];
 
@@ -312,13 +326,14 @@ function checkAnalogousSolutionSyntax(activity, solution) {
 function validateActivity(activity) {
   const ref = `${activity.courseSlug}/${activity.slug}`;
 
-  // 1. conceptTags da espinha
+  // 1. conceptTags da espinha (ou da taxonomia de mercado, só em trilha gerada)
   if (!Array.isArray(activity.conceptTags) || activity.conceptTags.length === 0) {
     fail(activity, 'conceptTags vazio — a tutora não consegue remediar sem tags da espinha');
   } else {
+    const generated = activity.lessonPayload?.generatedTrack === true;
     for (const tag of activity.conceptTags) {
-      if (!spineTags.has(tag)) {
-        fail(activity, `conceptTag "${tag}" não existe na espinha (content/concept-spine.json)`);
+      if (!spineTags.has(tag) && !(generated && knowledgeTopicTags.has(tag))) {
+        fail(activity, `conceptTag "${tag}" não existe na espinha (content/concept-spine.json)${generated ? ' nem em knowledge-topics.json' : ' (tags de mercado só valem em trilhas geradas)'}`);
       }
     }
   }

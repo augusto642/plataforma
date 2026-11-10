@@ -8,8 +8,10 @@ import {
   type LlmUnavailableReason,
   type TutorResponseSource,
 } from './llm-client';
-import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prompt-guard';
+import { UNTRUSTED_DATA_SYSTEM_NOTE, buildFullContentRefusal, buildUntrustedStudentContext, formatKmsCitation, formatKmsSources, formatKnowledgeSources, isFullContentRequest, KNOWLEDGE_CITATION_RULES } from './prompt-guard';
 import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
+import { KnowledgeService, type KnowledgeEntryView } from '../knowledge/knowledge.service';
+import { ResearchService } from '../knowledge/research/research.service';
 import {
   AnalogousExample,
   ConceptReinforcement,
@@ -126,7 +128,56 @@ export class AiService {
     private readonly prisma: PrismaService,
     private readonly llm: LlmClient,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly knowledge?: KnowledgeService,
+    @Optional() private readonly research?: ResearchService,
   ) {}
+
+  /**
+   * Encaixe da tutora com a base de conhecimento (DESIGN §6.1, D8).
+   * Base vazia => [] => comportamento Sprint 22 inalterado (regressão zero).
+   * Com lição aprovada, o resumo + citação entram no prompt antes do fallback.
+   */
+  async findKnowledgeForTopics(topics: string[]) {
+    if (!this.knowledge || !topics.length) return [];
+    return this.knowledge.findByTopics(topics, { limit: 3 });
+  }
+
+  /** KMS (§13.5): passo novo após o §6.1 — só versões active de entradas active. */
+  async findKmsEntriesForTopics(topics: string[]): Promise<KnowledgeEntryView[]> {
+    if (!this.knowledge || !topics.length) return [];
+    return this.knowledge.findEntriesByTopics(topics, { limit: 3 });
+  }
+
+  /**
+   * B3 — gatilho "modelo" ligado ao caminho real (DESIGN §3.5): o aluno
+   * define uma meta, o serviço consulta pesquisa aprovada ou cria o pedido
+   * pendente, e devolve a trilha existente mais próxima (por sobreposição
+   * de tokens no título/slug) + aviso honesto — nunca trilha fabricada.
+   * Sem ResearchService configurado, a resposta diz isso explicitamente.
+   */
+  async requestResearchForGoal(goal: string) {
+    if (!this.research) {
+      return {
+        approved: null, request: null, nearestTrack: null,
+        message: 'Pesquisa profunda indisponível nesta instância (serviço de pesquisa não configurado); nenhuma trilha foi fabricada.',
+      };
+    }
+    const res = this.research.requestForGoal(goal);
+    let nearestTrack: { id: string; title: string; slug: string } | null = null;
+    try {
+      const tokens = goal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+      const courses = await this.prisma.course.findMany({ select: { id: true, title: true, slug: true } });
+      let bestScore = 0;
+      for (const c of courses) {
+        const hay = `${c.title} ${c.slug}`.toLowerCase();
+        const score = tokens.filter((t) => hay.includes(t)).length;
+        if (score > bestScore) { bestScore = score; nearestTrack = { id: c.id, title: c.title, slug: c.slug }; }
+      }
+    } catch {
+      nearestTrack = null;
+    }
+    return { ...res, nearestTrack };
+  }
 
   private tierFromSignals(failedCount: number, chatCount: number): SocraticTier {
     if (failedCount >= 3 || chatCount >= 6) return 3;
@@ -265,6 +316,7 @@ export class AiService {
       failedTests,
       tier,
       userId,
+      submission.activity.conceptTags || [],
     );
 
     // Persist AI feedback (só summary/hints: o escape é dinâmico, calculado
@@ -335,6 +387,7 @@ export class AiService {
     failedTests: any[],
     tier: SocraticTier = 1,
     userId?: string,
+    conceptTags: string[] = [],
   ): Promise<PedagogicalFeedback> {
     const sanitizedStudentCode = this.sanitizePrompt(studentCode);
 
@@ -367,12 +420,28 @@ export class AiService {
           .map((t) => `- ${t.name}: ${t.errorMessage || 'Falha de asserção'}`)
           .join('\n');
 
+        // Conhecimento (D8): antes do fallback heurístico, a tutora consulta
+        // a base por conceptTags; sem lição aprovada, nada é injetado e o
+        // prompt fica idêntico ao da Sprint 22 (B1: o bloco vazio NÃO entra
+        // no array — um elemento vazio gerava uma linha em branco a mais).
+        const knowledgeLessons = await this.findKnowledgeForTopics(conceptTags);
+        const knowledgeBlock = knowledgeLessons.length
+          ? `\n${KNOWLEDGE_CITATION_RULES}\n${formatKnowledgeSources(knowledgeLessons)}\n`
+          : '';
+        // KMS (§13.5): passo novo após o §6.1; base de entradas vazia => [].
+        const kmsEntries = await this.findKmsEntriesForTopics(conceptTags);
+        const kmsBlock = kmsEntries.length
+          ? `\n${formatKmsSources(kmsEntries.map((e) => ({ slug: e.slug, title: e.title, version: e.version, courseName: e.courseName, lessonTitle: e.lessonTitle, summary: e.summary })))}\n`
+          : '';
+
         const prompt = [
           'Você é um tutor de programação socrático e rigoroso da NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activityTitle}".`,
           `Enunciado: ${instructions}`,
           '',
           tierPrompts[tier],
+          ...(knowledgeBlock ? [knowledgeBlock] : []),
+          ...(kmsBlock ? [kmsBlock] : []),
           '',
           UNTRUSTED_DATA_SYSTEM_NOTE,
           '',
@@ -397,8 +466,16 @@ export class AiService {
         });
 
         const parsed = JSON.parse(content);
+        // Citação estruturada (§6.2 + §13.5): se a resposta usou a base, a
+        // fonte vai junto — citação sem lição/entrada correspondente é erro
+        // de prompt. KMS primeiro (nível curado), depois lições.
+        const citationParts = [
+          ...(kmsEntries.length ? [formatKmsCitation(kmsEntries.map((e) => ({ slug: e.slug, title: e.title, version: e.version, courseName: e.courseName, lessonTitle: e.lessonTitle, summary: e.summary })))] : []),
+          ...(knowledgeLessons.length ? [knowledgeLessons.map((l) => `${l.courseName} — ${l.title} (referência; resumo em linguagem própria)`).join('; ')] : []),
+        ];
+        const citation = citationParts.length ? `\n\nFontes: ${citationParts.join('; ')}` : '';
         return {
-          summary: parsed.summary,
+          summary: `${parsed.summary}${citation}`,
           hints: parsed.hints || [],
           suggestedConcept: parsed.suggestedConcept || 'Lógica e Algoritmos',
           tier,
@@ -831,6 +908,31 @@ export class AiService {
       return { role: 'assistant', content: redirectMessage };
     }
 
+    // A2 — prompt-guard ligado ao caminho real: pedido de transcrição ou
+    // conteúdo integral NUNCA chega ao LLM — recusa honesta + resumo
+    // condensado (lição ou entrada KMS) + fonte original, sem entregar
+    // mais que o resumo. Sem base, a recusa diz isso explicitamente.
+    if (isFullContentRequest(lastUserMessage)) {
+      const refusalLessons = await this.findKnowledgeForTopics(activity.conceptTags || []);
+      let refusalSource: Array<{ id: string; title: string; courseName: string; summary: string }> = refusalLessons;
+      if (!refusalSource.length) {
+        const kmsForRefusal = await this.findKmsEntriesForTopics(activity.conceptTags || []);
+        refusalSource = kmsForRefusal.map((e) => ({ id: e.slug, title: e.title, courseName: e.courseName || 'KMS', summary: e.summary }));
+      }
+      const refusal = buildFullContentRefusal(refusalSource);
+      if (userId) {
+        await this.prisma.aiChatMessage.create({
+          data: {
+            userId,
+            activityId: dto.activityId,
+            role: 'assistant',
+            content: refusal,
+          },
+        });
+      }
+      return { role: 'assistant', content: refusal };
+    }
+
     let assistantContent = '';
     // Sprint 22 — proveniência da resposta (rótulo honesto).
     let source: TutorResponseSource | undefined;
@@ -842,6 +944,13 @@ export class AiService {
       3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
     };
 
+    // KMS no chat (§13.5): entradas active por conceptTags, antes do LLM.
+    // Base vazia => [] => system prompt inalterado (regressão zero).
+    const chatKmsEntries = await this.findKmsEntriesForTopics(activity.conceptTags || []).catch(() => []);
+    const chatKmsBlock = chatKmsEntries.length
+      ? formatKmsSources(chatKmsEntries.map((e) => ({ slug: e.slug, title: e.title, version: e.version, courseName: e.courseName, lessonTitle: e.lessonTitle, summary: e.summary })))
+      : '';
+
     if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.sanitizePrompt(dto.code) : '';
@@ -851,6 +960,7 @@ export class AiService {
           `Enunciado da atividade: "${activity.description}"`,
           tierInstructions[tier],
           UNTRUSTED_DATA_SYSTEM_NOTE,
+          chatKmsBlock,
           sanitizedCode
             ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
             : '',
@@ -879,6 +989,9 @@ export class AiService {
         assistantContent = this.applyAntiSpoilerGuardrail(content);
         if (assistantContent) {
           source = 'llm';
+          if (chatKmsEntries.length) {
+            assistantContent += `\n\nFontes: ${formatKmsCitation(chatKmsEntries.map((e) => ({ slug: e.slug, title: e.title, version: e.version, courseName: e.courseName, lessonTitle: e.lessonTitle, summary: e.summary })))}`;
+          }
         }
       } catch (err: any) {
         fallbackReason =

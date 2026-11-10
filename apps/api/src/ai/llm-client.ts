@@ -244,9 +244,38 @@ export class LlmClient {
       this.logger.warn(
         `AI daily quota exceeded for user ${opts.userId} (${reservation.used}/${reservation.limit}); tutor degrades to labeled heuristic.`,
       );
+      // Observabilidade (consolidação 22+23): o bloqueio por cota
+      // ganha evento próprio — sem tocar na semântica da reserva.
+      void this.usage.recordBlocked({
+        userId: opts.userId,
+        reason: 'quota-exceeded',
+        plan,
+        purpose: opts.purpose,
+        used: reservation.used,
+        limit: reservation.limit,
+      });
       throw new LlmQuotaExceededError(reservation.used, reservation.limit);
     }
     return true;
+  }
+
+  /**
+   * Registra um bloqueio por indisponibilidade (kill switch
+   * desligado ou nenhum provedor configurado) no evento
+   * `ai_llm_blocked`. O plano só é resolvido quando há usuário E
+   * Prisma — sem os dois, o campo vai nulo em vez de um default
+   * fabricado. Nunca lança (o serviço de uso já garante isso).
+   */
+  private async recordUnavailableBlocked(opts: LlmRequestOptions): Promise<void> {
+    if (!this.usage) return;
+    const plan =
+      opts.userId && this.prisma ? await this.resolvePlan(opts.userId) : undefined;
+    void this.usage.recordBlocked({
+      userId: opts.userId,
+      reason: this.unavailableReason ?? 'no-provider',
+      plan,
+      purpose: opts.purpose,
+    });
   }
 
   private recordUsage(
@@ -273,6 +302,7 @@ export class LlmClient {
 
   async complete(opts: LlmRequestOptions): Promise<string> {
     if (!this.provider) {
+      await this.recordUnavailableBlocked(opts);
       throw new LlmRequestError(
         'LLM provider unavailable (disabled or not configured)',
         undefined,
@@ -307,6 +337,7 @@ export class LlmClient {
 
   async *stream(opts: LlmRequestOptions): AsyncGenerator<string, void, unknown> {
     if (!this.provider) {
+      await this.recordUnavailableBlocked(opts);
       throw new LlmRequestError(
         'LLM provider unavailable (disabled or not configured)',
         undefined,

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -19,12 +20,21 @@ import { AdminService } from './admin.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { Optional } from '@nestjs/common';
+import { KnowledgeService } from '../knowledge/knowledge.service';
+import { KmsService } from '../knowledge/kms.service';
+import { ResearchService } from '../knowledge/research/research.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.admin)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    @Optional() private readonly knowledge?: KnowledgeService,
+    @Optional() private readonly research?: ResearchService,
+    @Optional() private readonly kms?: KmsService,
+  ) {}
 
   @Get('metrics')
   @Roles(Role.admin)
@@ -85,5 +95,130 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   getHealth() {
     return this.adminService.getHealth();
+  }
+
+  // ── Sistema de conhecimento (DESIGN §3.5) — mesmas guardas admin ──────
+  @Post('knowledge/research')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  createResearch(@Body() dto: { goal: string }) {
+    return this.research!.createResearch(dto.goal);
+  }
+
+  @Get('knowledge/research')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listResearch() {
+    return this.research!.list();
+  }
+
+  @Get('knowledge/research/:id')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getResearch(@Param('id') id: string) {
+    return this.research!.get(id);
+  }
+
+  @Post('knowledge/research/:id/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveResearch(@Param('id') id: string, @Req() req: any) {
+    // approvedBy é o admin autenticado (JwtAuthGuard) — nunca opcional:
+    // aprovar sem admin autenticado é impossível via API.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.research!.approve(id, adminId);
+  }
+
+  @Post('knowledge/research/:id/reject')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  rejectResearch(@Param('id') id: string, @Body() dto: { reason: string }) {
+    return this.research!.reject(id, dto.reason);
+  }
+
+  @Get('knowledge/registry')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getRegistryStats() {
+    return this.knowledge!.stats();
+  }
+
+  // ── KMS (DESIGN §13.4) — mesmas guardas admin ──────────────────────────
+  @Get('knowledge/entries')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listKmsEntries() {
+    return this.kms!.listEntries();
+  }
+
+  @Get('knowledge/entries/:slug')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getKmsEntry(@Param('slug') slug: string) {
+    return this.kms!.getEntry(slug);
+  }
+
+  @Post('knowledge/entries/:slug/versions/:n/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveKmsVersion(@Param('slug') slug: string, @Param('n') n: string, @Req() req: any) {
+    // approvedBy é o admin autenticado (JwtAuthGuard) — nunca opcional.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.kms!.approveVersion(slug, Number(n), adminId);
+  }
+
+  @Get('knowledge/changelog')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listKmsChangelog(
+    @Query('entrySlug') entrySlug?: string,
+    @Query('changeType') changeType?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.kms!.listChangelog({
+      entrySlug, changeType, from, to,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Get('knowledge/review-queue')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listKmsReviewQueue() {
+    return this.kms!.listReviewQueue();
+  }
+
+  @Get('knowledge/review-queue/:id')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getKmsReviewItem(@Param('id') id: string) {
+    return this.kms!.getReviewItem(id);
+  }
+
+  @Post('knowledge/review-queue/:id/resolve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  resolveKmsReviewItem(
+    @Param('id') id: string,
+    @Body() dto: { action: string; targetEntrySlug?: string; reason: string },
+    @Req() req: any,
+  ) {
+    // resolvedBy é o admin autenticado; a decisão fica pending-sync até o kms-apply.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('resolve exige admin autenticado');
+    return this.kms!.resolveReviewItem(id, dto, adminId);
+  }
+
+  @Get('knowledge/evolution-report')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getKmsEvolutionReport() {
+    return this.kms!.evolutionReport();
   }
 }

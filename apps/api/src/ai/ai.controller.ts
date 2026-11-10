@@ -75,6 +75,18 @@ export class AiController {
     return this.ai.chatWithTutor(dto, user.sub);
   }
 
+  // B3 — gatilho "modelo" (DESIGN §3.5): o aluno define uma meta; o serviço
+  // consulta pesquisa aprovada ou cria o pedido pendente, e devolve a
+  // trilha existente mais próxima + aviso honesto. Nunca publica pesquisa
+  // nem chama provedores sozinho.
+  @Post('research-request')
+  @UseGuards(AiTutorPlanGuard)
+  requestResearch(
+    @Body() dto: { goal: string },
+  ) {
+    return this.ai.requestResearchForGoal(dto.goal);
+  }
+
   @Post('chat/stream')
   @UseGuards(AiTutorPlanGuard)
   async streamChat(

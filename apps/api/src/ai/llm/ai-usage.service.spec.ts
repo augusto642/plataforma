@@ -1,9 +1,9 @@
 /**
  * Sprint 22 — cota diária por plano + registro de uso (AiUsageService).
  *
- * Os defaults 20 (free) / 200 (pro) são os propostos pelo PM e seguem
- * PENDENTES de confirmação do Augusto (decisão Q5) — estes testes
- * fixam o comportamento, não a decisão.
+ * Os defaults 20 (free) / 200 (pro) foram propostos pelo PM e
+ * CONFIRMADOS pelo Augusto em 2026-10-23 (decisão Q5) — estes testes
+ * fixam os valores confirmados e o comportamento ao redor deles.
  */
 import { AiUsageService, DEFAULT_DAILY_QUOTA_FREE, DEFAULT_DAILY_QUOTA_PRO } from './ai-usage.service';
 
@@ -36,7 +36,7 @@ function makePrisma() {
 }
 
 describe('AiUsageService — cota', () => {
-  it('defaults pendentes de confirmação (Q5): free=20, pro=200', () => {
+  it('defaults confirmados (Q5, 2026-10-23): free=20, pro=200', () => {
     const service = new AiUsageService(makeConfig(), makePrisma(), makeCache() as any);
     expect(DEFAULT_DAILY_QUOTA_FREE).toBe(20);
     expect(DEFAULT_DAILY_QUOTA_PRO).toBe(200);
@@ -150,6 +150,59 @@ describe('AiUsageService — registro de uso', () => {
         outcome: 'error',
         errorKind: 'timeout',
       }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('AiUsageService — evento de bloqueio (ai_llm_blocked)', () => {
+  it('persiste o bloqueio por cota com motivo, plano, uso e limite', async () => {
+    const prisma = makePrisma();
+    const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+    await service.recordBlocked({
+      userId: 'user-7',
+      reason: 'quota-exceeded',
+      plan: 'free',
+      purpose: 'hint',
+      used: 20,
+      limit: 20,
+    });
+    expect(prisma.analyticsEvent.create).toHaveBeenCalledTimes(1);
+    const arg = prisma.analyticsEvent.create.mock.calls[0][0];
+    expect(arg.data.event).toBe('ai_llm_blocked');
+    expect(arg.data.props).toMatchObject({
+      userId: 'user-7',
+      reason: 'quota-exceeded',
+      plan: 'free',
+      purpose: 'hint',
+      used: 20,
+      limit: 20,
+    });
+  });
+
+  it('bloqueio por kill switch: motivo disabled, sem uso/limite (nulos, não fabricados)', async () => {
+    const prisma = makePrisma();
+    const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+    await service.recordBlocked({ userId: 'user-8', reason: 'disabled', plan: 'pro' });
+    const arg = prisma.analyticsEvent.create.mock.calls[0][0];
+    expect(arg.data.event).toBe('ai_llm_blocked');
+    expect(arg.data.props).toMatchObject({ reason: 'disabled', plan: 'pro' });
+    expect(arg.data.props.used).toBeNull();
+    expect(arg.data.props.limit).toBeNull();
+  });
+
+  it('sem Prisma o registro de bloqueio é no-op seguro (nunca lança)', async () => {
+    const service = new AiUsageService(makeConfig(), undefined, makeCache() as any);
+    await expect(
+      service.recordBlocked({ reason: 'disabled' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('falha ao persistir NÃO propaga (telemetria não derruba a tutora)', async () => {
+    const prisma = makePrisma();
+    prisma.analyticsEvent.create.mockRejectedValue(new Error('db down'));
+    const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+    await expect(
+      service.recordBlocked({ userId: 'user-9', reason: 'quota-exceeded', plan: 'free' }),
     ).resolves.toBeUndefined();
   });
 });

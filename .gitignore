@@ -26,3 +26,6 @@ Thumbs.db
 apps/web/playwright-report/
 apps/web/test-results/
 *.tsbuildinfo
+
+# Estado operacional do pipeline de conhecimento (cursor de revarredura, logs) — nunca versionado (Q8)
+data/

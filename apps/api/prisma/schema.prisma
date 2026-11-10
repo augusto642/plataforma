@@ -434,3 +434,122 @@ model PlanInterestLead {
   @@index([plan])
   @@map("plan_interest_leads")
 }
+
+// Sprint Conhecimento-Python (DESIGN §5.2) — migration SÓ como arquivo
+// (apps/api/prisma/migrations/20261024210000_knowledge_base/migration.sql).
+// NÃO rodar `prisma migrate deploy` em produção sem ordem explícita do
+// Augusto. Até lá, a tutora usa o adaptador de arquivo (KNOWLEDGE_STORE=file).
+model KnowledgeSource {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  kind      String   @default("drive-course") @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lessons   KnowledgeLesson[]
+
+  @@map("knowledge_sources")
+}
+
+model KnowledgeLesson {
+  id               String   @id @default(uuid()) @db.Uuid
+  stableId         String   @unique @map("stable_id")
+  sourceId         String   @map("source_id") @db.Uuid
+  driveFileId      String   @unique @map("drive_file_id")
+  title            String
+  summary          String   @db.Text
+  topics           String[]
+  prerequisites    String[]
+  difficulty       String   @db.VarChar(16)
+  reviewStatus     String   @default("draft") @map("review_status") @db.VarChar(16)
+  extractedAt      DateTime @map("extracted_at")
+  extractorVersion String   @map("extractor_version")
+  source           KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId])
+  @@map("knowledge_lessons")
+}
+
+model KnowledgeResearch {
+  id         String    @id @default(uuid()) @db.Uuid
+  stableId   String    @unique @map("stable_id")
+  goal       String
+  status     String    @default("draft") @db.VarChar(16)
+  payload    Json
+  approvedBy String?   @map("approved_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at")
+  collectedAt DateTime @map("collected_at")
+
+  @@map("knowledge_research")
+}
+
+// [DELTA-KMS] Espelho do KMS (§13.1/§13.4) — mesma migration só-arquivo,
+// NUNCA aplicada em produção sem ordem do Augusto (§5.4). O arquivo
+// continua sendo a fonte primária; o banco, o espelho consultável.
+// Status de entrada inclui 'draft' (entrada nascida de backfill, ainda sem
+// versão aprovada, D12). Aprovação de versão registra approvedBy via
+// changelog (actor admin:<id>), não via coluna na versão.
+model KnowledgeEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  slug            String   @unique
+  title           String
+  topicIds        String[] @map("topic_ids")
+  status          String   @default("active") @db.VarChar(16)
+  currentVersion  Int      @default(1) @map("current_version")
+  supersededByEntry String? @map("superseded_by_entry")
+  supersededAt    DateTime? @map("superseded_at")
+  supersedeReason String?  @map("supersede_reason") @db.Text
+  versions        KnowledgeEntryVersion[]
+
+  @@map("knowledge_entries")
+}
+
+model KnowledgeEntryVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  entryId         String   @map("entry_id") @db.Uuid
+  version         Int
+  status          String   @default("draft") @db.VarChar(16)
+  summary         String   @db.Text
+  keyExamples     String[] @map("key_examples")
+  contributions   Json
+  marketContext   Json?    @map("market_context")
+  supersededBy    Int?     @map("superseded_by")
+  supersededAt    DateTime? @map("superseded_at")
+  supersedeReason String?  @map("supersede_reason") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  entry           KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@unique([entryId, version])
+  @@map("knowledge_entry_versions")
+}
+
+model KnowledgeChangelog {
+  id         String   @id @default(uuid()) @db.Uuid
+  seq        Int      @unique
+  entrySlug  String   @map("entry_slug")
+  changeType String   @map("change_type") @db.VarChar(32)
+  version    Int?
+  source     Json
+  actor      String   @db.VarChar(64)
+  occurredAt DateTime @map("occurred_at")
+  detail     String   @db.Text
+
+  @@index([entrySlug])
+  @@map("knowledge_changelog")
+}
+
+model KnowledgeReviewItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  stableId   String   @unique @map("stable_id")
+  kind       String   @db.VarChar(32)
+  sourceRef  Json     @map("source_ref")
+  candidates Json
+  confidence Float
+  status     String   @default("open") @db.VarChar(16)
+  decision   Json?
+  resolvedBy String?  @map("resolved_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("knowledge_review_items")
+}
