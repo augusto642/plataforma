@@ -80,7 +80,13 @@ export default function TrilhaSugeridaPage() {
     setStarting(false);
   }
 
-  if (authLoading || investigation === undefined) {
+  // Central 216 retrabalho (D5) — a ordem anterior (`authLoading ||
+  // investigation === undefined` antes de `!user`) travava o visitante
+  // deslogado em "Carregando sua trilha…": o efeito retorna sem fetch
+  // quando !user, investigation ficava undefined para sempre e o card
+  // de login era código morto. Mesma ordem de /trilha/aguardando:
+  // authLoading → !user → carregamento da investigação.
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-dark-surface text-dark-on-surface flex items-center justify-center p-6">
         <p role="status" className="text-sm text-dark-on-surface-variant">
@@ -107,6 +113,17 @@ export default function TrilhaSugeridaPage() {
             Entrar
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  // Logado, investigação ainda carregando (fetch em curso).
+  if (investigation === undefined) {
+    return (
+      <div className="min-h-screen bg-dark-surface text-dark-on-surface flex items-center justify-center p-6">
+        <p role="status" className="text-sm text-dark-on-surface-variant">
+          Carregando sua trilha…
+        </p>
       </div>
     );
   }
