@@ -1,4 +1,4 @@
-import { BadGatewayException, BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, Role } from '@prisma/client';
 import { randomInt } from 'node:crypto';
@@ -11,6 +11,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
 import { JoinCourseDto } from './dto/join-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { CertificateService } from './certificate.service';
 
 const ENROLLMENT_CODE_LENGTH = 8;
 const ENROLLMENT_CODE_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -96,6 +97,9 @@ export class CoursesService {
     private readonly cache: CacheService,
     private readonly config: ConfigService,
     private readonly gitea: GiteaService,
+    // Fase 1 premium — opcional para não quebrar instanciações legadas
+    // em testes que constroem o serviço sem o novo provider.
+    @Optional() private readonly certificates?: CertificateService,
   ) {}
 
   async create(instructorId: string, dto: CreateCourseDto) {
@@ -689,6 +693,17 @@ export class CoursesService {
       });
     }
 
+    // Fase 1 premium — espelha a emissão na tabela Certificate, para
+    // que ela apareça em GET /certificates/me e aceite revogação.
+    // A matrícula continua sendo a fonte de verdade da emissão: falha
+    // no espelho nunca derruba o certificado do aluno.
+    if (this.certificates) {
+      const finalCode = enrollment.certificateCode ?? verificationCode;
+      await this.certificates
+        .syncModuleCertificate(userId, courseId, finalCode, course.title, completedAt)
+        .catch(() => undefined);
+    }
+
     const student = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { name: true },
@@ -718,6 +733,12 @@ export class CoursesService {
    * legado: nenhum código v1 jamais foi verificável.
    */
   async verifyCertificateByCode(rawCode: string) {
+    // Fase 1 premium — quando o CertificateService está disponível, a
+    // verificação canônica (Certificate primeiro, revogação respeitada,
+    // Enrollment como fallback) vale também para a rota legada.
+    if (this.certificates) {
+      return this.certificates.verifyByCode(rawCode);
+    }
     const secret = this.config.get<string>('CERTIFICATE_HMAC_SECRET');
     if (!secret) {
       throw new ConfigError('CERTIFICATE_HMAC_SECRET is required');

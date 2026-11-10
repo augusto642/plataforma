@@ -28,7 +28,9 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AdminModule } from './admin/admin.module';
+import { BillingModule } from './billing/billing.module';
 import { CommonModule } from './common/common.module';
+import { PlansModule } from './plans/plans.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -96,6 +98,8 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     AiModule,
     MetricsModule,
     AdminModule,
+    PlansModule,
+    BillingModule,
     CommonModule,
     HousekeepingModule,
   ],

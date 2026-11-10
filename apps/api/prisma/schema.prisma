@@ -39,9 +39,28 @@ enum CareerTier {
 // B32 (Sprint 10) — o plano vira entidade: antes o User não tinha campo
 // de plano e a distinção free × Pro da landing era ficcional (zero
 // gating). Default free preserva a experiência atual de todos.
+// Fase 1 premium (2026-10-25) — `career` é um tier NOMEADO, sem preço
+// decidido e sem ativação/compra (decisão pendente do Augusto; R$ 79,90
+// era só sugestão da pesquisa). Ele existe no enum e na matriz de
+// entitlements, mas o checkout o rejeita até o preço ser decidido.
 enum Plan {
   free
   pro
+  career
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  expired
+}
+
+enum CertificateKind {
+  module
+  track
+  project
 }
 
 model User {
@@ -70,6 +89,8 @@ model User {
 
   companion         UserCompanion?
   planInterest      PlanInterest?
+  subscriptions     Subscription[]
+  certificates      Certificate[]
   refreshTokens     RefreshToken[]
   emailVerificationCodes EmailVerificationCode[]
   diagnosticResults DiagnosticResult[]
@@ -552,4 +573,60 @@ model KnowledgeReviewItem {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("knowledge_review_items")
+}
+
+// Fase 1 premium — checkout em MODO TESTE + certificado verificável.
+// Nenhuma cobrança real: `testMode` é true até decisão explícita do
+// Augusto (BILLING_MODE=test travado em código; ver billing/).
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  userId                 String             @map("user_id") @db.Uuid
+  plan                   Plan
+  billingCycle           String             @map("billing_cycle") @db.VarChar(16)
+  provider               String             @db.VarChar(32)
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  status                 SubscriptionStatus @default(trialing)
+  testMode               Boolean            @default(true) @map("test_mode")
+  currentPeriodEnd       DateTime?          @map("current_period_end")
+  canceledAt             DateTime?          @map("canceled_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+// Idempotência do webhook de pagamento: (provider, providerEventId) é
+// único — replay do provedor nunca duplica a liberação do tier.
+model PaymentEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  provider        String   @db.VarChar(32)
+  providerEventId String   @map("provider_event_id")
+  type            String   @db.VarChar(64)
+  payloadHash     String   @map("payload_hash")
+  processedAt     DateTime @default(now()) @map("processed_at")
+
+  @@unique([provider, providerEventId])
+  @@map("payment_events")
+}
+
+// Certificado verificável (Fase 1): estende o padrão existente
+// (Enrollment.certificateCode), sem substituí-lo — a verificação
+// consulta Certificate primeiro e Enrollment depois (retrocompat.).
+model Certificate {
+  id        String          @id @default(uuid()) @db.Uuid
+  code      String          @unique
+  userId    String          @map("user_id") @db.Uuid
+  kind      CertificateKind
+  refId     String          @map("ref_id") @db.Uuid
+  title     String
+  issuedAt  DateTime        @default(now()) @map("issued_at")
+  revokedAt DateTime?       @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("certificates")
 }

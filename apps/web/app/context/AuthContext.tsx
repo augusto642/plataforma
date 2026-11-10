@@ -12,8 +12,8 @@ export interface User {
   nickname?: string | null;
   /** B40 (Sprint 13) — nível de carreira real, exposto por GET /users/me. */
   careerTier?: string;
-  /** B37 (Sprint 11) — plano real da conta, exposto por GET /users/me (B32). */
-  plan?: 'free' | 'pro';
+  /** B37 (Sprint 11) — plano real da conta, exposto por GET /users/me (B32). Fase 1 premium: inclui 'career' (tier nomeado, sem preço/compra). */
+  plan?: 'free' | 'pro' | 'career';
   xp?: number;
   level?: number;
   streakDays?: number;
@@ -57,7 +57,7 @@ function normalizeUser(raw: any): User | null {
     role: raw.role ?? 'student',
     nickname: typeof raw.nickname === 'string' ? raw.nickname : null,
     careerTier: typeof raw.careerTier === 'string' ? raw.careerTier : undefined,
-    plan: raw.plan === 'pro' ? 'pro' : raw.plan === 'free' ? 'free' : undefined,
+    plan: raw.plan === 'pro' ? 'pro' : raw.plan === 'free' ? 'free' : raw.plan === 'career' ? 'career' : undefined,
     xp: raw.xp,
     level: raw.level,
     streakDays: raw.streakDays,

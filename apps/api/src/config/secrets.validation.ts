@@ -13,6 +13,12 @@ export interface RequiredSecretsEnv {
   GITEA_ENABLED?: string;
   GITEA_TOKEN?: string;
   GITEA_WEBHOOK_SECRET?: string;
+  BILLING_MODE?: string;
+  BILLING_PROVIDER?: string;
+  BILLING_WEBHOOK_SECRET?: string;
+  MP_TEST_ACCESS_TOKEN?: string;
+  MP_ACCESS_TOKEN?: string;
+  STRIPE_SECRET_KEY?: string;
 }
 
 // A11 (Lote 3): segredo DEDICADO ao HMAC dos códigos de certificado.
@@ -26,6 +32,19 @@ const REQUIRED_AUTH_SECRETS = [
   'JWT_REFRESH_SECRET',
   'CERTIFICATE_HMAC_SECRET',
 ] as const;
+
+/**
+ * Fase 1 premium — travas de cobrança real, fail-closed no boot.
+ * - `BILLING_MODE` diferente de `test` (quando explícito) impede o boot:
+ *   ativar cobrança real exige decisão explícita do Augusto + revisão,
+ *   nunca um "ligar" em runtime.
+ * - Chave live de provedor (Mercado Pago `APP_USR-`, Stripe `sk_live_`)
+ *   enquanto `BILLING_MODE=test` impede o boot.
+ * - Provedor diferente de `simulated` impede o boot: Mercado Pago e
+ *   Stripe existem como adapters, mas estão DESATIVADOS até o Augusto
+ *   escolher o provedor v1 e as credenciais de teste.
+ */
+export const BILLING_TEST_MODE_PROVIDERS = ['simulated'] as const;
 
 /**
  * Segredos que precisam de alta entropia (>= 32 chars). Finding BAIXA —
@@ -104,6 +123,31 @@ export function validateRequiredSecrets(
   if (weak.length > 0) {
     throw new ConfigError(
       `Weak secret value for environment variable(s): ${weak.join(', ')} (mínimo de ${MIN_STRONG_SECRET_LENGTH} caracteres). Gere segredos reais (openssl rand -hex 32).`,
+    );
+  }
+
+  // Fase 1 premium — travas de billing (fail-closed, ver comentário acima).
+  const billingMode = env.BILLING_MODE;
+  if (billingMode !== undefined && billingMode !== 'test') {
+    throw new ConfigError(
+      `BILLING_MODE='${billingMode}' não é permitido: cobrança real não está ativada e exige decisão explícita do Augusto. Use BILLING_MODE=test.`,
+    );
+  }
+  const billingProvider = env.BILLING_PROVIDER;
+  if (
+    billingProvider !== undefined &&
+    !(BILLING_TEST_MODE_PROVIDERS as readonly string[]).includes(billingProvider)
+  ) {
+    throw new ConfigError(
+      `BILLING_PROVIDER='${billingProvider}' está desativado: o único provedor ativo em modo teste é 'simulated'. A escolha do provedor v1 é decisão pendente do Augusto.`,
+    );
+  }
+  const liveKeys: string[] = [];
+  if (env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) liveKeys.push('MP_ACCESS_TOKEN');
+  if (env.STRIPE_SECRET_KEY?.startsWith('sk_live_')) liveKeys.push('STRIPE_SECRET_KEY');
+  if (liveKeys.length > 0) {
+    throw new ConfigError(
+      `Chave live de provedor de pagamento em modo teste (${liveKeys.join(', ')}): remova-a. Em BILLING_MODE=test só valem chaves de sandbox/teste.`,
     );
   }
 
