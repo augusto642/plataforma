@@ -14,8 +14,18 @@ import Logo from '../../../components/Logo';
 
 const API_BASE =
   process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+/**
+ * Ressalva R1 do QA da Fase 1: alinhar com a variável canônica de URL
+ * pública. `WEB_PUBLIC_URL` é a canônica (definida em .env.example e
+ * usada pela API no checkout); `NEXT_PUBLIC_WEB_URL` segue como fallback
+ * para deploys do web que só expõem variáveis NEXT_PUBLIC_*. Esta página
+ * é server component, então ler `WEB_PUBLIC_URL` aqui é seguro — nada
+ * disso vaza para o bundle do cliente.
+ */
 const WEB_BASE =
-  process.env.NEXT_PUBLIC_WEB_URL || 'http://localhost:3001';
+  process.env.WEB_PUBLIC_URL ||
+  process.env.NEXT_PUBLIC_WEB_URL ||
+  'http://localhost:3001';
 
 interface VerifiedCertificate {
   valid: true;

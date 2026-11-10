@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
@@ -20,7 +20,21 @@ import {
  * (sem BILLING_WEBHOOK_SECRET configurado). Sem confirmação, nada é
  * liberado: a página diz isso, em vez de fingir sucesso.
  */
+/**
+ * Correção Fase 2 (resíduo da Fase 1): `useSearchParams()` exige
+ * Suspense boundary no build (prerender) do Next 14 — sem ele, o
+ * `next build` inteiro falhava nesta página. Nenhuma mudança de
+ * comportamento: só o wrapper exigido pelo framework.
+ */
 export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16"><div className="max-w-[640px] mx-auto text-sm text-zinc-400">Carregando…</div></div>}>
+      <CheckoutSuccessContent />
+    </Suspense>
+  );
+}
+
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const sessionId = searchParams?.get('session') ?? null;

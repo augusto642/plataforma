@@ -91,6 +91,7 @@ model User {
   planInterest      PlanInterest?
   subscriptions     Subscription[]
   certificates      Certificate[]
+  interviewSessions InterviewSession[]
   refreshTokens     RefreshToken[]
   emailVerificationCodes EmailVerificationCode[]
   diagnosticResults DiagnosticResult[]
@@ -240,6 +241,9 @@ model Activity {
   referenceSolution String?  @map("reference_solution")
   giteaTemplateRepo String?  @map("gitea_template_repo")
   isBossFight       Boolean  @default(false) @map("is_boss_fight")
+  // Fase 2 premium (desenho §3.2): projeto final — único escopo de
+  // revisão por IA liberado para o Pro (Carreira: qualquer projeto).
+  isCapstone        Boolean  @default(false) @map("is_capstone")
   bossMetadata      Json?    @map("boss_metadata")
   lessonPayload     Json?    @map("lesson_payload")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -280,6 +284,7 @@ model Submission {
   activity    Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   testResults TestCaseResult[]
+  codeReviews CodeReview[]
 
   @@unique([activityId, userId, commitSha])
   @@index([activityId, userId])
@@ -629,4 +634,98 @@ model Certificate {
 
   @@index([userId, kind])
   @@map("certificates")
+}
+
+// Fase 2 premium (desenho §3.1/§3.2) — simulador de entrevista + revisão
+// de código por IA. Ambos são modos da tutora existente: nenhuma tabela
+// de conteúdo paralela, nenhum cliente de LLM novo. A revisão COMPLEMENTA
+// o passa/falha dos testes ocultos (Submission.status continua decidido
+// só pelo EvaluatorService + Piston) e nunca o substitui.
+enum InterviewMode {
+  technical
+  behavioral
+}
+
+enum InterviewStatus {
+  active
+  completed
+  abandoned
+}
+
+model InterviewSession {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
+  mode      InterviewMode
+  track     String?         @db.VarChar(64)
+  status    InterviewStatus @default(active)
+  createdAt DateTime        @default(now()) @map("created_at")
+  endedAt   DateTime?       @map("ended_at")
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns  InterviewTurn[]
+  report InterviewReport?
+
+  @@index([userId, status])
+  @@map("interview_sessions")
+}
+
+model InterviewTurn {
+  id      String   @id @default(uuid()) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  role    String   @db.VarChar(16) // interviewer | candidate
+  content String   @db.Text
+  // Avaliação do turno pela rubrica (§3.1): { criterio: { score, evidence } }.
+  // Extensão sobre o desenho (que não previa onde guardar a avaliação por
+  // turno): sem ela o relatório final seria gerado sem lastro por turno.
+  evaluation Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("interview_turns")
+}
+
+model InterviewReport {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @unique @map("session_id") @db.Uuid
+  scores    Json // { criterio: { score, evidence } } — rubrica versionada
+  strengths String[]
+  gaps      String[]
+  nextSteps String[] @map("next_steps")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session InterviewSession @relation(fields: [sessionId], references: [id])
+
+  @@map("interview_reports")
+}
+
+enum ReviewKind {
+  ai
+  peer
+}
+
+enum ReviewStatus {
+  pending
+  completed
+  failed
+}
+
+model CodeReview {
+  id           String       @id @default(uuid()) @db.Uuid
+  submissionId String       @map("submission_id") @db.Uuid
+  kind         ReviewKind
+  status       ReviewStatus @default(pending)
+  rubric       Json? // { legibilidade, estrutura, nomes, casosDeBorda: { score, comment } }
+  summary      String?      @db.Text
+  suggestions  String[]     @default([])
+  // Aviso legível quando a revisão fica parada (ex.: cota do dia esgotada)
+  // ou falha — sem ele, `pending` seria indistinguível de "na fila".
+  note         String?      @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, kind])
+  @@map("code_reviews")
 }

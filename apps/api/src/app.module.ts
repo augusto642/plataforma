@@ -29,6 +29,8 @@ import { MetricsModule } from './metrics/metrics.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AdminModule } from './admin/admin.module';
 import { BillingModule } from './billing/billing.module';
+import { InterviewModule } from './interview/interview.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { CommonModule } from './common/common.module';
 import { PlansModule } from './plans/plans.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
@@ -100,6 +102,8 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     AdminModule,
     PlansModule,
     BillingModule,
+    InterviewModule,
+    ReviewsModule,
     CommonModule,
     HousekeepingModule,
   ],

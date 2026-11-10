@@ -6,6 +6,7 @@ import { IdeEditorPane } from './components/IdeEditorPane';
 import { InstructionsPanel } from './components/InstructionsPanel';
 import { TerminalConsole } from './components/TerminalConsole';
 import { TestResultsGrid } from './components/TestResultsGrid';
+import { CodeReviewPanel } from './components/CodeReviewPanel';
 import { SubmissionsHistoryDrawer } from './components/SubmissionsHistoryDrawer';
 import AuthView from '../../components/AuthView';
 import AITutorPanel from '../../components/AITutorPanel';
@@ -1313,6 +1314,11 @@ export default function HomePage() {
                     maxScore={submission?.maxScore ?? 100}
                     xpEarned={submission?.status === 'passed' ? 120 : undefined}
                   />
+
+                  {/* Fase 2 premium — revisão por IA, AO LADO do passa/falha, nunca no lugar dele */}
+                  {submission && (
+                    <CodeReviewPanel submissionId={submission.id} />
+                  )}
 
                   {/* Sandbox Telemetry & Terminal Console */}
                   <div style={{ height: 180, borderTop: '1px solid #1e222d' }}>
