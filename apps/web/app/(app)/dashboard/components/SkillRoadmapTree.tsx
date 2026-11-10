@@ -37,7 +37,9 @@ export const SkillRoadmapTree: React.FC<SkillRoadmapTreeProps> = ({
     } else if (node.status === 'locked') {
       setSelectedNodeInfo(`🔒 Módulo bloqueado. Complete o pré-requisito (${node.prerequisite || 'Módulo anterior'}) para liberar.`);
     } else if (node.status === 'boss') {
-      setSelectedNodeInfo(`⚔️ BOSS FIGHT: Sistema de Pagamentos Distribuído de Alta Concorrência (${node.xpReward || 1000} XP + ${node.badgeName || 'Badge Ouro'}). Complete os nós anteriores para desbloquear!`);
+      // Redesign v2 (correções 21 e 22): sem valor de XP nas missões;
+      // o "boss" é o guardião da trilha.
+      setSelectedNodeInfo(`🛡️ ${node.title}: derrote o guardião para avançar na trilha. Complete os nós anteriores para desbloquear!`);
     }
   };
 
@@ -50,7 +52,7 @@ export const SkillRoadmapTree: React.FC<SkillRoadmapTreeProps> = ({
             <span>Árvore de Competências & Trilha de Especialização (Skill Tree)</span>
           </h3>
           <p className="text-xs text-[#71717A] mt-0.5">
-            Navegue pelos módulos interconectados, desbloqueie nós e enfrente desafios de integração (Boss Fights).
+            Navegue pelos módulos interconectados, desbloqueie nós e enfrente o guardião da trilha.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -64,7 +66,7 @@ export const SkillRoadmapTree: React.FC<SkillRoadmapTreeProps> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-[#3F3F46]" /> Bloqueado
           </span>
           <span className="flex items-center gap-1.5 text-[#F43F5E]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#F43F5E]" /> Boss Fight
+            <span className="w-2.5 h-2.5 rounded-full bg-[#F43F5E]" /> Guardião
           </span>
         </div>
       </div>

@@ -117,6 +117,45 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('Visão ilustrativa da jornada');
   });
 
+  // Redesign v2 (Central 213) — correções 1, 3, 4 e 6 do prompt v2:
+  // hero com trilha de RPG sugerida pela IA, itens do Iniciante e Pro
+  // sem "ilimitado". Retrabalho Central 213 (D1 + D4): a prova "4
+  // linguagens no sandbox: JavaScript, Python, Java e Portugol" saiu
+  // — o enum tem 5 valores e o hero nunca nomeia Portugol; sem
+  // contagem defensável, o hero não afirma número nem nomeia língua.
+  it('redesign v2: hero, prova social e planos sem os textos do mockup antigo', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    expect(html).toContain('trilha de RPG sugerida pela IA para você');
+    expect(html).toContain('Execução real do seu código em sandbox isolado');
+    expect(html).not.toContain('4 linguagens no sandbox');
+    expect(html).not.toContain('JavaScript, Python, Java e Portugol');
+    expect(html).toContain('Acesso aos desafios iniciais de lógica');
+    expect(html).toContain('Comunidade de alunos');
+    expect(html).toContain('Acesso a todas as trilhas e níveis disponíveis na plataforma');
+    expect(html).not.toContain('ilimitado');
+    expect(html).not.toContain('Escolha sua trilha');
+  });
+
+  // Retrabalho Central 213 (D3) — a seção de passos do mockup v2
+  // ("Como funciona") com os textos exatos do prompt (correções 2, 5
+  // e 7) e do mockup desktop (passo 03).
+  it('redesign v2 retrabalho (D3): seção de passos com os textos exatos do mockup', async () => {
+    const html = await renderHtml(React.createElement(HomePage));
+    expect(html).toContain('id="como-funciona"');
+    expect(html).toContain('Sua trilha, sugerida pela IA');
+    expect(html).toContain(
+      'Responda sobre seu nível e seus objetivos e a IA sugere a trilha ideal para você — e se preferir, você pode fazer cursos avulsos.',
+    );
+    expect(html).toContain('Aprenda jogando');
+    expect(html).toContain('Ligas competitivas e ranking semanal');
+    expect(html).toContain('Conquiste a vaga');
+    expect(html).toContain(
+      'Com projetos concretos no portfólio, treino no simulador de entrevista e seu certificado verificado, você se conecta a empresas no Talent Match.',
+    );
+    expect(html).not.toContain('Escolha sua trilha');
+    expect(html).not.toContain('ligas competitivas toda semana');
+  });
+
   it('tutora: H2 em escala de seção, fora do card', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     expect(html).toMatch(/<h2 class="[^"]*text-3xl[^"]*">\s*Mentoria Socrática\s*<\/h2>/);

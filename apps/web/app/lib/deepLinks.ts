@@ -5,14 +5,15 @@
 // o parâmetro; e os CTAs de trilha da landing levavam ao /register
 // perdendo a trilha clicada. Aqui vivem os dois mapeamentos — puros e
 // testáveis — usados na montagem de cada porta.
-//
-// Trilha dinâmica v1 (Central 209): o ?track= NÃO pré-seleciona mais
-// nada no cadastro (o aluno não escolhe a trilha) — ele é validado aqui
-// e viaja como hint (sourceTrack) da investigação. O tipo TrackId vivia
-// em StepTracks.tsx, removido com o passo de escolha; agora é local.
+
+// Trilha dinâmica v1 (Central 209) / Redesign v2 (Central 213): o ?track=
+// NÃO pré-seleciona mais nada no cadastro (o aluno não escolhe a
+// trilha) — ele é validado aqui e viaja como hint (sourceTrack) da
+// investigação. O tipo TrackId vivia em StepTracks.tsx, removido com
+// o passo de escolha; agora é local.
 
 // Identificadores de trilha do produto (os mesmos `TrackId` do
-// diagnóstico da API: apps/api/src/diagnostic/data/quiz-v1.ts).
+// antigo StepTracks): sugestões possíveis da investigação.
 export type TrackId = 'web3' | 'backend' | 'frontend' | 'ai';
 
 // Card TCG (landing) → starter do catálogo do jogo, pela LINGUAGEM da
@@ -31,9 +32,9 @@ export function resolveStarterIdParam(raw: string | null | undefined): string | 
 }
 
 // Trilha da landing (rust/go/web/python — as 4 do currículo) →
-// especialização mais próxima. Trilha dinâmica v1: o mapeamento serve
-// SÓ para validar o ?track= como hint (sourceTrack) da investigação —
-// o /register não tem mais etapa de escolha de trilha. A trilha
+// especialização da etapa 2 do /register mais próxima. O /register não
+// tem trilhas por linguagem: Rust e Go caem em "Backend & Rust/Go",
+// Web em "Frontend & React" e Python em "AI Agents & MLOps". A trilha
 // ORIGINAL continua disponível nas props do funil (sourceTrack), então
 // a leitura não perde a origem real pelo mapeamento.
 export const LANDING_TRACK_TO_REGISTER_TRACK: Record<string, TrackId> = {

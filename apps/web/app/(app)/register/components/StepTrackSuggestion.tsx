@@ -2,12 +2,19 @@
 
 import React from 'react';
 
-// Trilha dinâmica v1 (Central 209) — passo 3 do cadastro: Trilha Sugerida.
+// Redesign v2 (Central 213) — passo 3 do cadastro: Trilha Sugerida.
+// Adaptado de StepTrackSuggestion da trilha dinâmica (Central 209).
 // O aluno NÃO escolhe a trilha aqui: a IA sugere com base no perfil e
-// nas metas informados no passo anterior. A investigação leva até 2 dias;
-// enquanto isso, o aluno já pode usar a trilha inicial grátis, os
-// desafios iniciais e os cursos avulsos (links abaixo — todos destinos
-// reais da plataforma, nenhum conteúdo inventado).
+// nas metas informados no passo anterior. A investigação leva até 2 dias.
+//
+// MERGE 209+213: o backend da 209 existe nesta árvore (módulo
+// dynamic-track + migration). Este passo mostra o estado "preparando"
+// porque, no momento do cadastro, nenhuma investigação pode ter
+// terminado ainda — a sugestão real chega depois, no dashboard
+// (DynamicTrackCard, status ready da API). Nunca uma sugestão
+// inventada: o passo renderiza a partir do estado real — o cadastro
+// ainda não foi enviado (onNext dispara o register, que cria a
+// investigação) — e os links abaixo são destinos reais da plataforma.
 
 interface StepTrackSuggestionProps {
   onPrev: () => void;
@@ -85,11 +92,11 @@ export const StepTrackSuggestion: React.FC<StepTrackSuggestionProps> = ({
             gap: '10px',
           }}
         >
-          Sua trilha chega em até 2 dias
+          Sua trilha está sendo preparada
         </h2>
         <p style={{ color: '#9499AD', fontSize: '14px', lineHeight: 1.5, margin: 0 }}>
-          Sua trilha personalizada chega em até 2 dias. Enquanto isso, você já pode
-          começar: trilha inicial grátis, desafios iniciais e cursos avulsos.
+          A IA está analisando seu perfil, o mercado e as vagas para montar sua trilha
+          personalizada. Ela chega em até 2 dias — avisaremos você aqui na plataforma.
         </p>
         <p style={{ color: '#9499AD', fontSize: '14px', lineHeight: 1.5, margin: '12px 0 0' }}>
           Vamos analisar seu perfil e suas metas — seu motivo, o mercado, a stack,
@@ -97,6 +104,13 @@ export const StepTrackSuggestion: React.FC<StepTrackSuggestionProps> = ({
           estiver pronta, avisamos no seu dashboard.
         </p>
       </div>
+
+      {/* Alternativa (brief do cadastro): quem não quiser esperar a
+          sugestão faz cursos avulsos — todos destinos reais da
+          plataforma, nenhum conteúdo inventado. */}
+      <p style={{ color: '#9499AD', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px' }}>
+        Prefere escolher? Veja os cursos avulsos — ou comece agora por aqui:
+      </p>
 
       {/* O que fazer agora */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>

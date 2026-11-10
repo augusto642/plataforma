@@ -58,12 +58,14 @@ export const HeroActiveMission: React.FC<HeroActiveMissionProps> = ({
           </p>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Bar — Redesign v2 (correção 19): sem contagens nem
+            porcentagens no rótulo; o estado é "em andamento" (ou
+            "Concluído"). A barra visual segue o progresso real. */}
         <div className="pt-2 max-w-xl space-y-1.5">
           <div className="flex justify-between text-xs text-[#A1A1AA] font-medium">
             <span>Progresso do Módulo</span>
             <span className="text-[#04D361] font-bold font-mono">
-              {mission.progressPercent}% Concluído ({mission.completedLabs}/{mission.totalLabs} Labs)
+              {mission.progressPercent >= 100 ? 'Concluído' : 'em andamento'}
             </span>
           </div>
           <div className="w-full h-2.5 bg-[#09090A] rounded-full overflow-hidden border border-[#27272A]">

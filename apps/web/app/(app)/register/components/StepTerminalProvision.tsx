@@ -11,6 +11,8 @@ interface LogItem {
   color: string;
 }
 
+// Redesign v2 (Central 213) — sem selectedTrack: a trilha é sugerida
+// pela investigação (até 2 dias), não escolhida no cadastro.
 interface StepTerminalProvisionProps {
   name: string;
   email: string;
@@ -92,8 +94,8 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
       {
         pct: 85,
         time: '00:00:06',
-        // Trilha dinâmica v1 — a trilha é sugerida pela investigação
-        // (até 2 dias), não compilada aqui: sem nome de trilha no log.
+        // Redesign v2 — a trilha é sugerida pela investigação (até 2
+        // dias), não compilada aqui: sem nome de trilha no log.
         msg: '🎯 Analisando seu perfil para sugerir sua trilha personalizada...',
         color: '#F59E0B',
       },
@@ -370,7 +372,7 @@ export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
                 fontFamily: '"Fira Code", monospace',
               }}
             >
-              ✨ Trilha sugerida em até 2 dias
+              ⚡ {EXP_LABELS[expLevel]}
             </span>
             <span
               style={{

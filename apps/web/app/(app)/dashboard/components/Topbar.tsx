@@ -31,9 +31,14 @@ export const Topbar: React.FC<TopbarProps> = ({
     }
   };
 
+  // Redesign v2 (correção 23) — o cabeçalho cortava avatar/nome em
+  // 1440px: os dois lados agora têm larguras controladas (o grupo da
+  // esquerda encolhe, o da direita nunca encolhe), a busca some abaixo
+  // de lg e o nome do aluno aparece ao lado do avatar com truncamento,
+  // sem empurrar nada para fora da tela.
   return (
-    <header className="h-16 bg-[#121214] border-b border-[#27272A] px-4 md:px-8 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-opacity-95">
-      <div className="flex items-center gap-6">
+    <header className="h-16 bg-[#121214] border-b border-[#27272A] px-4 md:px-8 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-opacity-95 overflow-hidden">
+      <div className="flex items-center gap-6 min-w-0">
         {/* Brand Logo */}
         <Logo size="md" href="/" />
 
@@ -47,7 +52,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         </Link>
 
         {/* Command Search Bar (Ctrl+K style) */}
-        <div className="hidden md:flex items-center gap-2 bg-[#18181B] border border-[#27272A] focus-within:border-[#8257E5] rounded-xl px-3 py-1.5 w-64 lg:w-72 text-xs text-[#71717A] transition-all">
+        <div className="hidden lg:flex items-center gap-2 bg-[#18181B] border border-[#27272A] focus-within:border-[#8257E5] rounded-xl px-3 py-1.5 w-64 xl:w-72 text-xs text-[#71717A] transition-all min-w-0">
           <svg className="w-4 h-4 text-[#71717A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -66,9 +71,9 @@ export const Topbar: React.FC<TopbarProps> = ({
       </div>
 
       {/* User Header Stats & Actions */}
-      <div className="flex items-center gap-2.5 sm:gap-3 md:gap-5">
+      <div className="flex items-center gap-2.5 sm:gap-3 md:gap-5 shrink-0 min-w-0">
         {/* Streak Counter with Flame & Solar Aura */}
-        <div className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#18181B] border border-[#27272A] hover:border-[#FFA116]/60 transition-all ${user.streakDays >= 3 ? 'streak-fire-aura' : ''}`}>
+        <div className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#18181B] border border-[#27272A] hover:border-[#FFA116]/60 transition-all shrink-0 ${user.streakDays >= 3 ? 'streak-fire-aura' : ''}`}>
           <span className="text-base animate-bounce">🔥</span>
           <div className="flex flex-col">
             <span className="text-xs font-black text-[#FFA116]">{user.streakDays} dias</span>
@@ -77,7 +82,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         </div>
 
         {/* XP & Level Badge with Odometer Pop Effect */}
-        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#8257E5]/15 border border-[#8257E5]/40 xp-pop-anim">
+        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#8257E5]/15 border border-[#8257E5]/40 xp-pop-anim shrink-0">
           <span className="text-sm">⚡</span>
           <div className="flex flex-col">
             <span className="text-xs font-mono font-black text-[#996DFF]">
@@ -89,18 +94,22 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
         </div>
 
-        {/* Simulate Exercise / Trigger Confetti CTA */}
+        {/* Simulate Exercise / Trigger Confetti CTA — Redesign v2
+            (correção 21): sem valor de XP no rótulo. */}
         <button
           onClick={onSimulateChallenge}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-[#00B37E] to-[#04D361] hover:from-[#00875F] hover:to-[#00B37E] text-[#09090A] font-extrabold text-xs transition-all glow-green shadow-md active:scale-95 cursor-pointer"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-[#00B37E] to-[#04D361] hover:from-[#00875F] hover:to-[#00B37E] text-[#09090A] font-extrabold text-xs transition-all glow-green shadow-md active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
         >
           <span>⚡</span>
-          <span className="hidden sm:inline">Resolver Desafio (+250 XP)</span>
-          <span className="sm:hidden">+250 XP</span>
+          <span className="hidden sm:inline">Resolver Desafio</span>
+          <span className="sm:hidden">Resolver</span>
         </button>
 
         {/* User Avatar Profile */}
-        <div className="flex items-center gap-2 pl-2 border-l border-[#27272A]">
+        <div className="flex items-center gap-2 pl-2 border-l border-[#27272A] shrink-0 min-w-0">
+          <span className="hidden lg:block max-w-[140px] truncate text-xs font-bold text-white">
+            {user.name}
+          </span>
           <Link
             href="/profile"
             title={`Perfil de ${user.name}`}

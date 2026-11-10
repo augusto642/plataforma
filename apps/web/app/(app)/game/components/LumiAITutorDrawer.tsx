@@ -41,7 +41,7 @@ export const LumiAITutorDrawer: React.FC = () => {
     {
       id: 'm1',
       sender: 'lumi',
-      text: `Olá, ${player.name}! Eu sou a Lumi ✨, sua mentora socrática no NEXUS. Quando encontrar uma falha em seu código ou precisar entender um algoritmo, me consulte! Você possui ${lumiQuota.remaining}/${lumiQuota.maxDaily} perguntas hoje.`,
+      text: `Olá, ${player.name}! Eu sou a sua mentora socrática no NEXUS. Quando encontrar uma falha em seu código ou precisar entender um algoritmo, me consulte! Você possui ${lumiQuota.remaining}/${lumiQuota.maxDaily} perguntas hoje.`,
       timestamp: 'Agora',
     },
   ]);
@@ -222,7 +222,7 @@ export const LumiAITutorDrawer: React.FC = () => {
                   {m.text}
                 </div>
                 <span className="text-[9px] text-slate-500 mt-1 px-1">
-                  {m.sender === 'player' ? player.name : 'Lumi'} &bull; {m.timestamp}
+                  {m.sender === 'player' ? player.name : 'Tutora'} &bull; {m.timestamp}
                 </span>
               </div>
             ))}
@@ -230,7 +230,7 @@ export const LumiAITutorDrawer: React.FC = () => {
             {isGenerating && (
               <div className="flex items-center space-x-2 text-cyan-400 text-xs italic">
                 <span className="animate-spin text-sm">✦</span>
-                <span>Lumi está formulando uma pergunta reflexiva...</span>
+                <span>A tutora está formulando uma pergunta reflexiva...</span>
               </div>
             )}
           </div>
@@ -307,7 +307,7 @@ export const LumiAITutorDrawer: React.FC = () => {
               disabled={lumiQuota.remaining <= 0 || isGenerating}
               placeholder={
                 lumiQuota.remaining > 0
-                  ? 'Pergunte para a Lumi (método socrático)...'
+                  ? 'Pergunte à tutora (método socrático)...'
                   : 'Cota diária de 5 prompts esgotada!'
               }
               className="flex-1 rounded-xl border border-cyan-900/60 bg-[#030713] px-3.5 py-2 font-mono text-xs text-white placeholder:text-slate-500 focus:border-[#00E5FF] focus:outline-none"

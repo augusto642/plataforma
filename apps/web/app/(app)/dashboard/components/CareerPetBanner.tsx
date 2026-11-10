@@ -47,7 +47,7 @@ const CAREER_TIERS_DATA: TierInfo[] = [
       { icon: '⚡', name: 'Batalhas de Bugs', desc: 'Digitar ataques de sintaxe e consertar pequenos erros de tipagem e lógica.' },
       { icon: '🧩', name: 'Algoritmos Essenciais', desc: 'Variáveis, condicionais, loops e coleções básicas de dados.' },
       { icon: '🛡️', name: 'Metamorfose do Pet', desc: 'Evoluir o Pet até o Nível 10 para desbloquear a patente Júnior.' },
-      { icon: '🤖', name: 'Consultas ao Mascote Lumi', desc: 'Tirar dúvidas socráticas sem receber respostas prontas.' },
+      { icon: '🤖', name: 'Consultas ao mascote', desc: 'Tirar dúvidas socráticas sem receber respostas prontas.' },
       { icon: '🏆', name: 'Primeira Insígnia', desc: 'Bater o chefe do Setor 1 e provar raciocínio computacional sólido.' },
     ],
   },

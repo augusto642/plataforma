@@ -131,9 +131,11 @@ export default function EntrevistaSessaoPage() {
               <p>{turn.content}</p>
               {turn.role === 'candidate' && turn.evaluation && (
                 <div className="mt-2 text-xs text-zinc-400 space-y-1">
+                  {/* Redesign v2 (correção 15): avaliação por critérios
+                      SEM números — só o nome do critério e a evidência. */}
                   {Object.entries(turn.evaluation).map(([key, v]) => (
                     <p key={key}>
-                      <span className="font-bold text-zinc-300">{key}: {v.score}/5</span>
+                      <span className="font-bold text-zinc-300">{key}</span>
                       {' — '}
                       {v.evidence}
                     </p>
@@ -186,11 +188,11 @@ export default function EntrevistaSessaoPage() {
           <div className="mt-8 border border-[#2A2A33] rounded-xl p-4 space-y-4">
             <h2 className="text-lg font-bold text-white">Relatório</h2>
             <div>
-              <h3 className="text-sm font-bold text-zinc-300">Notas por critério</h3>
+              <h3 className="text-sm font-bold text-zinc-300">Avaliação por critério</h3>
               <ul className="text-sm text-zinc-400 mt-1 space-y-1">
                 {Object.entries(report.scores).map(([key, v]) => (
                   <li key={key}>
-                    <span className="font-bold text-zinc-200">{key}: {v.score}/5</span>
+                    <span className="font-bold text-zinc-200">{key}</span>
                     {' — '}
                     {v.evidence}
                   </li>

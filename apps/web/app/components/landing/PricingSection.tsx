@@ -114,6 +114,12 @@ export const PricingSection: React.FC = () => {
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
+            {/* Redesign v2 (correção 4) — itens do plano Iniciante do
+                mockup v2: os desafios iniciais de lógica são o conteúdo
+                do nível Iniciante, e a comunidade é a /comunidade
+                (fórum + revisão por pares) que já existe no produto. */}
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso aos desafios iniciais de lógica</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Comunidade de alunos</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Sandbox Linux Piston</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Ranking por curso entre alunos matriculados</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>

@@ -7,8 +7,8 @@ import { ConfettiCanvas, ConfettiCanvasHandle } from './components/ConfettiCanva
 import { RegisterStepper } from './components/RegisterStepper';
 import { StepCredentials, RoleType } from './components/StepCredentials';
 import { StepEmailVerification } from './components/StepEmailVerification';
-import { StepGoals, ExpLevel, TimeCommitment, CareerGoal } from './components/StepGoals';
 import { StepTrackSuggestion } from './components/StepTrackSuggestion';
+import { StepGoals, ExpLevel, TimeCommitment, CareerGoal } from './components/StepGoals';
 import { StepTerminalProvision } from './components/StepTerminalProvision';
 import { useAuth } from '../../context/AuthContext';
 // B11 — atribuição (UTMs B07 + token do diagnóstico B09) vive na lib
@@ -36,18 +36,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
-  // Trilha dinâmica v1 (Central 209) — a trilha NÃO é escolhida aqui:
-  // o ?track= da landing vira hint (sourceTrack) da investigação, e o
-  // front não envia mais preferredTrack (depreciado na API).
-  // landingTrack = id RESOLVIDO (web3|backend|frontend|ai — o único
-  // valor que a API aceita em sourceTrack); landingTrackRaw = valor cru
-  // da URL, preservado nas props do funil (leitura de origem).
+  // Redesign v2 (Central 213) — a trilha NÃO é escolhida aqui: o ?track=
+  // da landing vira hint (sourceTrack) da investigação, e o front não
+  // envia mais preferredTrack (depreciado na 209).
+  // landingTrack = id RESOLVIDO (web3|backend|frontend|ai); landingTrackRaw
+  // = valor cru da URL, preservado nas props do funil (leitura de origem).
   const [landingTrack, setLandingTrack] = useState<string | null>(null);
   const [landingTrackRaw, setLandingTrackRaw] = useState<string | null>(null);
 
   // B07 — captura as UTMs da URL de chegada uma única vez, na montagem
-  // Trilha dinâmica v1 — o ?track= da landing é validado e guardado
-  // como hint (sourceTrack); nada é pré-selecionado.
+  // Redesign v2 — o ?track= da landing é validado e guardado como hint
+  // (sourceTrack); nada é pré-selecionado.
   useEffect(() => {
     captureUtmFromUrl();
     trackPageview();
@@ -111,7 +110,7 @@ export default function RegisterPage() {
     // B08 — o funil mede a tentativa e a conversão do cadastro.
     // Sprint 5 — a intenção de plano (escolha nos preços) e a campanha
     // acompanham o cadastro nas props, para a leitura do funil fechar.
-    // Trilha dinâmica v1 — as escolhas da etapa 2 (nível/tempo/objetivo)
+    // Redesign v2 — as escolhas da etapa 2 (nível/tempo/objetivo)
     // entram nas props; o hint da landing viaja como sourceTrack (a
     // trilha não é mais escolhida no cadastro).
     const signupProps = {
@@ -135,10 +134,13 @@ export default function RegisterPage() {
         ...readStoredUtm(),
         // B09 — inclui o token do diagnóstico; quem não fez o quiz não envia nada
         ...readStoredDiagnosticToken(),
-        // Trilha dinâmica v1 — o nível persiste como careerTier da conta
-        // (ver RegisterDto); o hint da landing viaja como sourceTrack.
-        // preferredTrack NÃO é mais enviado (depreciado: a trilha é
-        // sugerida pela investigação, não escolhida no cadastro).
+        // Merge 209+213 — o nível persiste como careerTier da conta
+        // (ver RegisterDto); o hint RESOLVIDO da landing viaja como
+        // sourceTrack no corpo (a API mesclada TEM o campo —
+        // RegisterDto.sourceTrack; a 213 o omitia porque a API da base
+        // dela não tinha). preferredTrack NÃO é mais enviado
+        // (depreciado: a trilha é sugerida pela investigação, não
+        // escolhida no cadastro).
         ...(landingTrack ? { sourceTrack: landingTrack } : {}),
         experienceLevel: expLevel,
         weeklyTimeCommitment: timeCommitment,
@@ -176,7 +178,7 @@ export default function RegisterPage() {
     // Só avança após 2xx real da API (conta criada de fato).
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [email, password, name, authRegister, expLevel, timeCommitment, careerGoal, landingTrack]);
+  }, [email, password, name, authRegister, expLevel, timeCommitment, careerGoal, landingTrack, landingTrackRaw]);
 
   const handleProvisionFinished = useCallback(() => {
     confettiRef.current?.fire();
@@ -394,7 +396,7 @@ export default function RegisterPage() {
             />
           )}
 
-          {/* STEP 2: PERFIL & METAS */}
+          {/* STEP 2: METAS E NÍVEL */}
           {currentStep === 2 && (
             <StepGoals
               expLevel={expLevel}
@@ -408,8 +410,9 @@ export default function RegisterPage() {
             />
           )}
 
-          {/* STEP 3: TRILHA SUGERIDA (trilha dinâmica v1 — o aluno não
-              escolhe a trilha; a investigação sugere em até 2 dias) */}
+          {/* STEP 3: TRILHA SUGERIDA (o aluno não escolhe a trilha;
+              a investigação sugere em até 2 dias e a sugestão chega
+              no dashboard) */}
           {currentStep === 3 && (
             <StepTrackSuggestion
               onPrev={() => setCurrentStep(2)}
