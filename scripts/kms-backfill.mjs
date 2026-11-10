@@ -203,6 +203,13 @@ function loadQueueSlugs(paths) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/kms-backfill.mjs [--content dir] [--apply]',
+      'Sem --apply, o default é --dry-run: lista o que criaria sem escrever nada.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   const contentDir = resolve(get('--content') || join(new URL('..', import.meta.url).pathname, 'content'));
   try {

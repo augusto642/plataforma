@@ -24,7 +24,11 @@ import {
   readStoredUtm,
 } from '../../../lib/attribution';
 import { track } from '../../../lib/analytics';
-import { clearOnboardingChoices } from '../../../lib/onboardingChoices';
+import {
+  clearOnboardingChoices,
+  readOnboardingChoices,
+  saveOnboardingChoices,
+} from '../../../lib/onboardingChoices';
 import { useGameStore } from '../../game/stores/useGameStore';
 
 interface SaveAccountStepProps {
@@ -53,6 +57,9 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
   const firstMission = useGameStore((s) => s.firstMission);
 
   const [name, setName] = useState(player.name ?? '');
+  // Rodada 3 (R9, gatilho T4) — objetivo declarado, persistido no
+  // espelho de escolhas do prólogo (não cria trilha sozinho).
+  const [goal, setGoal] = useState(readOnboardingChoices()?.goal ?? '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -162,6 +169,21 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
           <div className="rounded-xl border border-[#04D361]/40 bg-[#04D361]/10 px-4 py-3 font-mono text-xs text-[#04D361]">
             Conta detectada: {user.email}. Seu progresso fica salvo nesta conta.
           </div>
+          <label className="mt-5 flex flex-col gap-1.5">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              O que você quer se tornar? (opcional)
+            </span>
+            <input
+              type="text"
+              value={goal}
+              onChange={(e) => {
+                setGoal(e.target.value);
+                saveOnboardingChoices({ ...(readOnboardingChoices() ?? {}), goal: e.target.value });
+              }}
+              placeholder="ex.: desenvolvedor Java, front-end…"
+              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+            />
+          </label>
           <button
             type="button"
             onClick={onSaved}
@@ -220,6 +242,25 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
               placeholder="Mínimo 6 caracteres"
               className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
             />
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              O que você quer se tornar? (opcional)
+            </span>
+            <input
+              type="text"
+              value={goal}
+              onChange={(e) => {
+                setGoal(e.target.value);
+                saveOnboardingChoices({ ...(readOnboardingChoices() ?? {}), goal: e.target.value });
+              }}
+              placeholder="ex.: desenvolvedor Java, front-end…"
+              className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#8257E5]"
+            />
+            <span className="font-mono text-[11px] leading-relaxed text-slate-500">
+              Sua trilha vai se gerando aos poucos a partir deste objetivo — a criação é feita por um admin.
+            </span>
           </label>
 
           <button

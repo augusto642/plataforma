@@ -1,0 +1,36 @@
+{
+  "id": "trilha-python/39-exercicio-104-validando-entrada-de-dados-em-python-catalogo-telegram-listagem",
+  "driveFileId": "1za5YgoO1VqQ-vhmGH0LgtsPB0posqnGG",
+  "courseSlug": "trilha-python",
+  "courseName": "Trilha Python (Curso em Vídeo Mundo 1–3)",
+  "lessonTitle": "39. Exercício 104 - Validando entrada de dados em Python - Catálogo Telegram @ListagemCursos @mestredoscursoss",
+  "summary": "Nesta aula, resolvemos o desafio 104 de Python, criando uma função personalizada chamada leia_int para validar entradas de dados do usuário. A função garante que apenas números inteiros sejam aceitos, exibindo mensagens de erro formatadas caso o usuário digite letras, espaços ou deixe o campo em branco. Utilizamos conceitos de funções, loops de repetição, tratamento de strings e validações.",
+  "topics": [
+    "funcoes",
+    "entrada-e-strings",
+    "erros-e-depuracao",
+    "loops",
+    "condicionais"
+  ],
+  "prerequisites": [
+    "funcoes",
+    "condicionais",
+    "loops",
+    "entrada-e-strings"
+  ],
+  "keyExamples": [
+    "def leiaInt(msg):",
+    "n = leiaInt('Digite um número: ')"
+  ],
+  "difficulty": "intermediate",
+  "source": {
+    "type": "drive-course",
+    "courseName": "Trilha Python (Curso em Vídeo Mundo 1–3)",
+    "lessonTitle": "39. Exercício 104 - Validando entrada de dados em Python - Catálogo Telegram @ListagemCursos @mestredoscursoss",
+    "driveFileId": "1za5YgoO1VqQ-vhmGH0LgtsPB0posqnGG",
+    "drivePath": "04. Trilha Python/03. M3 - Curso em Video Mundo 3/39. Exercício 104 - Validando entrada de dados em Python - Catálogo Telegram @ListagemCursos @mestredoscursoss.mp4"
+  },
+  "extractedAt": "2026-10-25T17:13:36.322Z",
+  "extractorVersion": "knowledge-extractor@1",
+  "reviewStatus": "draft"
+}

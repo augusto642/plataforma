@@ -113,6 +113,15 @@ export function generateTrack({ goal, research, lessons, kmsEntries = [], previo
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/knowledge-generate-track.mjs --goal "..." --research <json> --lessons <dir-ou-json>',
+      '       [--kms-entries <dir-ou-json>] [--previous-track <json>] [--out <json>]',
+      'Gerador DETERMINÍSTICO v1 (zero LLM): só pesquisa APROVADA + lições APROVADAS; saída toda draft.',
+      'Redação por LLM vive no TrackGenerationService da API (LlmProvider Sprint 22), nunca neste CLI.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   try {
     const goal = get('--goal');

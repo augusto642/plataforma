@@ -51,10 +51,19 @@ export function approveVersion(paths, slug, versionNum, actor) {
   if (version.status !== 'draft') throw new Error(`só draft pode ser aprovada (versão ${versionNum} está ${version.status})`);
   const now = new Date().toISOString();
   const prevActive = entry.versions.find((v) => v.status === 'active');
+  // D1 (laudo QA2, ALTO): a versão ATIVADA nunca carrega campo de
+  // supersessão — o motivo da proposta vive na versão superada + changelog
+  // (é o que o gate 7 exige). O motivo é capturado ANTES de zerar, para a
+  // versão anterior recebê-lo; sem isso, draft com supersedeReason (forma
+  // exata de uma decisão `supersede`) → approve → validador REPROVA a
+  // árvore e o importador trava antes de qualquer escrita.
+  const proposalReason = version.supersedeReason || 'enriched';
   const versions = entry.versions.map((v) => {
-    if (v.version === versionNum) return { ...v, status: 'active' };
+    if (v.version === versionNum) {
+      return { ...v, status: 'active', supersededBy: null, supersededAt: null, supersedeReason: null };
+    }
     if (prevActive && v.version === prevActive.version) {
-      return { ...v, status: 'superseded', supersededBy: versionNum, supersededAt: now, supersedeReason: version.supersedeReason || 'enriched' };
+      return { ...v, status: 'superseded', supersededBy: versionNum, supersededAt: now, supersedeReason: proposalReason };
     }
     return v;
   });
@@ -64,7 +73,7 @@ export function approveVersion(paths, slug, versionNum, actor) {
     appendChangelog(paths.changelogPath, {
       entrySlug: slug, changeType: 'superseded', version: prevActive.version,
       source: { type: 'admin-decision', decisionId: `approve:${slug}:${versionNum}` },
-      actor, detail: `Versão ${prevActive.version} superada pela aprovação da v${versionNum} (motivo: ${version.supersedeReason || 'enriched'}).`,
+      actor, detail: `Versão ${prevActive.version} superada pela aprovação da v${versionNum} (motivo: ${proposalReason}).`,
     });
   }
   appendChangelog(paths.changelogPath, {
@@ -258,15 +267,87 @@ export async function syncFromDb(paths, prisma) {
   return report;
 }
 
+/**
+ * Aplica decisões de pesquisa do banco aos arquivos (V2 completo, §13.4
+ * espelhado para pesquisa): linhas knowledge_research com decisão
+ * (approved/rejected, ou draft coletado sem checkout) viram arquivos
+ * research/<id>.json a partir do payload + colunas. Depois, re-importe
+ * (o importador nunca sobrescreve linhas research existentes, então a
+ * decisão do banco não é desfeita pelo re-import).
+ */
+export async function syncResearchFromDb(paths, prisma) {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT to_regclass('public.knowledge_research')::text AS research`,
+  );
+  const row = rows[0] || {};
+  if (!row.research) {
+    throw new Error('tabela knowledge_research ausente no banco (migration só-arquivo, §5.4) — sync-research recusado');
+  }
+  const report = { applied: [], skipped: [] };
+  const dbRows = await prisma.knowledgeResearch.findMany();
+  for (const r of dbRows) {
+    const payload = r.payload || {};
+    const doc = {
+      ...payload,
+      id: r.stableId,
+      goal: r.goal,
+      status: r.status,
+      approvedBy: r.approvedBy ?? payload.approvedBy ?? null,
+      approvedAt: r.approvedAt ? new Date(r.approvedAt).toISOString() : payload.approvedAt ?? null,
+      collectedAt: r.collectedAt ? new Date(r.collectedAt).toISOString() : payload.collectedAt,
+    };
+    delete doc.sync;
+    const filePath = join(paths.researchDir, `${r.stableId}.json`);
+    if (existsSync(filePath)) {
+      const fileDoc = JSON.parse(readFileSync(filePath, 'utf8'));
+      if (fileDoc.status === doc.status && fileDoc.approvedBy === doc.approvedBy && fileDoc.approvedAt === doc.approvedAt) {
+        report.skipped.push(`${r.stableId} (já sincronizado)`);
+        continue;
+      }
+    }
+    mkdirSync(paths.researchDir, { recursive: true });
+    writeJsonAtomic(filePath, doc);
+    report.applied.push(`${r.stableId} → ${doc.status}`);
+  }
+  return report;
+}
+
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/kms-apply.mjs --approve <slug> --version <n> [--actor admin:<id>] [--content dir]',
+      '     node scripts/kms-apply.mjs --review <id> [--action enrich|create|supersede|dismiss] [--target <slug>] [--reason ...] [--supersede-reason outdated|corrected|merged]',
+      '     node scripts/kms-apply.mjs --deprecate <slug> --reason ...',
+      '     node scripts/kms-apply.mjs --merge-entry <slug> --into <slug> --reason ...',
+      '     node scripts/kms-apply.mjs --sync-db [--content dir]  (aplica decisões do banco aos arquivos; depois re-importe)',
+      '     node scripts/kms-apply.mjs --sync-research [--content dir]  (V2: decisões de pesquisa do banco → arquivos)',
+      'A API nunca escreve o arquivo: a decisão vive no banco (pending-sync) e o kms-apply a materializa.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
   const contentDir = resolve(get('--content') || join(new URL('..', import.meta.url).pathname, 'content'));
   const paths = kmsPaths(contentDir);
   const actor = get('--actor') || 'kms-apply';
   try {
-    if (args.includes('--sync-db')) {
+    if (args.includes('--sync-research')) {
+      const { createRequire } = await import('node:module');
+      const apiRequire = createRequire(new URL('../apps/api/package.json', import.meta.url));
+      try { apiRequire('dotenv').config(); } catch { /* dotenv opcional */ }
+      if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL ausente — sync-research exige banco configurado');
+      const { PrismaClient } = apiRequire('@prisma/client');
+      const { PrismaPg } = apiRequire('@prisma/adapter-pg');
+      const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL) });
+      try {
+        const report = await syncResearchFromDb(paths, prisma);
+        console.log(`kms-apply --sync-research: aplicadas=${report.applied.length} ignoradas=${report.skipped.length}`);
+        for (const s of report.applied) console.log(`  aplicada: ${s}`);
+        for (const s of report.skipped) console.log(`  ignorada: ${s}`);
+        console.log('  lembrete: re-importe (research) para o espelho refletir os arquivos sincronizados');
+      } finally { await prisma.$disconnect(); }
+    } else if (args.includes('--sync-db')) {
       const { createRequire } = await import('node:module');
       const apiRequire = createRequire(new URL('../apps/api/package.json', import.meta.url));
       try { apiRequire('dotenv').config(); } catch { /* dotenv opcional */ }

@@ -1,0 +1,30 @@
+{
+  "id": "trilha-python/51-exercicio-114-site-esta-acessivel-catalogo-telegram-listagemcursos-mestredosc",
+  "driveFileId": "1n8q88OaqiGtzHxyfQv0lKv1W19VNQSAT",
+  "courseSlug": "trilha-python",
+  "courseName": "Trilha Python (Curso em Vídeo Mundo 1–3)",
+  "lessonTitle": "51. Exercício 114 - Site está acessível - Catálogo Telegram @ListagemCursos @mestredoscursoss",
+  "summary": "Nesta aula de resolução de exercício, o professor Gustavo Guanabara demonstra como utilizar a linguagem Python para verificar se um determinado site, especificamente o pudin.com.br, está acessível na internet. Para isso, utiliza a biblioteca padrão urllib e seu módulo request para tentar abrir uma URL. O exercício aborda a aplicação prática de tratamento de exceções para lidar com falhas de conexão quando o computador está sem acesso à internet, além de mostrar uma dica extra para ler o conteúdo HTML da página acessada.",
+  "topics": [
+    "erros-e-depuracao",
+    "projeto-final"
+  ],
+  "prerequisites": [
+    "condicionais"
+  ],
+  "keyExamples": [
+    "import urllib.request",
+    "site = urllib.request.urlopen('http://www.pudim.com.br')"
+  ],
+  "difficulty": "intermediate",
+  "source": {
+    "type": "drive-course",
+    "courseName": "Trilha Python (Curso em Vídeo Mundo 1–3)",
+    "lessonTitle": "51. Exercício 114 - Site está acessível - Catálogo Telegram @ListagemCursos @mestredoscursoss",
+    "driveFileId": "1n8q88OaqiGtzHxyfQv0lKv1W19VNQSAT",
+    "drivePath": "04. Trilha Python/03. M3 - Curso em Video Mundo 3/51. Exercício 114 - Site está acessível - Catálogo Telegram @ListagemCursos @mestredoscursoss.mp4"
+  },
+  "extractedAt": "2026-10-25T17:19:18.414Z",
+  "extractorVersion": "knowledge-extractor@1",
+  "reviewStatus": "draft"
+}

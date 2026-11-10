@@ -274,6 +274,9 @@ export class CoursesService {
             language: true,
             order: true,
             createdAt: true,
+            // Rodada 3 (R9) — a página do curso agrupa por segmento
+            // incremental e exibe o selo factual a partir do payload.
+            lessonPayload: true,
           },
         },
         _count: {

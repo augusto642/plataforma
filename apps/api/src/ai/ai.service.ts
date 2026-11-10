@@ -162,7 +162,7 @@ export class AiService {
         message: 'Pesquisa profunda indisponível nesta instância (serviço de pesquisa não configurado); nenhuma trilha foi fabricada.',
       };
     }
-    const res = this.research.requestForGoal(goal);
+    const res = await this.research.requestForGoal(goal);
     let nearestTrack: { id: string; title: string; slug: string } | null = null;
     try {
       const tokens = goal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter((t) => t.length > 2);

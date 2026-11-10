@@ -86,7 +86,15 @@ export function atomicWrite(path, text) {
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
 if (isMain) {
+  void (async () => {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log([
+      'Uso: node scripts/drive-rescan.mjs --scope python [--state <json>] [--registry <json>] [--fixture <json>]',
+      'Revarredura fail-closed: descobre novos/alterados, NUNCA extrai; erro no meio = cursor não avança.',
+    ].join('\n'));
+    process.exit(0);
+  }
   const get = (flag, dflt) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : dflt; };
   const repoRoot = resolve(new URL('..', import.meta.url).pathname);
   const scope = get('--scope', 'python');
@@ -104,7 +112,14 @@ if (isMain) {
       }
       files = fixture.files || [];
     } else if (process.env.GOOGLE_DRIVE_CREDENTIALS) {
-      throw new Error('cliente Drive real ainda não implementado nesta branch: GOOGLE_DRIVE_CREDENTIALS presente mas o DriveClient HTTP (files.list) é trabalho da Q1 — sem cliente real, sem varredura fingida');
+      // Cliente real (Q1): lista por watermark. O escopo efetivo vem do
+      // compartilhamento — a conta de serviço só enxerga as pastas
+      // compartilhadas com ela; filtro por âncoras do course-map é
+      // trabalho futuro, não inventado aqui.
+      const { createDriveClient, parseServiceAccountCredentials } = await import('./drive-client.mjs');
+      const client = createDriveClient(parseServiceAccountCredentials(process.env.GOOGLE_DRIVE_CREDENTIALS));
+      const listed = await client.listFiles({ q: `modifiedTime > '${state.driveWatermark}' and trashed = false` });
+      files = listed.map((f) => ({ ...f, path: f.name }));
     } else {
       throw new Error('sem credencial Drive (GOOGLE_DRIVE_CREDENTIALS ausente — Q1 pendente). Rode com --fixture para teste, ou forneça a credencial quando a Q1 for decidida.');
     }
@@ -120,4 +135,5 @@ if (isMain) {
     console.error(`drive-rescan: FALHOU (fail-closed, cursor não avançou): ${err.message}`);
     process.exit(1);
   }
+  })();
 }

@@ -37,6 +37,16 @@ const prisma = new PrismaClient({
 const BCRYPT_ROUNDS = 12;
 
 async function main() {
+  // D6 (rodada 3, complemento): --help sai 0 com o uso, sem semear
+  // (antes, --help era ignorado e o seed executava de verdade).
+  if (process.argv.slice(2).includes('--help') || process.argv.slice(2).includes('-h')) {
+    console.log([
+      'Uso: node scripts/seed-data.mjs [--help]',
+      'Semeia o banco local (usuários, cursos do catálogo, trilhas) via upsert — idempotente.',
+      'Exige DATABASE_URL. Sem --help, executa o seed; com --help, só imprime este uso e sai 0.',
+    ].join('\n'));
+    return;
+  }
   console.log('[seed-data] Iniciando seed de dados...');
 
   // 1. Criar Usuários

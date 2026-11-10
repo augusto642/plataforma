@@ -155,7 +155,13 @@ export function nextChangelogSeq(changelog) {
 /** Append ao changelog versionado (append-only; nunca edita item antigo). Retorna o item criado. */
 export function appendChangelog(changelogPath, item) {
   const doc = loadJsonIfExists(changelogPath, { version: 1, entries: [] });
-  if (!Array.isArray(doc.entries)) doc.entries = [];
+  // Rodada 3 — changelog malformado (ex.: array em vez de
+  // {version, entries[]}) fazia o append ser perdido em silêncio: o
+  // JSON.stringify descartava a propriedade entries do array e o CLI
+  // anunciava sucesso sem gravar nada. Fail-closed com erro claro.
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc) || !Array.isArray(doc.entries)) {
+    throw new Error(`changelog malformado em ${changelogPath}: esperado {version, entries[]} (rode o validador antes)`);
+  }
   const seq = nextChangelogSeq(doc);
   const full = { occurredAt: new Date().toISOString(), ...item, seq };
   // seq atribuído aqui (não pelo chamador): garante ordem total mesmo se o chamador não souber o próximo.

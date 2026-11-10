@@ -50,6 +50,16 @@ interface ApiActivity {
   description?: string | null;
   language?: string | null;
   order: number;
+  // Rodada 3 (R9) — payload da geração incremental (DESIGN §I1): só
+  // existe em atividades semeadas de segmentos; ausente = atividade
+  // fora de segmento (catálogo antigo), exibida sem selo, sem inventar.
+  lessonPayload?: {
+    segment?: { trackSlug?: string; stageSlug?: string; segmentVersion?: number };
+    activityKind?: string;
+    techVersions?: Record<string, { version: string | null; status?: string }>;
+    kmsEntries?: Array<{ slug?: string; version?: number }>;
+    marketSkills?: Array<{ skill?: string; sampleSize?: number }>;
+  } | null;
 }
 
 interface ApiCourseDetail extends ApiCourseListItem {
@@ -71,6 +81,50 @@ function initialsOf(name: string): string {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+}
+
+// Rodada 3 (R9) — agrupamento por segmento incremental a partir do
+// lessonPayload. Atividades sem segmento formam o grupo "sem segmento".
+// O selo de cada grupo usa SÓ o que o payload sustenta: versões
+// resolvidas (techVersions) e skills de mercado com amostra válida —
+// sem data de coleta no payload, sem data inventada; sem endpoint de
+// geração para o aluno (R12/Q13), o botão de próximos passos apenas
+// recarrega o curso e explica o estado honesto.
+interface SegmentGroup {
+  key: string;
+  stageSlug: string | null;
+  segmentVersion: number | null;
+  activities: ApiActivity[];
+  techVersions: Record<string, { version: string | null; status?: string }>;
+  marketSkills: Array<{ skill?: string; sampleSize?: number }>;
+}
+
+function groupActivities(activities: ApiActivity[]): SegmentGroup[] {
+  const groups: SegmentGroup[] = [];
+  const byKey = new Map<string, SegmentGroup>();
+  for (const activity of activities) {
+    const seg = activity.lessonPayload?.segment;
+    const key = seg?.stageSlug ?? '__none__';
+    let group = byKey.get(key);
+    if (!group) {
+      group = {
+        key,
+        stageSlug: seg?.stageSlug ?? null,
+        segmentVersion: seg?.segmentVersion ?? null,
+        activities: [],
+        techVersions: {},
+        marketSkills: [],
+      };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.activities.push(activity);
+    Object.assign(group.techVersions, activity.lessonPayload?.techVersions ?? {});
+    for (const skill of activity.lessonPayload?.marketSkills ?? []) {
+      if (!group.marketSkills.some((s) => s.skill === skill.skill)) group.marketSkills.push(skill);
+    }
+  }
+  return groups;
 }
 
 export default function CourseDetailPage({ params }: { params: { slug: string } }) {
@@ -399,34 +453,72 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                 </p>
               )}
 
-              <ol className="space-y-3">
-                {(state.course.activities ?? [])
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((activity, index) => (
-                    <li
-                      key={activity.id}
-                      className="flex items-start gap-4 bg-[#181820] border border-[#27272A] rounded-xl p-4"
-                    >
-                      <span className="text-xs font-mono font-black text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/30 rounded-lg px-2 py-1 shrink-0">
-                        {String(index + 1).padStart(2, '0')}
+              <div className="mb-5 rounded-xl border border-[#27272A] bg-[#121217] p-4">
+                <p className="text-sm font-bold text-white">Próximos passos</p>
+                <p className="text-xs text-zinc-400 leading-relaxed mt-1">
+                  Segmentos em revisão (draft) ainda não são jogáveis e não aparecem aqui; o próximo segmento só entra
+                  quando aprovado por um admin. Não há endpoint de geração para o aluno (Q13 pendente) — o botão abaixo
+                  apenas recarrega o curso para mostrar segmentos aprovados desde a última visita.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((k) => k + 1)}
+                  className="mt-3 rounded-lg bg-[#8257E5]/15 border border-[#8257E5]/30 text-[#996DFF] px-4 py-2 text-xs font-bold"
+                >
+                  Verificar novos segmentos
+                </button>
+              </div>
+
+              {groupActivities(
+                (state.course.activities ?? []).slice().sort((a, b) => a.order - b.order),
+              ).map((group) => (
+                <div key={group.key} className="mb-6">
+                  <div className="flex flex-wrap items-baseline gap-2 mb-3">
+                    <h3 className="text-sm font-bold text-white">
+                      {group.stageSlug ? `Segmento: ${group.stageSlug}` : 'Atividades sem segmento'}
+                    </h3>
+                    {group.segmentVersion !== null && (
+                      <span className="text-[10px] font-mono text-zinc-400">v{group.segmentVersion}</span>
+                    )}
+                    {Object.entries(group.techVersions).map(([tech, v]) => (
+                      <span key={tech} className="text-[10px] font-mono text-zinc-400">
+                        {tech} {v.version ?? 'não confirmada'}
+                        {v.status === 'unconfirmed' ? ' (não confirmada)' : ''}
                       </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-white">{activity.title}</p>
-                        {activity.description && (
-                          <p className="text-xs text-zinc-400 leading-relaxed mt-0.5">
-                            {activity.description}
-                          </p>
-                        )}
-                      </div>
-                      {activity.language && (
-                        <span className="ml-auto shrink-0 text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded">
-                          {activity.language}
+                    ))}
+                    {group.marketSkills.length > 0 && (
+                      <span className="text-[10px] font-mono text-zinc-400">
+                        mercado: {group.marketSkills.map((s) => `${s.skill} (n=${s.sampleSize ?? 0})`).join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  <ol className="space-y-3">
+                    {group.activities.map((activity, index) => (
+                      <li
+                        key={activity.id}
+                        className="flex items-start gap-4 bg-[#181820] border border-[#27272A] rounded-xl p-4"
+                      >
+                        <span className="text-xs font-mono font-black text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/30 rounded-lg px-2 py-1 shrink-0">
+                          {String(index + 1).padStart(2, '0')}
                         </span>
-                      )}
-                    </li>
-                  ))}
-              </ol>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white">{activity.title}</p>
+                          {activity.description && (
+                            <p className="text-xs text-zinc-400 leading-relaxed mt-0.5">
+                              {activity.description}
+                            </p>
+                          )}
+                        </div>
+                        {activity.language && (
+                          <span className="ml-auto shrink-0 text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded">
+                            {activity.language}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
             </div>
           </>
         )}

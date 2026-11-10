@@ -31,6 +31,10 @@ export interface OnboardingChoices {
   careerTier?: CareerTier;
   firstMission?: FirstMissionResult | null;
   step?: OnboardingStepName;
+  // Rodada 3 (R9, gatilho T4) — objetivo em texto livre do aluno
+  // (ex.: "desenvolvedor Java"). É só a intenção declarada: a trilha
+  // incremental é criada por ato do admin, não por este campo sozinho.
+  goal?: string;
 }
 
 export function saveOnboardingChoices(choices: OnboardingChoices): void {

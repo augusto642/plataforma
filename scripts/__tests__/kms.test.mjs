@@ -379,6 +379,29 @@ test('calibração: 6/6 nos fixtures rotulados (limiares 70/40 versionados)', ()
   assert.equal(report.matchVersion, 1);
 });
 
+test('rodada 3 — changelog malformado: validador lista a falha, nunca stack cru', () => {
+  const content = kmsTree({});
+  writeFileSync(join(content, 'knowledge', 'changelog.json'), '[]');
+  const fails = validateKnowledge(content).failures;
+  assert.ok(fails.some((f) => f.includes('changelog.json: entries ausente ou não é lista')), fails.join('\n'));
+});
+
+test('rodada 3 — appendChangelog sobre changelog malformado falha fechado, sem perda silenciosa', async () => {
+  const { appendChangelog } = await import('../../scripts/kms-lib.mjs');
+  const content = kmsTree({});
+  const changelogPath = join(content, 'knowledge', 'changelog.json');
+  writeFileSync(changelogPath, '[]');
+  assert.throws(() => appendChangelog(changelogPath, { entrySlug: 'x', changeType: 'created', version: 1, source: { type: 'drive', driveFileId: 'f' }, actor: 'kms-apply' }), /changelog malformado/);
+  assert.equal(readFileSync(changelogPath, 'utf8'), '[]');
+});
+
+test('rodada 3 — toUuidOrNull: admin:<uuid> vira uuid, ator de arquivo vira null', async () => {
+  const { toUuidOrNull } = await import('../../scripts/import-knowledge.mjs');
+  assert.equal(toUuidOrNull('admin:30af5ad6-80f9-470d-b7f4-e36c08bbd32a'), '30af5ad6-80f9-470d-b7f4-e36c08bbd32a');
+  assert.equal(toUuidOrNull('kms-apply'), null);
+  assert.equal(toUuidOrNull(null), null);
+});
+
 test('backfill CLI: árvore vazia prova 0 entradas (dry-run default)', () => {
   const content = kmsTree({});
   const out = execFileSync('node', ['scripts/kms-backfill.mjs', '--content', content], { cwd: new URL('../..', import.meta.url).pathname, encoding: 'utf8' });
