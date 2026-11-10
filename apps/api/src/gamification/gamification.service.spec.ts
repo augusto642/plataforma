@@ -294,23 +294,34 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
     expect(result?.totalXp).toBe(70);
   });
 
-  it('streak is unchanged when the last activity was less than 20h ago (same day)', async () => {
-    const user5hAgo = {
+  it('streak is unchanged when the last activity was today (same calendar day, B15)', async () => {
+    const userToday = {
       id: 'user-1',
       xp: 0,
       level: 1,
       streakDays: 4,
-      lastActiveAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
+      // Hoje às 01:00 UTC — mesmo dia de calendário que "agora" em qualquer
+      // horário de execução (gap 0; se agora for antes das 01:00, gap <= 0
+      // e a sequência também fica intacta). A regra antiga ("menos de 20h")
+      // dependia do horário de execução e falhava após a meia-noite UTC.
+      lastActiveAt: new Date(
+        Date.UTC(
+          new Date().getUTCFullYear(),
+          new Date().getUTCMonth(),
+          new Date().getUTCDate(),
+          1,
+        ),
+      ),
       badges: [],
     };
     const updates: any[] = [];
     const tx = {
       user: {
-        findUnique: jest.fn().mockResolvedValue(user5hAgo),
+        findUnique: jest.fn().mockResolvedValue(userToday),
         update: jest.fn().mockImplementation(({ data }: any) => {
           updates.push(data);
-          const next: any = { ...user5hAgo };
-          if (data.xp?.increment) next.xp = user5hAgo.xp + data.xp.increment;
+          const next: any = { ...userToday };
+          if (data.xp?.increment) next.xp = userToday.xp + data.xp.increment;
           if (typeof data.level === 'number') next.level = data.level;
           if (typeof data.streakDays === 'number') next.streakDays = data.streakDays;
           return Promise.resolve(next);
