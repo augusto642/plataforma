@@ -90,12 +90,10 @@ export const PricingSection: React.FC = () => {
       </div>
     </div>
     {/* B51/P4 (Sprint 16) — a economia do anual em REAIS ABSOLUTOS,
-        junto ao toggle (a pesquisa do ciclo: valor absoluto supera o
-        percentual na escolha do anual). Os valores vêm da fonte única
-        de preços — Pro: R$ 120/ano; Staff: R$ 240/ano contra o mensal. */}
+        junto ao toggle. Central 216 (D1): só o Pro tem preço — o
+        Carreira está com preço a definir e não entra na conta. */}
     <p className="text-body-sm font-mono text-ink-span -mt-8 mb-16 lg:text-right">
-      No plano anual: <span className="text-ink-heading font-bold">economize {formatBRL(annualSavings(PLAN_PRICES.pro))} por ano</span> no Pro
-      e <span className="text-ink-heading font-bold">{formatBRL(annualSavings(PLAN_PRICES.staff))} por ano</span> no Staff, em relação ao mensal.
+      No plano anual: <span className="text-ink-heading font-bold">economize {formatBRL(annualSavings(PLAN_PRICES.pro) ?? 0)} por ano</span> no Pro, em relação ao mensal.
     </p>
 {/* CARDS DE PREÇO */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -167,7 +165,9 @@ export const PricingSection: React.FC = () => {
                 TODAS as trilhas" lia como inventário presente,
                 incluindo as 4 do radar. Formulação no presente
                 verdadeiro: as trilhas e níveis DISPONÍVEIS. */}
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso a todas as trilhas e níveis disponíveis na plataforma</li>
+            {/* Central 216 (D1, correção #6 do prompt v2) — o Pro dá
+                "Acesso a todas as fases", sem "ilimitado". */}
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Acesso a todas as fases</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Certificado de conclusão com verificação pública por código SHA-256</li>
           </ul>
@@ -205,61 +205,39 @@ export const PricingSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Card Staff / Enterprise */}
+      {/* Card Carreira (protótipo Stitch v2) — Central 216 (D1): o
+          terceiro plano é o Carreira, com "Preço a definir" (não o
+          Staff R$ 79,90). Sem preço, sem aviso de cobrança e sem
+          checkout: a ação real é a lista de interessados (+ contato).
+          O id interno segue 'staff' (plan-interest/API). */}
       <div className="p-7 rounded-2xl bg-surface-1 border border-border-2 flex flex-col justify-between">
         <div>
-          <div className="text-xs font-mono font-bold text-brand-purple-light uppercase tracking-wider mb-2">ENTERPRISE & TIMES</div>
-          <h3 className="text-xl font-heading font-bold text-ink-heading mb-2">Plano Staff</h3>
+          <div className="text-xs font-mono font-bold text-brand-purple-light uppercase tracking-wider mb-2">CARREIRA</div>
+          <h3 className="text-xl font-heading font-bold text-ink-heading mb-2">Plano Carreira</h3>
           <p className="text-body-sm text-ink-span leading-relaxed mb-6 font-sans">
-            Para times de engenharia, tech academies e posições seniores.
+            Tudo do Pro somado a preparação direta e conexão com empresas.
           </p>
           <div className="mb-6">
             <span id="price-staff" className="text-3xl sm:text-4xl font-heading font-black text-ink-heading">
-              {formatBRL(billingCycle === 'annual' ? PLAN_PRICES.staff.annualMonthly : PLAN_PRICES.staff.monthly)}
-            </span>
-            <span id="cycle-staff" className="text-body-sm font-mono text-ink-span ml-1">
-              {billingCycle === 'annual' ? `/ mês (${formatBRL(annualTotal(PLAN_PRICES.staff))}/ano)` : '/ mês'}
+              Preço a definir
             </span>
           </div>
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
-            {/* B55 (Sprint 17 · Volta 2) — Staff com lastro: "Painel de
-                Gestão de Equipes", "Desafios Customizados de Empresa" e
-                "Relatórios de Performance de Engenharia" NÃO existem no
-                módulo Company/talent (conferido no código: Company é
-                cadastro administrativo + token; a leitura real é o
-                ranking de talentos por curso, só de alunos que optaram
-                por visibilidade). O card passa a dizer o que existe. */}
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Tudo do plano Pro incluído</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Ranking de talentos por curso para empresas parceiras</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Visibilidade só de alunos que optaram por aparecer</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Cadastro da empresa feito pela nossa equipe</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Tudo incluído no plano Pro</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Talent Match: recomendação para empresas parceiras</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Preparação completa para vagas e revisão de currículo/LinkedIn</li>
+            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Simulações de entrevistas com feedbacks gravados</li>
           </ul>
         </div>
-        {/* Staff é contato comercial (ação genuinamente outra): cta_id e
-            intenção próprios, tratamento secundário em roxo — não divide o
-            funil de cadastro genérico (Sprint 5).
-            Sprint 6 — o rótulo agora tem destino REAL: a página /contato
-            (formulário próprio com endpoint na API), não mais o /register
-            disfarçado de contato. */}
         <div>
-          {/* B67 — rótulo do Staff nomeia a ação real (falar com a
-              equipe), não um departamento genérico. */}
           <Link href="/contato" data-cta-id="pricing_staff_contact" onClick={() => { track('pricing_cta', 'pricing_staff_contact', { plan: 'staff', intent: 'contact_sales', cycle: billingCycle }); savePlanIntent({ plan: 'staff', billingCycle, intent: 'contact_sales' }); }} className="block w-full py-3 rounded-xl bg-transparent hover:bg-brand-purple text-brand-purple-light hover:text-white text-body-sm font-mono font-bold text-center border border-brand-purple/60 transition-colors">
             Falar com a equipe
           </Link>
-          <p className="mt-3 text-center text-xs font-sans text-ink-span">{PAID_PLAN_BILLING_NOTE}</p>
-          {/* B72 (Sprint 18 · Volta 3 · Growth B2) — o próximo passo
-              nomeado, sem prometer prazo que não existe: é o processo
-              real da página /contato (formulário respondido por
-              e-mail) + o cadastro assistido que o próprio card já
-              anuncia nos bullets. */}
           <p className="mt-2 text-center text-xs font-sans text-ink-span">
-            Como funciona: você escreve pelo formulário de contato e a nossa equipe
-            cadastra a sua empresa, falando com você por e-mail.
+            Sem preço definido — entre na lista de interessados do plano Carreira e avisaremos quando abrir.
           </p>
-          {/* B71 — a lista do Staff também captura só o e-mail. */}
           <div className="mt-4 border-t border-border-2/60 pt-4">
-            <PlanInterestForm plan="staff" planLabel="plano Staff" billingCycle={billingCycle} />
+            <PlanInterestForm plan="staff" planLabel="plano Carreira" billingCycle={billingCycle} />
           </div>
         </div>
       </div>

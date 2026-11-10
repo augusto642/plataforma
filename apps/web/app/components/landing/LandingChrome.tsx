@@ -135,6 +135,8 @@ export const LandingChrome: React.FC = () => {
                 ter 6 itens e a oferta liderar sozinha */}
             <a href="#como-funciona" className="hover:text-ink-heading transition-colors">Como Funciona</a>
             <a href="#trilhas" className="hover:text-ink-heading transition-colors">Trilhas</a>
+            <a href="#gamificacao" className="hover:text-ink-heading transition-colors">O jogo</a>
+            <a href="#recursos" className="hover:text-ink-heading transition-colors">Recursos &amp; IA</a>
             <a href="#sandbox" className="hover:text-ink-heading transition-colors flex items-center gap-2">
               <span>Terminal Prático</span>
               <span className="inline-flex items-center gap-1.5 text-body-sm font-mono px-2 py-0.5 rounded-md bg-surface-2 text-brand-cyan-neon border border-border-1 font-bold">

@@ -53,7 +53,7 @@ describe('planInterest — destino da intenção de plano', () => {
     ).toContain('358,80');
     expect(
       planPriceLabel({ plan: 'staff', billingCycle: null, createdAt: '' }),
-    ).toContain('79,90');
+    ).toBe('Preço a definir');
   });
 
   it('confirmação nomeia o plano e declara a cobrança inativa, sem prometer benefício', () => {

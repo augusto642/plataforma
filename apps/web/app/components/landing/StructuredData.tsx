@@ -51,7 +51,9 @@ const productJsonLd = (plan: PlanPrice, description: string) => ({
     '@type': 'Offer',
     url: `${SITE_URL}/#precos`,
     priceCurrency: 'BRL',
-    price: plan.monthly.toFixed(2),
+    // Só chamado com plano com preço definido (Pro); o Carreira
+    // (monthly null) não tem bloco Product — ver abaixo.
+    price: plan.monthly!.toFixed(2),
     // B66 (Sprint 18 · Volta 3 · QA A8) — sem availability, o dado
     // estruturado lia os planos como compráveis hoje, um passo atrás
     // da página visível (que declara a cobrança inativa). PreOrder é
@@ -62,20 +64,14 @@ const productJsonLd = (plan: PlanPrice, description: string) => ({
 
 const proProductJsonLd = productJsonLd(
   PLAN_PRICES.pro,
-  // B66 — mesma formulação do card (B66/QA A6): trilhas e níveis
-  // DISPONÍVEIS, sem prometer o inventário do radar.
-  'Plano Pro da Nexus Code: acesso a todas as trilhas e níveis disponíveis na plataforma, tutora de IA socrática em todos os níveis e certificados com verificação pública por código SHA-256.',
+  // B66 — mesma formulação do card (B66/QA A6), atualizada na 216
+  // (D1, correção #6): "acesso a todas as fases".
+  'Plano Pro da Nexus Code: acesso a todas as fases, tutora de IA socrática em todos os níveis e certificados com verificação pública por código SHA-256.',
 );
 
-// B55 (Sprint 17 · Volta 2) — a descrição do Staff repetia os três
-// recursos inexistentes do card antigo (painel de equipes, desafios
-// customizados, relatórios). Passa a descrever o módulo real:
-// empresas parceiras leem o ranking de talentos por curso, só de
-// alunos que optaram por visibilidade.
-const staffProductJsonLd = productJsonLd(
-  PLAN_PRICES.staff,
-  'Plano Staff da Nexus Code, para times: tudo do plano Pro e acesso de empresas parceiras ao ranking de talentos por curso, com visibilidade apenas de alunos que optaram por aparecer.',
-);
+// Central 216 (D1) — o Carreira está com "Preço a definir": sem
+// preço não há Offer honesta, então não há bloco Product dele. Só o
+// Pro tem Product/Offer (PreOrder, cobrança ainda não ativa).
 
 const faqJsonLd = {
   '@context': 'https://schema.org',
@@ -103,10 +99,6 @@ export const StructuredData: React.FC = () => (
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(proProductJsonLd) }}
-    />
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(staffProductJsonLd) }}
     />
   </>
 );

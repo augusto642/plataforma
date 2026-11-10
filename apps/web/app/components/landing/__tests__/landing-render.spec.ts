@@ -66,11 +66,12 @@ function stripReactComments(html: string): string {
 describe('landing — renderização e claims estruturais (B76)', () => {
   // Fase 1 premium (§2.4) — o CTA de plano pago passou da lista de
   // interessados para o checkout em modo de testes; o aviso honesto
-  // (nenhuma cobrança real) segue 1× em cada card pago, com o texto
-  // atualizado para a realidade do checkout.
-  it('aviso de cobrança aparece 1× em cada card pago (Pro e Staff), junto ao CTA', async () => {
+  // (nenhuma cobrança real) segue 1× no card Pro, junto ao CTA.
+  // Central 216 (D1): o Carreira não tem preço nem cobrança — sem
+  // aviso de cobrança no card dele.
+  it('aviso de cobrança aparece 1× no card Pro, junto ao CTA', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(countOccurrences(html, 'Checkout em modo de testes — nenhuma cobrança real é feita.')).toBe(2);
+    expect(countOccurrences(html, 'Checkout em modo de testes — nenhuma cobrança real é feita.')).toBe(1);
   });
 
   it('skip link é o PRIMEIRO link da página e o <main> tem o id dele', async () => {
@@ -80,14 +81,16 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('<main id="main-content"');
   });
 
-  it('JSON-LD: 4 blocos (Organization, FAQPage e Product dos 2 planos); Offer com PreOrder e sem AggregateRating', async () => {
+  // Central 216 (D1): sem preço, o Carreira não tem bloco Product —
+  // só o Pro tem Offer (PreOrder).
+  it('JSON-LD: 3 blocos (Organization, FAQPage e Product do Pro); Offer com PreOrder e sem AggregateRating', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     const blocks = html.match(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g) ?? [];
-    expect(blocks.length).toBe(4);
+    expect(blocks.length).toBe(3);
     const all = blocks.join('\n');
     expect(all).toContain('"Organization"');
     expect(all).toContain('"FAQPage"');
-    expect(all.split('"Product"').length - 1).toBe(2);
+    expect(all.split('"Product"').length - 1).toBe(1);
     expect(all).toContain('https://schema.org/PreOrder');
     expect(all).not.toContain('AggregateRating');
   });
@@ -108,13 +111,20 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('id="plan-interest-email-staff"');
   });
 
-  it('hero: a tela real fecha o primeiro bloco e a jornada é rotulada como ilustrativa', async () => {
+  // Central 216 (D1) — hero Stitch v2: H1 do protótipo + card do
+  // editor de demonstração; a tela real fecha o primeiro bloco.
+  it('hero: H1 do protótipo + card do editor e a tela real fecha o primeiro bloco', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     // next/image reescreve o src (/_next/image?url=%2Flanding%2F...):
     // o nome do arquivo é o que sobrevive verbatim no HTML.
     expect(html).toContain('produto-missao-1.webp');
     expect(html).toContain('Tela real da plataforma: a Missão 1 do prólogo');
-    expect(html).toContain('Visão ilustrativa da jornada');
+    expect(html).toContain('Aprenda a programar de verdade,');
+    expect(html).toContain('jogando.');
+    expect(html).toContain('Código real no navegador, sem videoaulas passivas');
+    expect(html).toContain('Ver prévia do jogo');
+    expect(html).toContain('fase-03_desafio-arrays.js');
+    expect(html).toContain('Demonstração');
   });
 
   // Redesign v2 (Central 213) — correções 1, 3, 4 e 6 do prompt v2:
@@ -131,7 +141,7 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).not.toContain('JavaScript, Python, Java e Portugol');
     expect(html).toContain('Acesso aos desafios iniciais de lógica');
     expect(html).toContain('Comunidade de alunos');
-    expect(html).toContain('Acesso a todas as trilhas e níveis disponíveis na plataforma');
+    expect(html).toContain('Acesso a todas as fases');
     expect(html).not.toContain('ilimitado');
     expect(html).not.toContain('Escolha sua trilha');
   });
@@ -177,9 +187,11 @@ describe('landing — renderização e claims estruturais (B76)', () => {
     expect(html).toContain('tabindex="0"');
   });
 
-  it('lista de interessados: o processo do Staff é nomeado, sem prazo prometido', async () => {
+  // Central 216 (D1) — o Carreira não tem preço: a lista de
+  // interessados é nomeada, sem prazo prometido.
+  it('lista de interessados: o Carreira sem preço é nomeado, sem prazo prometido', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('cadastra a sua empresa, falando com você por e-mail');
+    expect(html).toContain('Seu e-mail para a lista de interessados do plano Carreira');
   });
 
   it('fundador (B79 · Sprint 19): nome e papel reais na página e no JSON-LD, sem foto de pessoa', async () => {

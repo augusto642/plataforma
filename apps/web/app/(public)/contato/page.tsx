@@ -3,7 +3,7 @@
 /**
  * /contato — página pública de contato (Sprint 6).
  *
- * É o destino REAL do CTA de contato do plano Staff ("Falar com a
+ * É o destino REAL do CTA de contato do plano Carreira ("Falar com a
  * equipe" desde a Sprint 18): até a Sprint 5, esse botão caía no
  * /register — um cadastro disfarçado de contato. Agora quem quer
  * falar com a equipe encontra um formulário de contato de verdade,
@@ -84,7 +84,7 @@ export default function ContatoPage() {
           Fale com a equipe Nexus Code
         </h1>
         <p className="text-base leading-relaxed text-ink-body mb-10">
-          Quer o plano Staff para o seu time, cadastrar sua empresa como parceira ou tirar uma
+          Quer o plano Carreira, cadastrar sua empresa como parceira ou tirar uma
           dúvida que a página de planos não respondeu? Escreva aqui — a mensagem chega direto para
           a equipe, e a resposta vai para o e-mail que você informar.
         </p>

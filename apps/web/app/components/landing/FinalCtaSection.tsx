@@ -20,11 +20,9 @@ export const FinalCtaSection: React.FC = () => (
             <span>COMECE GRÁTIS, SEM CARTÃO</span>
           </div>
 
+          {/* Central 216 (D1) — título do CTA final do protótipo. */}
           <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-black text-ink-heading tracking-tight mb-5 leading-[1.08]">
-            Pare de apenas assistir código.<br />
-            <span className="bg-gradient-to-r from-ink-heading via-brand-purple-light to-brand-cyan-neon bg-clip-text text-transparent">
-              Construa sistemas reais e destrave sua carreira.
-            </span>
+            Pronto para escrever seu primeiro código hoje?
           </h2>
 
           <p className="font-sans text-sm sm:text-base text-ink-body leading-relaxed mb-8 max-w-xl">
@@ -80,6 +78,10 @@ export const FinalCtaSection: React.FC = () => (
               <span>Começar grátis agora</span>
               <span className="group-hover:translate-x-1.5 transition-transform duration-200 text-lg font-black">→</span>
             </TrackedLink>
+
+            <p className="text-center text-xs font-mono text-ink-span">
+              Sem pegadinhas • Não pedimos dados de cartão no plano grátis
+            </p>
 
             <Link
               href="/game"

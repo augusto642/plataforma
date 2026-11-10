@@ -48,7 +48,7 @@ export default function TermosPage() {
             <h2 className="font-heading text-xl font-bold text-ink-heading mb-2">3. Planos: gratuito e pagos</h2>
             <p>
               O nível Iniciante é gratuito e inclui desafios fundamentais, a tutora de IA nesse nível e
-              um portfólio público com os seus projetos. Os planos pagos (Pro e Staff) ampliam o acesso
+              um portfólio público com os seus projetos. Os planos pagos (Pro e Carreira) ampliam o acesso
               a trilhas, recursos e limites, conforme descrito na página de planos no momento da
               contratação. Assinaturas podem ser canceladas a qualquer momento, sem multa; o acesso ao
               plano pago permanece até o fim do período já contratado.

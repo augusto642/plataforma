@@ -9,19 +9,22 @@ describe('pricing-data — fonte única de preços', () => {
   it('preços mensais e anuais são os exibidos na página', () => {
     expect(PLAN_PRICES.pro.monthly).toBe(39.9);
     expect(PLAN_PRICES.pro.annualMonthly).toBe(29.9);
-    expect(PLAN_PRICES.staff.monthly).toBe(79.9);
-    expect(PLAN_PRICES.staff.annualMonthly).toBe(59.9);
+    // Central 216 (D1) — o Carreira está com preço a definir (o Staff
+    // R$ 79,90 não existe mais na vitrine).
+    expect(PLAN_PRICES.staff.monthly).toBeNull();
+    expect(PLAN_PRICES.staff.annualMonthly).toBeNull();
+    expect(PLAN_PRICES.staff.displayName).toBe('Carreira');
     expect(PLAN_PRICES.explorer.monthly).toBe(0);
   });
 
-  it('total anual bate com o exibido nos cards (R$ 358,80 e R$ 718,80)', () => {
+  it('total anual bate com o exibido no card Pro (R$ 358,80); Carreira não tem total', () => {
     expect(annualTotal(PLAN_PRICES.pro)).toBeCloseTo(358.8, 2);
-    expect(annualTotal(PLAN_PRICES.staff)).toBeCloseTo(718.8, 2);
+    expect(annualTotal(PLAN_PRICES.staff)).toBeNull();
   });
 
-  it('economia do anual em reais absolutos: Pro R$ 120/ano, Staff R$ 240/ano', () => {
+  it('economia do anual em reais absolutos: Pro R$ 120/ano; Carreira não tem economia', () => {
     expect(annualSavings(PLAN_PRICES.pro)).toBeCloseTo(120, 2);
-    expect(annualSavings(PLAN_PRICES.staff)).toBeCloseTo(240, 2);
+    expect(annualSavings(PLAN_PRICES.staff)).toBeNull();
   });
 
   it('formatBRL formata no padrão da página', () => {

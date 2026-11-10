@@ -55,15 +55,19 @@ export function intentToRegistration(
 }
 
 export function planDisplayName(plan: InterestPlanId): string {
-  return plan === 'pro' ? 'Pro' : 'Staff';
+  // Central 216 (D1) — o id interno 'staff' é o plano Carreira do protótipo.
+  return plan === 'pro' ? 'Pro' : 'Carreira';
 }
 
 /** Preço exibido do plano no ciclo do registro — da fonte única de preços. */
 export function planPriceLabel(view: PlanInterestView): string {
   const price = PLAN_PRICES[view.plan];
-  return view.billingCycle === 'annual'
-    ? `${formatBRL(annualTotal(price))}/ano`
-    : `${formatBRL(price.monthly)}/mês`;
+  if (price.monthly === null) return 'Preço a definir';
+  if (view.billingCycle === 'annual') {
+    const total = annualTotal(price);
+    return total === null ? 'Preço a definir' : `${formatBRL(total)}/ano`;
+  }
+  return `${formatBRL(price.monthly)}/mês`;
 }
 
 // ---- B71/B72 (Sprint 18 · Volta 3) — captura só-e-mail + número real ----

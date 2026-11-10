@@ -39,8 +39,9 @@ export interface MySubscription {
 export function planCheckoutPrice(plan: CheckoutPlan, cycle: BillingCycle): string {
   if (plan === 'career') return 'A definir';
   const price = PLAN_PRICES.pro;
-  if (cycle === 'annual') return `${formatBRL(annualTotal(price))}/ano`;
-  return `${formatBRL(price.monthly)}/mês`;
+  // Pro tem preço definido (monthly/annualMonthly nunca null).
+  if (cycle === 'annual') return `${formatBRL(annualTotal(price)!)}/ano`;
+  return `${formatBRL(price.monthly!)}/mês`;
 }
 
 export async function createCheckout(

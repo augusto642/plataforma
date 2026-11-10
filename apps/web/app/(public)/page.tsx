@@ -6,6 +6,8 @@ import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { MethodologySection } from '../components/landing/MethodologySection';
 import { LumiMascotHero } from '../components/landing/LumiMascotHero';
 import { TracksSection } from '../components/landing/TracksSection';
+import { GamificationSection } from '../components/landing/GamificationSection';
+import { ResourcesSection } from '../components/landing/ResourcesSection';
 import { PlatformStatsSection } from '../components/landing/PlatformStatsSection';
 import { FounderSection } from '../components/landing/FounderSection';
 import { SandboxDemo } from '../components/landing/SandboxDemo';
@@ -24,7 +26,7 @@ import { StructuredData } from '../components/landing/StructuredData';
    server (hero, metodologia, trilhas, stack, FAQ, CTA final, rodapé)
    com ilhas client mínimas onde há estado de verdade:
    - LandingChrome  → navbar, drawer, dropdown, command palette, UTM
-   - HeroEvolution  → abas dos 4 estágios (dentro da HeroSection)
+   - HeroSection    → hero Stitch v2 (H1 + card do editor de demonstração)
    - LumiMascotHero → corredor da tutora com retomada
    - SandboxDemo    → seletor de linguagem + demonstração ilustrativa
    - PricingSection → toggle mensal/anual
@@ -89,6 +91,10 @@ export default function HomePage() {
       depois da Stack, antes da FAQ. */}
   <LumiMascotHero />
         <TracksSection />
+        {/* Central 216 retrabalho (D1) — seções do protótipo: Gamificação
+            e Recursos, na ordem do mockup (depois de Trilhas). */}
+        <GamificationSection />
+        <ResourcesSection />
         {/* B78 (Sprint 19 · B3) — números reais da plataforma,
             contados da API; sem resposta, a seção não renderiza. */}
         <PlatformStatsSection />
