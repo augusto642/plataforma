@@ -23,6 +23,7 @@ import { GiteaModule } from './gitea/gitea.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { TalentModule } from './talent/talent.module';
+import { TowerModule } from './tower/tower.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -100,6 +101,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     GamificationModule,
     ActivitiesModule,
     SubmissionsModule,
+    TowerModule,
     WebhooksModule,
     AiModule,
     MetricsModule,
