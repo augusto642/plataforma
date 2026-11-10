@@ -798,7 +798,7 @@ export default function HomePage() {
 
   if (authLoading && !user) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f1d', color: '#A1A1AA' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0D0E15', color: '#A1A1AA' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 32, height: 32, border: '3px solid rgba(130, 87, 229, 0.2)', borderTopColor: '#8257e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           <span>Carregando ambiente NEXUS...</span>
@@ -810,7 +810,7 @@ export default function HomePage() {
   const isInstructor = user?.role === 'instructor' || user?.role === 'admin';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0f1d', color: '#F4F4F5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0D0E15', color: '#F4F4F5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
       <header style={{ height: 60, borderBottom: '1px solid #27272A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#12131D' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
