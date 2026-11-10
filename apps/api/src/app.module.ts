@@ -38,6 +38,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { CertprepModule } from './certprep/certprep.module';
 import { CommonModule } from './common/common.module';
 import { PlansModule } from './plans/plans.module';
+import { DynamicTrackModule } from './dynamic-track/dynamic-track.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -121,6 +122,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     TalentModule,
     CommonModule,
     HousekeepingModule,
+    DynamicTrackModule,
   ],
   controllers: [AppController],
   providers: [

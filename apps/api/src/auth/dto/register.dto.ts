@@ -57,9 +57,28 @@ export class RegisterDto {
   // modelo fala a mesma língua); trilha/tempo/objetivo não têm coluna
   // no User e seguem aceitos aqui (não quebram o ValidationPipe) e
   // analisáveis nas props dos eventos signup_* do funil.
+  //
+  // Trilha dinâmica v1 (Central 209 — DESIGN §2 item 5): `preferredTrack`
+  // é DEPRECIADO — segue aceito (não quebrar clientes antigos) mas é
+  // IGNORADO para atribuição: o aluno NÃO escolhe a trilha; a IA sugere.
+  // A API NUNCA persiste trilha escolhida. O hint da landing (?track=)
+  // viaja em `sourceTrack` e entra no snapshot da investigação como
+  // interesse declarado, não como escolha.
+  /**
+   * @deprecated Trilha dinâmica v1: ignorado para atribuição. Use
+   * `sourceTrack` (hint da landing) — a trilha é sugerida, não escolhida.
+   */
   @IsOptional()
   @IsIn(['web3', 'backend', 'frontend', 'ai'])
   preferredTrack?: string;
+
+  // Trilha dinâmica v1: hint da landing (?track=) — interesse declarado
+  // do aluno ao clicar numa trilha na landing. NÃO é escolha: entra no
+  // snapshot da TrackInvestigation e pesa na sugestão (precedência
+  // abaixo do diagnóstico, acima do objetivo — ver dynamic-track.rules).
+  @IsOptional()
+  @IsIn(['web3', 'backend', 'frontend', 'ai'])
+  sourceTrack?: string;
 
   @IsOptional()
   @IsIn(['junior', 'mid', 'senior'])

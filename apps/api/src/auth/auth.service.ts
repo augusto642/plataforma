@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { ConfigError } from '../config/secrets.validation';
 import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { MailerService } from '../mail/mailer.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DynamicTrackService } from '../dynamic-track/dynamic-track.service';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { generateRefreshToken, hashToken } from './tokens.util';
@@ -77,6 +79,10 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mailer: MailerService,
+    // Trilha dinâmica v1 (Central 209): @Optional() para não quebrar
+    // instanciações legadas em testes que constroem o serviço sem o
+    // novo provider — sem ele, o cadastro segue sem investigação.
+    @Optional() private readonly dynamicTrack?: DynamicTrackService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegisterResult> {
@@ -116,6 +122,49 @@ export class AuthService {
       // Sprint 10 (B09) — vincula o resultado anônimo do quiz diagnóstico
       // à conta nova, se houver sessão de diagnóstico no cadastro.
       await this.linkDiagnosticResult(dto.diagnosticSessionToken, user.id);
+      // Trilha dinâmica v1 (Central 209 — DESIGN D3): o cadastro cria a
+      // investigação (investigating, SLA +48h) e enfileira 1 job
+      // idempotente — sem bloquear a resposta. Falha aqui NÃO desfaz o
+      // cadastro: createForUser loga e a linha fica investigating (o
+      // endpoint admin de re-enfileiramento cobre o retry manual).
+      // `preferredTrack` NÃO entra no snapshot: é campo depreciado,
+      // ignorado para atribuição — o hint da landing viaja em
+      // `sourceTrack` (ver RegisterDto).
+      await this.dynamicTrack
+        ?.createForUser(user.id, {
+          expLevel:
+            dto.experienceLevel === 'junior' ||
+            dto.experienceLevel === 'mid' ||
+            dto.experienceLevel === 'senior'
+              ? dto.experienceLevel
+              : null,
+          timeCommitment:
+            dto.weeklyTimeCommitment === '5h' ||
+            dto.weeklyTimeCommitment === '10h' ||
+            dto.weeklyTimeCommitment === '20h'
+              ? dto.weeklyTimeCommitment
+              : null,
+          careerGoal:
+            dto.careerGoal === 'global' ||
+            dto.careerGoal === 'lead' ||
+            dto.careerGoal === 'startup' ||
+            dto.careerGoal === 'hackathons'
+              ? dto.careerGoal
+              : null,
+          sourceTrack:
+            dto.sourceTrack === 'web3' ||
+            dto.sourceTrack === 'backend' ||
+            dto.sourceTrack === 'frontend' ||
+            dto.sourceTrack === 'ai'
+              ? dto.sourceTrack
+              : null,
+          diagnosticTrackId: null,
+        })
+        .catch((err: Error) => {
+          this.logger.error(
+            `Failed to create track investigation for ${user.email}: ${err.message}. The account is created; re-enqueue via /dynamic-track/admin.`,
+          );
+        });
       return {
         user: { id: user.id, email: user.email, name: user.name, role: user.role },
         emailVerificationRequired: true,
