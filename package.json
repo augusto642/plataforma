@@ -19,6 +19,7 @@
     "db:generate": "pnpm --filter @plataforma/api exec prisma generate",
     "seed:gitea": "node scripts/seed-gitea.mjs",
     "seed:data": "node scripts/seed-data.mjs",
+    "validate:tracks": "node scripts/validate-tracks.mjs",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
   },
