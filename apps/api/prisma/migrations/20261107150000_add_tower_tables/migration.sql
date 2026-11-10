@@ -1,16 +1,14 @@
 -- Torre de Desafios (Fase 0)
--- Tabelas de progresso e log de jogadas, e o plano do usuário (free/pro),
--- usado pelo limite diário de jogadas (5/dia grátis, 10/dia assinante).
--- DDL com a renderização exata do `prisma migrate diff` do schema atual.
+-- Tabelas de progresso e log de jogadas. O plano do usuário já existe na
+-- main (migration 20261021040000_add_user_plan criou o enum Plan e a
+-- coluna users.plan; 20261025000000_premium_fase1_billing adicionou o
+-- valor 'career') — esta migration contém SÓ as tabelas da torre.
+-- T1: o `prisma migrate diff` original da Torre incluía `CREATE TYPE
+-- "Plan"` + `ADD COLUMN users.plan`; removidos no merge porque o tipo e
+-- a coluna já existem — aplicar o original aqui falharia (tipo duplicado).
 -- ATENÇÃO: este diff inclui deriva pré-existente do schema (users.bits_balance,
 -- users.streak_freezes etc. sem migration); esta migration contém SÓ a torre
--- e o plano — a deriva antiga não é tocada aqui.
-
--- CreateEnum
-CREATE TYPE "Plan" AS ENUM ('free', 'pro');
-
--- AlterTable
-ALTER TABLE "users" ADD COLUMN "plan" "Plan" NOT NULL DEFAULT 'free';
+-- — a deriva antiga não é tocada aqui.
 
 -- CreateTable
 CREATE TABLE "tower_progress" (

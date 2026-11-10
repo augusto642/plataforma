@@ -11,7 +11,9 @@
  */
 export interface TowerUserRow {
   id: string;
-  plan: 'free' | 'pro';
+  // T1 — enum Plan da main é {free, pro, career} (superset do {free, pro}
+  // da Torre); 'career' é plano pago e cai no limite de assinante.
+  plan: 'free' | 'pro' | 'career';
   careerTier: string;
 }
 

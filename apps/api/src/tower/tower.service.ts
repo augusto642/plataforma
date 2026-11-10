@@ -51,7 +51,8 @@ export interface TowerProgressView {
   square: number;
   movesLeftToday: number;
   dailyMovesLimit: number;
-  plan: 'free' | 'pro';
+  // T1 — 'career' (fase 1 premium) é plano pago: limite de assinante.
+  plan: 'free' | 'pro' | 'career';
   maxFloor: number;
   movesResetDate: string;
   pendingChallenge: TowerPendingChallenge | null;
@@ -460,7 +461,9 @@ export class TowerService {
   }
 
   private dailyLimit(plan: string): number {
-    return plan === 'pro' ? TOWER_PRO_DAILY_MOVES : TOWER_FREE_DAILY_MOVES;
+    // T1 — qualquer plano pago (pro ou career) tem o limite de assinante;
+    // só 'free' fica com o limite grátis.
+    return plan === 'free' ? TOWER_FREE_DAILY_MOVES : TOWER_PRO_DAILY_MOVES;
   }
 
   private maxFloor(careerTier: string): number {

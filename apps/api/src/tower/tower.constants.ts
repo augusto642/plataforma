@@ -12,10 +12,13 @@ export const TOWER_SQUARES_PER_FLOOR = 30;
 /** Jogadas por dia no plano grátis (proposta — ver comentário acima). */
 export const TOWER_FREE_DAILY_MOVES = 5;
 
-/** Jogadas por dia para assinante (User.plan = 'pro'). */
+/** Jogadas por dia para assinante (User.plan = 'pro' ou 'career' — qualquer plano pago). */
 export const TOWER_PRO_DAILY_MOVES = 10;
 
-export type TowerPlan = 'free' | 'pro';
+// T1 — o enum Plan da main é superset do da Torre ({free, pro, career}:
+// o 'career' veio da fase 1 premium). A Torre só distingue grátis ×
+// assinante; 'career' é assinante para o limite diário.
+export type TowerPlan = 'free' | 'pro' | 'career';
 
 /** Último andar jogável por nível (careerTier). Iniciante 1–30, Júnior 31–65,
  *  Pleno 66–100 (o chefe do andar 30 é o fim do grátis; o do 100, o fim da torre). */
