@@ -10,6 +10,8 @@ import {
   type InterviewReport,
   type InterviewSession,
 } from '../../../lib/interview';
+import { appendTranscript } from '../../../hooks/voice-support';
+import { InterviewVoiceControls } from '../InterviewVoiceControls';
 
 /**
  * Fase 2 premium (desenho §3.1) — sessão de entrevista por turnos +
@@ -89,6 +91,12 @@ export default function EntrevistaSessaoPage() {
   if (!session) return null;
   const candidateCount = session.turns.filter((t) => t.role === 'candidate').length;
   const isActive = session.status === 'active';
+  // Última fala da entrevistadora (pergunta + feedback) — lida em voz
+  // alta pelo controle de voz; null antes da primeira pergunta (nunca
+  // acontece: a criação já inclui a pergunta inicial).
+  const lastInterviewer = [...session.turns]
+    .reverse()
+    .find((t) => t.role === 'interviewer') ?? null;
 
   return (
     <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
@@ -138,6 +146,15 @@ export default function EntrevistaSessaoPage() {
 
         {isActive && (
           <div className="mt-6 space-y-3">
+            {/* Voz (opcional): a transcrição só preenche o campo abaixo —
+                o envio continua pelo mesmo `answerInterview` do texto
+                digitado (mesmo DTO, mesmo prompt-guard M11, mesma quota
+                M17). Sem microfone, tudo abaixo funciona igual. */}
+            <InterviewVoiceControls
+              questionText={lastInterviewer ? lastInterviewer.content : null}
+              onTranscript={(text) => setAnswer((prev) => appendTranscript(prev, text))}
+              disabled={sending}
+            />
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
