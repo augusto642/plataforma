@@ -81,7 +81,7 @@ export async function resolveGitHubPrimaryVerifiedEmail(
   try {
     res = await fetch('https://api.github.com/user/emails', {
       headers: {
-        Authorization: `token ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         Accept: 'application/vnd.github+json',
         'User-Agent': 'nexus-code',
       },

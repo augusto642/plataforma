@@ -1,6 +1,8 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { ErrorCodes } from '../common/errors/error-codes';
 import { OAuthProfile } from './oauth.config';
 
 jest.mock('bcrypt', () => ({
@@ -155,6 +157,53 @@ describe('AuthService — OAuth loginWithOAuth', () => {
       auth.loginWithOAuth(googleProfile({ email: null })),
     ).rejects.toThrow(BadRequestException);
     expect(tx.user.create).not.toHaveBeenCalled();
+  });
+
+  it('D2: corrida P2002 (dois callbacks simultâneos p/ usuário novo) vira Conflict account_conflict, sem 500', async () => {
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed on the fields: (`email`)',
+      { code: 'P2002', clientVersion: '7.9.1' },
+    );
+    tx.user.create.mockRejectedValue(p2002);
+    await expect(
+      auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' })),
+    ).rejects.toThrow(ConflictException);
+    try {
+      await auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' }));
+      throw new Error('deveria ter rejeitado');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().errorCode).toBe(
+        ErrorCodes.AUTH_OAUTH_ACCOUNT_CONFLICT,
+      );
+    }
+  });
+
+  it('D2: corrida P2002 no VÍNCULO (mesma conta por senha, dois callbacks) vira Conflict', async () => {
+    const byEmail = {
+      id: 'u2',
+      email: 'augusto@example.com',
+      name: 'Augusto',
+      role: 'student',
+      emailVerifiedAt: null,
+    };
+    tx.user.findUnique.mockResolvedValue(byEmail);
+    tx.oAuthAccount.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`provider`, `providerId`)',
+        { code: 'P2002', clientVersion: '7.9.1' },
+      ),
+    );
+    await expect(auth.loginWithOAuth(googleProfile())).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('erro de banco que não é P2002 continua sendo relançado (não vira Conflict)', async () => {
+    tx.user.create.mockRejectedValue(new Error('connection refused'));
+    await expect(
+      auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' })),
+    ).rejects.toThrow('connection refused');
   });
 
   it('login por senha rejeita conta só-OAuth (passwordHash NULL) sem comparar hash', async () => {

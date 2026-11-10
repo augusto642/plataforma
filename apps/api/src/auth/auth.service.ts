@@ -366,7 +366,11 @@ export class AuthService {
    * verificado pelo provedor — sem e-mail verificado a strategy recusa
    * antes; aqui a checagem é a segunda camada, fail-closed).
    *
-   * Resolução em UMA transação (sem corrida entre "existe?" e "cria?"):
+   * Resolução em UMA transação (sem corrida entre "existe?" e "cria?" no
+   * caso comum). A corrida residual — dois callbacks simultâneos para um
+   * usuário novo, ambos passando no `findUnique` e colidindo no `create`
+   * (`P2002`) — é convertida abaixo em `ConflictException` com
+   * `AUTH_OAUTH_ACCOUNT_CONFLICT` (D2, QA): nunca 500 cru.
    * 1. Já existe `OAuthAccount` (provider + providerId) → loga nela.
    * 2. Existe usuário com o mesmo e-mail (conta por senha) → VINCULA o
    *    provedor à conta existente (nunca cria duplicata) e marca o e-mail
@@ -399,52 +403,80 @@ export class AuthService {
     }
     const email = profile.email.toLowerCase().trim();
     const name = profile.name?.trim() || email.split('@')[0];
-    const user = await this.prisma.$transaction(async (tx) => {
-      const linked = await tx.oAuthAccount.findUnique({
-        where: {
-          provider_providerId: {
-            provider: profile.provider,
-            providerId: profile.providerId,
-          },
-        },
-        include: { user: true },
-      });
-      if (linked) return linked.user;
-
-      const byEmail = await tx.user.findUnique({ where: { email } });
-      if (byEmail) {
-        await tx.oAuthAccount.create({
-          data: {
-            provider: profile.provider,
-            providerId: profile.providerId,
-            userId: byEmail.id,
-          },
-        });
-        if (!byEmail.emailVerifiedAt) {
-          await tx.user.update({
-            where: { id: byEmail.id },
-            data: { emailVerifiedAt: new Date() },
-          });
-        }
-        return byEmail;
-      }
-
-      return tx.user.create({
-        data: {
-          email,
-          name,
-          passwordHash: null,
-          role: Role.student,
-          emailVerifiedAt: new Date(),
-          oAuthAccounts: {
-            create: {
+    let user: {
+      id: string;
+      email: string;
+      role: Role;
+      name: string;
+    };
+    try {
+      user = await this.prisma.$transaction(async (tx) => {
+        const linked = await tx.oAuthAccount.findUnique({
+          where: {
+            provider_providerId: {
               provider: profile.provider,
               providerId: profile.providerId,
             },
           },
-        },
+          include: { user: true },
+        });
+        if (linked) return linked.user;
+
+        const byEmail = await tx.user.findUnique({ where: { email } });
+        if (byEmail) {
+          await tx.oAuthAccount.create({
+            data: {
+              provider: profile.provider,
+              providerId: profile.providerId,
+              userId: byEmail.id,
+            },
+          });
+          if (!byEmail.emailVerifiedAt) {
+            await tx.user.update({
+              where: { id: byEmail.id },
+              data: { emailVerifiedAt: new Date() },
+            });
+          }
+          return byEmail;
+        }
+
+        return tx.user.create({
+          data: {
+            email,
+            name,
+            passwordHash: null,
+            role: Role.student,
+            emailVerifiedAt: new Date(),
+            oAuthAccounts: {
+              create: {
+                provider: profile.provider,
+                providerId: profile.providerId,
+              },
+            },
+          },
+        });
       });
-    });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        // D2 (QA — BAIXO): corrida entre dois callbacks simultâneos para
+        // um usuário OAuth novo (ou vínculo simultâneo à mesma conta por
+        // senha) — a outra transação criou o registro primeiro e o
+        // `create` desta estourou a unique. Não é 500: na segunda
+        // tentativa o vínculo já existe e o login completa — o usuário
+        // só precisa tentar entrar novamente (o filtro do callback vira
+        // `/login?oauth_error=account_conflict`).
+        throw new ConflictException(
+          withErrorCode(
+            'Essa conta acabou de ser vinculada durante o login. Tente entrar novamente.',
+            ErrorCodes.AUTH_OAUTH_ACCOUNT_CONFLICT,
+          ),
+        );
+      }
+      throw e;
+    }
     return this.issueTokensForUser(user);
   }
 

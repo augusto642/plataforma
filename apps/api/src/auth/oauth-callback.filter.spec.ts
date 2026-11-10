@@ -22,6 +22,14 @@ describe('oauthErrorCodeFromErrorCode', () => {
         ErrorCodes.AUTH_OAUTH_GITHUB_EMAILS_UNAVAILABLE,
       ),
     ).toBe('github_emails_unavailable');
+    expect(
+      oauthErrorCodeFromErrorCode(ErrorCodes.AUTH_OAUTH_INVALID_STATE),
+    ).toBe('invalid_state');
+    expect(
+      oauthErrorCodeFromErrorCode(
+        ErrorCodes.AUTH_OAUTH_ACCOUNT_CONFLICT,
+      ),
+    ).toBe('account_conflict');
   });
 
   it('código desconhecido vira oauth_failed (genérico, sem vazar detalhe)', () => {
@@ -90,6 +98,43 @@ describe('OAuthCallbackExceptionFilter', () => {
     filter.catch(new UnauthorizedException('qualquer coisa'), host);
     expect(redirect).toHaveBeenCalledWith(
       'http://localhost:3001/login?oauth_error=oauth_failed',
+    );
+  });
+
+  it('D2: erro NÃO-HTTP no callback (ex.: Prisma) vira redirect oauth_failed, nunca 500 cru', () => {
+    const filter = new OAuthCallbackExceptionFilter();
+    const { host, redirect } = hostWithRedirect();
+    filter.catch(new Error('Unique constraint failed on the fields: (`email`)'), host);
+    expect(redirect).toHaveBeenCalledWith(
+      'http://localhost:3001/login?oauth_error=oauth_failed',
+    );
+  });
+
+  it('D1: state inválido vira /login?oauth_error=invalid_state', () => {
+    const filter = new OAuthCallbackExceptionFilter();
+    const { host, redirect } = hostWithRedirect();
+    filter.catch(
+      new UnauthorizedException(
+        withErrorCode('x', ErrorCodes.AUTH_OAUTH_INVALID_STATE),
+      ),
+      host,
+    );
+    expect(redirect).toHaveBeenCalledWith(
+      'http://localhost:3001/login?oauth_error=invalid_state',
+    );
+  });
+
+  it('D2: corrida P2002 vira /login?oauth_error=account_conflict', () => {
+    const filter = new OAuthCallbackExceptionFilter();
+    const { host, redirect } = hostWithRedirect();
+    filter.catch(
+      new UnauthorizedException(
+        withErrorCode('x', ErrorCodes.AUTH_OAUTH_ACCOUNT_CONFLICT),
+      ),
+      host,
+    );
+    expect(redirect).toHaveBeenCalledWith(
+      'http://localhost:3001/login?oauth_error=account_conflict',
     );
   });
 

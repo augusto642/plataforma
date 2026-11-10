@@ -149,7 +149,10 @@ npx jest src/auth --runInBand   # strategies, vínculo, guards, filtro, controll
 Os specs mockam o perfil do provedor e o Prisma: vínculo por e-mail,
 login na conta já vinculada, criação de conta nova, recusa de e-mail não
 verificado/ausente, e-mail primário do GitHub via `/user/emails` mockado,
-503 quando não configurado e redirect do callback.
+503 quando não configurado e redirect do callback. D1/D2 (QA 10/11):
+`state` ausente/divergente recusado no guard antes do Passport, `state`
+válido passa, replay recusado (uso único); corrida `P2002` vira
+`account_conflict` e erro não-HTTP no callback vira `oauth_failed`.
 
 ### 4b. Local, com os OAuth Apps de dev criados
 
@@ -199,12 +202,36 @@ web e API em domínios diferentes, `COOKIE_SAME_SITE=none` exige
 - **Um provedor por vez por conta, os dois juntos por usuário.** O mesmo
   usuário pode vincular Google e GitHub (um registro por provedor); o
   mesmo `providerId` nunca pertence a dois usuários.
-- **Sem `state` com verificação server-side.** O fluxo usa o Authorization
-  Code Flow do Passport sem validação de `state` em sessão (a API é
-  stateless/cookie-only e não há store de sessão para guardar o `state`).
-  O risco residual é login CSRF (um atacante iniciar um login OAuth pela
-  vítima) — baixo, mas registrado como follow-up: se o Augusto quiser,
-  o próximo passo é guardar o `state` num cookie assinado ou em sessão.
+- **State anti-CSRF (D1, CORRIGIDO — QA 10/11).** O fluxo usa o
+  Authorization Code Flow com `state` verificado server-side, sem
+  sessão: no início (`GET /auth/<provider>`) o guard gera um `state`
+  aleatório (256 bits, `crypto.randomBytes`) e o grava num cookie
+  httpOnly `oauth_state` (TTL 10 min, mesmas opções dos cookies de
+  auth, `SameSite: Lax` — o callback é navegação GET top-level vinda
+  do provedor, e o Lax envia o cookie nesse caso); o Passport inclui
+  o `state` na URL de autorização e o provedor o devolve no callback.
+  No callback o guard compara o `state` da query com o do cookie
+  (timing-safe) **antes** de delegar ao Passport — um callback forjado
+  nunca chega à troca do `code`. Sem `state`, divergente ou reutilizado
+  → `/login?oauth_error=invalid_state`, sem completar o login. O cookie
+  é limpo na leitura (uso único: replay recusado). O `state` nativo do
+  Passport (`state: true`) **não** é usado: ele exige `express-session`
+  (a API é stateless/cookie-only) — o mecanismo manual é equivalente.
+  O cookie não é assinado, como os cookies de auth: a proteção vem da
+  imprevisibilidade + vínculo com o navegador (httpOnly) + uso único —
+  o atacante não consegue ler nem gravar o cookie da vítima na origem
+  da API, então assinar não adicionaria proteção contra login CSRF.
+- **Corrida no callback (D2, CORRIGIDO — QA 10/11).** Dois callbacks
+  simultâneos para um usuário OAuth novo colidiam no `create` (`P2002`
+  de unique) e o segundo virava 500 cru. Agora o service converte o
+  `P2002` em `ConflictException` com `AUTH_OAUTH_ACCOUNT_CONFLICT` →
+  `/login?oauth_error=account_conflict` ("tente entrar novamente" — na
+  segunda tentativa o vínculo já existe e o login completa). Além
+  disso, o filtro do callback captura qualquer erro não-HTTP
+  (`@Catch()` sem tipo) e redireciona para
+  `/login?oauth_error=oauth_failed`, com o erro no log: o usuário nunca
+  vê 500 cru nesse fluxo. O filtro só vale para as rotas OAuth — fora
+  delas, o filtro global (M9) continua devolvendo JSON.
 - **Cookies no redirect.** Os cookies são gravados na resposta do
   redirect do callback; o navegador os guarda antes de seguir para o web
   app. Não há token na URL nem no corpo.

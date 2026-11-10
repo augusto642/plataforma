@@ -56,7 +56,10 @@ export class AuthController {
    * - `GET /auth/google` e `GET /auth/github`: o guard redireciona o
    *   navegador ao provedor (sem OAuth configurado → 503 honesto, sem
    *   quebrar o login por senha). GET é seguro aqui: nada muda estado —
-   *   o CSRF por Origin/Referer (M15) só vale para mutações.
+   *   o CSRF por Origin/Referer (M15) só vale para mutações. O guard
+   *   grava um cookie `oauth_state` (D1, anti-CSRF do login) e o inclui
+   *   na URL de autorização; o callback só prossegue se o `state` da
+   *   volta casar com o cookie (uso único).
    * - `GET /auth/<provider>/callback`: a strategy valida o perfil
    *   (e-mail verificado ou recusa) e o service emite OS MESMOS cookies
    *   do login por senha (access JWT + refresh com detecção de reuso A2).

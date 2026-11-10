@@ -28,7 +28,7 @@ describe('resolveGitHubPrimaryVerifiedEmail', () => {
       'https://api.github.com/user/emails',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'token token-123',
+          Authorization: 'Bearer token-123',
         }),
       }),
     );
