@@ -17,6 +17,7 @@ import { GiteaModule } from './gitea/gitea.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SubmissionsModule } from './submissions/submissions.module';
 import { TalentModule } from './talent/talent.module';
+import { TowerModule } from './tower/tower.module';
 import { UsersModule } from './users/users.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -78,6 +79,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     GamificationModule,
     ActivitiesModule,
     SubmissionsModule,
+    TowerModule,
     WebhooksModule,
     AiModule,
     MetricsModule,

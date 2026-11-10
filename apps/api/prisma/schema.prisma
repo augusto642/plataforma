@@ -36,6 +36,13 @@ enum CareerTier {
   senior
 }
 
+// Plano do usuário (free × pro): a Torre usa User.plan para o limite
+// diário de jogadas (5/dia grátis, 10/dia assinante).
+enum Plan {
+  free
+  pro
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   email        String    @unique
@@ -43,6 +50,7 @@ model User {
   name         String
   passwordHash String    @map("password_hash")
   role         Role      @default(student)
+  plan         Plan      @default(free)
   careerTier   CareerTier @default(beginner) @map("career_tier")
   giteaUserId  Int?      @unique @map("gitea_user_id")
   xp           Int       @default(0)
@@ -63,6 +71,8 @@ model User {
   badges            UserBadge[]
   chatMessages      AiChatMessage[]
   studentRepos      StudentRepo[]
+  towerProgress     TowerProgress?
+  towerMoves        TowerMove[]
 
   @@map("users")
 }
@@ -80,6 +90,46 @@ model UserBadge {
 
   @@unique([userId, badgeCode])
   @@map("user_badges")
+}
+
+// Torre de Desafios (Fase 0): progresso do jogador na torre.
+// square = 0 significa "antes da casa 1" (início do andar).
+model TowerProgress {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  floor           Int      @default(1)
+  square          Int      @default(0)
+  movesLeftToday  Int      @default(5) @map("moves_left_today")
+  movesResetDate  DateTime @default(now()) @db.Date @map("moves_reset_date")
+  powers          Json     @default("[]")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tower_progress")
+}
+
+// Torre de Desafios (Fase 0): log de jogadas. result:
+// 'pending' = desafio de código aguardando submissão;
+// 'passed' | 'failed' | 'timeout' = jogada resolvida;
+// 'skipped' = casa sem desafio (quiz/mini-game/item na Fase 1).
+model TowerMove {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  floor      Int
+  fromSquare Int      @map("from_square")
+  roll       Int
+  toSquare   Int      @map("to_square")
+  squareType String   @map("square_type")
+  activityId String?  @map("activity_id") @db.Uuid
+  result     String?
+  xpGained   Int      @default(0) @map("xp_gained")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("tower_moves")
 }
 
 model UserCompanion {
