@@ -128,7 +128,7 @@ export const HeroSection: React.FC = () => (
                   </div>
                   <div className="leading-6 space-y-1 overflow-x-auto text-xs">
                     <div><span className="text-brand-purple font-semibold">function</span> <span className="text-brand-cyan-neon">calcularPontuacao</span>(desafios) {'{'}</div>
-                    <div className="pl-4"><span className="text-dark-on-surface-variant">// Filtra desafios concluídos com sucesso</span></div>
+                    <div className="pl-4"><span className="text-dark-on-surface-variant">{'// Filtra desafios concluídos com sucesso'}</span></div>
                     <div className="pl-4"><span className="text-brand-purple">const</span> concluidos = desafios.<span className="text-yellow-400">filter</span>(d =&gt; d.status === <span className="text-secondary">&#39;PASSED&#39;</span>);</div>
                     <div className="pl-4"><span className="text-brand-purple">return</span> concluidos.<span className="text-yellow-400">reduce</span>((acc, d) =&gt; {'{'}</div>
                     <div className="pl-8"><span className="text-brand-purple">return</span> acc + d.xp;</div>
