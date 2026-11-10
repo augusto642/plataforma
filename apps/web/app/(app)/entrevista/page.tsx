@@ -52,7 +52,7 @@ export default function EntrevistaPage() {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+      <div className="min-h-screen bg-dark-surface text-[#EDEDED] px-5 py-16">
         <div className="max-w-[720px] mx-auto text-sm text-zinc-400">Carregando…</div>
       </div>
     );
@@ -60,7 +60,7 @@ export default function EntrevistaPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+      <div className="min-h-screen bg-dark-surface text-[#EDEDED] px-5 py-16">
         <div className="max-w-[720px] mx-auto">
           <h1 className="text-2xl font-black text-white">Simulador de entrevista</h1>
           <p className="text-sm text-zinc-400 mt-2">
@@ -74,7 +74,7 @@ export default function EntrevistaPage() {
   const active = sessions.find((s) => s.status === 'active');
 
   return (
-    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] px-5 py-16">
+    <div className="min-h-screen bg-dark-surface text-[#EDEDED] px-5 py-16">
       <div className="max-w-[720px] mx-auto">
         <h1 className="text-2xl font-black text-white">Simulador de entrevista</h1>
         <p className="text-sm text-zinc-400 mt-2">
@@ -90,7 +90,7 @@ export default function EntrevistaPage() {
         )}
 
         {active ? (
-          <div className="mt-6 border border-[#2A2A33] rounded-xl p-4">
+          <div className="mt-6 border border-border-subtle rounded-xl p-4">
             <p className="text-sm">Você tem uma sessão ativa — finalize-a antes de começar outra.</p>
             <Link
               href={`/entrevista/${active.id}`}
@@ -100,13 +100,13 @@ export default function EntrevistaPage() {
             </Link>
           </div>
         ) : (
-          <div className="mt-6 border border-[#2A2A33] rounded-xl p-4 space-y-3">
+          <div className="mt-6 border border-border-subtle rounded-xl p-4 space-y-3">
             <label className="block text-sm">
               Modalidade
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as 'technical' | 'behavioral')}
-                className="mt-1 w-full bg-[#121218] border border-[#2A2A33] rounded-lg px-3 py-2 text-sm"
+                className="mt-1 w-full bg-dark-surface-container-low border border-border-subtle rounded-lg px-3 py-2 text-sm"
               >
                 <option value="technical">Técnica</option>
                 <option value="behavioral">Comportamental</option>
@@ -119,7 +119,7 @@ export default function EntrevistaPage() {
                 onChange={(e) => setTrack(e.target.value)}
                 placeholder="ex.: java, frontend"
                 maxLength={64}
-                className="mt-1 w-full bg-[#121218] border border-[#2A2A33] rounded-lg px-3 py-2 text-sm"
+                className="mt-1 w-full bg-dark-surface-container-low border border-border-subtle rounded-lg px-3 py-2 text-sm"
               />
             </label>
             <p className="text-xs text-zinc-500">
@@ -142,7 +142,7 @@ export default function EntrevistaPage() {
         ) : (
           <ul className="space-y-2">
             {sessions.map((s) => (
-              <li key={s.id} className="border border-[#2A2A33] rounded-xl px-4 py-3">
+              <li key={s.id} className="border border-border-subtle rounded-xl px-4 py-3">
                 <Link href={`/entrevista/${s.id}`} className="text-sm font-bold text-[#996DFF] underline">
                   {s.mode === 'technical' ? 'Técnica' : 'Comportamental'}
                   {s.track ? ` · ${s.track}` : ''}
