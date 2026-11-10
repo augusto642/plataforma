@@ -1,25 +1,42 @@
-export type CourseLevel = 'Iniciante' | 'Intermediário' | 'Avançado' | 'Todos os Níveis';
-export type FilterLevel = 'all' | 'Iniciante' | 'Intermediário' | 'Avançado';
+// B41 (Sprint 14) — os tipos desta página passaram a refletir apenas
+// o que a API realmente entrega. O tipo antigo (`Course`) carregava
+// nível, horas, XP, tags e módulos de um catálogo estático inventado
+// (COURSES_DATA) que não existe no DTO de GET /courses.
 
-export interface CourseModule {
-  name: string;
-  tasks: string;
-}
-
-export interface Course {
+/** Curso como a listagem da API entrega (findAll de courses.service). */
+export interface CourseListItem {
   id: string;
   title: string;
-  modalTitle?: string;
-  level: CourseLevel;
-  hours: string;
-  challenges: string;
-  xp: string;
-  iconType: 'fullstack' | 'gobackend' | 'algorithms' | 'devops' | 'ai' | 'fundamentals';
-  desc: string;
-  shortDesc?: string;
-  tags: string[];
-  filterTags: string[];
-  inProgress?: boolean;
-  progressPercent?: number;
-  modules: CourseModule[];
+  slug: string;
+  description: string | null;
+  instructorName: string | null;
+  enrollmentsCount: number;
+  activitiesCount: number;
+}
+
+/** Progresso real do usuário num curso (GET /users/me/progress). */
+export interface CourseProgressEntry {
+  courseId: string;
+  courseTitle: string;
+  slug: string;
+  totalActivities: number;
+  completedActivities: number;
+  progressPercent: number;
+}
+
+/** Detalhe real do curso (GET /courses/:id) — usado na ementa. */
+export interface CourseDetail {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  instructorName: string | null;
+  enrollmentsCount: number;
+  activitiesCount: number;
+  activities: Array<{
+    id: string;
+    title: string;
+    language: string;
+    order: number;
+  }>;
 }
