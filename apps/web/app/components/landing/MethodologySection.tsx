@@ -12,8 +12,14 @@ export const MethodologySection: React.FC = () => (
           <IconCpu className="w-4 h-4" />
           <span>CIÊNCIA COGNITIVA // APRENDIZADO ATIVO</span>
         </div>
+        {/* Retrabalho 2 Central 213 — H2 duplicado: esta seção tinha o
+            mesmo H2 da HowItWorksSection ("Como você aprende de
+            verdade", 2× no HTML prerenderizado). Mantido o H2 da seção
+            nova (mockup v2 verbatim); este, de conteúdo pré-existente,
+            passa a um título distinto, com vocabulário da própria seção
+            ("aprendizado ativo" no selo, "feedback imediato" no rodapé). */}
         <h2 className="text-3xl sm:text-5xl lg:text-6xl font-heading font-black text-ink-heading tracking-tight mb-4">
-          Como Você Aprende de Verdade
+          Aprendizado ativo com feedback imediato
         </h2>
         <p className="text-base sm:text-lg text-ink-body leading-relaxed font-sans">
           Quem aprende depurando código real fixa o conteúdo de um jeito que aula passiva não fixa. Combinamos feedback determinístico de testes com tutoria socrática: você escreve, o sistema corrige na hora e a tutora guia o seu raciocínio.

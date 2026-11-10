@@ -107,12 +107,17 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
     },
     {
       rank: 2,
-      name: 'Augusto Silva (Você)',
+      // Retrabalho 2 Central 213 (D5-P) — o molde NUNCA rotula ninguém
+      // como usuário atual: "(Você)" só existe quando a entrada do
+      // ranking casa com a identidade real de /users/me (ver
+      // fetchDashboardData). Antes, este molde marcava "Augusto Silva
+      // (Você)" como atual mesmo com outra pessoa logada.
+      name: 'Augusto Silva',
       initials: 'AS',
       avatarGradient: 'from-[#8257E5] to-[#0070F3]',
       completedCount: 18,
       xp: 4850,
-      isCurrentUser: true,
+      isCurrentUser: false,
     },
     {
       rank: 3,
@@ -152,126 +157,156 @@ function generateInitialHeatmapDays() {
   return days;
 }
 
+function normalizeIdentityName(name: unknown): string {
+  return typeof name === 'string' ? name.trim().toLowerCase() : '';
+}
+
 export async function fetchDashboardData(): Promise<StudentDashboardData | null> {
   const merged: StudentDashboardData = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_DATA));
 
-  // Retrabalho Central 213 (D5) — o DEFAULT acima é só o MOLDE de
-  // merge do caminho feliz: ele NUNCA pode chegar à tela quando a API
-  // não responde. Antes, o catch vazio devolvia o molde intacto e o
-  // dashboard exibia um usuário inventado ("Augusto Silva", 4.850 XP,
-  // nível 25, leaderboard fictício). Agora: se nenhum endpoint central
-  // responder, devolve null e a página mostra erro honesto. O
-  // /users/me é a âncora de identidade: sem ele, nenhuma parte do
-  // painel é atribuível ao usuário real — mesmo que outro endpoint
-  // responda, o resultado é null.
-  let apiResponded = false;
-  let identityOk = false;
-
+  // Retrabalho 2 Central 213 (D5-P) — falha PARCIAL também é falha
+  // total do painel. O retrabalho 1 só devolvia null quando NENHUM
+  // endpoint respondia (ou sem identidade): com /users/me, /progress
+  // e /courses em 200 e /leaderboard + /submissions em 500, o
+  // `merged` voltava com leaderboard, missão, heatmap, meta semanal e
+  // dica do MOLDE — dados fictícios na tela — e o molde ainda rotulava
+  // "Augusto Silva (Você)" como atual com outra pessoa logada.
+  //
+  // DECISÃO (com evidência): tudo-ou-nada fail-closed. As seções sem
+  // endpoint próprio (meta semanal, dica socrática, radar, roadmap)
+  // só existem no molde — não há como marcá-las "indisponível por
+  // seção" sem inventar fonte — e o aceite exige que, com /leaderboard
+  // e /submissions em 500, NENHUM dado fictício apareça (nem missão,
+  // nem meta, nem dica). Logo: qualquer endpoint central falhando
+  // (não-ok ou rede) → null, e a página mostra o erro honesto
+  // (page.tsx já trata null). Endpoints centrais: /users/me,
+  // /users/me/progress, /courses, /courses/:id/leaderboard (quando há
+  // curso primário) e /submissions. O caminho feliz (tudo 200) segue
+  // inalterado.
   try {
-    // 0. Fetch User Profile
+    // 0. Fetch User Profile — âncora de identidade: sem ela, nenhuma
+    // parte do painel é atribuível ao usuário real.
     const resMe = await apiFetch(`${API_BASE}/users/me`).catch(() => null);
-    if (resMe && resMe.ok) {
-      apiResponded = true;
-      identityOk = true;
-      const me = await resMe.json();
-      if (me.name) {
-        merged.user.name = me.name;
-        const parts = me.name.trim().split(' ');
-        merged.user.avatarInitials = ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || 'S')).toUpperCase();
-      }
-      if (me.email) merged.user.email = me.email;
-      if (me.xp !== undefined && me.xp !== null) merged.user.xp = me.xp;
-      if (me.level !== undefined && me.level !== null) merged.user.level = me.level;
-      if (me.streakDays !== undefined && me.streakDays !== null) {
-        merged.user.streakDays = me.streakDays;
-        merged.heatmap.currentStreak = me.streakDays;
-      }
+    if (!resMe || !resMe.ok) return null;
+    const me = await resMe.json();
+    // Identidade real, usada SÓ para decidir quem é "(Você)" no
+    // ranking: userId de /users/me casa com userId da entrada do
+    // ranking (contrato da API); nome/e-mail são fallback.
+    const realUserId = typeof me.id === 'string' && me.id ? me.id : null;
+    const realUserName = normalizeIdentityName(me.name);
+    const realUserEmail =
+      typeof me.email === 'string' && me.email ? me.email.trim().toLowerCase() : null;
+    const isRealCurrentUser = (entry: unknown): boolean => {
+      if (!entry || typeof entry !== 'object') return false;
+      const e = entry as Record<string, unknown>;
+      if (realUserId && typeof e.userId === 'string' && e.userId === realUserId) return true;
+      if (realUserId && typeof e.id === 'string' && e.id === realUserId) return true;
+      if (
+        realUserEmail &&
+        typeof e.email === 'string' &&
+        e.email.trim().toLowerCase() === realUserEmail
+      )
+        return true;
+      const entryName = normalizeIdentityName(e.name);
+      return entryName !== '' && realUserName !== '' && entryName === realUserName;
+    };
+    if (me.name) {
+      merged.user.name = me.name;
+      const parts = me.name.trim().split(' ');
+      merged.user.avatarInitials = ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || 'S')).toUpperCase();
+    }
+    if (me.email) merged.user.email = me.email;
+    if (me.xp !== undefined && me.xp !== null) merged.user.xp = me.xp;
+    if (me.level !== undefined && me.level !== null) merged.user.level = me.level;
+    if (me.streakDays !== undefined && me.streakDays !== null) {
+      merged.user.streakDays = me.streakDays;
+      merged.heatmap.currentStreak = me.streakDays;
     }
 
-    // 1. Fetch User Progress
+    // 1. Fetch User Progress — central (missão): sem ele, título e
+    // progresso da missão seriam do molde.
     const resProgress = await apiFetch(`${API_BASE}/users/me/progress`).catch(() => null);
-
-    if (resProgress && resProgress.ok) {
-      apiResponded = true;
-      const data = await resProgress.json();
-      if (data.xp) merged.user.xp = data.xp;
-      if (data.level) merged.user.level = data.level;
-      if (data.streakDays) {
-        merged.user.streakDays = data.streakDays;
-        merged.heatmap.currentStreak = data.streakDays;
-      }
-      if (data.coursesProgress && data.coursesProgress.length > 0) {
-        const primary = data.coursesProgress[0];
-        merged.activeMission.title = primary.courseTitle || merged.activeMission.title;
-        merged.activeMission.progressPercent = primary.progressPercent || merged.activeMission.progressPercent;
-        merged.activeMission.completedLabs = primary.completedActivities || merged.activeMission.completedLabs;
-        merged.activeMission.totalLabs = primary.totalActivities || merged.activeMission.totalLabs;
-      }
+    if (!resProgress || !resProgress.ok) return null;
+    const data = await resProgress.json();
+    if (data.xp) merged.user.xp = data.xp;
+    if (data.level) merged.user.level = data.level;
+    if (data.streakDays) {
+      merged.user.streakDays = data.streakDays;
+      merged.heatmap.currentStreak = data.streakDays;
+    }
+    if (data.coursesProgress && data.coursesProgress.length > 0) {
+      const primary = data.coursesProgress[0];
+      merged.activeMission.title = primary.courseTitle || merged.activeMission.title;
+      merged.activeMission.progressPercent = primary.progressPercent || merged.activeMission.progressPercent;
+      merged.activeMission.completedLabs = primary.completedActivities || merged.activeMission.completedLabs;
+      merged.activeMission.totalLabs = primary.totalActivities || merged.activeMission.totalLabs;
     }
 
-    // 2. Fetch Courses
+    // 2. Fetch Courses — central (missão + ranking dependem dele).
     const resCourses = await apiFetch(`${API_BASE}/courses`).catch(() => null);
-
-    if (resCourses && resCourses.ok) {
-      apiResponded = true;
-      const courses = await resCourses.json();
-      if (Array.isArray(courses) && courses.length > 0) {
-        const firstCourse = courses[0];
-        merged.activeMission.courseId = firstCourse.id;
-        if (firstCourse.activities && firstCourse.activities.length > 0) {
-          const firstAct = firstCourse.activities[0];
-          merged.activeMission.activityId = firstAct.id;
-          if (firstAct.giteaCloneUrl) {
-            merged.activeMission.gitCloneUrl = `git clone ${firstAct.giteaCloneUrl}`;
-          }
-        }
-
-        // 3. Fetch Leaderboard for primary course
-        const resLeaderboard = await apiFetch(`${API_BASE}/courses/${firstCourse.id}/leaderboard`).catch(() => null);
-
-        if (resLeaderboard && resLeaderboard.ok) {
-          apiResponded = true;
-          const lb = await resLeaderboard.json();
-          if (Array.isArray(lb) && lb.length > 0) {
-            merged.leaderboard = lb.slice(0, 5).map((entry, idx) => {
-              const nameParts = (entry.name || 'Aluno').split(' ');
-              const initials = (nameParts[0]?.[0] || 'A') + (nameParts[1]?.[0] || 'S');
-              const gradients = [
-                'from-[#FFA116] to-[#F43F5E]',
-                'from-[#8257E5] to-[#0070F3]',
-                'from-[#00B37E] to-[#0070F3]',
-                'from-[#996DFF] to-[#8257E5]',
-                'from-[#38BDF8] to-[#00B37E]',
-              ];
-              return {
-                rank: idx + 1,
-                name: entry.name || 'Aluno',
-                initials: initials.toUpperCase(),
-                avatarGradient: gradients[idx % gradients.length],
-                completedCount: entry.completedActivitiesCount ?? 12,
-                xp: entry.xp ?? 2000,
-                isCurrentUser: idx === 1,
-              };
-            });
-          }
+    if (!resCourses || !resCourses.ok) return null;
+    const courses = await resCourses.json();
+    let primaryCourseId: string | null = null;
+    if (Array.isArray(courses) && courses.length > 0) {
+      const firstCourse = courses[0];
+      if (typeof firstCourse.id === 'string' && firstCourse.id) {
+        primaryCourseId = firstCourse.id;
+      }
+      merged.activeMission.courseId = firstCourse.id;
+      if (firstCourse.activities && firstCourse.activities.length > 0) {
+        const firstAct = firstCourse.activities[0];
+        merged.activeMission.activityId = firstAct.id;
+        if (firstAct.giteaCloneUrl) {
+          merged.activeMission.gitCloneUrl = `git clone ${firstAct.giteaCloneUrl}`;
         }
       }
     }
 
-    // 4. Fetch Submissions count / stats
+    // 3. Fetch Leaderboard do curso primário — central quando há curso.
+    // Em caso de sucesso, sobrescreve SEMPRE (mesmo vazio → []):
+    // ranking vazio é honesto, o molde com 3 pessoas inventadas não
+    // é. Sem curso primário não há ranking: [] em vez do molde.
+    // "(Você)" só na entrada cuja identidade casa com /users/me —
+    // nunca por posição (antes: `idx === 1` marcava a 2ª linha seja
+    // quem fosse).
+    if (primaryCourseId) {
+      const resLeaderboard = await apiFetch(
+        `${API_BASE}/courses/${primaryCourseId}/leaderboard`,
+      ).catch(() => null);
+      if (!resLeaderboard || !resLeaderboard.ok) return null;
+      const lb = await resLeaderboard.json();
+      if (!Array.isArray(lb)) return null;
+      merged.leaderboard = lb.slice(0, 5).map((entry, idx) => {
+        const nameParts = (entry.name || 'Aluno').split(' ');
+        const initials = (nameParts[0]?.[0] || 'A') + (nameParts[1]?.[0] || 'S');
+        const gradients = [
+          'from-[#FFA116] to-[#F43F5E]',
+          'from-[#8257E5] to-[#0070F3]',
+          'from-[#00B37E] to-[#0070F3]',
+          'from-[#996DFF] to-[#8257E5]',
+          'from-[#38BDF8] to-[#00B37E]',
+        ];
+        return {
+          rank: idx + 1,
+          name: entry.name || 'Aluno',
+          initials: initials.toUpperCase(),
+          avatarGradient: gradients[idx % gradients.length],
+          completedCount: entry.completedActivitiesCount ?? 12,
+          xp: entry.xp ?? 2000,
+          isCurrentUser: isRealCurrentUser(entry),
+        };
+      });
+    } else {
+      merged.leaderboard = [];
+    }
+
+    // 4. Fetch Submissions count / stats — central
+    // (heatmap.totalSubmissions). Sucesso sobrescreve sempre, mesmo 0.
     const resSubmissions = await apiFetch(`${API_BASE}/submissions`).catch(() => null);
-
-    if (resSubmissions && resSubmissions.ok) {
-      apiResponded = true;
-      const subs = await resSubmissions.json();
-      if (Array.isArray(subs) && subs.length > 0) {
-        merged.heatmap.totalSubmissions = subs.length;
-      }
-    }
-    // D5 — nenhum endpoint central respondeu, ou a identidade do
-    // usuário não foi estabelecida: sem dados reais, sem dashboard
-    // inventado. O chamador mostra o estado de erro.
-    if (!apiResponded || !identityOk) return null;
+    if (!resSubmissions || !resSubmissions.ok) return null;
+    const subs = await resSubmissions.json();
+    if (!Array.isArray(subs)) return null;
+    merged.heatmap.totalSubmissions = subs.length;
   } catch {
     // Backend inalcançável ou erro inesperado: nada de preservar o
     // molde como se fosse dado real.
