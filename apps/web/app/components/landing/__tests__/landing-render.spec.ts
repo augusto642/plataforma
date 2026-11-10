@@ -64,9 +64,13 @@ function stripReactComments(html: string): string {
 }
 
 describe('landing — renderização e claims estruturais (B76)', () => {
+  // Fase 1 premium (§2.4) — o CTA de plano pago passou da lista de
+  // interessados para o checkout em modo de testes; o aviso honesto
+  // (nenhuma cobrança real) segue 1× em cada card pago, com o texto
+  // atualizado para a realidade do checkout.
   it('aviso de cobrança aparece 1× em cada card pago (Pro e Staff), junto ao CTA', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(countOccurrences(html, 'Cobrança ainda não ativa — hoje o cadastro é gratuito.')).toBe(2);
+    expect(countOccurrences(html, 'Checkout em modo de testes — nenhuma cobrança real é feita.')).toBe(2);
   });
 
   it('skip link é o PRIMEIRO link da página e o <main> tem o id dele', async () => {
@@ -98,7 +102,7 @@ describe('landing — renderização e claims estruturais (B76)', () => {
   it('CTAs de preço distintos e verdadeiros + captura só-e-mail nos cards pagos', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     expect(html).toContain('Começar grátis agora');
-    expect(html).toContain('Entrar na lista de interessados');
+    expect(html).toContain('Assinar o Pro (modo de testes)');
     expect(html).toContain('Falar com a equipe');
     expect(html).toContain('id="plan-interest-email-pro"');
     expect(html).toContain('id="plan-interest-email-staff"');
