@@ -1,4 +1,5 @@
 import { apiFetch } from './apiClient';
+import { parseError } from './parse-error';
 
 /**
  * Fase 3 premium (desenho §4.1) — client de desafios semanais e ligas.
@@ -38,13 +39,6 @@ export interface LeagueStanding {
   points: number;
   position: number;
   participants: number;
-}
-
-async function parseError(res: Response): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  const message =
-    (body as { message?: string | string[] }).message ?? 'Não foi possível completar a operação.';
-  return new Error(Array.isArray(message) ? message.join(' ') : message);
 }
 
 export async function getCurrentChallenge(): Promise<Challenge | null> {

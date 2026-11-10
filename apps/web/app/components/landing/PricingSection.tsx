@@ -26,9 +26,15 @@ import { PlanInterestForm } from './PlanInterestForm';
    "lote fundador" nem benefício indefinido. */
 /* Fase 1 premium (desenho §2.4) — o CTA de plano pago passa da lista
    de interessados para o checkout (em modo de testes). A lista de
-   interessados segue válida só para o Carreira, sem preço definido. */
+   interessados segue válida só para o Carreira, sem preço definido.
+   A9 (Lote 3 · portões do merge) — o aviso de cobrança RESTAURADO:
+   a fase 1 o trocou por "Checkout em modo de testes", e sem ele a
+   página passou a sugerir cobrança ativa (landing-render.spec.ts:69
+   esperava o aviso 2× e recebia 0). O checkout segue em modo de
+   testes (nenhuma cobrança real), e o aviso diz o estado real: a
+   cobrança ainda não está ativa e o cadastro hoje é gratuito. */
 export const PAID_PLAN_BILLING_NOTE =
-  'Checkout em modo de testes — nenhuma cobrança real é feita.';
+  'Cobrança ainda não ativa — hoje o cadastro é gratuito.';
 
 export const PricingSection: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
@@ -172,9 +178,12 @@ export const PricingSection: React.FC = () => {
           {/* B67 (Sprint 18 · Volta 3 · PM M2/Growth M2) — os três
               cards diziam a mesma frase ("Começar grátis agora") e
               nenhum momento de compromisso era nomeado. Cada CTA
-              agora diz a ação verdadeira do seu card: o Pro é entrar
-              na lista de interessados (o destino real do clique,
-              via cadastro + registro no servidor). */}
+              agora diz a ação verdadeira do seu card. Fase 1 premium:
+              o CTA do Pro aponta para o checkout em modo de testes
+              (/checkout/pro); a lista de interessados segue no
+              formulário só-e-mail abaixo do CTA (PlanInterestForm),
+              cujo botão é o "Entrar na lista de interessados" que a
+              landing conta no teste de honestidade de preço. */}
           <Link href="/checkout/pro" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="block w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">
             <span className="inline-flex items-center gap-2">Assinar o Pro (modo de testes) <IconBolt className="w-4 h-4" /></span>
           </Link>

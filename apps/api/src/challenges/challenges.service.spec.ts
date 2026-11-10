@@ -27,6 +27,7 @@ describe('ChallengesService', () => {
     resolveTier: jest.fn(),
     getOrCreateSeason: jest.fn(),
     computePoints: jest.fn(),
+    computePointsMany: jest.fn(),
     refreshEntriesForChallenge: jest.fn(),
     myLeagues: jest.fn(),
     seasonStandings: jest.fn(),
@@ -124,11 +125,32 @@ describe('ChallengesService', () => {
       { user: { id: 'u1', name: 'Ana', nickname: null, xp: 0, level: 1 }, joinedAt: new Date('2026-10-20') },
       { user: { id: 'u2', name: 'Beto', nickname: null, xp: 0, level: 1 }, joinedAt: new Date('2026-10-21') },
     ]);
-    mockLeague.computePoints.mockImplementation((_c: string, userId: string) =>
-      Promise.resolve(userId === 'u1' ? 30 : 90),
+    mockLeague.computePointsMany.mockResolvedValue(
+      new Map([
+        ['u1', 30],
+        ['u2', 90],
+      ]),
     );
     const board = await service.leaderboard('ch-1');
     expect(board.ranking[0]).toMatchObject({ userId: 'u2', position: 1, points: 90 });
     expect(board.ranking[1]).toMatchObject({ userId: 'u1', position: 2, points: 30 });
+  });
+
+  it('M3: ranking calcula os pontos em lote (1 chamada, não 1 por participante)', async () => {
+    mockPrisma.challenge.findUnique.mockResolvedValue(challenge);
+    mockPrisma.challengeParticipant.findMany.mockResolvedValue([
+      { user: { id: 'u1', name: 'Ana', nickname: null, xp: 0, level: 1 }, joinedAt: new Date('2026-10-20') },
+      { user: { id: 'u2', name: 'Beto', nickname: null, xp: 0, level: 1 }, joinedAt: new Date('2026-10-21') },
+    ]);
+    mockLeague.computePointsMany.mockResolvedValue(
+      new Map([
+        ['u1', 30],
+        ['u2', 90],
+      ]),
+    );
+    await service.leaderboard('ch-1');
+    expect(mockLeague.computePointsMany).toHaveBeenCalledTimes(1);
+    expect(mockLeague.computePointsMany).toHaveBeenCalledWith('ch-1', ['u1', 'u2']);
+    expect(mockLeague.computePoints).not.toHaveBeenCalled();
   });
 });

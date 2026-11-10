@@ -197,17 +197,21 @@ export class ChallengesService {
       },
       orderBy: { joinedAt: 'asc' },
     });
-    const ranked = await Promise.all(
-      participants.map(async (p) => ({
-        userId: p.user.id,
-        name: p.user.name,
-        nickname: p.user.nickname,
-        xp: p.user.xp,
-        level: p.user.level,
-        points: await this.league.computePoints(challengeId, p.user.id),
-        joinedAt: p.joinedAt,
-      })),
+    // M3 (Lote 4) — pontos em lote (1 leitura para todos os
+    // participantes) em vez de 1 `computePoints` por participante.
+    const pointsByUser = await this.league.computePointsMany(
+      challengeId,
+      participants.map((p) => p.user.id),
     );
+    const ranked = participants.map((p) => ({
+      userId: p.user.id,
+      name: p.user.name,
+      nickname: p.user.nickname,
+      xp: p.user.xp,
+      level: p.user.level,
+      points: pointsByUser.get(p.user.id) ?? 0,
+      joinedAt: p.joinedAt,
+    }));
     ranked.sort((a, b) => b.points - a.points || a.joinedAt.getTime() - b.joinedAt.getTime());
     return {
       challengeId,

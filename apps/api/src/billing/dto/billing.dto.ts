@@ -11,6 +11,17 @@ export class CreateCheckoutDto {
   billingCycle!: BillingCycle;
 }
 
+export class SimulatePaymentDto {
+  /**
+   * Id da sessão de checkout criada por `POST /billing/checkout`.
+   * Só o `sessionId` vem do cliente: usuário, plano e ciclo são lidos
+   * da sessão persistida no servidor — o corpo nunca decide o que é
+   * liberado (C1, Lote 1 P0).
+   */
+  @IsString()
+  sessionId!: string;
+}
+
 export class ListSubscriptionsQueryDto {
   @IsOptional()
   @IsEnum(['trialing', 'active', 'past_due', 'canceled', 'expired'])

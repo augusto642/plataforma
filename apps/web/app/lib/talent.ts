@@ -1,4 +1,5 @@
 import { apiFetch } from './apiClient';
+import { parseError } from './parse-error';
 
 /**
  * Fase 4 premium (desenho §5) — client de vagas, perfil Talent Match,
@@ -63,13 +64,6 @@ export interface OrgDashboard {
     level: number;
     enrollmentsCount: number;
   }[];
-}
-
-async function parseError(res: Response): Promise<Error> {
-  const body = await res.json().catch(() => ({}));
-  const message =
-    (body as { message?: string | string[] }).message ?? 'Não foi possível completar a operação.';
-  return new Error(Array.isArray(message) ? message.join(' ') : message);
 }
 
 export async function getJobs(): Promise<JobPosting[]> {

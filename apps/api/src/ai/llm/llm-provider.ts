@@ -135,10 +135,35 @@ export class LlmQuotaExceededError extends LlmRequestError {
   }
 }
 
+/**
+ * M17 (Lote 4) — o BACKEND da cota (Redis) está indisponível: o
+ * gateway NÃO pode saber se o aluno ainda tem cota, então a reserva
+ * FALHA FECHADA — nenhuma chamada ao provedor acontece. Erro
+ * distinto de `LlmQuotaExceededError` de propósito: a cota NÃO
+ * estourou, o aluno não deve ler "cota esgotada" nem a analítica
+ * deve contar um estouro que não houve. Os consumidores caem na
+ * heurística rotulada com o motivo verdadeiro ('quota-unavailable'),
+ * como nos demais erros do LLM.
+ */
+export class LlmQuotaUnavailableError extends LlmRequestError {
+  readonly reason = 'quota-unavailable' as const;
+
+  constructor() {
+    super(
+      'AI quota backend unavailable; failing closed (no LLM call made)',
+      undefined,
+      false,
+      'unavailable',
+    );
+    this.name = 'LlmQuotaUnavailableError';
+  }
+}
+
 export type LlmUnavailableReason =
   | 'disabled'
   | 'no-provider'
   | 'quota-exceeded'
+  | 'quota-unavailable'
   | 'provider-error';
 
 /** De onde veio a resposta que o aluno recebeu. */

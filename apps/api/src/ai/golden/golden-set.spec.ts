@@ -127,7 +127,8 @@ async function runCase(gc: GoldenCase): Promise<RunResult> {
     stream: jest.fn(),
   };
 
-  const service = new AiService(prismaMock as any, llmMock as any);
+  // M12 — AiService é fachada: construção fora do Nest via fromRawDeps.
+  const service = AiService.fromRawDeps(prismaMock as any, llmMock as any);
   const feedback = await service.generatePedagogicalHint(
     `sub-${gc.id}`,
     'user-golden',

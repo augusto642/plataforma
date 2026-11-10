@@ -10,11 +10,49 @@ import { LlmClient } from './llm-client';
 import { AiUsageService } from './llm/ai-usage.service';
 
 import { SocraticCatService } from './socratic-cat.service';
+import { PromptSafetyService } from './prompt-safety.service';
+import { SocraticTierService } from './socratic-tier.service';
+import { HeuristicTutorService } from './heuristic-tutor.service';
+import { TutorKnowledgeService } from './tutor-knowledge.service';
+import { PedagogicalHintService } from './pedagogical-hint.service';
+import { TutorChatService } from './tutor-chat.service';
+import { ComplexityAnalysisService } from './complexity-analysis.service';
+import { SocraticGuidanceService } from './socratic-guidance.service';
 
 @Module({
   imports: [CacheModule, PlansModule, forwardRef(() => KnowledgeModule), AdaptationModule],
   controllers: [AiController],
-  providers: [AiService, LineFeedbackService, SocraticCatService, LlmClient, AiUsageService],
-  exports: [AiService, LineFeedbackService, SocraticCatService, LlmClient, AiUsageService],
+  providers: [
+    AiService,
+    LineFeedbackService,
+    SocraticCatService,
+    LlmClient,
+    AiUsageService,
+    // M12 — serviços extraídos do AiService god service (a fachada
+    // AiService os compõe; podem ser injetados diretamente).
+    PromptSafetyService,
+    SocraticTierService,
+    HeuristicTutorService,
+    TutorKnowledgeService,
+    PedagogicalHintService,
+    TutorChatService,
+    ComplexityAnalysisService,
+    SocraticGuidanceService,
+  ],
+  exports: [
+    AiService,
+    LineFeedbackService,
+    SocraticCatService,
+    LlmClient,
+    AiUsageService,
+    PromptSafetyService,
+    SocraticTierService,
+    HeuristicTutorService,
+    TutorKnowledgeService,
+    PedagogicalHintService,
+    TutorChatService,
+    ComplexityAnalysisService,
+    SocraticGuidanceService,
+  ],
 })
 export class AiModule {}

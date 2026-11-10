@@ -16,9 +16,10 @@ import {
  * webhook simulado (harness de teste). Esta página mostra o estado
  * real da assinatura (polling de GET /billing/subscription/me) e, em
  * ambiente de testes, oferece o botão de simulação da confirmação do
- * provedor — que só funciona enquanto o webhook não exigir assinatura
- * (sem BILLING_WEBHOOK_SECRET configurado). Sem confirmação, nada é
- * liberado: a página diz isso, em vez de fingir sucesso.
+ * provedor — que chama a rota autenticada `POST /billing/simulate-payment`
+ * (o servidor monta e assina o evento a partir da sessão de checkout;
+ * sem `BILLING_WEBHOOK_SECRET` no servidor, o boot nem acontece).
+ * Sem confirmação, nada é liberado: a página diz isso, em vez de fingir sucesso.
  */
 /**
  * Correção Fase 2 (resíduo da Fase 1): `useSearchParams()` exige
@@ -59,14 +60,7 @@ function CheckoutSuccessContent() {
     setSimulating(true);
     setNotice(null);
     try {
-      const result = await simulateProviderWebhook({
-        providerEventId: `sim-ev-${sessionId}`,
-        type: 'payment_approved',
-        sessionId,
-        userId: user.id,
-        plan: 'pro',
-        billingCycle: 'monthly',
-      });
+      const result = await simulateProviderWebhook({ sessionId });
       setNotice(
         result.alreadyProcessed
           ? 'Confirmação já processada antes — sem duplicar a liberação.'

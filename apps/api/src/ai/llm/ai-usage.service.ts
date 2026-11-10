@@ -21,9 +21,16 @@ import type { LlmUsage } from './llm-provider';
  *
  * Semântica da reserva: INCR atômico antes da chamada; se estourar,
  * DECR e bloqueia; se o provedor falhar, DECR (a falha não consome a
- * cota do aluno). Se o Redis estiver fora, a cota falha ABERTA (a
- * chamada passa, com warn) — a alternativa seria desligar o LLM para
- * todos por uma falha transitória de cache; o kill switch continua
+ * cota do aluno).
+ *
+ * M17 (Lote 4) — FAIL-CLOSED: se o Redis estiver fora (ou o serviço
+ * de cache nem existir), a reserva FALHA (`ok: false`, erro
+ * `quota-unavailable`) e NENHUMA chamada ao provedor acontece. A
+ * versão anterior falhava ABERTA (a chamada passava, com warn) — sem
+ * Redis, a cota não era aplicada e o custo ficava sem teto. Não há
+ * caminho legítimo sem Redis que o produto exija: a cota é Redis por
+ * desenho e o `AiModule` sempre provê o `CacheService` (o `!cache`
+ * só existe em construção manual/testes); o kill switch continua
  * sendo a ferramenta de emergência de custo.
  */
 
@@ -56,13 +63,18 @@ export interface QuotaReservation {
   /** Chamadas já feitas hoje (inclui esta, quando ok). */
   used: number;
   limit: number;
-  /** true quando o backend de cota falhou e a chamada passou aberta. */
-  degraded?: boolean;
+  /**
+   * M17 — motivo da recusa quando `ok` é false por indisponibilidade
+   * do backend de cota (`'quota-unavailable'`), distinto de cota
+   * estourada (que vem sem `error`). O chamador NÃO deve conceder
+   * uso quando `ok` é false, qualquer que seja o motivo.
+   */
+  error?: 'quota-unavailable';
 }
 
 export interface LlmBlockedRecord {
   userId?: string;
-  /** Motivo do bloqueio: 'quota-exceeded' | 'disabled' | 'no-provider'. */
+  /** Motivo do bloqueio: 'quota-exceeded' | 'quota-unavailable' | 'disabled' | 'no-provider'. */
   reason: string;
   /** Plano do aluno, quando houver contexto de usuário. */
   plan?: string;
@@ -122,11 +134,21 @@ export class AiUsageService {
     return { key: `ai:quota:${userId}:${yyyy}${mm}${dd}`, ttlSeconds };
   }
 
-  /** Reserva 1 chamada da cota do aluno para hoje. */
+  /**
+   * Reserva 1 chamada da cota do aluno para hoje.
+   *
+   * M17 (Lote 4) — FAIL-CLOSED: sem backend de cota (cache ausente
+   * ou erro no Redis), a reserva falha com `ok: false` + erro
+   * `quota-unavailable`. Nenhum chamador pode conceder uso a partir
+   * de uma reserva que falhou — o `ok: false` é o contrato.
+   */
   async reserve(userId: string, plan: string | null | undefined): Promise<QuotaReservation> {
     const limit = this.quotaLimitForPlan(plan);
     if (!this.cache) {
-      return { ok: true, used: 0, limit, degraded: true };
+      this.logger.error(
+        `AI quota backend unavailable (no cache configured); failing closed (user=${userId})`,
+      );
+      return { ok: false, used: 0, limit, error: 'quota-unavailable' };
     }
     const { key, ttlSeconds } = this.dayKey(userId);
     try {
@@ -137,10 +159,10 @@ export class AiUsageService {
       }
       return { ok: true, used, limit };
     } catch (err) {
-      this.logger.warn(
-        `AI quota backend unavailable; failing open (user=${userId}): ${(err as Error)?.message || err}`,
+      this.logger.error(
+        `AI quota backend unavailable; failing closed (user=${userId}): ${(err as Error)?.message || err}`,
       );
-      return { ok: true, used: 0, limit, degraded: true };
+      return { ok: false, used: 0, limit, error: 'quota-unavailable' };
     }
   }
 

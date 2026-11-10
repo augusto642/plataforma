@@ -2,10 +2,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { LlmClient, LlmQuotaExceededError } from './llm-client';
+import { LlmClient, LlmQuotaExceededError, LlmQuotaUnavailableError } from './llm-client';
+import { ResearchService } from '../knowledge/research/research.service';
+import { PromptSafetyService } from './prompt-safety.service';
+import { SocraticTierService } from './socratic-tier.service';
+import { HeuristicTutorService } from './heuristic-tutor.service';
+import { TutorKnowledgeService } from './tutor-knowledge.service';
+import { PedagogicalHintService } from './pedagogical-hint.service';
+import { TutorChatService } from './tutor-chat.service';
+import { ComplexityAnalysisService } from './complexity-analysis.service';
+import { SocraticGuidanceService } from './socratic-guidance.service';
 
 describe('AiService', () => {
   let service: AiService;
+  let heuristic: HeuristicTutorService;
 
   const mockPrismaService = {
     submission: {
@@ -47,6 +57,17 @@ describe('AiService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiService,
+        // M12 — a fachada compõe os serviços extraídos; sem Knowledge/
+        // Research/Cache/LearnerModel no módulo, os @Optional resolvem
+        // undefined (mesmo comportamento do AiService antigo).
+        PromptSafetyService,
+        SocraticTierService,
+        HeuristicTutorService,
+        TutorKnowledgeService,
+        PedagogicalHintService,
+        TutorChatService,
+        ComplexityAnalysisService,
+        SocraticGuidanceService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: LlmClient, useValue: mockLlmClient },
@@ -54,6 +75,7 @@ describe('AiService', () => {
     }).compile();
 
     service = module.get<AiService>(AiService);
+    heuristic = module.get<HeuristicTutorService>(HeuristicTutorService);
     mockLlmClient.isAvailable = false;
     mockLlmClient.unavailableReason = 'no-provider';
     mockLlmClient.providerId = null;
@@ -150,7 +172,26 @@ describe('AiService', () => {
           { id: 'c2', title: 'Java do Zero', slug: 'java-zero' },
         ]) },
       };
-      const direct = new AiService(prismaMock as any, mockLlmClient as any, undefined, undefined, researchMock as any);
+      // M12 — AiService agora é fachada: o caminho com pesquisa é
+      // exercido via TestingModule com ResearchService mockado.
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          AiService,
+          PromptSafetyService,
+          SocraticTierService,
+          HeuristicTutorService,
+          TutorKnowledgeService,
+          PedagogicalHintService,
+          TutorChatService,
+          ComplexityAnalysisService,
+          SocraticGuidanceService,
+          { provide: PrismaService, useValue: prismaMock },
+          { provide: ConfigService, useValue: mockConfigService },
+          { provide: LlmClient, useValue: mockLlmClient },
+          { provide: ResearchService, useValue: researchMock },
+        ],
+      }).compile();
+      const direct = mod.get<AiService>(AiService);
       const res = await direct.requestResearchForGoal('analista de dados python');
       expect(researchMock.requestForGoal).toHaveBeenCalledWith('analista de dados python');
       expect(res.request?.status).toBe('requested');
@@ -338,8 +379,10 @@ describe('AiService', () => {
     // distintivos, nem os valores esperados embutidos nas mensagens de teste.
     const REFERENCE_SOLUTION = 'function somar(a, b) {\n  return a + b;\n}';
 
+    // M12 — o fallback heurístico agora vive no HeuristicTutorService; a
+    // bateria testa o serviço real (não mais um método privado via any).
     const fallback = (code: string, failedTests: any[], tier: 1 | 2 | 3 = 2) =>
-      (service as any).generateHeuristicSocraticHints(
+      heuristic.generateHeuristicSocraticHints(
         code,
         failedTests.map((t: any) =>
           t.isHidden
@@ -625,6 +668,17 @@ describe('AiService', () => {
       const feedback = await service.generatePedagogicalHint('sub-src', 'user-1');
       expect(feedback.source).toBe('heuristic');
       expect(feedback.fallbackReason).toBe('quota-exceeded');
+      expect(feedback.hints.length).toBeGreaterThan(0);
+    });
+
+    it('M17: backend de cota fora → fallback com motivo quota-unavailable (não "cota esgotada"), sem erro ao aluno', async () => {
+      mockLlmClient.isAvailable = true;
+      mockLlmClient.unavailableReason = null;
+      mockLlmClient.complete.mockRejectedValue(new LlmQuotaUnavailableError());
+      mockSubmissionForHint();
+      const feedback = await service.generatePedagogicalHint('sub-src', 'user-1');
+      expect(feedback.source).toBe('heuristic');
+      expect(feedback.fallbackReason).toBe('quota-unavailable');
       expect(feedback.hints.length).toBeGreaterThan(0);
     });
 
