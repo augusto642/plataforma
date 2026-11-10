@@ -31,6 +31,8 @@ import { AdminModule } from './admin/admin.module';
 import { BillingModule } from './billing/billing.module';
 import { InterviewModule } from './interview/interview.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { ChallengesModule } from './challenges/challenges.module';
+import { CommunityModule } from './community/community.module';
 import { CommonModule } from './common/common.module';
 import { PlansModule } from './plans/plans.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
@@ -104,6 +106,8 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     BillingModule,
     InterviewModule,
     ReviewsModule,
+    ChallengesModule,
+    CommunityModule,
     CommonModule,
     HousekeepingModule,
   ],
