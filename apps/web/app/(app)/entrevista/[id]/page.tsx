@@ -14,6 +14,12 @@ import Link from 'next/link';
 import { MaterialIcon } from '../../../components/MaterialIcon';
 import { appendTranscript } from '../../../hooks/voice-support';
 import { InterviewVoiceControls } from '../InterviewVoiceControls';
+import {
+  INTERVIEW_TURN_CAP,
+  currentQuestionLabel,
+  latestFeedbackText,
+  userInitials,
+} from '../session-view';
 import { IdeEditorPane } from '../../ide/components/IdeEditorPane';
 
 /**
@@ -31,8 +37,22 @@ import { IdeEditorPane } from '../../ide/components/IdeEditorPane';
  * "Ouvir pergunta"). Sem números inventados (#15/#16): sem "Tempo",
  * sem "Pergunta N de M", sem percentuais — só o contador real de
  * turnos (cap 20) e os critérios REAIS da avaliação do turno, sem
- * nota numérica. O teste do debounce roda de verdade no navegador
+ * nota numérica. O rótulo "Pergunta N de 20" do rodapé do scorecard
+ * usa o contador real de respostas (N = respostas + 1) — nunca um
+ * total inventado. O teste do debounce roda de verdade no navegador
  * (novo Function + chamadas reais), nunca um resultado fixo.
+ *
+ * Central 219 lote 3 (D3) — fidelidade integral ao protótipo: a
+ * sessão vira o split de tela cheia do mock (top app bar h-14 com
+ * selo + status ao vivo + avatar de iniciais reais; painel esquerdo
+ * com cabeçalho da entrevistadora, fluxo de diálogo com rolagem
+ * própria e área de resposta ancorada no rodapé; painel direito com
+ * chrome bar do editor, scorecard em grade + nota de feedback com a
+ * evidência real da última avaliação + ação "Enviar resposta e
+ * avançar"). Sem "Vaga: ..." inventada no título (usa modo + trilha
+ * reais) e sem "Próxima etapa: CSS e Responsividade" (usa o contador
+ * real de turnos). Shift+Enter envia de verdade (antes o hint
+ * existia sem o handler).
  */
 const DEBOUNCE_STARTER = `// Implementação solicitada pela entrevistadora:
 // crie uma função debounce(fn, delay) que atrasa a execução de fn
@@ -42,6 +62,14 @@ function debounce(fn, delay = 300) {
   // chamada e agende fn com os argumentos recebidos.
 }
 `;
+
+/** Cor do "Avaliado" por posição — mesma rotação do protótipo. */
+const CRITERION_COLORS = [
+  'text-secondary',
+  'text-primary',
+  'text-tertiary',
+  'text-emerald-400',
+];
 
 interface LiveTestResult {
   passed: boolean;
@@ -214,6 +242,8 @@ export default function EntrevistaSessaoPage() {
   if (!session) return null;
   const candidateCount = session.turns.filter((t) => t.role === 'candidate').length;
   const isActive = session.status === 'active';
+  const canSend =
+    isActive && !sending && answer.trim().length > 0 && candidateCount < INTERVIEW_TURN_CAP;
   // Última fala da entrevistadora (pergunta + feedback) — lida em voz
   // alta pelo controle de voz; null antes da primeira pergunta (nunca
   // acontece: a criação já inclui a pergunta inicial).
@@ -227,88 +257,129 @@ export default function EntrevistaSessaoPage() {
     [...session.turns]
       .reverse()
       .find((t) => t.role === 'candidate' && t.evaluation)?.evaluation ?? null;
+  const feedbackText = lastEvaluation ? latestFeedbackText(lastEvaluation) : null;
 
   return (
-    <div className="min-h-screen bg-dark-surface text-dark-on-surface px-4 md:px-8 py-8">
-      <div className="max-w-7xl mx-auto">
-        <Link
-          href="/entrevista"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-6"
-        >
-          <MaterialIcon name="arrow_back" className="text-[18px]" />
-          Sair da simulação
-        </Link>
-        <p className="font-code text-[11px] text-primary font-bold uppercase tracking-wider">
-          Simulador de Entrevista
-        </p>
-        <div className="flex flex-wrap items-start justify-between gap-3 mt-1">
-          <div>
-            <h1 className="text-2xl font-black text-white">
+    <div className="min-h-screen bg-dark-surface text-dark-on-surface flex flex-col">
+      {/* Top app bar do protótipo: voltar + selo + título real + status + avatar. */}
+      <header className="h-14 shrink-0 border-b border-border-subtle bg-dark-surface-container-low px-5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <Link
+            href="/entrevista"
+            className="flex items-center gap-2 text-dark-on-surface-variant hover:text-white transition-colors shrink-0"
+          >
+            <MaterialIcon name="arrow_back" className="text-[20px]" />
+            <span className="font-code text-xs">Sair da simulação</span>
+          </Link>
+          <div className="h-4 w-px bg-border-subtle shrink-0" />
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="hidden sm:inline-block px-2 py-0.5 rounded bg-tertiary/15 text-tertiary font-code text-xs font-bold border border-tertiary/30 shrink-0">
+              SIMULADOR DE ENTREVISTA
+            </span>
+            <h1 className="font-headline font-bold text-sm text-white truncate">
               Entrevista {session.mode === 'technical' ? 'técnica' : 'comportamental'}
               {session.track ? ` · ${session.track}` : ''}
             </h1>
-            <p className="text-xs text-zinc-500 mt-1">
-              {candidateCount}/20 turnos · Treino — não substitui entrevista humana real.
-            </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-dark-surface-container border border-border-subtle text-xs font-bold text-secondary">
+        </div>
+        <div className="flex items-center gap-5 shrink-0">
+          <span className="hidden sm:flex items-center gap-2 px-3 py-1 rounded bg-dark-surface-container border border-border-subtle text-xs font-code text-white">
             <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
             {isActive ? 'Sessão em andamento' : 'Sessão finalizada'}
           </span>
+          <span
+            title={user.name}
+            className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-bold text-xs text-white"
+          >
+            {userInitials(user.name, user.email)}
+          </span>
         </div>
+      </header>
 
-        {error && (
-          <p className="mt-4 text-sm text-red-400 border border-red-900 rounded-lg px-3 py-2">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p className="mx-4 md:mx-8 mt-4 text-sm text-red-400 border border-red-900 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          {/* Coluna 1 — conversa com a entrevistadora. */}
-          <section aria-label="Conversa da entrevista" className="space-y-3 min-w-0">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-purple/20 text-dark-primary font-bold text-xs">
-                IA
-              </span>
-              <div>
-                <p className="font-bold text-zinc-200 text-sm">Tutora de IA · Avaliadora</p>
-                <p className="text-[11px]">Áudio &amp; Texto Ativos</p>
+      {/* Split de tela cheia do protótipo: 2 colunas no desktop, 1 no mobile. */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:h-[calc(100vh-3.5rem)]">
+        {/* Coluna 1 — conversa com a entrevistadora. */}
+        <section
+          aria-label="Conversa da entrevista"
+          className="lg:col-span-6 border-b lg:border-b-0 lg:border-r border-border-subtle bg-dark-surface-container-low flex flex-col min-h-0"
+        >
+          <div className="p-4 border-b border-border-subtle bg-dark-surface-container flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 shrink-0 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
+                <MaterialIcon name="record_voice_over" className="text-[22px]" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-headline font-bold text-sm text-white">Tutora de IA</h2>
+                  <span className="px-2 py-0.5 rounded bg-primary/20 text-dark-primary font-code text-[10px]">
+                    Avaliadora Tech Lead
+                  </span>
+                </div>
+                <p className="text-xs text-dark-on-surface-variant">
+                  Avaliando clareza de raciocínio, lógica e boas práticas
+                </p>
               </div>
             </div>
+            <span className="hidden sm:inline-block px-2.5 py-1 rounded bg-secondary/15 text-secondary font-code text-xs font-bold border border-secondary/30 shrink-0">
+              Áudio &amp; Texto Ativos
+            </span>
+          </div>
 
-            <div className="space-y-3">
-              {session.turns.map((turn) => (
-                <div
-                  key={turn.id}
-                  className={`rounded-xl px-4 py-3 text-sm whitespace-pre-wrap ${
-                    turn.role === 'interviewer'
-                      ? 'bg-dark-surface-container-low border border-border-subtle'
-                      : 'bg-[#1B1430] border border-[#3B2A6B]'
-                  }`}
-                >
-                  <p className="text-xs font-bold text-zinc-400 mb-1">
-                    {turn.role === 'interviewer' ? 'Entrevistadora' : 'Você'}
-                  </p>
-                  <p>{turn.content}</p>
-                  {turn.role === 'candidate' && turn.evaluation && (
-                    <div className="mt-2 text-xs text-zinc-400 space-y-1">
-                      {/* Redesign v2 (correção 15): avaliação por critérios
-                          SEM números — só o nome do critério e a evidência. */}
-                      {Object.entries(turn.evaluation).map(([key, v]) => (
-                        <p key={key}>
-                          <span className="font-bold text-zinc-300">{key}</span>
-                          {' — '}
-                          {v.evidence}
-                        </p>
-                      ))}
-                    </div>
-                  )}
+          <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto p-5 space-y-5">
+            {session.turns.map((turn) =>
+              turn.role === 'interviewer' ? (
+                <div key={turn.id} className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-full bg-primary/20 shrink-0 flex items-center justify-center text-primary text-xs font-code mt-0.5 font-bold">
+                    IA
+                  </div>
+                  <div className="bg-dark-surface-container p-4 rounded-lg border border-border-subtle text-sm text-dark-on-surface leading-relaxed whitespace-pre-wrap max-w-[92%]">
+                    {turn.content}
+                  </div>
                 </div>
-              ))}
-            </div>
+              ) : (
+                <div key={turn.id} className="flex items-start gap-3 justify-end">
+                  <div className="bg-primary/20 border border-primary/30 p-4 rounded-lg text-sm text-white leading-relaxed whitespace-pre-wrap max-w-[90%] space-y-1">
+                    <p>{turn.content}</p>
+                    <span className="text-[10px] font-code text-secondary flex items-center gap-1 justify-end">
+                      <MaterialIcon name="check" className="text-[12px]" />
+                      Resposta registrada
+                    </span>
+                    {turn.evaluation && (
+                      <div className="pt-1 text-xs text-zinc-300 space-y-1">
+                        {/* Redesign v2 (correção 15): avaliação por critérios
+                            SEM números — só o nome do critério e a evidência. */}
+                        {Object.entries(turn.evaluation).map(([key, v]) => (
+                          <p key={key}>
+                            <span className="font-bold">{key}</span>
+                            {' — '}
+                            {v.evidence}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ),
+            )}
+          </div>
 
-            {isActive && (
-              <div className="space-y-3 pt-2">
+          {isActive && (
+            <div className="p-4 border-t border-border-subtle bg-dark-surface-container shrink-0">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2 text-xs text-dark-on-surface-variant">
+                  <span className="flex items-center gap-1.5">
+                    <MaterialIcon name="mic" className="text-[16px] text-secondary" />
+                    Explique sua solução para a entrevistadora
+                  </span>
+                  <span className="font-code text-[11px] shrink-0">Pressione Shift+Enter para enviar</span>
+                </div>
+
                 {/* Voz (opcional): a transcrição só preenche o campo abaixo —
                     o envio continua pelo mesmo `answerInterview` do texto
                     digitado (mesmo DTO, mesmo prompt-guard M11, mesma quota
@@ -318,111 +389,167 @@ export default function EntrevistaSessaoPage() {
                   onTranscript={(text) => setAnswer((prev) => appendTranscript(prev, text))}
                   disabled={sending}
                 />
-                <textarea
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  rows={5}
-                  maxLength={8000}
-                  placeholder="Explique sua solução para a entrevistadora…"
-                  className="w-full bg-dark-surface-container-low border border-border-subtle rounded-xl px-3 py-2 text-sm"
-                />
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 bg-dark-surface-container-low border border-border-strong rounded-lg px-3 py-2.5">
+                  <textarea
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.shiftKey) {
+                        e.preventDefault();
+                        if (canSend) void send();
+                      }
+                    }}
+                    rows={2}
+                    maxLength={8000}
+                    placeholder="Explique sua solução para a entrevistadora…"
+                    className="w-full bg-transparent text-sm text-white placeholder:text-dark-on-surface-variant/50 focus:outline-none resize-none leading-relaxed"
+                  />
                   <button
-                    onClick={send}
-                    disabled={sending || !answer.trim() || candidateCount >= 20}
-                    className="bg-[#8257E5] hover:bg-[#6F46D6] disabled:opacity-50 text-white text-sm font-bold rounded-lg px-4 py-2"
+                    onClick={() => void send()}
+                    disabled={!canSend}
+                    className="px-3 py-2 bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors self-end shrink-0"
                   >
-                    {sending ? 'Avaliando…' : 'Enviar'}
+                    <span>{sending ? 'Avaliando…' : 'Enviar'}</span>
+                    <MaterialIcon name="send" className="text-[14px]" />
                   </button>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
-                    onClick={finish}
+                    onClick={() => void finish()}
                     disabled={finishing || candidateCount === 0}
                     className="border border-border-strong hover:border-[#8257E5] disabled:opacity-50 text-sm font-bold rounded-lg px-4 py-2"
                   >
                     {finishing ? 'Gerando relatório…' : 'Finalizar e ver relatório'}
                   </button>
-                </div>
-                <p className="text-xs text-zinc-500">
-                  Pressione Shift+Enter para enviar.
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Coluna 2 — live coding + critérios em tempo real. */}
-          <section aria-label="Live coding" className="space-y-4 min-w-0">
-            <div className="rounded-xl bg-dark-surface-container-low border border-border-subtle overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle">
-                <span className="font-code text-xs text-dark-on-surface-variant">
-                  javascript · debounce.js · Live Coding com IA
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void testCode()}
-                  disabled={testingCode}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-bold transition-colors"
-                >
-                  <MaterialIcon name="play_arrow" className="text-[16px]" />
-                  {testingCode ? 'Testando…' : 'Testar implementação'}
-                </button>
-              </div>
-              <div className="h-[380px]">
-                <IdeEditorPane
-                  language="javascript"
-                  code={code}
-                  onChange={setCode}
-                  onRun={() => void testCode()}
-                  isSubmitting={testingCode}
-                />
-              </div>
-              {liveTest && (
-                <div
-                  role="status"
-                  className={`px-4 py-3 border-t border-border-subtle text-sm space-y-1 ${
-                    liveTest.passed ? 'text-secondary' : 'text-red-400'
-                  }`}
-                >
-                  <p className="font-bold">
-                    {liveTest.passed ? 'Testes aprovados' : 'Testes com falha'}
+                  <p className="text-xs text-zinc-500">
+                    {candidateCount}/{INTERVIEW_TURN_CAP} turnos · Treino — não substitui
+                    entrevista humana real.
                   </p>
-                  {liveTest.lines.map((line) => (
-                    <p key={line} className="text-xs font-code">
-                      {line}
-                    </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Coluna 2 — live coding + critérios em tempo real. */}
+        <section
+          aria-label="Live coding"
+          className="lg:col-span-6 flex flex-col bg-[#0A0B10] min-h-0 lg:overflow-y-auto"
+        >
+          <div className="h-10 shrink-0 bg-dark-surface-container-high border-b border-border-subtle flex items-center justify-between px-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <MaterialIcon name="code" className="text-[16px] text-yellow-400 shrink-0" />
+              <span className="font-code text-xs text-white font-medium">debounce.js</span>
+              <span className="text-[11px] font-code text-dark-on-surface-variant ml-2 hidden sm:inline">
+                • Live Coding com IA
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void testCode()}
+              disabled={testingCode}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-bold transition-colors shrink-0"
+            >
+              <MaterialIcon name="play_arrow" className="text-[14px]" />
+              {testingCode ? 'Testando…' : 'Testar implementação'}
+            </button>
+          </div>
+          <div className="h-[380px] shrink-0">
+            <IdeEditorPane
+              language="javascript"
+              code={code}
+              onChange={setCode}
+              onRun={() => void testCode()}
+              isSubmitting={testingCode}
+            />
+          </div>
+          {liveTest && (
+            <div
+              role="status"
+              className={`px-4 py-3 border-t border-border-subtle text-sm space-y-1 ${
+                liveTest.passed ? 'text-secondary' : 'text-red-400'
+              }`}
+            >
+              <p className="font-bold">
+                {liveTest.passed ? 'Testes aprovados' : 'Testes com falha'}
+              </p>
+              {liveTest.lines.map((line) => (
+                <p key={line} className="text-xs font-code">
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
+
+          <div className="border-t border-border-subtle bg-dark-surface-container-low p-4 flex flex-col gap-4">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <MaterialIcon name="analytics" className="text-secondary text-[18px]" />
+                  <h2 className="font-headline font-bold text-xs text-white uppercase tracking-wider">
+                    Critérios de Avaliação Técnica
+                  </h2>
+                </div>
+                <span className="font-code text-xs text-secondary font-bold shrink-0">
+                  Feedback em tempo real
+                </span>
+              </div>
+              {lastEvaluation ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Object.entries(lastEvaluation).map(([key], i) => (
+                    <div
+                      key={key}
+                      className="bg-dark-surface p-2.5 rounded border border-border-subtle text-center"
+                    >
+                      <span className="text-xs text-white font-medium block mb-1">{key}</span>
+                      <span className={`font-code text-xs ${CRITERION_COLORS[i % CRITERION_COLORS.length]}`}>
+                        Avaliado
+                      </span>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            <div className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-4">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <MaterialIcon name="analytics" className="text-[18px] text-dark-primary" />
-                Critérios de avaliação técnica
-              </h2>
-              {lastEvaluation ? (
-                <ul className="mt-3 space-y-2">
-                  {Object.entries(lastEvaluation).map(([key, v]) => (
-                    <li key={key} className="flex items-start justify-between gap-3 text-sm">
-                      <span className="text-zinc-300">{key}</span>
-                      <span className="shrink-0 text-xs font-bold text-secondary">Avaliado</span>
-                      <span className="sr-only">{v.evidence}</span>
-                    </li>
-                  ))}
-                </ul>
               ) : (
-                <p className="text-sm text-zinc-400 mt-2">
+                <p className="text-sm text-zinc-400">
                   Os critérios aparecem aqui após a primeira resposta avaliada.
                 </p>
+              )}
+              {feedbackText && (
+                <div className="mt-3 p-2.5 rounded bg-dark-surface-container border border-border-subtle font-code text-[11px] text-dark-on-surface flex items-start gap-2">
+                  <MaterialIcon name="verified" className="text-secondary text-[16px] mt-0.5 shrink-0" />
+                  <div>
+                    <strong className="text-white">Feedback da Entrevistadora:</strong>{' '}
+                    {feedbackText}
+                  </div>
+                </div>
               )}
               <p className="text-xs text-zinc-500 mt-3">
                 Feedback em tempo real — a avaliação completa fica no relatório final.
               </p>
             </div>
-          </section>
-        </div>
 
-        {report && (
-          <div className="mt-8 border border-border-strong rounded-xl p-4 space-y-4 max-w-3xl">
+            {isActive && (
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-border-subtle">
+                <span className="text-xs text-dark-on-surface-variant font-code">
+                  Próxima etapa: {currentQuestionLabel(candidateCount)} · envie sua resposta
+                  para avançar
+                </span>
+                <button
+                  onClick={() => void send()}
+                  disabled={!canSend}
+                  className="px-5 py-2 bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-md shadow-primary/20 shrink-0"
+                >
+                  <span>Enviar resposta e avançar</span>
+                  <MaterialIcon name="arrow_forward" className="text-[16px]" />
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {report && (
+        <div className="px-4 md:px-8 py-8">
+          <div className="border border-border-strong rounded-xl p-4 space-y-4 max-w-3xl mx-auto">
             <h2 className="text-lg font-bold text-white">Relatório</h2>
             <div>
               <h3 className="text-sm font-bold text-zinc-300">Avaliação por critério</h3>
@@ -461,8 +588,8 @@ export default function EntrevistaSessaoPage() {
               </ul>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
