@@ -78,7 +78,7 @@ export const PricingSection: React.FC = () => {
           <ul className="space-y-3 text-body-sm font-mono text-ink-body mb-8">
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Sandbox Linux Piston</li>
-            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Leaderboard público da comunidade</li>
+            <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Ranking por curso entre alunos matriculados</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
@@ -118,7 +118,6 @@ export const PricingSection: React.FC = () => {
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
             <li className="flex items-center gap-2"><span className="text-brand-green-neon font-bold">✔</span> Capstones de concorrência e sistemas distribuídos</li>
-            <li className="flex items-center gap-2"><span className="text-brand-purple font-bold">✔</span> Destaque no leaderboard da comunidade</li>
           </ul>
         </div>
         <Link href="/register" data-cta-id="pricing_pro" onClick={() => { track('pricing_cta', 'pricing_pro', { plan: 'pro', cycle: billingCycle }); savePlanIntent({ plan: 'pro', billingCycle }); }} className="w-full py-3.5 rounded-xl bg-brand-purple hover:bg-brand-purple-dark text-white text-body-sm font-heading font-extrabold text-center shadow-lg shadow-brand-purple/30 hover:shadow-xl hover:shadow-brand-purple/40 transition-all active:scale-95 border border-border-2">

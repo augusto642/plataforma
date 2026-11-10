@@ -115,7 +115,10 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
 
   const handleCopyLeaderboardUrl = async () => {
     if (!courseId) return;
-    const url = `${window.location.origin}/leaderboard/${courseId}`;
+    // A5 (Sprint 13) — a rota é /leaderboard (sem segmento de curso);
+    // a pré-seleção do curso vai por query string, que a página lê na
+    // carga inicial. Antes a URL montada era /leaderboard/<id> (404).
+    const url = `${window.location.origin}/leaderboard?course=${courseId}`;
     try {
       await navigator.clipboard.writeText(url);
       setUrlCopied(true);

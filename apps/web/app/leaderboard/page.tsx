@@ -149,11 +149,19 @@ export default function LeaderboardPage() {
 
       setCourses(options);
       setEnrolledCourseIds(enrolledIds);
-      setSelectedCourseId((previous) =>
-        options.some((course) => course.id === previous)
-          ? previous
-          : chooseInitialCourseId(options, enrolledIds),
-      );
+      setSelectedCourseId((previous) => {
+        if (options.some((course) => course.id === previous)) return previous;
+        // A5 (Sprint 13) — deep link real: ?course=<id> pré-seleciona o
+        // curso (usado pelo "Copiar URL do leaderboard" do TalentModal).
+        const requestedCourseId =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('course')
+            : null;
+        if (requestedCourseId && options.some((course) => course.id === requestedCourseId)) {
+          return requestedCourseId;
+        }
+        return chooseInitialCourseId(options, enrolledIds);
+      });
       setCoursesState('ready');
     })();
 

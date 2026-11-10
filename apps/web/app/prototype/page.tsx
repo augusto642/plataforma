@@ -911,7 +911,7 @@ export default function PrototypePage() {
           <ul className="space-y-3 text-xs font-mono text-zinc-300 mb-8">
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Desafios fundamentais do nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Sandbox Linux Piston</li>
-            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Leaderboard público da comunidade</li>
+            <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Ranking por curso entre alunos matriculados</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Tutora de IA socrática no nível Iniciante</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Portfólio público com seus projetos</li>
           </ul>
@@ -941,7 +941,6 @@ export default function PrototypePage() {
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Tutora de IA socrática em todas as trilhas e níveis</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Portfólio de Evidências com Hash SHA-256</li>
             <li className="flex items-center gap-2"><span className="text-[#04D361] font-bold">✔</span> Capstones de concorrência e sistemas distribuídos</li>
-            <li className="flex items-center gap-2"><span className="text-[#8257E5] font-bold">✔</span> Destaque no leaderboard da comunidade</li>
           </ul>
         </div>
         <a href="#sandbox" className="w-full py-3.5 rounded-xl bg-[#8257E5] hover:bg-[#7146D4] text-white text-xs font-heading font-extrabold text-center shadow-lg shadow-[#8257E5]/30 hover:shadow-xl hover:shadow-[#8257E5]/40 transition-all active:scale-95 border border-white/20">

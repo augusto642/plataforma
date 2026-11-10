@@ -11,8 +11,10 @@ import { TutorPreferencesTab } from './components/TutorPreferencesTab';
 import { BillingTab } from './components/BillingTab';
 import { SecurityTab } from './components/SecurityTab';
 import { ToastNotification } from './components/ToastNotification';
+import { useAuth } from '../context/AuthContext';
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
@@ -64,7 +66,15 @@ export default function SettingsPage() {
               href="/profile"
               className="w-9 h-9 rounded-xl bg-[#181820] border border-[#27272A] flex items-center justify-center text-xs font-mono font-bold text-white hover:border-[#8257E5] transition-colors"
             >
-              AG
+              {user
+                ? user.name
+                    .split(' ')
+                    .filter(Boolean)
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()
+                : '—'}
             </Link>
           </div>
         </div>
@@ -95,7 +105,9 @@ export default function SettingsPage() {
           <SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
           <section className="flex-1 min-w-0">
-            {activeTab === 'profile' && <ProfileTab onSave={(msg) => showToast(msg)} />}
+            {activeTab === 'profile' && (
+              <ProfileTab onNotify={(msg, type) => showToast(msg, type)} />
+            )}
 
             {activeTab === 'git-ssh' && <GitKeysTab />}
 
