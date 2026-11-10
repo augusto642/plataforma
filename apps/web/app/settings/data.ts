@@ -3,7 +3,6 @@ import {
   GpgKeyItem,
   PersonalAccessToken,
   TutorPreferences,
-  BillingInvoice,
   SecuritySession,
   PasskeyItem,
 } from './types';
@@ -65,33 +64,6 @@ export const INITIAL_TUTOR_PREFS: TutorPreferences = {
   autoFormatCodeOnSubmit: true,
   strictBigOChecks: true,
 };
-
-export const INITIAL_INVOICES: BillingInvoice[] = [
-  {
-    id: 'inv-1042',
-    invoiceNumber: 'INV-2026-03-1042',
-    date: '01 Mar 2026',
-    amount: 'R$ 89,00',
-    status: 'paid',
-    downloadUrl: '#',
-  },
-  {
-    id: 'inv-0938',
-    invoiceNumber: 'INV-2026-02-0938',
-    date: '01 Fev 2026',
-    amount: 'R$ 89,00',
-    status: 'paid',
-    downloadUrl: '#',
-  },
-  {
-    id: 'inv-0814',
-    invoiceNumber: 'INV-2026-01-0814',
-    date: '01 Jan 2026',
-    amount: 'R$ 89,00',
-    status: 'paid',
-    downloadUrl: '#',
-  },
-];
 
 export const INITIAL_SESSIONS: SecuritySession[] = [
   {

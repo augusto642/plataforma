@@ -3,30 +3,29 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Logo from '../components/Logo';
-import { LeagueTier, LeaderboardFilter } from './types';
+import { XpBand, LeaderboardFilter } from './types';
 import {
-  LEAGUE_TIERS,
-  CURRENT_ROUND_INFO,
-  CURRENT_LEAGUE_USERS,
-  GLOBAL_LEAGUE_USERS,
-  FRIENDS_LEAGUE_USERS,
+  XP_BANDS,
+  bandForXp,
+  CURRENT_RANKING_USERS,
+  GLOBAL_RANKING_USERS,
+  FRIENDS_RANKING_USERS,
 } from './data';
-import { LeagueTierHeader } from './components/LeagueTierHeader';
+import { XpBandHeader } from './components/XpBandHeader';
 import { PodiumTop3 } from './components/PodiumTop3';
-import { WeeklyTimerCard } from './components/WeeklyTimerCard';
-import { LeagueFilters } from './components/LeagueFilters';
+import { RankingFilters } from './components/RankingFilters';
 import { LeaderboardTable } from './components/LeaderboardTable';
 
 export default function LeaderboardPage() {
-  const [selectedTier, setSelectedTier] = useState<LeagueTier>('diamond');
+  const [selectedBand, setSelectedBand] = useState<XpBand>('gold');
   const [activeFilter, setActiveFilter] = useState<LeaderboardFilter>('current');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Source list depending on filter
   const rawUsers = useMemo(() => {
-    if (activeFilter === 'global') return GLOBAL_LEAGUE_USERS;
-    if (activeFilter === 'friends') return FRIENDS_LEAGUE_USERS;
-    return CURRENT_LEAGUE_USERS;
+    if (activeFilter === 'global') return GLOBAL_RANKING_USERS;
+    if (activeFilter === 'friends') return FRIENDS_RANKING_USERS;
+    return CURRENT_RANKING_USERS;
   }, [activeFilter]);
 
   // Filtered by search query
@@ -47,7 +46,8 @@ export default function LeaderboardPage() {
     return rawUsers.slice(0, 3);
   }, [rawUsers]);
 
-  const currentUser = CURRENT_LEAGUE_USERS.find((u) => u.isCurrentUser) || CURRENT_LEAGUE_USERS[3];
+  const currentUser = CURRENT_RANKING_USERS.find((u) => u.isCurrentUser) || CURRENT_RANKING_USERS[3];
+  const currentBand = bandForXp(currentUser.xp);
 
   return (
     <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans selection:bg-[#04D361] selection:text-black pb-24">
@@ -70,7 +70,7 @@ export default function LeaderboardPage() {
                 href="/leaderboard"
                 className="text-white border-b-2 border-[#04D361] pb-1 font-semibold"
               >
-                Leaderboard &amp; Ligas
+                Leaderboard
               </Link>
               <Link href="/ide" className="text-zinc-400 hover:text-white transition-colors">
                 IDE Sandbox
@@ -83,8 +83,8 @@ export default function LeaderboardPage() {
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#8257E5]/15 border border-[#8257E5]/30 text-[#996DFF] text-xs font-mono font-bold">
-              <span>💎</span>
-              <span>Diamante I</span>
+              <span>{currentBand.icon}</span>
+              <span>{currentBand.name}</span>
             </div>
             <Link
               href="/settings"
@@ -105,37 +105,34 @@ export default function LeaderboardPage() {
         <div className="mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#8257E5]/10 border border-[#8257E5]/30 text-[#996DFF] text-xs font-mono font-bold mb-3">
             <span>🏆</span>
-            <span>RANKING COMPETITIVO SEMANAL</span>
+            <span>RANKING POR XP ACUMULADO</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold font-heading text-white tracking-tight leading-tight">
-            Ligas &amp;{' '}
+            Leaderboard{' '}
             <span className="bg-gradient-to-r from-[#996DFF] via-[#00E5FF] to-[#04D361] bg-clip-text text-transparent">
-              Leaderboard de Engenharia
+              de Engenharia
             </span>
           </h1>
           <p className="text-zinc-400 text-sm max-w-2xl mt-1 leading-relaxed">
-            Compita com outros desenvolvedores resolvendo desafios reais no Git, otimizando algoritmos e subindo de liga a cada domingo.
+            O ranking da plataforma é calculado por curso e ordenado pelo XP total acumulado de cada aluno. As faixas abaixo apenas agrupam a pontuação para leitura — não há ligas, rodadas semanais nem rebaixamento.
           </p>
         </div>
 
-        {/* 1. League Tier Carousel & User Status */}
-        <LeagueTierHeader
-          tiers={LEAGUE_TIERS}
-          currentTier="diamond"
-          selectedTier={selectedTier}
-          onSelectTier={setSelectedTier}
+        {/* 1. XP Band Carousel & User Status */}
+        <XpBandHeader
+          bands={XP_BANDS}
+          currentBand={currentBand.band}
+          selectedBand={selectedBand}
+          onSelectBand={setSelectedBand}
           userRank={currentUser.rank}
-          userWeeklyXp={currentUser.weeklyXp}
+          userXp={currentUser.xp}
         />
-
-        {/* 2. Weekly Countdown Timer */}
-        <WeeklyTimerCard roundInfo={CURRENT_ROUND_INFO} />
 
         {/* 3. Top 3 Podium (Visible when not searching and viewing top ranks) */}
         {!searchQuery && <PodiumTop3 top3={top3Users} />}
 
         {/* 4. Filter Tabs & Search */}
-        <LeagueFilters
+        <RankingFilters
           currentFilter={activeFilter}
           onFilterChange={setActiveFilter}
           searchQuery={searchQuery}

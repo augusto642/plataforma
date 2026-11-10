@@ -10,13 +10,6 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
     level: 25,
     levelTitle: 'Mestre',
     streakDays: 14,
-    league: {
-      name: 'Liga Diamante',
-      tier: 'Diamante',
-      rank: 2,
-      isPromotionZone: true,
-      timeRemaining: '2d 14h',
-    },
   },
   activeMission: {
     trackTitle: 'TRILHA ATIVA: ARQUITETURA DE MICROSSERVIÇOS',
@@ -111,7 +104,6 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
       avatarGradient: 'from-[#FFA116] to-[#F43F5E]',
       completedCount: 22,
       xp: 5420,
-      todayGain: '+620 hoje',
       isCurrentUser: false,
     },
     {
@@ -121,7 +113,6 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
       avatarGradient: 'from-[#8257E5] to-[#0070F3]',
       completedCount: 18,
       xp: 4850,
-      todayGain: 'Na zona de promoção',
       isCurrentUser: true,
     },
     {
@@ -131,7 +122,6 @@ export const DEFAULT_DASHBOARD_DATA: StudentDashboardData = {
       avatarGradient: 'from-[#00B37E] to-[#0070F3]',
       completedCount: 16,
       xp: 4310,
-      lastActive: '3h atrás',
       isCurrentUser: false,
     },
   ],
@@ -245,8 +235,6 @@ export async function fetchDashboardData(): Promise<StudentDashboardData> {
                 completedCount: entry.completedActivitiesCount ?? 12,
                 xp: entry.xp ?? 2000,
                 isCurrentUser: idx === 1,
-                todayGain: idx === 0 ? '+620 hoje' : idx === 1 ? 'Na zona de promoção' : undefined,
-                lastActive: idx > 1 ? `${idx + 1}h atrás` : undefined,
               };
             });
           }

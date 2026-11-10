@@ -8,6 +8,8 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'instructor' | 'admin';
+  /** B37 (Sprint 11) — plano real da conta, exposto por GET /users/me (B32). */
+  plan?: 'free' | 'pro';
   xp?: number;
   level?: number;
   streakDays?: number;
@@ -49,6 +51,7 @@ function normalizeUser(raw: any): User | null {
     name: raw.name ?? String(raw.email ?? '').split('@')[0] ?? 'Usuário',
     email: raw.email ?? '',
     role: raw.role ?? 'student',
+    plan: raw.plan === 'pro' ? 'pro' : raw.plan === 'free' ? 'free' : undefined,
     xp: raw.xp,
     level: raw.level,
     streakDays: raw.streakDays,

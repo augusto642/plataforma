@@ -9,7 +9,7 @@ import { WeeklyGoalRing } from './components/WeeklyGoalRing';
 import { SkillRoadmapTree } from './components/SkillRoadmapTree';
 import { SkillsRadarChart } from './components/SkillsRadarChart';
 import { AnnualHeatmap } from './components/AnnualHeatmap';
-import { WeeklyLeagueTable } from './components/WeeklyLeagueTable';
+import { CourseRankingTable } from './components/CourseRankingTable';
 import { SocraticCopilotBox } from './components/SocraticCopilotBox';
 import { CelebrationModal } from './components/CelebrationModal';
 import { TutorModal } from './components/TutorModal';
@@ -162,12 +162,10 @@ export default function StudentDashboardPage() {
           </div>
         </section>
 
-        {/* SECTION 4: LIGA SEMANAL + TUTOR SOCRÁTICO */}
+        {/* SECTION 4: RANKING DO CURSO + TUTOR SOCRÁTICO */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 flex flex-col">
-            <WeeklyLeagueTable
-              leagueName={data.user.league.name}
-              timeRemaining={data.user.league.timeRemaining}
+            <CourseRankingTable
               leaderboard={data.leaderboard}
               userXp={userXp}
             />
@@ -188,7 +186,6 @@ export default function StudentDashboardPage() {
         onClose={() => setCelebrationOpen(false)}
         xpGained={250}
         newLevel={userLevel}
-        leaguePosition={`#${data.user.league.rank} na ${data.user.league.name}`}
         onContinue={() => {
           setCelebrationOpen(false);
           router.push('/ide');

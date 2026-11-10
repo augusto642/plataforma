@@ -235,7 +235,7 @@ export const StepGoals: React.FC<StepGoalsProps> = ({
               {
                 id: 'hackathons' as CareerGoal,
                 title: '🏆 Vencer Hackathons & Subir no Ranking',
-                desc: 'Competir na liga semanal, conquistar XP e visibilidade na comunidade',
+                desc: 'Competir no ranking por XP, conquistar pontos e visibilidade na comunidade',
               },
             ].map((item) => {
               const isSelected = careerGoal === item.id;

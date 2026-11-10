@@ -6,7 +6,12 @@
 export type Role = 'student' | 'instructor' | 'admin';
 export type Language = 'java' | 'javascript' | 'typescript' | 'python' | 'portugol';
 export type SubmissionStatus = 'pending' | 'queued' | 'running' | 'passed' | 'failed' | 'error';
-export type LeagueTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | 'master' | 'challenger';
+/**
+ * B38b (Sprint 11) — faixa de EXIBIÇÃO derivada do XP total acumulado.
+ * Não existe sistema de ligas no produto e a API de leaderboard NÃO
+ * retorna faixa: o ranking é por curso, ordenado por XP total.
+ */
+export type XpBand = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | 'master' | 'challenger';
 
 export interface UserProfileDto {
   id: string;
@@ -103,9 +108,9 @@ export interface LeaderboardEntryDto {
   name: string;
   xp: number;
   level: number;
-  tier: LeagueTier;
   streakDays: number;
-  avatarUrl?: string;
+  badges: Array<Pick<BadgeDto, 'id' | 'badgeCode' | 'title' | 'icon'>>;
+  completedActivitiesCount: number;
 }
 
 export interface CertificateVerificationDto {

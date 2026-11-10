@@ -13,11 +13,6 @@ interface TopbarProps {
     level: number;
     levelTitle: string;
     streakDays: number;
-    league: {
-      name: string;
-      tier: string;
-      rank: number;
-    };
   };
   onSimulateChallenge: () => void;
   onSearch?: (query: string) => void;
@@ -94,15 +89,6 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
         </div>
 
-        {/* League Status */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#00B37E]/10 border border-[#00B37E]/30">
-          <span className="text-sm">💎</span>
-          <div className="flex flex-col">
-            <span className="text-xs font-black text-[#04D361]">{user.league.name}</span>
-            <span className="text-[9px] text-[#00B37E] font-medium">Top #{user.league.rank} (Promoção)</span>
-          </div>
-        </div>
-
         {/* Simulate Exercise / Trigger Confetti CTA */}
         <button
           onClick={onSimulateChallenge}
@@ -113,7 +99,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           <span className="sm:hidden">+250 XP</span>
         </button>
 
-        {/* User Avatar Profile with Dynamic League Frame */}
+        {/* User Avatar Profile */}
         <div className="flex items-center gap-2 pl-2 border-l border-[#27272A]">
           <Link
             href="/profile"

@@ -25,13 +25,6 @@ export interface StudentDashboardData {
     level: number;
     levelTitle: string;
     streakDays: number;
-    league: {
-      name: string;
-      tier: string;
-      rank: number;
-      isPromotionZone: boolean;
-      timeRemaining: string;
-    };
   };
   activeMission: {
     trackTitle: string;
@@ -94,9 +87,7 @@ export interface StudentDashboardData {
     avatarGradient: string;
     completedCount: number;
     xp: number;
-    todayGain?: string;
     isCurrentUser?: boolean;
-    lastActive?: string;
   }>;
   socraticAi: {
     tip: string;

@@ -7,7 +7,7 @@ interface CelebrationModalProps {
   onClose: () => void;
   xpGained?: number;
   newLevel: number;
-  leaguePosition?: string;
+  rankingPosition?: string;
   onContinue?: () => void;
 }
 
@@ -16,7 +16,7 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
   onClose,
   xpGained = 250,
   newLevel,
-  leaguePosition = '#2 na Liga',
+  rankingPosition,
   onContinue,
 }) => {
   useEffect(() => {
@@ -65,11 +65,15 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
             <div className="text-[10px] text-[#71717A]">Novo Nível</div>
             <div className="text-lg font-black text-[#996DFF]">Nível {newLevel}</div>
           </div>
-          <div className="h-8 w-px bg-[#27272A]" />
-          <div>
-            <div className="text-[10px] text-[#71717A]">Posição</div>
-            <div className="text-lg font-black text-[#FFA116]">{leaguePosition}</div>
-          </div>
+          {rankingPosition && (
+            <>
+              <div className="h-8 w-px bg-[#27272A]" />
+              <div>
+                <div className="text-[10px] text-[#71717A]">Posição no Ranking</div>
+                <div className="text-lg font-black text-[#FFA116]">{rankingPosition}</div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="space-y-2">
