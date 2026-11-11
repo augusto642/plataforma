@@ -24,7 +24,7 @@ export interface SubmissionEvent {
   }>;
 }
 
-function parseSSE(buffer: string): { event: string; data: string }[] {
+export function parseSSE(buffer: string): { event: string; data: string }[] {
   const events: { event: string; data: string }[] = [];
   const rawEvents = buffer.split('\n\n');
   for (const raw of rawEvents) {
@@ -36,7 +36,9 @@ function parseSSE(buffer: string): { event: string; data: string }[] {
       if (trimmed.startsWith('event:')) {
         current.event = trimmed.slice(6).trim();
       } else if (trimmed.startsWith('data:')) {
-        current.data = (current.data || '') + trimmed.slice(4).trim();
+        // 'data:' tem 5 caracteres — slice(4) mantinha o ':' e o
+        // JSON.parse descartava TODOS os eventos (H1, Central 219).
+        current.data = (current.data || '') + trimmed.slice(5).trim();
       }
     }
     if (current.data) {
@@ -111,6 +113,10 @@ export function useSubmissionStream(
             }
           }
         }
+        // O stream fechou sem evento terminal: libera a UI em vez de
+        // deixar `isSubmitting` preso para sempre (H1, Central 219).
+        // (Evento terminal já retorna antes, com onComplete próprio.)
+        onComplete();
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           onComplete();
