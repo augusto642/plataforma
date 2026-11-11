@@ -1370,7 +1370,13 @@ export default function HomePage() {
                             ? `✓ Atividade concluída${testSummary ? ` — ${testSummary}` : ''}`
                             : submission.status === 'failed'
                               ? `${testSummary ?? 'Alguns testes falharam'} — revise o código e execute novamente.`
-                              : `Erro na execução: ${submission.errorMessage ?? 'verifique o código.'}`
+                              : submission.status === 'error'
+                                ? `Erro na execução: ${submission.errorMessage ?? 'verifique o código.'}`
+                                // O2 (Central 219): status não-terminal com o
+                                // stream já encerrado NÃO é erro — o texto
+                                // antigo mentia ("Erro na execução") quando a
+                                // submissão ainda estava rodando no servidor.
+                                : 'Acompanhamento interrompido — execute novamente para ver o resultado.'
                           : 'Nenhuma execução ainda — execute os testes para ver o resultado.'}
                     </span>
                     {submission?.status === 'passed' && nextAct && (
