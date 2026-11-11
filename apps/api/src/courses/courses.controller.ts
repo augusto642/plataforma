@@ -16,6 +16,7 @@ import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { ActivitiesService } from '../activities/activities.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { buildCertificateHtml } from './certificate-html';
@@ -43,6 +44,34 @@ export class CoursesController {
     return this.courses.findAll();
   }
 
+  /**
+   * B74 (Sprint 18 · Volta 3) — catálogo público da vitrine da
+   * landing ("Disponível agora"): só os campos que a vitrine exibe
+   * (slug, título, descrição, atividades em ordem e a contagem) —
+   * nada de instrutor, código de matrícula ou dado de aluno. A
+   * landing consome com ISR e FALLBACK HONESTO: sem resposta da API,
+   * ela mostra o estado de indisponibilidade, nunca um espelho.
+   * Declarada ANTES de @Get(':id') para não cair no ParseUUIDPipe.
+   */
+  @Public()
+  @Get('public-catalog')
+  findPublicCatalog() {
+    return this.courses.findPublicCatalog();
+  }
+
+  /**
+   * B77 (Sprint 19 · destravamento B3) — estatísticas públicas da
+   * landing: só contagens agregadas com fonte viva no banco (cursos
+   * e atividades do catálogo, alunos cadastrados por papel,
+   * interessados nos planos pagos). Nenhum dado individual sai por
+   * aqui. Declarada ANTES de @Get(':id'), como a public-catalog.
+   */
+  @Public()
+  @Get('public-stats')
+  findPublicStats() {
+    return this.courses.findPublicStats();
+  }
+
   @Post('join')
   joinByCode(@CurrentUser() user: JwtPayload, @Body() dto: JoinCourseDto) {
     return this.courses.joinByCode(user.sub, dto);
@@ -64,6 +93,17 @@ export class CoursesController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.activities.copyToCourse(id, activityId, user.sub, user.role);
+  }
+
+  /**
+   * B30 (Sprint 10) — verificação pública de certificado pelo código
+   * SHA-256 emitido. Consulta apenas registros reais persistidos na
+   * emissão; código desconhecido responde 404 (nunca "válido").
+   */
+  @Public()
+  @Get('certificates/verify/:code')
+  verifyCertificate(@Param('code') code: string) {
+    return this.courses.verifyCertificateByCode(code);
   }
 
   @Get(':id')
@@ -118,8 +158,17 @@ export class CoursesController {
   getStudents(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.courses.getEnrollments(id, user.sub, user.role);
+    // M2: paginação via query (?page=2&limit=20); sem params, 1ª página/50.
+    return this.courses.getEnrollments(
+      id,
+      user.sub,
+      user.role,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':id/students/:userId/report')
@@ -159,8 +208,17 @@ export class CoursesController {
   getLeaderboard(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user?: JwtPayload,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.courses.getLeaderboard(id, user?.sub, user?.role);
+    // A4: paginação via query (?page=2&limit=20); sem params, 1ª página/50.
+    return this.courses.getLeaderboard(
+      id,
+      user?.sub,
+      user?.role,
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Delete(':id')

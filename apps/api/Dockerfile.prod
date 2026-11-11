@@ -22,6 +22,15 @@ COPY apps/api/prisma ./apps/api/prisma
 
 RUN pnpm install --frozen-lockfile
 
+# Q-7 (Central 217): gerar o Prisma Client NESTE estágio. O runner copia
+# `node_modules` daqui — não do builder. O `prisma generate` só existia no
+# builder, então o client regenerado (com os delegates do schema atual) era
+# descartado e o runtime nascia com o client que vem no pacote (sem os
+# modelos novos, ex.: `trackInvestigation` ausente → 500 em /dynamic-track/me).
+# O builder mantém o próprio generate (o build TS precisa dos tipos), mas a
+# fonte da verdade do runtime passa a ser este estágio.
+RUN pnpm --filter @plataforma/api exec prisma generate
+
 # ==============================================================================
 # 3. BUILDER: Geração de Prisma Client e Compilação NestJS
 # ==============================================================================

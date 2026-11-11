@@ -1,5 +1,8 @@
 import { ConfigError } from '../config/secrets.validation';
-import { JwtStrategy } from './strategies/jwt.strategy';
+import {
+  JwtStrategy,
+  extractAccessTokenFromRequest,
+} from './strategies/jwt.strategy';
 
 const configStub = {
   get: jest.fn((key: string, def?: any) =>
@@ -40,5 +43,47 @@ describe('JwtStrategy (fail-fast secret)', () => {
       email: 'a@b.com',
       role: 'student',
     });
+  });
+});
+
+describe('extractAccessTokenFromRequest (M15 — cookie-only)', () => {
+  it('extrai o token do cookie httpOnly access_token', () => {
+    expect(
+      extractAccessTokenFromRequest({
+        headers: { cookie: 'other=x; access_token=tok-123; foo=bar' },
+      }),
+    ).toBe('tok-123');
+  });
+
+  it('REJEITA Authorization: Bearer sem cookie (401 no guard)', () => {
+    // O extrator nem lê o header Authorization: Bearer sozinho não autentica.
+    expect(
+      extractAccessTokenFromRequest({
+        headers: { authorization: 'Bearer tok-roubado' },
+      } as any),
+    ).toBeNull();
+    expect(
+      extractAccessTokenFromRequest({
+        headers: { cookie: 'other=x', authorization: 'Bearer tok-roubado' },
+      } as any),
+    ).toBeNull();
+  });
+
+  it('prefere o cookie mesmo quando um Bearer é enviado junto', () => {
+    expect(
+      extractAccessTokenFromRequest({
+        headers: {
+          cookie: 'access_token=cookie-tok',
+          authorization: 'Bearer outro-tok',
+        },
+      } as any),
+    ).toBe('cookie-tok');
+  });
+
+  it('retorna null sem request/headers/cookie', () => {
+    expect(extractAccessTokenFromRequest(undefined)).toBeNull();
+    expect(extractAccessTokenFromRequest(null)).toBeNull();
+    expect(extractAccessTokenFromRequest({})).toBeNull();
+    expect(extractAccessTokenFromRequest({ headers: {} })).toBeNull();
   });
 });

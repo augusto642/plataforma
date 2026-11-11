@@ -43,8 +43,12 @@ async function bootstrap() {
   expressApp.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
 
   // Limite explícito de payload (o default de 100kb rejeitava pushes legítimos
-  // do Gitea antes do check de 1MB do controller de webhooks).
-  app.useBodyParser('json', { limit: '1mb' });
+  // do Gitea antes do check de 1MB do controller de webhooks). Teto global de
+  // 1 MB: acomoda os pushes do Gitea e, com folga, a maior submissão legítima
+  // (código limitado a 100 mil caracteres nos DTOs de submissions) — qualquer
+  // corpo acima disso é rejeitado pelo parser antes de chegar às rotas.
+  const JSON_BODY_LIMIT = '1mb';
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   const config = app.get(ConfigService);
 
   const corsOrigins = parseCorsOrigins(config.get<string>('CORS_ORIGIN'));
@@ -52,7 +56,9 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-metrics-token'],
+    // M15 (Lote 4) — sem 'Authorization': a API é cookie-only e não aceita
+    // Bearer (ver JwtStrategy); o front nunca envia o header.
+    allowedHeaders: ['Content-Type', 'x-metrics-token'],
   });
 
   app.useGlobalPipes(

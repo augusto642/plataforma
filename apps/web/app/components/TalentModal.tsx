@@ -115,7 +115,10 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
 
   const handleCopyLeaderboardUrl = async () => {
     if (!courseId) return;
-    const url = `${window.location.origin}/leaderboard/${courseId}`;
+    // A5 (Sprint 13) — a rota é /leaderboard (sem segmento de curso);
+    // a pré-seleção do curso vai por query string, que a página lê na
+    // carga inicial. Antes a URL montada era /leaderboard/<id> (404).
+    const url = `${window.location.origin}/leaderboard?course=${courseId}`;
     try {
       await navigator.clipboard.writeText(url);
       setUrlCopied(true);
@@ -135,20 +138,20 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
     >
-      <div style={{ background: '#131c2e', border: '1px solid #334155', borderRadius: 12, padding: 24, width: '100%', maxWidth: 620, maxHeight: '85vh', overflowY: 'auto' }}>
+      <div style={{ background: '#181926', border: '1px solid #3F3F46', borderRadius: 12, padding: 24, width: '100%', maxWidth: 620, maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>🏢 Portal de Talentos</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#F4F4F5' }}>🏢 Portal de Talentos</h2>
           <button
             onClick={onClose}
             aria-label="Fechar modal"
-            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}
+            style={{ background: 'transparent', border: 'none', color: '#A1A1AA', cursor: 'pointer', fontSize: 16 }}
           >
             ✕
           </button>
         </div>
 
         {createdToken && (
-          <div style={{ marginBottom: 16, padding: 14, background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', borderRadius: 8 }}>
+          <div style={{ marginBottom: 16, padding: 14, background: 'rgba(0, 230, 118, 0.1)', border: '1px solid #22c55e', borderRadius: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', marginBottom: 6 }}>
               Token de {createdToken.name} criado
             </div>
@@ -156,12 +159,12 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
               ⚠️ Copie agora, não será exibido novamente.
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <code style={{ flex: 1, fontSize: 11, fontFamily: 'monospace', color: '#e2e8f0', background: '#090d16', padding: '8px 10px', borderRadius: 6, wordBreak: 'break-all' }}>
+              <code style={{ flex: 1, fontSize: 11, fontFamily: 'monospace', color: '#F4F4F5', background: '#090d16', padding: '8px 10px', borderRadius: 6, wordBreak: 'break-all' }}>
                 {createdToken.token}
               </code>
               <button
                 onClick={handleCopyToken}
-                style={{ padding: '8px 12px', background: tokenCopied ? 'rgba(34, 197, 94, 0.15)' : '#22c55e', border: `1px solid ${tokenCopied ? '#22c55e' : 'transparent'}`, borderRadius: 6, color: tokenCopied ? '#4ade80' : '#090d16', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                style={{ padding: '8px 12px', background: tokenCopied ? 'rgba(0, 230, 118, 0.15)' : '#22c55e', border: `1px solid ${tokenCopied ? '#22c55e' : 'transparent'}`, borderRadius: 6, color: tokenCopied ? '#4ade80' : '#090d16', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 {tokenCopied ? '✓ Copiado!' : 'Copiar'}
               </button>
@@ -178,12 +181,12 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
             value={newCompanyName}
             onChange={(e) => setNewCompanyName(e.target.value)}
             placeholder="Nome da empresa parceira"
-            style={{ flex: 1, padding: '8px 10px', background: '#0b1120', border: '1px solid #334155', borderRadius: 6, color: '#fff', fontSize: 13 }}
+            style={{ flex: 1, padding: '8px 10px', background: '#12131D', border: '1px solid #3F3F46', borderRadius: 6, color: '#fff', fontSize: 13 }}
           />
           <button
             type="submit"
             disabled={isCreating || !newCompanyName.trim()}
-            style={{ padding: '8px 14px', background: isCreating || !newCompanyName.trim() ? '#334155' : '#38bdf8', color: isCreating || !newCompanyName.trim() ? '#94a3b8' : '#090d16', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: isCreating || !newCompanyName.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+            style={{ padding: '8px 14px', background: isCreating || !newCompanyName.trim() ? '#3F3F46' : '#996DFF', color: isCreating || !newCompanyName.trim() ? '#A1A1AA' : '#090d16', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: isCreating || !newCompanyName.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
           >
             {isCreating ? 'Criando...' : '+ Criar Empresa'}
           </button>
@@ -192,7 +195,7 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
         {courseId && (
           <button
             onClick={handleCopyLeaderboardUrl}
-            style={{ width: '100%', marginBottom: 16, padding: '8px 12px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid #38bdf8', borderRadius: 6, color: '#38bdf8', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+            style={{ width: '100%', marginBottom: 16, padding: '8px 12px', background: 'rgba(153, 109, 255, 0.12)', border: '1px solid #996DFF', borderRadius: 6, color: '#996DFF', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
           >
             {urlCopied ? '✓ URL copiada!' : '🔗 Copiar URL do leaderboard'}
           </button>
@@ -205,20 +208,20 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
         )}
 
         {isLoading ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando empresas...</div>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando empresas...</div>
         ) : loadError ? (
           <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>{loadError}</div>
         ) : companies.length === 0 ? (
-          <div style={{ color: '#64748b', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: '#A1A1AA', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
             Nenhuma empresa cadastrada ainda.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {companies.map((company) => (
-              <div key={company.id} style={{ background: '#0b1120', border: '1px solid #1e293b', borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div key={company.id} style={{ background: '#12131D', border: '1px solid #27272A', borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{company.name}</div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#F4F4F5' }}>{company.name}</div>
+                  <div style={{ fontSize: 11, color: '#A1A1AA' }}>
                     Criada em {company.createdAt ? new Date(company.createdAt).toLocaleDateString('pt-BR') : '—'}
                   </div>
                 </div>
@@ -234,8 +237,8 @@ export default function TalentModal({ isOpen, onClose, courseId }: TalentModalPr
           </div>
         )}
 
-        <p style={{ margin: '16px 0 0 0', fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>
-          O leaderboard do curso é consumido externamente pelas empresas via header <code style={{ fontFamily: 'monospace', color: '#38bdf8' }}>x-company-token</code> em <code style={{ fontFamily: 'monospace', color: '#38bdf8' }}>GET /talent/courses/:courseId/leaderboard</code>. Alunos podem desativar sua visibilidade no Portal de Talentos a qualquer momento (LGPD).
+        <p style={{ margin: '16px 0 0 0', fontSize: 11, color: '#A1A1AA', lineHeight: 1.5 }}>
+          O leaderboard do curso é consumido externamente pelas empresas via header <code style={{ fontFamily: 'monospace', color: '#996DFF' }}>x-company-token</code> em <code style={{ fontFamily: 'monospace', color: '#996DFF' }}>GET /talent/courses/:courseId/leaderboard</code>. Alunos podem desativar sua visibilidade no Portal de Talentos a qualquer momento (LGPD).
         </p>
       </div>
     </div>

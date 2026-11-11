@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SocraticCatHintDto } from './dto/socratic-cat-hint.dto';
-import { LlmClient } from './llm-client';
+import {
+  LlmClient,
+  LlmQuotaExceededError,
+  LlmQuotaUnavailableError,
+  type LlmUnavailableReason,
+  type TutorResponseSource,
+} from './llm-client';
 import { UNTRUSTED_DATA_SYSTEM_NOTE, buildUntrustedStudentContext } from './prompt-guard';
 
 export type CatMood = 'curious' | 'purr' | 'alert' | 'playful';
@@ -15,6 +21,9 @@ export interface SocraticCatResult {
   visualMetaphor: string;
   suggestedAction: string;
   timestamp: string;
+  /** Sprint 22 — proveniência da resposta (rótulo honesto). */
+  source?: TutorResponseSource;
+  fallbackReason?: LlmUnavailableReason;
 }
 
 @Injectable()
@@ -75,8 +84,14 @@ export class SocraticCatService {
     const sanitizedCode = this.sanitizeCode(dto.code || '');
     const errorMessage = dto.errorMessage || '';
 
-    // Se houver chave de API externa configurada, tenta chamada LLM
-    if (this.llm.hasApiKey) {
+    // Sprint 22: provedor de LLM utilizável? (modelo local não tem
+    // chave). Este endpoint não tem contexto de usuário (desenho
+    // pré-existente): sem cota individual — a proteção é o throttle
+    // do controller + o kill switch global do gateway.
+    let fallbackReason: LlmUnavailableReason =
+      this.llm.unavailableReason ?? 'provider-error';
+
+    if (this.llm.isAvailable) {
       try {
         // Conteúdo do aluno (code/errorMessage) é NÃO confiável: delimitado,
         // truncado (32KB) e com nota anti-injection no system prompt.
@@ -91,13 +106,14 @@ export class SocraticCatService {
           }),
         ].join('\n\n');
 
-        // LlmClient: timeout (30s) + 1 retry com backoff p/ 429/5xx
+        // Gateway LLM: timeout + retry no provedor, uso registrado
         const content = await this.llm.complete({
           messages: [
             { role: 'system', content: this.getSystemPrompt(hintLevel) },
             { role: 'user', content: prompt },
           ],
           jsonMode: true,
+          purpose: 'socratic-cat',
         });
 
         const parsed = JSON.parse(content);
@@ -110,14 +126,25 @@ export class SocraticCatService {
           visualMetaphor: parsed.visualMetaphor || 'Caixa de Memória 📦',
           suggestedAction: parsed.suggestedAction || 'Simule o valor linha a linha.',
           timestamp: new Date().toISOString(),
+          source: 'llm',
         };
       } catch (err: any) {
+        fallbackReason =
+          err instanceof LlmQuotaUnavailableError
+            ? 'quota-unavailable'
+            : err instanceof LlmQuotaExceededError
+              ? 'quota-exceeded'
+              : 'provider-error';
         this.logger.warn(`AI LLM call failed in SocraticCatService, falling back to heuristic engine: ${err.message}`);
       }
     }
 
     // Heuristic Socratic Engine (Motor local determinístico de alta fidelidade)
-    return this.generateHeuristicCatHint(dto, hintLevel);
+    return {
+      ...this.generateHeuristicCatHint(dto, hintLevel),
+      source: 'heuristic',
+      fallbackReason,
+    };
   }
 
   /**

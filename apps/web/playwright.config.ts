@@ -12,9 +12,14 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
+    // Setup de autenticação: roda primeiro, loga uma vez e salva o estado
+    // (ver e2e/auth.setup.ts). Evita os 4 logins via UI por rodada que
+    // batiam no throttler da API.
+    { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], storageState: 'playwright/.auth/user.json' },
+      dependencies: ['setup'],
     },
   ],
   webServer: {

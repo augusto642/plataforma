@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, API_BASE, COOKIE_AUTH, clearStoredSession, refreshAuthToken } from '../lib/apiClient';
 
 export interface User {
@@ -8,6 +8,12 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'instructor' | 'admin';
+  /** B40 (Sprint 13) — handle público real, exposto por GET /users/me. */
+  nickname?: string | null;
+  /** B40 (Sprint 13) — nível de carreira real, exposto por GET /users/me. */
+  careerTier?: string;
+  /** B37 (Sprint 11) — plano real da conta, exposto por GET /users/me (B32). Fase 1 premium: inclui 'career' (tier nomeado, sem preço/compra). */
+  plan?: 'free' | 'pro' | 'career';
   xp?: number;
   level?: number;
   streakDays?: number;
@@ -20,7 +26,25 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
-  register: (dto: { email: string; name: string; password: string; role?: string }) => Promise<{ success: boolean; error?: string }>;
+  register: (dto: {
+    email: string;
+    name: string;
+    password: string;
+    role?: string;
+    // B07/B09 — atribuição e diagnóstico (ver implementação)
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    diagnosticSessionToken?: string;
+    // Trilha dinâmica v1 — escolhas da etapa 2 do /register
+    // (nível/tempo/objetivo) + hint da landing (sourceTrack).
+    // preferredTrack foi REMOVIDO: depreciado na API, a trilha é
+    // sugerida pela investigação, não escolhida no cadastro.
+    sourceTrack?: string;
+    experienceLevel?: string;
+    weeklyTimeCommitment?: string;
+    careerGoal?: string;
+  }) => Promise<{ success: boolean; error?: string; emailVerificationRequired?: boolean }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -34,6 +58,9 @@ function normalizeUser(raw: any): User | null {
     name: raw.name ?? String(raw.email ?? '').split('@')[0] ?? 'Usuário',
     email: raw.email ?? '',
     role: raw.role ?? 'student',
+    nickname: typeof raw.nickname === 'string' ? raw.nickname : null,
+    careerTier: typeof raw.careerTier === 'string' ? raw.careerTier : undefined,
+    plan: raw.plan === 'pro' ? 'pro' : raw.plan === 'free' ? 'free' : raw.plan === 'career' ? 'career' : undefined,
     xp: raw.xp,
     level: raw.level,
     streakDays: raw.streakDays,
@@ -41,9 +68,17 @@ function normalizeUser(raw: any): User | null {
   };
 }
 
+/* B52/P5 (Sprint 16) — rotas públicas puras não disparavam o probe
+   de sessão graças a uma allowlist manual (PUBLIC_PATHS) mantida
+   neste arquivo. B75 (Sprint 18 · Volta 3 · TL M2) — a allowlist foi
+   APOSENTADA pelos route groups: este provider só é montado pelo
+   layout do grupo (app), onde toda rota é do app ou porta dele
+   (login/cadastro); as rotas públicas vivem no grupo (public), sem
+   provider — nenhum probe morto por visita, sem lista para manter. */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const sessionProbedRef = useRef(false);
 
   // Fluxo cookie-only: o backend NUNCA devolve tokens no corpo. A sessão é
   // detectada via GET /users/me com credentials:'include' (401 => deslogado).
@@ -77,7 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchCurrentUser]);
 
   useEffect(() => {
-    refreshSession();
+    if (sessionProbedRef.current) return;
+    sessionProbedRef.current = true;
+    void refreshSession();
   }, [refreshSession]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
@@ -125,7 +162,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string;
     password: string;
     role?: string;
-  }): Promise<{ success: boolean; error?: string }> => {
+    // B07 — atribuição de marketing capturada na página de registro
+    // (camelCase: é o contrato do RegisterDto da API; snake_case é rejeitado
+    // pelo ValidationPipe com forbidNonWhitelisted)
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    // B09 — token da sessão do quiz diagnóstico: presente quando o aluno fez
+    // o quiz antes de se cadastrar; a API vincula o resultado à conta nova
+    diagnosticSessionToken?: string;
+    // Trilha dinâmica v1 — escolhas da etapa 2 do /register: a API
+    // persiste o nível como careerTier; o hint da landing viaja como
+    // sourceTrack (ver RegisterDto). preferredTrack removido (depreciado).
+    sourceTrack?: string;
+    experienceLevel?: string;
+    weeklyTimeCommitment?: string;
+    careerGoal?: string;
+  }): Promise<{ success: boolean; error?: string; emailVerificationRequired?: boolean }> => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -139,6 +192,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         setIsLoading(false);
         return { success: false, error: data.message || 'Erro ao realizar cadastro.' };
+      }
+
+      // C5 (Lote 1): o cadastro NÃO cria sessão — a conta nasce não
+      // verificada e o wizard mostra o passo de digitação do código. Não há
+      // usuário a hidratar aqui (não há cookies de sessão).
+      if ((data as any).emailVerificationRequired) {
+        setIsLoading(false);
+        return { success: true, emailVerificationRequired: true };
       }
 
       // Corpo agora é { user }; sessão vive nos cookies httpOnly.

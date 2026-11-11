@@ -8,8 +8,10 @@ import {
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { computeCoursePath } from '../adaptation/adaptation.rules';
 import { GiteaService } from '../gitea/gitea.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 import { CreateUserDto } from './dto/create-user.dto';
 
 const BCRYPT_ROUNDS = 12;
@@ -209,6 +211,9 @@ export class UsersService {
         name: true,
         nickname: true,
         role: true,
+        // B32 (Sprint 10) — o plano do usuário passa a ser exposto:
+        // é a leitura real da entidade criada nesta sprint.
+        plan: true,
         careerTier: true,
         xp: true,
         level: true,
@@ -253,30 +258,63 @@ export class UsersService {
         course: {
           include: {
             activities: {
-              select: { id: true, title: true },
+              select: { id: true, title: true, order: true, conceptTags: true },
             },
           },
         },
       },
     });
 
-    const submissions = await this.prisma.submission.findMany({
+    // M2 (Lote 4): antes, `findMany` de TODAS as submissões do usuário (sem
+    // take) + agregação em JS (Set de passed, soma/média de scores). Agora
+    // um único `groupBy` por (atividade, status) com `_count`/`_sum`: o
+    // banco devolve no máximo (#atividades × #status) linhas. Números
+    // idênticos: passedActivityIds = atividades com >= 1 'passed';
+    // totalSubmissions = soma dos _count; averageScore =
+    // Math.round(soma dos scores / nº de scores não nulos) (0 sem scores).
+    const grouped = await this.prisma.submission.groupBy({
+      by: ['activityId', 'status'],
       where: { userId },
-      select: {
-        id: true,
-        activityId: true,
-        status: true,
-        score: true,
-      },
+      _count: { _all: true, score: true },
+      _sum: { score: true },
     });
 
-    const passedActivityIds = new Set(
-      submissions.filter((s) => s.status === 'passed').map((s) => s.activityId),
-    );
+    const passedActivityIds = new Set<string>();
+    let totalSubmissions = 0;
+    let scoredCount = 0;
+    let scoreSum = 0;
+    for (const row of grouped) {
+      totalSubmissions += row._count._all;
+      scoredCount += row._count.score;
+      scoreSum += row._sum.score ?? 0;
+      if (row.status === 'passed') passedActivityIds.add(row.activityId);
+    }
+    const averageScore = scoredCount > 0 ? Math.round(scoreSum / scoredCount) : 0;
 
+    // Sprint 21 (adaptação v1) — a conclusão efetiva de cada curso vem
+    // da ÚNICA derivação do sistema (computeCoursePath): submissões
+    // `passed` ∪ módulos concluídos por test-out. Antes esta conta era
+    // "só passed"; o test-out passa a valer aqui porque é aqui que
+    // toda a interface lê progresso (courseProgressStatus no web).
+    const effectiveCompletedIds = new Set<string>(passedActivityIds);
     const coursesProgress = enrollments.map((enr) => {
       const totalActivities = enr.course.activities.length;
-      const completed = enr.course.activities.filter((a) => passedActivityIds.has(a.id)).length;
+      const path = computeCoursePath(
+        enr.course.activities.map((a) => ({
+          id: a.id,
+          slug: '',
+          title: a.title,
+          order: a.order,
+          conceptTags: a.conceptTags ?? [],
+        })),
+        passedActivityIds,
+      );
+      for (const id of path.effectiveCompletedIds) {
+        effectiveCompletedIds.add(id);
+      }
+      const completed = enr.course.activities.filter((a) =>
+        path.effectiveCompletedIds.has(a.id),
+      ).length;
       const progressPercent = totalActivities > 0 ? Math.round((completed / totalActivities) * 100) : 0;
       return {
         courseId: enr.course.id,
@@ -288,16 +326,15 @@ export class UsersService {
       };
     });
 
-    const totalSubmissions = submissions.length;
-    const scores = submissions.filter((s) => s.score !== null).map((s) => s.score as number);
-    const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-
     return {
       xp: user?.xp || 0,
       level: user?.level || 1,
       streakDays: user?.streakDays || 0,
       badges: user?.badges || [],
-      completedActivitiesCount: passedActivityIds.size,
+      // Contagem global = passadas ∪ cobertas por test-out nos cursos
+      // matriculados (a mesma derivação dos cursos acima). XP não muda:
+      // XP nasce de submissão aprovada, nunca de módulo pulado.
+      completedActivitiesCount: effectiveCompletedIds.size,
       totalSubmissionsCount: totalSubmissions,
       averageScore,
       coursesProgress,
@@ -312,11 +349,22 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { talentVisible },
       select: { id: true, talentVisible: true },
     });
+    // Fase 4 fix D1 — espelho settings→perfil: o sentido perfil→settings
+    // já existia em TalentProfileService.updateMe, mas este endpoint não
+    // tocava em TalentProfile.visible, então settings-off deixava
+    // profile.visible=true divergente de talentVisible=false. O espelho
+    // agora vale nos dois sentidos. updateMany: sem perfil, nada a
+    // sincronizar (count 0, sem erro); com perfil, visible acompanha.
+    await this.prisma.talentProfile.updateMany({
+      where: { userId },
+      data: { visible: talentVisible },
+    });
+    return updated;
   }
 
   async updateCareerTier(userId: string, careerTier: string) {
@@ -434,6 +482,23 @@ export class UsersService {
 
     const { badges, chatMessages, enrollments, submissions, ...profile } = user;
 
+    // B01b: a exportação é do próprio aluno, mas o errorMessage de um teste
+    // OCULTO é o stderr bruto do harness (entrada + valor esperado) e não
+    // pode sair nem aqui. Mesma regra da serialização de aluno do B01:
+    // oculto aprovado sem mensagem; oculto falho, só a genérica. Os demais
+    // dados do aluno seguem intactos.
+    const maskedSubmissions = submissions.map((submission) => ({
+      ...submission,
+      testResults: submission.testResults.map((t) =>
+        t.isHidden
+          ? {
+              ...t,
+              errorMessage: t.passed ? undefined : HIDDEN_TEST_FAILED_MESSAGE,
+            }
+          : t,
+      ),
+    }));
+
     return {
       exportedAt: new Date().toISOString(),
       sections: {
@@ -441,7 +506,7 @@ export class UsersService {
         gamification: { badges },
         chat: { messages: chatMessages },
         enrollments: enrollments.map((e) => ({ course: e.course, enrolledAt: e.createdAt })),
-        submissions,
+        submissions: maskedSubmissions,
       },
     };
   }

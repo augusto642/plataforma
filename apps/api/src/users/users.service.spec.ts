@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { UsersService } from './users.service';
+import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 
 /**
  * Mensagem genérica compartilhada com auth.service.register e admin.service
@@ -69,6 +70,7 @@ describe('UsersService', () => {
       },
       refreshToken: { deleteMany: jest.fn() },
       activity: { findMany: jest.fn().mockResolvedValue([]) },
+      talentProfile: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     gitea = {
       propagateDeletion: jest.fn().mockResolvedValue({
@@ -98,6 +100,37 @@ describe('UsersService', () => {
       expect(result.sections.submissions[0].testResults).toEqual([
         { id: 't1', name: 'case 1', passed: true },
       ]);
+    });
+
+    it('mascara errorMessage de testes ocultos na exportação (B01b) e preserva os visíveis', async () => {
+      const rowWithHidden = {
+        ...userRow,
+        submissions: [
+          {
+            ...userRow.submissions[0],
+            testResults: [
+              { id: 't1', name: 'case 1', passed: true, isHidden: false, errorMessage: null },
+              { id: 't2', name: 'caso visível', passed: false, isHidden: false, errorMessage: 'expected 5 got 3' },
+              { id: 't3', name: 'caso oculto falho', passed: false, isHidden: true, errorMessage: 'AssertionError [export-hidden-stderr]' },
+              { id: 't4', name: 'caso oculto ok', passed: true, isHidden: true, errorMessage: 'detalhe interno bruto' },
+            ],
+          },
+        ],
+      };
+      prisma.user.findUnique.mockResolvedValue(rowWithHidden);
+
+      const result = await service.exportUserData('user-1');
+
+      const results = result.sections.submissions[0].testResults as any[];
+      const serialized = JSON.stringify(results);
+      expect(serialized).not.toContain('export-hidden-stderr');
+      expect(serialized).not.toContain('detalhe interno bruto');
+      expect(results.find((t) => t.id === 't2')?.errorMessage).toBe('expected 5 got 3');
+      expect(results.find((t) => t.id === 't3')?.errorMessage).toBe(HIDDEN_TEST_FAILED_MESSAGE);
+      expect(results.find((t) => t.id === 't4')?.errorMessage).toBeUndefined();
+      // Demais dados do aluno intactos.
+      expect(result.sections.submissions[0].codeSnapshot).toBe('console.log("hello")');
+      expect(result.sections.profile.email).toBe('aluno@example.com');
     });
 
     it('throws NotFoundException for unknown user', async () => {
@@ -318,6 +351,50 @@ describe('UsersService', () => {
     });
   });
 
+  describe('updateTalentVisibility (Fase 4 fix D1 — espelho settings→perfil)', () => {
+    it('espelha visible=false no perfil quando settings desliga', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', talentVisible: false });
+
+      const res = await service.updateTalentVisibility('user-1', false);
+      expect(res).toEqual({ id: 'user-1', talentVisible: false });
+      expect(prisma.talentProfile.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { visible: false },
+      });
+    });
+
+    it('espelha visible=true no perfil quando settings liga', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', talentVisible: true });
+
+      await service.updateTalentVisibility('user-1', true);
+      expect(prisma.talentProfile.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { visible: true },
+      });
+    });
+
+    it('sem perfil, nada a sincronizar e o update de settings segue válido', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.user.update.mockResolvedValue({ id: 'user-1', talentVisible: false });
+      prisma.talentProfile.updateMany.mockResolvedValue({ count: 0 });
+
+      const res = await service.updateTalentVisibility('user-1', false);
+      expect(res.talentVisible).toBe(false);
+      expect(prisma.talentProfile.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('usuário inexistente dá 404 sem tocar no perfil', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.updateTalentVisibility('missing', true)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.talentProfile.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('adoptCompanion', () => {
     beforeEach(() => {
       prisma.userCompanion = {
@@ -341,6 +418,104 @@ describe('UsersService', () => {
       const res = await service.adoptCompanion('user-1', 'pythox');
       expect(res.starterName).toBe('pythox');
       expect(res.currentStage).toBe(1);
+    });
+  });
+
+  /**
+   * M2 (Lote 4) — `getUserProgress` agrega no banco: um único `groupBy`
+   * por (atividade, status) com `_count`/`_sum` em vez de `findMany` de
+   * TODAS as submissões + Set/soma/média em JS. Mesmos números.
+   */
+  describe('getUserProgress (M2)', () => {
+    function buildProgressHarness() {
+      const localPrisma: any = {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            xp: 120,
+            level: 1,
+            streakDays: 2,
+            badges: [{ id: 'b1', badgeCode: 'first_step' }],
+          }),
+        },
+        enrollment: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              course: {
+                id: 'c1',
+                title: 'Lógica',
+                slug: 'logica',
+                activities: [
+                  { id: 'a1', title: 'Soma' },
+                  { id: 'a2', title: 'Laço' },
+                ],
+              },
+            },
+            {
+              course: {
+                id: 'c2',
+                title: 'Web',
+                slug: 'web',
+                activities: [
+                  { id: 'a3', title: 'HTML' },
+                  { id: 'a4', title: 'CSS' },
+                ],
+              },
+            },
+          ]),
+        },
+        submission: {
+          // a1: 2 passed (100 + 80); a2: 1 failed (40); a3: 1 passed sem score.
+          groupBy: jest.fn().mockResolvedValue([
+            { activityId: 'a1', status: 'passed', _count: { _all: 2, score: 2 }, _sum: { score: 180 } },
+            { activityId: 'a2', status: 'failed', _count: { _all: 1, score: 1 }, _sum: { score: 40 } },
+            { activityId: 'a3', status: 'passed', _count: { _all: 1, score: 0 }, _sum: { score: null } },
+          ]),
+        },
+      };
+      const localService = new UsersService(localPrisma, {} as any);
+      return { service: localService, prisma: localPrisma };
+    }
+
+    it('returns the same totals as the old in-memory aggregation', async () => {
+      const { service, prisma } = buildProgressHarness();
+
+      const result = await service.getUserProgress('user-1');
+
+      expect(prisma.submission.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['activityId', 'status'],
+          where: { userId: 'user-1' },
+          _count: { _all: true, score: true },
+          _sum: { score: true },
+        }),
+      );
+      expect(prisma.submission.findMany).toBeUndefined();
+      expect(result.xp).toBe(120);
+      expect(result.level).toBe(1);
+      expect(result.streakDays).toBe(2);
+      expect(result.badges).toHaveLength(1);
+      // 2 passed em a1 contam 1 atividade; a3 conta 1; total 2.
+      expect(result.completedActivitiesCount).toBe(2);
+      expect(result.totalSubmissionsCount).toBe(4);
+      // Média só dos scores não nulos: (100+80+40)/3 = 73,33 -> 73.
+      expect(result.averageScore).toBe(73);
+      expect(result.coursesProgress).toEqual([
+        { courseId: 'c1', courseTitle: 'Lógica', slug: 'logica', totalActivities: 2, completedActivities: 1, progressPercent: 50 },
+        { courseId: 'c2', courseTitle: 'Web', slug: 'web', totalActivities: 2, completedActivities: 1, progressPercent: 50 },
+      ]);
+    });
+
+    it('returns zeros when the user has no submissions', async () => {
+      const { service, prisma } = buildProgressHarness();
+      prisma.submission.groupBy.mockResolvedValue([]);
+
+      const result = await service.getUserProgress('user-1');
+
+      expect(result.completedActivitiesCount).toBe(0);
+      expect(result.totalSubmissionsCount).toBe(0);
+      expect(result.averageScore).toBe(0);
+      expect(result.coursesProgress[0].completedActivities).toBe(0);
+      expect(result.coursesProgress[0].progressPercent).toBe(0);
     });
   });
 });

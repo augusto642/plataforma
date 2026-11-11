@@ -1,12 +1,23 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { computeCoursePath } from '../adaptation/adaptation.rules';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+
+/** Mesmo padrão de `SubmissionsService`: P2002 por duck-typing (code). */
+function isPrismaP2002(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: string }).code === 'P2002'
+  );
+}
 
 @Injectable()
 export class ActivitiesService {
@@ -246,6 +257,8 @@ export class ActivitiesService {
         language: true,
         description: true,
         order: true,
+        conceptTags: true,
+        courseId: true,
         course: { select: { id: true, title: true, slug: true } },
       },
     });
@@ -267,7 +280,33 @@ export class ActivitiesService {
       ).map((s) => s.activityId),
     );
 
-    const pending = activities.find((a) => !passedActivityIds.has(a.id));
+    // Sprint 21 — o desafio diário usa a MESMA derivação de conclusão
+    // do progresso (computeCoursePath): atividade de módulo concluído
+    // por test-out não é oferecida como pendente.
+    const effectiveCompletedIds = new Set<string>(passedActivityIds);
+    const byCourse = new Map<string, typeof activities>();
+    for (const activity of activities) {
+      const list = byCourse.get(activity.courseId) ?? [];
+      list.push(activity);
+      byCourse.set(activity.courseId, list);
+    }
+    for (const courseActivities of byCourse.values()) {
+      const path = computeCoursePath(
+        courseActivities.map((a) => ({
+          id: a.id,
+          slug: '',
+          title: a.title,
+          order: a.order,
+          conceptTags: a.conceptTags,
+        })),
+        passedActivityIds,
+      );
+      for (const id of path.effectiveCompletedIds) {
+        effectiveCompletedIds.add(id);
+      }
+    }
+
+    const pending = activities.find((a) => !effectiveCompletedIds.has(a.id));
     const chosen = pending ?? activities[activities.length - 1];
 
     return {
@@ -335,5 +374,77 @@ export class ActivitiesService {
       throw new ForbiddenException('Apenas o instrutor responsável ou administradores podem excluir esta atividade');
     }
     await this.prisma.activity.delete({ where: { id } });
+  }
+
+  /**
+   * Fase 5 premium (desenho §6.2) — sincronização da fila offline de
+   * revisão do PWA. O cliente guarda respostas de revisão (flashcards/
+   * quiz) em localStorage/IndexedDB sem rede e as envia ao voltar online.
+   * Idempotência: `commitSha = review-sync:<clientId>` + a unique
+   * (activityId, userId, commitSha) de Submission — reenvio do mesmo
+   * item devolve o registro existente (`deduped: true`), sem duplicar.
+   * Corrida (D2, QA Fase 5): dois envios CONCORRENTES passam ambos
+   * pelo `findFirst` antes de qualquer `create`; o perdedor bate no
+   * P2002 da unique e, em vez de 500, volta com o registro vencedor
+   * (`deduped: true`) — o mesmo padrão de `SubmissionsService.create`.
+   * Sem tabela nova (reusa Submission) e SEM XP: a sincronização nunca
+   * chama a gamificação — revisar offline não minta XP nem streak, só
+   * registra o resultado para o mapa de gaps e o modelo do aluno.
+   * Execução de código (Piston) NÃO passa por aqui e fica sempre online.
+   */
+  async syncReview(
+    userId: string,
+    activityId: string,
+    dto: { clientId: string; score: number; passed: boolean },
+  ) {
+    const activity = await this.prisma.activity.findUnique({
+      where: { id: activityId },
+      select: { id: true },
+    });
+    if (!activity) throw new NotFoundException('Atividade não encontrada.');
+    if (!dto.clientId || typeof dto.clientId !== 'string') {
+      throw new BadRequestException('clientId é obrigatório para idempotência.');
+    }
+    if (typeof dto.score !== 'number' || dto.score < 0 || dto.score > 100) {
+      throw new BadRequestException('score deve ser um número entre 0 e 100.');
+    }
+    if (typeof dto.passed !== 'boolean') {
+      throw new BadRequestException('passed deve ser booleano.');
+    }
+    const commitSha = `review-sync:${dto.clientId}`;
+    const existing = await this.prisma.submission.findFirst({
+      where: { activityId, userId, commitSha },
+      select: { id: true },
+    });
+    if (existing) {
+      return { synced: true, deduped: true, submissionId: existing.id };
+    }
+    try {
+      const created = await this.prisma.submission.create({
+        data: {
+          activityId,
+          userId,
+          commitSha,
+          status: dto.passed ? 'passed' : 'failed',
+          score: dto.score,
+          maxScore: 100,
+          xpAwarded: false,
+        },
+      });
+      return { synced: true, deduped: false, submissionId: created.id };
+    } catch (error: unknown) {
+      if (isPrismaP2002(error)) {
+        // Corrida: o outro envio venceu e criou o registro. Devolve-o
+        // como dedupado — nunca 500, nunca duplicata.
+        const winner = await this.prisma.submission.findFirst({
+          where: { activityId, userId, commitSha },
+          select: { id: true },
+        });
+        if (winner) {
+          return { synced: true, deduped: true, submissionId: winner.id };
+        }
+      }
+      throw error;
+    }
   }
 }

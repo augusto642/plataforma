@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SubmissionsService } from './submissions.service';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { HIDDEN_TEST_FAILED_MESSAGE } from './runner/runner.service';
 
 describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
   let service: SubmissionsService;
@@ -9,6 +10,7 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
   let runner: any;
   let queue: any;
   let redisLock: any;
+  let cache: any;
   let heldLocks: string[];
 
   const activity = { id: 'act-1', language: 'javascript' };
@@ -45,7 +47,13 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
         }
       }),
     };
-    service = new SubmissionsService(prisma, evaluator, runner, queue, redisLock);
+    cache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+      delPattern: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new SubmissionsService(prisma, evaluator, runner, queue, redisLock, cache);
   });
 
   describe('create (enqueue dedupe + idempotency)', () => {
@@ -235,6 +243,44 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
       expect(args.select.logs).toBeUndefined();
       expect(args.select.status).toBe(true);
       expect(args.select.testResults.select.stdout).toBeUndefined();
+    });
+
+    const rowWithHidden = {
+      ...row,
+      testResults: [
+        { id: 't1', name: 'visible', passed: false, durationMs: 1, errorMessage: 'ReferenceError: soma is not defined', isHidden: false },
+        { id: 't2', name: 'Caso de Teste 2 (Oculto)', passed: false, durationMs: 1, errorMessage: 'AssertionError: esperado 42 para a entrada secreta 7', isHidden: true },
+        { id: 't3', name: 'Caso de Teste 3 (Oculto)', passed: true, durationMs: 1, errorMessage: null, isHidden: true },
+      ],
+    };
+
+    it('student never receives hidden test errorMessage detail in progress (B01 masking)', async () => {
+      prisma.submission.findUnique.mockResolvedValue(rowWithHidden);
+
+      const res = await service.findProgress('sub-1', 'student-1', 'student');
+
+      const visible = res.testResults.find((t: any) => !t.isHidden) as any;
+      const hidden = res.testResults.find((t: any) => t.id === 't2') as any;
+      const hiddenPassed = res.testResults.find((t: any) => t.id === 't3') as any;
+      // Visível mantém o detalhe (feedback legítimo do próprio código)
+      expect(visible.errorMessage).toBe('ReferenceError: soma is not defined');
+      // Oculto falho: só a mensagem genérica, sem entrada/esperado
+      expect(hidden.errorMessage).toBe(HIDDEN_TEST_FAILED_MESSAGE);
+      expect(JSON.stringify(res)).not.toContain('esperado 42');
+      expect(JSON.stringify(res)).not.toContain('secreta');
+      // Oculto aprovado não carrega mensagem alguma
+      expect(hiddenPassed.errorMessage).toBeUndefined();
+    });
+
+    it('instructor of the course still receives the full hidden detail in progress', async () => {
+      prisma.submission.findUnique.mockResolvedValue(rowWithHidden);
+
+      const res = await service.findProgress('sub-1', 'instr-1', 'instructor');
+
+      const hidden = res.testResults.find((t: any) => t.id === 't2') as any;
+      expect(hidden.errorMessage).toBe(
+        'AssertionError: esperado 42 para a entrada secreta 7',
+      );
     });
   });
 

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#181926"/><stop offset="1" stop-color="#0D0E15"/>
+</linearGradient>
+<pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+<path d="M48 0H0V48" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+</pattern>
+</defs>
+<rect width="1200" height="675" fill="url(#bg)"/>
+<rect width="1200" height="675" fill="url(#grid)"/>
+<circle cx="1050" cy="90" r="260" fill="#3178C6" fill-opacity="0.12"/>
+<circle cx="120" cy="600" r="200" fill="#8257E5" fill-opacity="0.14"/>
+<rect x="72" y="72" width="1056" height="531" rx="20" fill="#12131D" fill-opacity="0.85" stroke="#3F3F46" stroke-width="1.5"/>
+<rect x="72" y="72" width="1056" height="64" rx="20" fill="#181926"/>
+<circle cx="112" cy="104" r="9" fill="#EF4444"/><circle cx="144" cy="104" r="9" fill="#F59E0B"/><circle cx="176" cy="104" r="9" fill="#00E676"/>
+<text x="212" y="111" font-family="monospace" font-size="22" fill="#A1A1AA">nexus-code — typescript.js</text>
+<text x="120" y="330" font-family="monospace" font-weight="bold" font-size="200" fill="#3178C6">TS</text>
+<text x="120" y="470" font-family="sans-serif" font-weight="800" font-size="64" fill="#F4F4F5">TypeScript</text>
+<rect x="120" y="500" width="340" height="52" rx="26" fill="#8257E5" fill-opacity="0.16" stroke="#8257E5" stroke-opacity="0.5"/>
+<text x="290" y="535" text-anchor="middle" font-family="monospace" font-size="24" font-weight="700" fill="#996DFF">terminal — no browser</text>
+</svg>

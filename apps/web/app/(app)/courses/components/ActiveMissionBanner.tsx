@@ -1,0 +1,65 @@
+import React from 'react';
+import Link from 'next/link';
+import type { CourseProgressEntry } from '../types';
+import { courseProgressStatus } from '../utils';
+import { CourseGlyph } from './CourseGlyph';
+
+interface ActiveMissionBannerProps {
+  progress: CourseProgressEntry;
+}
+
+// B41 (Sprint 14) — o banner era uma "trilha ativa" fixa no código
+// (curso, próximo desafio e 68% fabricados para qualquer visitante).
+// Agora ele só é renderizado quando GET /users/me/progress devolve
+// uma matrícula real em andamento, e todos os números vêm dela.
+export function ActiveMissionBanner({ progress }: ActiveMissionBannerProps) {
+  // Q2 (Sprint 15) — mesma regra de rótulo do CourseCard
+  // (courseProgressStatus): um curso em 0% é "Não iniciado" também
+  // aqui — o selo não o chama de trilha ativa nem o CTA de
+  // "Continuar". Os números exibidos são os mesmos de sempre.
+  const status = courseProgressStatus(progress);
+  const notStarted = status.kind === 'not-started';
+  return (
+    <div className="bg-gradient-to-br from-[#8257E5]/15 to-[#121217]/95 border border-[#8257E5]/40 rounded-[20px] p-6 sm:p-7 my-7 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-[#8257E5]/20 border border-[#8257E5]/40 flex items-center justify-center p-2 flex-shrink-0 shadow-[0_0_20px_rgba(130,87,229,0.2)]">
+          <CourseGlyph className="w-8 h-8" />
+        </div>
+        <div>
+          <span className="inline-block text-[10px] font-mono font-bold uppercase bg-[#8257E5] text-white px-2 py-0.5 rounded-full mb-1">
+            {notStarted ? 'Não iniciado' : 'Sua Trilha Ativa'}
+          </span>
+          <h2 className="text-lg font-bold text-white tracking-tight font-heading">
+            {progress.courseTitle}
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            {progress.completedActivities} de {progress.totalActivities} atividades
+            concluídas
+          </p>
+        </div>
+      </div>
+
+      <div className="min-w-[240px] flex flex-col gap-1.5">
+        <div className="flex justify-between items-center text-xs font-mono">
+          <span className="text-zinc-400">Progresso Geral</span>
+          <span className="text-[#04D361] font-bold">{progress.progressPercent}% Concluído</span>
+        </div>
+        <div className="w-full h-2 bg-[#27272A] rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-[#8257E5] to-[#04D361] rounded-full transition-all duration-500"
+            style={{ width: `${progress.progressPercent}%` }}
+          />
+        </div>
+        <div className="flex justify-end items-center mt-1">
+          <Link
+            href={`/courses/${progress.slug}`}
+            className="bg-[#04D361] hover:opacity-90 text-black font-bold text-xs px-4 py-2 rounded-xl transition-all duration-200 inline-flex items-center gap-1.5 shadow-[0_0_15px_rgba(4,211,97,0.25)] active:scale-95 cursor-pointer"
+          >
+            <span>{notStarted ? 'Começar' : 'Continuar'}</span>
+            <span>→</span>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -7,6 +7,15 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /**
+   * Sprint 22 — proveniência da resposta (rótulo honesto vindo da API):
+   * 'llm' = um provedor de IA respondeu; 'heuristic' = modo offline
+   * (engine heurística local). Ausente em mensagens antigas/histórico.
+   */
+  source?: 'llm' | 'heuristic';
+  provider?: string;
+  model?: string;
+  fallbackReason?: string;
 }
 
 interface ComplexityResult {
@@ -23,10 +32,17 @@ interface AITutorPanelProps {
   activityTitle: string;
   code: string;
   token?: string | null;
-  onClose: () => void;
+  onClose?: () => void;
+  /**
+   * Central 219 lote 4 (D4) — `inline` encaixa a tutora como 3ª coluna
+   * da tela de jogo (protótipo desafio-jogo.html: enunciado | editor |
+   * tutora), em vez do drawer flutuante absoluto. `drawer` (padrão)
+   * preserva o comportamento anterior.
+   */
+  variant?: 'drawer' | 'inline';
 }
 
-export default function AITutorPanel({ activityId, activityTitle, code, token, onClose }: AITutorPanelProps) {
+export default function AITutorPanel({ activityId, activityTitle, code, token, onClose, variant = 'drawer' }: AITutorPanelProps) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -57,7 +73,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
             setChatMessages([
               {
                 role: 'assistant',
-                content: `Olá! Sou seu Tutor Socrático da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
+                content: `Olá! Sou sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
               },
             ]);
           }
@@ -65,7 +81,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
           setChatMessages([
             {
               role: 'assistant',
-              content: `Olá! Sou seu Tutor Socrático da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
+              content: `Olá! Sou sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
             },
           ]);
         }
@@ -74,7 +90,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
           setChatMessages([
             {
               role: 'assistant',
-              content: `Olá! Sou seu Tutor Socrático da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
+              content: `Olá! Sou sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
             },
           ]);
         }
@@ -156,6 +172,9 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
       const decoder = new TextDecoder();
       let streamBuffer = '';
       let accumulatedContent = '';
+      // Sprint 22 — metadados de proveniência (evento SSE sem `chunk`,
+      // emitido pela API antes do primeiro delta de conteúdo).
+      let streamSource: Pick<ChatMessage, 'source' | 'provider' | 'model' | 'fallbackReason'> | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -174,11 +193,22 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
             if (dataStr === '[DONE]') continue;
             try {
               const parsed = JSON.parse(dataStr);
-              if (parsed.chunk) {
+              if (parsed.source) {
+                streamSource = {
+                  source: parsed.source,
+                  provider: parsed.provider,
+                  model: parsed.model,
+                  fallbackReason: parsed.fallbackReason,
+                };
+                setChatMessages([
+                  ...baseMessages,
+                  { role: 'assistant', content: accumulatedContent, ...streamSource },
+                ]);
+              } else if (parsed.chunk) {
                 accumulatedContent += parsed.chunk;
                 setChatMessages([
                   ...baseMessages,
-                  { role: 'assistant', content: accumulatedContent },
+                  { role: 'assistant', content: accumulatedContent, ...(streamSource ?? {}) },
                 ]);
               }
             } catch {}
@@ -240,20 +270,24 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
     }
   };
 
+  // Lote 4 (D4) — no modo inline a tutora é uma coluna do grid, não
+  // um drawer flutuante: sem posição absoluta, sem sombra, altura do
+  // pai (a coluna); no drawer, o estilo anterior é preservado.
+  const isInline = variant === 'inline';
   return (
     <div style={{
-      position: 'absolute',
+      position: isInline ? 'relative' : 'absolute',
       top: 0,
       right: 0,
-      width: 440,
+      width: isInline ? '100%' : 440,
       height: '100%',
       background: '#09090B',
-      borderLeft: '1px solid #27272A',
+      borderLeft: isInline ? 'none' : '1px solid #27272A',
       display: 'flex',
       flexDirection: 'column',
-      zIndex: 40,
-      boxShadow: '-20px 0 45px rgba(0,0,0,0.85)',
-      backdropFilter: 'blur(20px)',
+      zIndex: isInline ? 'auto' : 40,
+      boxShadow: isInline ? 'none' : '-20px 0 45px rgba(0,0,0,0.85)',
+      backdropFilter: isInline ? 'none' : 'blur(20px)',
     }}>
       {/* Header */}
       <div style={{
@@ -281,13 +315,15 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#F4F4F5', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>Tutor IA Socrático</span>
+              {/* Lote 4 (D4) — cabeçalho da 3ª coluna do protótipo:
+                  "Tutora de IA" + "Mentoria socrática ativa". */}
+              <span>Tutora de IA</span>
               <span style={{ fontSize: 10, background: 'rgba(130, 87, 229, 0.25)', color: '#A78BFA', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace', fontWeight: 800 }}>
                 STREAMING
               </span>
             </div>
             <div style={{ fontSize: 11, color: isStreaming ? '#00E5FF' : '#71717A' }}>
-              {isStreaming ? '⚡ Transmitindo raciocínio em tempo real...' : 'Guia conceitual anti-spoiler'}
+              {isStreaming ? '⚡ Transmitindo raciocínio em tempo real...' : 'Mentoria socrática ativa'}
             </div>
           </div>
         </div>
@@ -453,6 +489,17 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
                 <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⚡</span>
                 Digitando resposta...
               </span>
+            )}
+            {/* Sprint 22 — rótulo honesto de proveniência da resposta */}
+            {msg.role === 'assistant' && msg.source === 'heuristic' && (
+              <div style={{ marginTop: 8, fontSize: 10, color: '#FCD34D', fontFamily: 'monospace' }}>
+                ⚠ Modo offline — resposta gerada localmente (heurística), sem modelo de IA
+              </div>
+            )}
+            {msg.role === 'assistant' && msg.source === 'llm' && msg.model && (
+              <div style={{ marginTop: 8, fontSize: 10, color: '#71717A', fontFamily: 'monospace' }}>
+                Tutora de IA · {msg.model}
+              </div>
             )}
           </div>
         ))}

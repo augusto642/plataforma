@@ -25,4 +25,13 @@ Thumbs.db
 .agents/
 apps/web/playwright-report/
 apps/web/test-results/
+# Estado autenticado da suíte e2e (cookies de sessão — nunca commitar)
+apps/web/playwright/.auth/
+# Monaco local (Central 216 r3 Q-2): cópia gerada de
+# monaco-editor/min/vs, 24 MB — regenerada pelo
+# scripts/copy-monaco-vs.cjs em todo build/dev
+apps/web/public/monaco/
 *.tsbuildinfo
+
+# Estado operacional do pipeline de conhecimento (cursor de revarredura, logs) — nunca versionado (Q8)
+data/

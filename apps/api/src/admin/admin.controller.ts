@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -17,13 +18,25 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminService } from './admin.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
+import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { Optional } from '@nestjs/common';
+import { KnowledgeService } from '../knowledge/knowledge.service';
+import { KmsService } from '../knowledge/kms.service';
+import { ResearchService } from '../knowledge/research/research.service';
+import { TrackGenerationService } from '../knowledge/track-generation/track-generation.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.admin)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    @Optional() private readonly knowledge?: KnowledgeService,
+    @Optional() private readonly research?: ResearchService,
+    @Optional() private readonly kms?: KmsService,
+    @Optional() private readonly tracks?: TrackGenerationService,
+  ) {}
 
   @Get('metrics')
   @Roles(Role.admin)
@@ -59,6 +72,18 @@ export class AdminController {
     return this.adminService.updateUserRole(id, dto.role);
   }
 
+  // B32 (Sprint 10) — plano do usuário (free/pro), gestão manual do
+  // admin enquanto não há gateway de pagamento.
+  @Patch('users/:id/plan')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  updateUserPlan(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserPlanDto,
+  ) {
+    return this.adminService.updateUserPlan(id, dto.plan);
+  }
+
   @Post('instructors')
   @Roles(Role.admin)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -72,5 +97,179 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   getHealth() {
     return this.adminService.getHealth();
+  }
+
+  // ── Sistema de conhecimento (DESIGN §3.5) — mesmas guardas admin ──────
+  @Post('knowledge/research')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  createResearch(@Body() dto: { goal: string }) {
+    return this.research!.createResearch(dto.goal);
+  }
+
+  @Get('knowledge/research')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listResearch() {
+    return this.research!.list();
+  }
+
+  @Get('knowledge/research/:id')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getResearch(@Param('id') id: string) {
+    return this.research!.get(id);
+  }
+
+  @Post('knowledge/research/:id/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveResearch(@Param('id') id: string, @Req() req: any) {
+    // approvedBy é o admin autenticado (JwtAuthGuard) — nunca opcional:
+    // aprovar sem admin autenticado é impossível via API.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.research!.approve(id, adminId);
+  }
+
+  @Post('knowledge/research/:id/reject')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  rejectResearch(@Param('id') id: string, @Body() dto: { reason: string }) {
+    return this.research!.reject(id, dto.reason);
+  }
+
+  @Get('knowledge/registry')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getRegistryStats() {
+    return this.knowledge!.stats();
+  }
+
+  // ── KMS (DESIGN §13.4) — mesmas guardas admin ──────────────────────────
+  @Get('knowledge/entries')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listKmsEntries() {
+    return this.kms!.listEntries();
+  }
+
+  @Get('knowledge/entries/:slug')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getKmsEntry(@Param('slug') slug: string) {
+    return this.kms!.getEntry(slug);
+  }
+
+  @Post('knowledge/entries/:slug/versions/:n/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveKmsVersion(@Param('slug') slug: string, @Param('n') n: string, @Req() req: any) {
+    // approvedBy é o admin autenticado (JwtAuthGuard) — nunca opcional.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.kms!.approveVersion(slug, Number(n), adminId);
+  }
+
+  @Get('knowledge/changelog')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listKmsChangelog(
+    @Query('entrySlug') entrySlug?: string,
+    @Query('changeType') changeType?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.kms!.listChangelog({
+      entrySlug, changeType, from, to,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Get('knowledge/review-queue')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listKmsReviewQueue() {
+    return this.kms!.listReviewQueue();
+  }
+
+  @Get('knowledge/review-queue/:id')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getKmsReviewItem(@Param('id') id: string) {
+    return this.kms!.getReviewItem(id);
+  }
+
+  @Post('knowledge/review-queue/:id/resolve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  resolveKmsReviewItem(
+    @Param('id') id: string,
+    @Body() dto: { action: string; targetEntrySlug?: string; reason: string },
+    @Req() req: any,
+  ) {
+    // resolvedBy é o admin autenticado; a decisão fica pending-sync até o kms-apply.
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('resolve exige admin autenticado');
+    return this.kms!.resolveReviewItem(id, dto, adminId);
+  }
+
+  @Get('knowledge/evolution-report')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getKmsEvolutionReport() {
+    return this.kms!.evolutionReport();
+  }
+
+  // ── Trilhas incrementais (DESIGN §4.5) — mesmas guardas admin ───────
+  // T3 = ação do admin (força geração/regeneração de um segmento). NÃO é
+  // endpoint de geração para o aluno (R12): o aluno só vê o mapa e o botão
+  // "próximos passos" informa o estado; a geração por aluno (T2) segue
+  // pendente da decisão de entitlement/cota do Augusto (Q13).
+  @Get('knowledge/tracks/:goal/segments')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listTrackSegments(@Param('goal') goal: string) {
+    return this.tracks!.listSegments(goal);
+  }
+
+  @Post('knowledge/tracks/:goal/segments/:stage/generate')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  generateTrackSegment(
+    @Param('goal') goal: string,
+    @Param('stage') stage: string,
+    @Body() dto: { title: string; topics: string[]; stageOrder: number; language?: string },
+  ) {
+    return this.tracks!.enqueueSegment({
+      goal, goalSlug: goal, stageSlug: stage, stageTitle: dto.title, topics: dto.topics,
+      stageOrder: dto.stageOrder, language: dto.language || 'python', trigger: 'T3',
+    });
+  }
+
+  @Post('knowledge/tracks/:goal/segments/:stage/approve')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  approveTrackSegment(@Param('goal') goal: string, @Param('stage') stage: string, @Req() req: any) {
+    const adminId = req?.user?.sub;
+    if (!adminId) throw new Error('approve exige admin autenticado');
+    return this.tracks!.approveSegment(goal, stage, adminId);
+  }
+
+  @Get('knowledge/tracks/:goal/segments/:stage/progress')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getSegmentProgress(@Param('goal') goal: string, @Query('courseSlug') courseSlug: string, @Query('userId') userId: string) {
+    return this.tracks!.segmentProgress(userId, courseSlug || goal);
+  }
+
+  @Get('knowledge/pipeline-budget')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  getPipelineBudget() {
+    return this.tracks!.pipelineBudgetStatus();
   }
 }

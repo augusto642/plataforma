@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsUUID, MaxLength } from 'class-validator';
 
 export class EnrollStudentDto {
   @IsUUID()
@@ -7,5 +7,6 @@ export class EnrollStudentDto {
 
   @IsEmail()
   @IsOptional()
+  @MaxLength(254)
   email?: string;
 }

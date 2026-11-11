@@ -36,13 +36,45 @@ enum CareerTier {
   senior
 }
 
+// B32 (Sprint 10) — o plano vira entidade: antes o User não tinha campo
+// de plano e a distinção free × Pro da landing era ficcional (zero
+// gating). Default free preserva a experiência atual de todos.
+// Fase 1 premium (2026-10-25) — `career` é um tier NOMEADO, sem preço
+// decidido e sem ativação/compra (decisão pendente do Augusto; R$ 79,90
+// era só sugestão da pesquisa). Ele existe no enum e na matriz de
+// entitlements, mas o checkout o rejeita até o preço ser decidido.
+enum Plan {
+  free
+  pro
+  career
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  expired
+}
+
+enum CertificateKind {
+  module
+  track
+  project
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   email        String    @unique
   nickname     String?   @unique @db.VarChar(30)
   name         String
-  passwordHash String    @map("password_hash")
+  passwordHash String?   @map("password_hash")
+  // OAuth 2.0 (Google/GitHub): conta criada SÓ via OAuth nasce sem senha
+  // (NULL) — o login por senha rejeita conta sem hash (AuthService.login).
+  // A senha nunca é NULL para conta criada por e-mail/senha (register).
   role         Role      @default(student)
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  plan         Plan      @default(free)
   careerTier   CareerTier @default(beginner) @map("career_tier")
   giteaUserId  Int?      @unique @map("gitea_user_id")
   xp           Int       @default(0)
@@ -52,18 +84,50 @@ model User {
   streakFreezes Int      @default(0) @map("streak_freezes")
   talentVisible Boolean  @default(false) @map("talent_visible")
   lastActiveAt DateTime? @map("last_active_at")
+  utmSource    String?   @map("utm_source") @db.VarChar(255)
+  utmMedium    String?   @map("utm_medium") @db.VarChar(255)
+  utmCampaign  String?   @map("utm_campaign") @db.VarChar(255)
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   companion         UserCompanion?
+  planInterest      PlanInterest?
+  subscriptions     Subscription[]
+  checkoutSessions  CheckoutSession[]
+  certificates      Certificate[]
+  interviewSessions InterviewSession[]
   refreshTokens     RefreshToken[]
+  oAuthAccounts     OAuthAccount[]
+  emailVerificationCodes EmailVerificationCode[]
+  diagnosticResults DiagnosticResult[]
   instructedCourses Course[]        @relation("InstructedCourses")
   enrollments       Enrollment[]
   submissions       Submission[]
   badges            UserBadge[]
+  // Fase 3 premium (desenho §4): desafios/ligas + comunidade.
+  leagueEntries        LeagueEntry[]
+  challengeParticipants ChallengeParticipant[]
+  forumThreads         ForumThread[]
+  forumPosts           ForumPost[]
+  solutionShares       SolutionShare[]
+  peerReviewsGiven     CodeReview[]       @relation("PeerReviews")
+  // Fase 4 premium (desenho §5): Talent Match + B2B.
+  talentProfile        TalentProfile?
+  talentIntroductions  TalentIntroduction[]
+  orgMemberships       OrgMember[]
+  // Fase 5 premium (desenho §6): diagnóstico por skill, modelo do aluno, cert-prep.
+  diagnosticSkillResults DiagnosticSkillResult[]
+  learnerSkillMastery    LearnerSkillMastery[]
+  certAttempts           CertAttempt[]
   chatMessages      AiChatMessage[]
   studentRepos      StudentRepo[]
+  towerProgress     TowerProgress?
+  towerMoves        TowerMove[]
+  // Trilha dinâmica v1 (Central 209): 1 investigação por usuário.
+  trackInvestigation TrackInvestigation?
 
+  @@index([role])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -80,6 +144,46 @@ model UserBadge {
 
   @@unique([userId, badgeCode])
   @@map("user_badges")
+}
+
+// Torre de Desafios (Fase 0): progresso do jogador na torre.
+// square = 0 significa "antes da casa 1" (início do andar).
+model TowerProgress {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  floor           Int      @default(1)
+  square          Int      @default(0)
+  movesLeftToday  Int      @default(5) @map("moves_left_today")
+  movesResetDate  DateTime @default(now()) @db.Date @map("moves_reset_date")
+  powers          Json     @default("[]")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tower_progress")
+}
+
+// Torre de Desafios (Fase 0): log de jogadas. result:
+// 'pending' = desafio de código aguardando submissão;
+// 'passed' | 'failed' | 'timeout' = jogada resolvida;
+// 'skipped' = casa sem desafio (quiz/mini-game/item na Fase 1).
+model TowerMove {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  floor      Int
+  fromSquare Int      @map("from_square")
+  roll       Int
+  toSquare   Int      @map("to_square")
+  squareType String   @map("square_type")
+  activityId String?  @map("activity_id") @db.Uuid
+  result     String?
+  xpGained   Int      @default(0) @map("xp_gained")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("tower_moves")
 }
 
 model UserCompanion {
@@ -108,7 +212,24 @@ model AiChatMessage {
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
   @@index([userId, activityId])
+  @@index([createdAt])
   @@map("ai_chat_messages")
+}
+
+model EmailVerificationCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0)
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("email_verification_codes")
 }
 
 model RefreshToken {
@@ -124,6 +245,30 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+// OAuth 2.0 (Google/GitHub) — contas vinculadas a um usuário.
+// - Um usuário pode vincular os dois provedores (um registro por
+//   provedor: @@unique([provider, userId])).
+// - Um providerId pertence a no máximo um usuário (@@unique([provider,
+//   providerId])) — é o que impede duas contas Nexus para o mesmo
+//   Google/GitHub e permite o login direto pela conta vinculada.
+// - `provider` é String (não enum) de propósito: adicionar um provedor
+//   futuro não exige migration de tipo.
+model OAuthAccount {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  provider   String   @db.VarChar(20)
+  providerId String   @map("provider_id") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@unique([provider, userId])
+  @@index([userId])
+  @@map("oauth_accounts")
 }
 
 model Course {
@@ -151,6 +296,13 @@ model Enrollment {
   courseId  String   @map("course_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
 
+  // B30 (Sprint 10) — código de verificação do certificado emitido.
+  // Persistido na primeira emissão para a verificação pública consultar
+  // um registro REAL (antes o código era só recomputado sob demanda e a
+  // página /verify fabricava o resultado para qualquer hash).
+  certificateCode     String?   @unique @map("certificate_code")
+  certificateIssuedAt DateTime? @map("certificate_issued_at")
+
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
@@ -177,6 +329,9 @@ model Activity {
   referenceSolution String?  @map("reference_solution")
   giteaTemplateRepo String?  @map("gitea_template_repo")
   isBossFight       Boolean  @default(false) @map("is_boss_fight")
+  // Fase 2 premium (desenho §3.2): projeto final — único escopo de
+  // revisão por IA liberado para o Pro (Carreira: qualquer projeto).
+  isCapstone        Boolean  @default(false) @map("is_capstone")
   bossMetadata      Json?    @map("boss_metadata")
   lessonPayload     Json?    @map("lesson_payload")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -186,8 +341,11 @@ model Activity {
   submissions  Submission[]
   chatMessages AiChatMessage[]
   studentRepos StudentRepo[]
+  // Fase 3 premium (desenho §4.1): a Activity vira o problema do desafio.
+  challenges   Challenge[]
 
   @@unique([courseId, slug])
+  @@index([courseId, order])
   @@map("activities")
 }
 
@@ -207,6 +365,8 @@ model Submission {
   aiHints      String?          @map("ai_hints")
   aiLineFeedback String?        @map("ai_line_feedback")
   xpAwarded    Boolean          @default(false) @map("xp_awarded")
+  isBattleRun  Boolean          @default(false) @map("is_battle_run")
+  battleResult Json?            @map("battle_result")
   requeueCount Int              @default(0) @map("requeue_count")
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
@@ -214,12 +374,17 @@ model Submission {
   activity    Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   testResults TestCaseResult[]
+  codeReviews CodeReview[]
+  // Fase 3 premium (desenho §4.2): galeria de soluções (opt-in, 1 por
+  // submissão — o lado oposto da relação única de SolutionShare).
+  solutionShare SolutionShare?
 
   @@unique([activityId, userId, commitSha])
   @@index([activityId, userId])
   @@index([userId, status])
   @@index([userId, createdAt])
   @@index([activityId, status])
+  @@index([status])
   @@index([commitSha])
   @@map("submissions")
 }
@@ -277,5 +442,796 @@ model Company {
   name      String
   tokenHash String   @unique @map("token_hash")
   createdAt DateTime @default(now()) @map("created_at")
+
+  // Fase 4 premium (desenho §5): vagas de parceira + introduções + orgs.
+  jobPostings         JobPosting[]
+  talentIntroductions TalentIntroduction[]
+  organizations       Organization[]
+
   @@map("companies")
+}
+model DiagnosticResult {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  quizVersion  String   @map("quiz_version") @db.VarChar(16)
+  answers      Json
+  scores       Json
+  archetype    String   @db.VarChar(32)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("diagnostic_results")
+}
+
+// Fase 5 premium (desenho §6.1) — diagnóstico por skill, segunda camada
+// sobre o quiz B09 (que permanece INTACTO). Uma linha por (aluno, skill
+// da espinha de conceitos): score calibrado por nível, não só
+// certo/errado. Recomputada a partir de DiagnosticResult + Submission +
+// CodeReview.rubric — nunca digitada à mão. O mapa é marcado como
+// "estimativa" na API até haver volume de evidência.
+model DiagnosticSkillResult {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  skillTag   String   @map("skill_tag") // concept-spine tag
+  score      Float    // 0..1, calibrado por nível
+  level      String   @db.VarChar(16) // missing | developing | proficient
+  assessedAt DateTime @default(now()) @map("assessed_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, skillTag])
+  @@map("diagnostic_skill_results")
+}
+
+// Fase 5 premium (desenho §6.4) — INTERFACE do tutor adaptativo, não o
+// motor. Tabela DERIVADA (recomputada a partir das fontes existentes:
+// DiagnosticSkillResult + Submission + CodeReview) — não é segunda fonte
+// de verdade. O motor adaptativo completo (ajuste em tempo real,
+// repetição espaçada com meia-vida, grafo próprio de pré-requisitos)
+// está DEFERIDO: duplicaria KMS/Adaptation e só volta após diagnóstico
+// calibrado + gerador de trilhas do KMS. O que existe aqui alimenta o
+// prompt da tutora (o que o aluno domina, onde erra sempre, o que já
+// revisou), com ajuste de dificuldade e volta a pré-requisitos via
+// prompt — nada além disso.
+model LearnerSkillMastery {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  skillTag  String   @map("skill_tag")
+  mastery   Float    // 0..1, derivado das fontes existentes
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillTag])
+  @@map("learner_skill_mastery")
+}
+
+// Fase 5 premium (desenho §6.3) — módulo FINO de preparação para
+// certificações. CertExam descreve o formato (provedor, nome, domínios);
+// as questões do simulado são Activities com lessonPayload — questões
+// PRÓPRIAS, no formato da prova, nunca reprodução de provas reais
+// (direito autoral das certificadoras). CertAttempt registra o score por
+// domínio e a prontidão derivada; não guarda gabarito nem questão.
+model CertExam {
+  id       String       @id @default(uuid()) @db.Uuid
+  provider String       @db.VarChar(32) // aws | azure | gcp
+  name     String
+  domains  String[]     @default([]) // domínios do formato da prova
+  attempts CertAttempt[]
+
+  @@map("cert_exams")
+}
+
+model CertAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  examId    String   @map("exam_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  scores    Json     // por domínio: { dominio: { correct, total, score } }
+  readiness Float    // 0..1
+  createdAt DateTime @default(now()) @map("created_at")
+  exam      CertExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, examId])
+  @@map("cert_attempts")
+}
+
+// B08 (mínimo) — eventos do funil da landing (visita → clique → cadastro),
+// gravados pelo endpoint público POST /analytics/events. Sem provedor
+// externo: a análise é consulta direta nesta tabela. props carrega o
+// envelope (schemaVersion + propriedades do evento).
+model AnalyticsEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  event     String   @db.VarChar(32)
+  ctaId     String?  @map("cta_id") @db.VarChar(64)
+  sessionId String?  @map("session_id") @db.VarChar(64)
+  visitorId String?  @map("visitor_id") @db.VarChar(64)
+  path      String?  @db.VarChar(512)
+  props     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([event, createdAt])
+  @@index([visitorId])
+  @@map("analytics_events")
+}
+
+// Sprint 6 — mensagens do formulário público /contato (destino real do
+// CTA "Falar com Engenharia" do plano Staff). Tabela própria, escrita
+// apenas pelo endpoint POST /contact; nenhuma leitura pública — a
+// mensagem (e o e-mail de quem escreveu) nunca volta pela API.
+model ContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(120)
+  email     String   @db.VarChar(254)
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("contact_messages")
+}
+
+// Sprint 16 (Ciclo 10/10 · P2/B49) — lista de espera por trilha do
+// roadmap da landing. As trilhas da ementa que ainda não são cursos
+// (rust, go, web, python-ia) capturam e-mail de quem quer ser avisado;
+// o contador público por trilha é a CONTAGEM REAL desta tabela —
+// zero é zero, sem piso nem inflação. Um e-mail entra uma vez por
+// trilha (unique composto); a leitura pública é só a contagem
+// agregada, nunca os e-mails.
+model TrackWaitlistEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @db.VarChar(254)
+  track     String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, track])
+  @@index([track])
+  @@map("track_waitlist_entries")
+}
+
+// Sprint 17 (Ciclo 10/10 · Volta 2/B54) — destino real da intenção de
+// plano da landing. A cobrança dos planos pagos ainda NÃO está ativa:
+// quem clica num plano pago na landing e conclui o cadastro (ou entra
+// logado) entra na LISTA DE INTERESSADOS daquele plano — registro
+// contável no servidor (GET /plan-interest/counts), um por usuário
+// (unique em user_id; nova intenção substitui a anterior). Nenhum
+// benefício é prometido além do aviso quando a cobrança abrir.
+model PlanInterest {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  plan         String   @db.VarChar(16)
+  billingCycle String?  @map("billing_cycle") @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([plan])
+  @@map("plan_interests")
+}
+
+// Sprint 18 (Ciclo 10/10 · Volta 3/B71) — captura só-e-mail da lista de
+// interessados (Growth M1): a waitlist das trilhas captura só e-mail,
+// mas a intenção de PLANO — o lead mais valioso — exigia o cadastro
+// completo. Este modelo é o espelho público da lista: um lead por
+// e-mail (unique); plano novo substitui o anterior, como no registro
+// por conta. Quando a pessoa conclui o cadastro e a intenção vira
+// registro na conta (PlanInterest), o registro da conta PREVALECE e o
+// lead do mesmo e-mail é removido — a contagem pública soma as duas
+// tabelas sem contar ninguém duas vezes.
+model PlanInterestLead {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(254)
+  plan         String   @db.VarChar(16)
+  billingCycle String?  @map("billing_cycle") @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([plan])
+  @@map("plan_interest_leads")
+}
+
+// Sprint Conhecimento-Python (DESIGN §5.2) — migration SÓ como arquivo
+// (apps/api/prisma/migrations/20261024210000_knowledge_base/migration.sql).
+// NÃO rodar `prisma migrate deploy` em produção sem ordem explícita do
+// Augusto. Até lá, a tutora usa o adaptador de arquivo (KNOWLEDGE_STORE=file).
+model KnowledgeSource {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  kind      String   @default("drive-course") @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lessons   KnowledgeLesson[]
+
+  @@map("knowledge_sources")
+}
+
+model KnowledgeLesson {
+  id               String   @id @default(uuid()) @db.Uuid
+  stableId         String   @unique @map("stable_id")
+  sourceId         String   @map("source_id") @db.Uuid
+  driveFileId      String   @unique @map("drive_file_id")
+  title            String
+  summary          String   @db.Text
+  topics           String[]
+  prerequisites    String[]
+  difficulty       String   @db.VarChar(16)
+  reviewStatus     String   @default("draft") @map("review_status") @db.VarChar(16)
+  extractedAt      DateTime @map("extracted_at")
+  extractorVersion String   @map("extractor_version")
+  source           KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId])
+  @@map("knowledge_lessons")
+}
+
+model KnowledgeResearch {
+  id         String    @id @default(uuid()) @db.Uuid
+  stableId   String    @unique @map("stable_id")
+  goal       String
+  status     String    @default("draft") @db.VarChar(16)
+  payload    Json
+  approvedBy String?   @map("approved_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at")
+  collectedAt DateTime @map("collected_at")
+
+  @@map("knowledge_research")
+}
+
+// [DELTA-KMS] Espelho do KMS (§13.1/§13.4) — mesma migration só-arquivo,
+// NUNCA aplicada em produção sem ordem do Augusto (§5.4). O arquivo
+// continua sendo a fonte primária; o banco, o espelho consultável.
+// Status de entrada inclui 'draft' (entrada nascida de backfill, ainda sem
+// versão aprovada, D12). Aprovação de versão registra approvedBy via
+// changelog (actor admin:<id>), não via coluna na versão.
+model KnowledgeEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  slug            String   @unique
+  title           String
+  topicIds        String[] @map("topic_ids")
+  status          String   @default("active") @db.VarChar(16)
+  currentVersion  Int      @default(1) @map("current_version")
+  supersededByEntry String? @map("superseded_by_entry")
+  supersededAt    DateTime? @map("superseded_at")
+  supersedeReason String?  @map("supersede_reason") @db.Text
+  versions        KnowledgeEntryVersion[]
+
+  @@map("knowledge_entries")
+}
+
+model KnowledgeEntryVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  entryId         String   @map("entry_id") @db.Uuid
+  version         Int
+  status          String   @default("draft") @db.VarChar(16)
+  summary         String   @db.Text
+  keyExamples     String[] @map("key_examples")
+  contributions   Json
+  marketContext   Json?    @map("market_context")
+  supersededBy    Int?     @map("superseded_by")
+  supersededAt    DateTime? @map("superseded_at")
+  supersedeReason String?  @map("supersede_reason") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  entry           KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@unique([entryId, version])
+  @@map("knowledge_entry_versions")
+}
+
+model KnowledgeChangelog {
+  id         String   @id @default(uuid()) @db.Uuid
+  seq        Int      @unique
+  entrySlug  String   @map("entry_slug")
+  changeType String   @map("change_type") @db.VarChar(32)
+  version    Int?
+  source     Json
+  actor      String   @db.VarChar(64)
+  occurredAt DateTime @map("occurred_at")
+  detail     String   @db.Text
+
+  @@index([entrySlug])
+  @@map("knowledge_changelog")
+}
+
+model KnowledgeReviewItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  stableId   String   @unique @map("stable_id")
+  kind       String   @db.VarChar(32)
+  sourceRef  Json     @map("source_ref")
+  candidates Json
+  confidence Float
+  status     String   @default("open") @db.VarChar(16)
+  decision   Json?
+  resolvedBy String?  @map("resolved_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("knowledge_review_items")
+}
+
+// Fase 1 premium — checkout em MODO TESTE + certificado verificável.
+// Nenhuma cobrança real: `testMode` é true até decisão explícita do
+// Augusto (BILLING_MODE=test travado em código; ver billing/).
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  userId                 String             @map("user_id") @db.Uuid
+  plan                   Plan
+  billingCycle           String             @map("billing_cycle") @db.VarChar(16)
+  provider               String             @db.VarChar(32)
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  status                 SubscriptionStatus @default(trialing)
+  testMode               Boolean            @default(true) @map("test_mode")
+  currentPeriodEnd       DateTime?          @map("current_period_end")
+  canceledAt             DateTime?          @map("canceled_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+// C1 (Lote 1 P0) — vínculo checkout → webhook: a sessão criada em
+// `createCheckout` é a única prova de que um `payment_approved` pode
+// liberar um plano para um usuário. Sem linha aqui com
+// (`providerSubscriptionId`, `userId`), o evento é rejeitado (4xx) e
+// nada é liberado — o corpo do webhook nunca é confiado sozinho.
+// `providerSubscriptionId` é a chave que o webhook traz (no provedor
+// simulado, igual ao `sessionId`).
+model CheckoutSession {
+  id                     String   @id @default(uuid()) @db.Uuid
+  sessionId              String   @unique @map("session_id")
+  providerSubscriptionId String   @map("provider_subscription_id")
+  userId                 String   @map("user_id") @db.Uuid
+  plan                   Plan
+  billingCycle           String   @map("billing_cycle") @db.VarChar(16)
+  amountCents            Int      @map("amount_cents")
+  provider               String   @db.VarChar(32)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerSubscriptionId, userId])
+  @@index([userId])
+  @@map("checkout_sessions")
+}
+
+// Idempotência do webhook de pagamento: (provider, providerEventId) é
+// único — replay do provedor nunca duplica a liberação do tier.
+model PaymentEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  provider        String   @db.VarChar(32)
+  providerEventId String   @map("provider_event_id")
+  type            String   @db.VarChar(64)
+  payloadHash     String   @map("payload_hash")
+  processedAt     DateTime @default(now()) @map("processed_at")
+
+  @@unique([provider, providerEventId])
+  @@map("payment_events")
+}
+
+// Certificado verificável (Fase 1): estende o padrão existente
+// (Enrollment.certificateCode), sem substituí-lo — a verificação
+// consulta Certificate primeiro e Enrollment depois (retrocompat.).
+model Certificate {
+  id        String          @id @default(uuid()) @db.Uuid
+  code      String          @unique
+  userId    String          @map("user_id") @db.Uuid
+  kind      CertificateKind
+  refId     String          @map("ref_id") @db.Uuid
+  title     String
+  issuedAt  DateTime        @default(now()) @map("issued_at")
+  revokedAt DateTime?       @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("certificates")
+}
+
+// Fase 2 premium (desenho §3.1/§3.2) — simulador de entrevista + revisão
+// de código por IA. Ambos são modos da tutora existente: nenhuma tabela
+// de conteúdo paralela, nenhum cliente de LLM novo. A revisão COMPLEMENTA
+// o passa/falha dos testes ocultos (Submission.status continua decidido
+// só pelo EvaluatorService + Piston) e nunca o substitui.
+enum InterviewMode {
+  technical
+  behavioral
+}
+
+enum InterviewStatus {
+  active
+  completed
+  abandoned
+}
+
+model InterviewSession {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
+  mode      InterviewMode
+  track     String?         @db.VarChar(64)
+  status    InterviewStatus @default(active)
+  createdAt DateTime        @default(now()) @map("created_at")
+  endedAt   DateTime?       @map("ended_at")
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns  InterviewTurn[]
+  report InterviewReport?
+
+  @@index([userId, status])
+  @@map("interview_sessions")
+}
+
+model InterviewTurn {
+  id      String   @id @default(uuid()) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  role    String   @db.VarChar(16) // interviewer | candidate
+  content String   @db.Text
+  // Avaliação do turno pela rubrica (§3.1): { criterio: { score, evidence } }.
+  // Extensão sobre o desenho (que não previa onde guardar a avaliação por
+  // turno): sem ela o relatório final seria gerado sem lastro por turno.
+  evaluation Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("interview_turns")
+}
+
+model InterviewReport {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @unique @map("session_id") @db.Uuid
+  scores    Json // { criterio: { score, evidence } } — rubrica versionada
+  strengths String[]
+  gaps      String[]
+  nextSteps String[] @map("next_steps")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session InterviewSession @relation(fields: [sessionId], references: [id])
+
+  @@map("interview_reports")
+}
+
+enum ReviewKind {
+  ai
+  peer
+}
+
+enum ReviewStatus {
+  pending
+  completed
+  failed
+}
+
+model CodeReview {
+  id           String       @id @default(uuid()) @db.Uuid
+  submissionId String       @map("submission_id") @db.Uuid
+  kind         ReviewKind
+  // Fase 3 premium (desenho §4.2): revisão por pares — quem revisou.
+  // Nulo em kind=ai e enquanto nenhum par aceitou a revisão pedida.
+  reviewerId   String?      @map("reviewer_id") @db.Uuid
+  status       ReviewStatus @default(pending)
+  rubric       Json? // { legibilidade, estrutura, nomes, casosDeBorda: { score, comment } }
+  summary      String?      @db.Text
+  suggestions  String[]     @default([])
+  // Aviso legível quando a revisão fica parada (ex.: cota do dia esgotada)
+  // ou falha — sem ele, `pending` seria indistinguível de "na fila".
+  note         String?      @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer   User?      @relation("PeerReviews", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId, kind])
+  @@index([reviewerId, kind, status])
+  @@map("code_reviews")
+}
+
+// ---------------------------------------------------------------------------
+// Fase 3 premium (desenho §4) — Retenção: desafios/ligas + comunidade.
+// Reuso: Activity como problema, Submission + Piston como correção,
+// gamificação existente como prêmio. Nada de banco de exercícios paralelo.
+// ---------------------------------------------------------------------------
+
+enum LeagueTier {
+  bronze
+  silver
+  gold
+}
+
+model Challenge {
+  id         String   @id @default(uuid()) @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  title      String
+  startsAt   DateTime @map("starts_at")
+  endsAt     DateTime @map("ends_at")
+  // Participação opt-in, nunca automática (desenho §4.1). O registro de
+  // quem optou vive em ChallengeParticipant; a liga é só para planos
+  // com challengesFull (matriz §1.1) — o desafio em si é aberto a todos.
+  optIn      Boolean  @default(true) @map("opt_in")
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  participants ChallengeParticipant[]
+
+  @@index([startsAt, endsAt])
+  @@map("challenges")
+}
+
+// Opt-in explícito por usuário e desafio (sem ele, "opt-in" seria só um
+// booleano no desafio, sem registro de quem participa — e o ranking do
+// desafio não saberia distinguir participante de curioso).
+model ChallengeParticipant {
+  id          String    @id @default(uuid()) @db.Uuid
+  challengeId String    @map("challenge_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@map("challenge_participants")
+}
+
+model LeagueSeason {
+  id       String     @id @default(uuid()) @db.Uuid
+  tier     LeagueTier
+  startsAt DateTime   @map("starts_at")
+  endsAt   DateTime   @map("ends_at")
+  entries  LeagueEntry[]
+
+  @@map("league_seasons")
+}
+
+model LeagueEntry {
+  id       String       @id @default(uuid()) @db.Uuid
+  seasonId String       @map("season_id") @db.Uuid
+  userId   String       @map("user_id") @db.Uuid
+  points   Int          @default(0)
+  season   LeagueSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, userId])
+  @@map("league_entries")
+}
+
+model ForumThread {
+  id         String      @id @default(uuid()) @db.Uuid
+  // Por aula/projeto; null = geral. Sem FK para Activity de propósito:
+  // o tópico do desafio da semana sobrevive à atividade (o desenho §4.2
+  // prevê thread por activityId, não vínculo de integridade).
+  activityId String?     @map("activity_id") @db.Uuid
+  authorId   String      @map("author_id") @db.Uuid
+  title      String
+  body       String      @db.Text
+  createdAt  DateTime    @default(now()) @map("created_at")
+  author     User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  posts      ForumPost[]
+
+  @@index([activityId])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id        String      @id @default(uuid()) @db.Uuid
+  threadId  String      @map("thread_id") @db.Uuid
+  authorId  String      @map("author_id") @db.Uuid
+  body      String      @db.Text
+  // Moderação desde o dia 1 (desenho §4.2): flag vai para a fila admin;
+  // a decisão é humana. `hidden` é a decisão (ocultar sem apagar);
+  // `flaggedAt` registra quando a sinalização aconteceu.
+  flagged   Boolean     @default(false)
+  flaggedAt DateTime?   @map("flagged_at")
+  hidden    Boolean     @default(false)
+  createdAt DateTime    @default(now()) @map("created_at")
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([flagged, hidden])
+  @@map("forum_posts")
+}
+
+model SolutionShare {
+  id           String     @id @default(uuid()) @db.Uuid
+  submissionId String     @unique @map("submission_id") @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  // Galeria de soluções: opt-in do autor (desenho §4.2). Só submissões
+  // aprovadas entram — a regra é imposta no serviço, não só na UI.
+  visible      Boolean    @default(true)
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("solution_shares")
+}
+
+// ── Fase 4 premium (desenho §5) ──────────────────────────────────────────
+// Talent Match + base técnica B2B. Nenhum texto promete emprego ou
+// contratação: matching é visibilidade + introdução mediada.
+// Desvio documentado do desenho: `JobPosting.researchId` é String, não
+// Uuid — os ids de pesquisa do ResearchService (arquivo versionado) são
+// como "research-python", não UUIDs; uma coluna Uuid rejeitaria a origem
+// real. A tabela espelho `knowledge_research` (uuid) não é a fonte aqui.
+
+enum JobSource {
+  aggregated
+  partner
+}
+
+model JobPosting {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid // null = agregada
+  title       String
+  skills      String[] // mesma taxonomia do concept-spine/KMS
+  level       String    @db.VarChar(16) // junior | mid | senior
+  source      JobSource
+  researchId  String?   @map("research_id") @db.VarChar(128) // pesquisa de origem, quando agregada
+  externalUrl String?   @map("external_url")
+  postedAt    DateTime  @map("posted_at")
+  expiresAt   DateTime  @map("expires_at")
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  introductions TalentIntroduction[]
+
+  @@index([level, expiresAt])
+  @@map("job_postings")
+}
+
+model TalentProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  headline     String?
+  // Derivadas de submissions passed (+ certificados, via serviço) — nunca
+  // autodeclaradas: o update do aluno ignora qualquer skillsProven enviada.
+  skillsProven String[] @map("skills_proven")
+  // Links externos (GitHub/deploy) informados pelo aluno — a função 9
+  // (deploy ao vivo) NÃO existe; o Match aceita URLs externas sem ela.
+  projectUrls  String[] @map("project_urls")
+  spotlight    Boolean  @default(false) // Carreira: destaque, sem promessa
+  visible      Boolean  @default(false) // espelha talentVisible; desligar desliga tudo
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("talent_profiles")
+}
+
+enum IntroductionStatus {
+  pending
+  accepted
+  declined
+}
+
+model TalentIntroduction {
+  id           String             @id @default(uuid()) @db.Uuid
+  companyId    String             @map("company_id") @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  jobPostingId String?            @map("job_posting_id") @db.Uuid
+  status       IntroductionStatus @default(pending)
+  companyMessage String?          @map("company_message") @db.Text
+  createdAt    DateTime           @default(now()) @map("created_at")
+  decidedAt    DateTime?          @map("decided_at")
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting? @relation(fields: [jobPostingId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([userId, status])
+  @@map("talent_introductions")
+}
+
+enum OrgRole {
+  admin
+  member
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String?  @map("company_id") @db.Uuid // liga com Company existente, quando houver
+  name      String
+  seats     Int      @default(0) // licenças contratadas; 0 = sem assento
+  members   OrgMember[]
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id     String  @id @default(uuid()) @db.Uuid
+  orgId  String  @map("org_id") @db.Uuid
+  userId String  @map("user_id") @db.Uuid
+  role   OrgRole @default(member)
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@map("org_members")
+}
+
+// ---------------------------------------------------------------------------
+// Trilha dinâmica v1 (Central 209 — DESIGN D2/D3)
+// A sugestão de trilha é uma função determinística sobre o perfil do aluno
+// (dynamic-track.rules.ts); os sinais de mercado seguem a spec last30days
+// (§6/§7) e NUNCA são inventados: sem fonte com data e URL, a investigação
+// registra `basis: 'profile-only'` e `marketEvidence` vazio.
+// ---------------------------------------------------------------------------
+
+enum TrackInvestigationStatus {
+  investigating
+  ready
+  failed
+}
+
+model TrackInvestigation {
+  id              String                   @id @default(uuid()) @db.Uuid
+  userId          String                   @unique @map("user_id") @db.Uuid
+  status          TrackInvestigationStatus @default(investigating)
+  // Foto do perfil no momento do cadastro: expLevel, timeCommitment,
+  // careerGoal, sourceTrack? (hint da landing), diagnosticTrackId?
+  profileSnapshot Json                     @map("profile_snapshot")
+  // Trilha sugerida (web3 | backend | frontend | ai) — nula até `ready`.
+  suggestedTrack  String?                  @map("suggested_track") @db.VarChar(16)
+  // { reasons: string[], basis: 'profile-only' | 'profile+market',
+  //   researchDocId?: string, researchSourcesAvailable?: string[],
+  //   researchSourcesUnavailable?: string[] }
+  rationale       Json?
+  // Sinais com score >= 70 (spec last30days §7), com fonte+URL+data —
+  // ou lista vazia quando basis é 'profile-only'. JSON, não tabela
+  // própria de evidência: a tabela MarketSignal guarda TODOS os sinais
+  // coletados (inclusive < 70, para auditoria); aqui só vão os exibidos.
+  marketEvidence  Json?                    @map("market_evidence")
+  slaDueAt        DateTime                 @map("sla_due_at")
+  completedAt     DateTime?                @map("completed_at")
+  notifiedAt      DateTime?                @map("notified_at")
+  // 'not-attempted' | 'sent' | 'pending-smtp' (sem SMTP, a investigação
+  // continua `ready` — o e-mail nunca bloqueia o aluno; DESIGN D5).
+  emailStatus     String                   @default("not-attempted") @map("email_status") @db.VarChar(16)
+  emailNotifiedAt DateTime?                @map("email_notified_at")
+  failureReason   String?                  @map("failure_reason")
+  // Rate-limit da re-tentativa manual: 1 por usuário a cada 24h (D3).
+  lastRetryAt     DateTime?                @map("last_retry_at")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketSignals MarketSignal[]
+
+  @@index([status])
+  @@map("track_investigations")
+}
+
+model MarketSignal {
+  id           String   @id @default(uuid()) @db.Uuid
+  // Nulo = sinal avulso (ex.: coleta admin sem investigação vinculada).
+  investigationId String? @map("investigation_id") @db.Uuid
+  // Campos obrigatórios da spec last30days §6.
+  titulo         String
+  tecnologia     String   @db.VarChar(64)
+  tipo           String   @db.VarChar(32)
+  publishedAt    DateTime @map("published_at")
+  retrievedAt    DateTime @default(now()) @map("retrieved_at")
+  sourceName     String   @map("source_name")
+  sourceUrl      String   @map("source_url")
+  evidencia      String?
+  objetivoAfetado String? @map("objetivo_afetado") @db.VarChar(32)
+  passoAfetado   String?  @map("passo_afetado")
+  // Pontuação da spec §7 (default): oficial 50 + 2ª fonte 25 + afeta
+  // objetivo 15 + versão estável em uso 10; >= 70 vira evidência.
+  // Beta/RC/rumor = 0, sempre ignorado.
+  score          Int      @default(0)
+  isBetaOrRumor  Boolean  @default(false) @map("is_beta_or_rumor")
+  // URL da 2ª fonte independente que confirmou o sinal (dedupe: mesma
+  // URL = confirmação, não sinal novo).
+  confirmedByUrl String?  @map("confirmed_by_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  investigation TrackInvestigation? @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@unique([investigationId, sourceUrl])
+  @@index([investigationId])
+  @@map("market_signals")
 }

@@ -27,6 +27,7 @@ function makeSubmission(overrides: Record<string, unknown> = {}) {
     xpAwarded: false,
     activity: {
       id: 'act-1',
+      courseId: 'course-1',
       language: 'javascript',
       testCode: 'console.log(1)',
       hiddenTests: null,
@@ -66,6 +67,7 @@ interface Harness {
     execute: ReturnType<typeof mockFn<AnyFn>>;
   };
   gamificationMock: { awardSubmissionXp: ReturnType<typeof mockFn<AnyFn>> };
+  cacheMock: { delPattern: ReturnType<typeof mockFn<AnyFn>> };
   prismaMock: any;
   txMock: {
     submission: {
@@ -84,6 +86,10 @@ function buildHarness(submissionOverrides: Record<string, unknown> = {}): Harnes
   const updateArgs: any[] = [];
   const gamificationMock = {
     awardSubmissionXp: mockFn<AnyFn>(async () => null),
+  };
+  // A4: invalidação do ranking após a avaliação.
+  const cacheMock = {
+    delPattern: mockFn<AnyFn>(async () => undefined),
   };
   const runnerMock = {
     executeInSandbox: mockFn<AnyFn>(async () => evaluation({})),
@@ -130,8 +136,9 @@ function buildHarness(submissionOverrides: Record<string, unknown> = {}): Harnes
     prismaMock as any,
     runnerMock as any,
     gamificationMock as any,
+    cacheMock as any,
   );
-  return { evaluator, runnerMock, gamificationMock, prismaMock, txMock, updateArgs };
+  return { evaluator, runnerMock, gamificationMock, cacheMock, prismaMock, txMock, updateArgs };
 }
 
 const lastSubmissionUpdate = (h: Harness) => h.updateArgs[h.updateArgs.length - 1];
@@ -149,6 +156,25 @@ describe('EvaluatorService', () => {
     assert.equal(activityId, 'act-1');
     assert.equal(passed, true);
     assert.equal(score, 100);
+  });
+
+  it('A4: invalidates the course leaderboard cache after evaluation', async () => {
+    const h = buildHarness();
+    await h.evaluator.processSubmission('sub-1');
+
+    assert.equal(h.cacheMock.delPattern.calls.length, 1);
+    assert.equal(h.cacheMock.delPattern.calls[0][0], 'leaderboard:course-1:*');
+  });
+
+  it('A4: still completes the evaluation when leaderboard invalidation fails', async () => {
+    const h = buildHarness();
+    // O evaluator guarda a referência ao objeto cacheMock: trocar o método
+    // aqui afeta a chamada feita por processSubmission.
+    h.cacheMock.delPattern = mockFn<AnyFn>(async () => {
+      throw new Error('redis down');
+    });
+    await h.evaluator.processSubmission('sub-1');
+    assert.equal(lastSubmissionUpdate(h).data.status, 'passed');
   });
 
   it('awards no XP for unsupported and marks submission failed with pedagogical message', async () => {
@@ -301,10 +327,14 @@ describe('EvaluatorService', () => {
       },
       $transaction: mockFn<AnyFn>(async (cb: any) => cb(txMock)),
     };
+    const cacheMock = {
+      delPattern: mockFn<AnyFn>(async () => undefined),
+    };
     const evaluator = new EvaluatorService(
       prismaMock as any,
       runnerMock as any,
       gamificationMock as any,
+      cacheMock as any,
     );
 
     await Promise.all([
@@ -343,6 +373,27 @@ describe('EvaluatorService', () => {
 
     assert.equal(lastSubmissionUpdate(h).data.status, 'failed');
     assert.equal(lastSubmissionUpdate(h).data.xpAwarded, true);
+  });
+
+  it('rolls back the XP claim when the in-transaction award fails (C8)', async () => {
+    // C8: claim + award são uma só transação. Se o award falhar, a exceção
+    // sai da transação (sem commit do claim) e a submissão cai em 'error' —
+    // o retry do BullMQ pode reclamar o XP de novo, em vez de o XP se perder
+    // silenciosamente com xpAwarded=true sem crédito.
+    const h = buildHarness();
+    h.gamificationMock.awardSubmissionXp = mockFn<AnyFn>(async () => {
+      throw new Error('gamification db down');
+    });
+
+    await h.evaluator.processSubmission('sub-1');
+
+    // O claim foi tentado dentro da transação…
+    assert.equal(h.txMock.submission.updateMany.calls.length, 1);
+    // …mas a falha do award levou a submissão a 'error' (nada de claim
+    // órfão com xpAwarded=true sem XP creditado).
+    const errorUpdate = h.prismaMock.submission.update.calls[1][0];
+    assert.equal(errorUpdate.data.status, 'error');
+    assert.match(errorUpdate.data.errorMessage, /gamification db down/);
   });
 
   it('marks submission as error when the runner throws', async () => {
