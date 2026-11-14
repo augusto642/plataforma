@@ -18,6 +18,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildTrackSkeleton, generateIncrementalSegment, slugify, writeSegmentFiles } from './track-incremental.mjs';
 
 function readDirJson(dir) {
@@ -28,7 +29,7 @@ function readDirJson(dir) {
   return out;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
@@ -48,7 +49,7 @@ if (isMain) {
     const topics = (get('--topics') || '').split(',').map((t) => t.trim()).filter(Boolean);
     if (!goal || !stageSlug || !topics.length) throw new Error('uso: --goal <objetivo> --stage <slug> --topics <a,b,c> são obrigatórios');
     const goalSlug = slugify(goal);
-    const tracksDir = resolve(get('--tracks') || join(new URL('..', import.meta.url).pathname, 'content', 'knowledge', 'tracks'));
+    const tracksDir = resolve(get('--tracks') || join(fileURLToPath(new URL('..', import.meta.url)), 'content', 'knowledge', 'tracks'));
     const lessons = readDirJson(get('--lessons') ? resolve(get('--lessons')) : null);
     const kmsEntries = readDirJson(get('--kms') ? resolve(get('--kms')) : null);
     const research = get('--research') ? JSON.parse(readFileSync(resolve(get('--research')), 'utf8')) : null;

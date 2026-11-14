@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Logo from '../../components/Logo';
 import { ProfileTab, DigitalCertificate, UserProfile, SkillAxis } from './types';
 import {
   INITIAL_PROFILE_DATA,
@@ -17,14 +16,28 @@ import { ProfileHeader } from './components/ProfileHeader';
 import { OverviewTab } from './components/OverviewTab';
 import { RepositoriesTab } from './components/RepositoriesTab';
 import { AchievementsTab } from './components/AchievementsTab';
+import { CertificatesTab } from './components/CertificatesTab';
 import { SkillRadarTab } from './components/SkillRadarTab';
 import { CertificateModal } from './components/CertificateModal';
 import { ProfileEditModal } from './components/ProfileEditModal';
 import { Toast } from './components/Toast';
+import { StudentSidebar } from '../../components/StudentSidebar';
+import { StudentHeader } from '../../components/StudentHeader';
+import { MaterialIcon } from '../../components/MaterialIcon';
+import { useSidebar } from '../../context/SidebarContext';
 
 export default function ProfilePage() {
+  const { isCollapsed } = useSidebar();
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
-  const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE_DATA);
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('nexus_student_custom_profile');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_PROFILE_DATA;
+  });
   const [skills, setSkills] = useState<SkillAxis[]>(INITIAL_SKILLS_RADAR);
   const [selectedCertificate, setSelectedCertificate] = useState<DigitalCertificate | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -52,7 +65,16 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = (updated: Partial<UserProfile>) => {
-    setProfile((prev) => ({ ...prev, ...updated }));
+    setProfile((prev) => {
+      const next = { ...prev, ...updated };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('nexus_student_custom_profile', JSON.stringify(next));
+          window.dispatchEvent(new Event('nexus_profile_updated'));
+        } catch {}
+      }
+      return next;
+    });
     showToast('✨ Perfil do desenvolvedor atualizado com sucesso!');
   };
 
@@ -77,311 +99,146 @@ export default function ProfilePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#08080B', color: '#F4F4F5', paddingBottom: '90px' }}>
-      {/* BACKGROUND TECH GRADIENT */}
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundImage:
-            'radial-gradient(circle at 50% 0%, rgba(130, 87, 229, 0.12) 0%, transparent 60%), radial-gradient(circle at 90% 40%, rgba(0, 229, 255, 0.05) 0%, transparent 40%)',
-          pointerEvents: 'none',
-          zIndex: 0
-        }}
-      />
+    <div className="min-h-screen bg-[#07080C] text-[#F1F5F9] font-sans antialiased flex selection:bg-[#8257E5] selection:text-white">
+      {/* Ambient Glow */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[320px] bg-gradient-to-b from-[#8257E5]/12 via-[#00E5FF]/6 to-transparent blur-[140px] pointer-events-none -z-10" />
 
       {/* TOAST FEEDBACK */}
       <Toast message={toastMessage} />
 
-      {/* TOP NAVBAR */}
-      <nav
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          background: 'rgba(8, 8, 11, 0.88)',
-          backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid #262630',
-          height: '64px'
-        }}
+      {/* Sidebar Lateral Oficial com Suporte a Retrair */}
+      <StudentSidebar />
+
+      {/* Área de Conteúdo à Direita com Largura Dinâmica */}
+      <div
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'md:ml-20' : 'md:ml-64'
+        }`}
       >
-        <div
-          style={{
-            maxWidth: '1240px',
-            margin: '0 auto',
-            padding: '0 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            height: '100%'
-          }}
-        >
-          <Logo size="md" href="/" />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-            <Link
-              href="/dashboard"
-              style={{
-                color: '#A1A1AA',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-              Dashboard
-            </Link>
-
-            <Link
-              href="/courses"
-              style={{
-                color: '#A1A1AA',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-              Trilhas & Cursos
-            </Link>
-
-            <Link
-              href="/ide"
-              style={{
-                color: '#A1A1AA',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="4 17 10 11 4 5" />
-                <line x1="12" y1="19" x2="20" y2="19" />
-              </svg>
-              IDE Sandbox
-            </Link>
-
-            <Link
-              href="/profile"
-              style={{
-                color: '#996DFF',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              Meu Perfil
-            </Link>
-          </div>
-
-          <div>
+        {/* Header Superior */}
+        <StudentHeader
+          title="Perfil & Portfólio"
+          subtitle="Identidade Técnica & Certificações Digitais"
+          actions={
             <button
+              type="button"
               onClick={handleShare}
-              style={{
-                background: '#16161D',
-                border: '1px solid #262630',
-                color: '#EDEDED',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#111420] border border-[#1C2133] hover:border-[#8257E5] text-xs font-mono text-[#94A3B8] hover:text-white transition-colors cursor-pointer shadow-sm"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <polyline points="16 6 12 2 8 6" />
-                <line x1="12" y1="2" x2="12" y2="15" />
-              </svg>
-              Compartilhar
+              <MaterialIcon name="share" className="text-sm text-[#00E5FF]" />
+              <span>Compartilhar Perfil</span>
+            </button>
+          }
+        />
+
+        {/* MAIN CONTAINER */}
+        <main className="max-w-7xl mx-auto w-full px-5 lg:px-10 py-8 flex-1 pb-20 space-y-8">
+          {/* HERO PROFILE HEADER */}
+          <ProfileHeader profile={profile} onShare={handleShare} onEdit={handleEditProfile} />
+
+          {/* INTERACTIVE TABS BAR */}
+          <div className="flex items-center gap-2 border-b border-[#1C2133] pb-1 overflow-x-auto text-xs font-mono font-semibold">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'overview'
+                  ? 'bg-[#8257E5]/20 text-[#A379FF] border border-[#8257E5]/40 shadow-[0_0_12px_rgba(130,87,229,0.2)]'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-[#111420]'
+              }`}
+            >
+              <MaterialIcon name="grid_view" className="text-[16px]" />
+              <span>Visão Geral</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('repos')}
+              className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'repos'
+                  ? 'bg-[#8257E5]/20 text-[#A379FF] border border-[#8257E5]/40 shadow-[0_0_12px_rgba(130,87,229,0.2)]'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-[#111420]'
+              }`}
+            >
+              <MaterialIcon name="code" className="text-[16px]" />
+              <span>Repositórios Git</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#181C2C] text-[#A379FF] text-[10px]">
+                {GIT_REPOSITORIES_DATA.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('achievements')}
+              className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'achievements'
+                  ? 'bg-[#8257E5]/20 text-[#A379FF] border border-[#8257E5]/40 shadow-[0_0_12px_rgba(130,87,229,0.2)]'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-[#111420]'
+              }`}
+            >
+              <MaterialIcon name="military_tech" className="text-[16px]" />
+              <span>Conquistas</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#181C2C] text-[#A379FF] text-[10px]">
+                {BADGES_DATA.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('certificates')}
+              className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'certificates'
+                  ? 'bg-[#8257E5]/20 text-[#A379FF] border border-[#8257E5]/40 shadow-[0_0_12px_rgba(130,87,229,0.2)]'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-[#111420]'
+              }`}
+            >
+              <MaterialIcon name="verified" className="text-[16px]" />
+              <span>Certificados Oficiais</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#181C2C] text-[#00E5FF] text-[10px]">
+                {CERTIFICATES_DATA.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('radar')}
+              className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'radar'
+                  ? 'bg-[#8257E5]/20 text-[#A379FF] border border-[#8257E5]/40 shadow-[0_0_12px_rgba(130,87,229,0.2)]'
+                  : 'text-[#94A3B8] hover:text-white hover:bg-[#111420]'
+              }`}
+            >
+              <MaterialIcon name="radar" className="text-[16px]" />
+              <span>Simulador de Atributos</span>
             </button>
           </div>
-        </div>
-      </nav>
 
-      {/* MAIN CONTAINER */}
-      <main style={{ maxWidth: '1240px', margin: '0 auto', padding: '0 20px', position: 'relative', zIndex: 1 }}>
-        {/* HERO PROFILE HEADER */}
-        <ProfileHeader profile={profile} onShare={handleShare} onEdit={handleEditProfile} />
+          {/* TAB CONTENTS */}
+          {activeTab === 'overview' && (
+            <OverviewTab
+              tracks={TRACKS_PROGRESS_DATA}
+              activities={RECENT_ACTIVITIES_DATA}
+              onDayClick={handleDayClick}
+            />
+          )}
 
-        {/* INTERACTIVE TABS BAR */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            borderBottom: '1px solid #262630',
-            marginBottom: '24px',
-            overflowX: 'auto'
-          }}
-        >
-          <button
-            onClick={() => setActiveTab('overview')}
-            style={{
-              padding: '12px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: activeTab === 'overview' ? '#996DFF' : '#A1A1AA',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: `2px solid ${activeTab === 'overview' ? '#8257E5' : 'transparent'}`,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            Visão Geral
-          </button>
+          {activeTab === 'repos' && <RepositoriesTab repos={GIT_REPOSITORIES_DATA} />}
 
-          <button
-            onClick={() => setActiveTab('repos')}
-            style={{
-              padding: '12px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: activeTab === 'repos' ? '#996DFF' : '#A1A1AA',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: `2px solid ${activeTab === 'repos' ? '#8257E5' : 'transparent'}`,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-            </svg>
-            Repositórios Git
-            <span
-              style={{
-                background: activeTab === 'repos' ? 'rgba(130, 87, 229, 0.25)' : '#1F1F28',
-                color: activeTab === 'repos' ? '#996DFF' : '#A1A1AA',
-                fontSize: '11px',
-                padding: '2px 7px',
-                borderRadius: '9999px',
-                fontWeight: 700
-              }}
-            >
-              {GIT_REPOSITORIES_DATA.length}
-            </span>
-          </button>
+          {activeTab === 'achievements' && <AchievementsTab badges={BADGES_DATA} />}
 
-          <button
-            onClick={() => setActiveTab('achievements')}
-            style={{
-              padding: '12px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: activeTab === 'achievements' ? '#996DFF' : '#A1A1AA',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: `2px solid ${activeTab === 'achievements' ? '#8257E5' : 'transparent'}`,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="8" r="7" />
-              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
-            </svg>
-            Conquistas & Badges
-            <span
-              style={{
-                background: activeTab === 'achievements' ? 'rgba(130, 87, 229, 0.25)' : '#1F1F28',
-                color: activeTab === 'achievements' ? '#996DFF' : '#A1A1AA',
-                fontSize: '11px',
-                padding: '2px 7px',
-                borderRadius: '9999px',
-                fontWeight: 700
-              }}
-            >
-              {BADGES_DATA.length}
-            </span>
-          </button>
+          {activeTab === 'certificates' && (
+            <CertificatesTab
+              certificates={CERTIFICATES_DATA}
+              onOpenCertificate={handleOpenCertificate}
+            />
+          )}
 
-          <button
-            onClick={() => setActiveTab('radar')}
-            style={{
-              padding: '12px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: activeTab === 'radar' ? '#996DFF' : '#A1A1AA',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: `2px solid ${activeTab === 'radar' ? '#8257E5' : 'transparent'}`,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="12 2 2 8.5 2 15.5 12 22 22 15.5 22 8.5 12 2" />
-            </svg>
-            Radar de Habilidades 6D
-          </button>
-        </div>
+          {activeTab === 'radar' && (
+            <SkillRadarTab skills={skills} onSkillScoreChange={handleSkillScoreChange} />
+          )}
+        </main>
 
-        {/* TAB CONTENTS */}
-        {activeTab === 'overview' && (
-          <OverviewTab
-            tracks={TRACKS_PROGRESS_DATA}
-            activities={RECENT_ACTIVITIES_DATA}
-            onDayClick={handleDayClick}
-          />
-        )}
-
-        {activeTab === 'repos' && <RepositoriesTab repos={GIT_REPOSITORIES_DATA} />}
-
-        {activeTab === 'achievements' && (
-          <AchievementsTab
-            badges={BADGES_DATA}
-            certificates={CERTIFICATES_DATA}
-            onOpenCertificate={handleOpenCertificate}
-          />
-        )}
-
-        {activeTab === 'radar' && (
-          <SkillRadarTab skills={skills} onSkillScoreChange={handleSkillScoreChange} />
-        )}
-      </main>
+        {/* Rodapé Minimalista */}
+        <footer className="h-16 border-t border-[#1C2133] px-8 flex items-center justify-between text-xs font-mono text-[#64748B]">
+          <span>© 2026 Nexus Code • Perfil Público do Aluno</span>
+          <span>Portfólio verificado por testes automatizados</span>
+        </footer>
+      </div>
 
       {/* MODAL DE CERTIFICADO DIGITAL */}
       <CertificateModal

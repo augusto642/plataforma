@@ -16,6 +16,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   KMS_MATCH_THRESHOLDS, KMS_MATCH_VERSION, addRegistryEntrySlug, appendChangelog, contributionId,
   decideMatch, entryHasContribution, entrySlugForLesson, kmsPaths, loadEntries, loadLessons,
@@ -282,7 +283,7 @@ function proposeResearch(paths, { research, dryRun, entries, lessonsById, before
   return report;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
@@ -294,7 +295,7 @@ if (isMain) {
     process.exit(0);
   }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
-  const contentDir = resolve(get('--content') || join(new URL('..', import.meta.url).pathname, 'content'));
+  const contentDir = resolve(get('--content') || join(fileURLToPath(new URL('..', import.meta.url)), 'content'));
   const paths = kmsPaths(contentDir);
   try {
     const lessonId = get('--lesson');

@@ -17,6 +17,7 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AiTutorPlanGuard } from '../plans/guards/ai-tutor-plan.guard';
 import { AiService } from './ai.service';
 import { ChatWithTutorDto } from './dto/chat-with-tutor.dto';
+import { RequestResearchDto } from './dto/request-research.dto';
 import { ComplexityAnalysisDto } from './dto/complexity-analysis.dto';
 import { LineFeedbackDto } from './dto/line-feedback.dto';
 import { SocraticCatHintDto } from './dto/socratic-cat-hint.dto';
@@ -82,7 +83,7 @@ export class AiController {
   @Post('research-request')
   @UseGuards(AiTutorPlanGuard)
   requestResearch(
-    @Body() dto: { goal: string },
+    @Body() dto: RequestResearchDto,
   ) {
     return this.ai.requestResearchForGoal(dto.goal);
   }

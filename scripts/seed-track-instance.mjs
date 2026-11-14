@@ -24,6 +24,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assertGeneratedActivitySeedable, realTestExpressions } from './validate-knowledge.mjs';
 
 const apiRequire = createRequire(new URL('../apps/api/package.json', import.meta.url));
@@ -54,7 +55,7 @@ export function assertSegmentSeedable(segment) {
   return [...new Set(problems)];
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };

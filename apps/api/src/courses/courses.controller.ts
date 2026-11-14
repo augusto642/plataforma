@@ -204,6 +204,17 @@ export class CoursesController {
     return this.courses.getCourseAnalytics(id, user.sub, user.role);
   }
 
+  @Get('leaderboard/global')
+  getGlobalLeaderboard(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.courses.getGlobalLeaderboard(
+      page ? Number(page) : undefined,
+      limit ? Number(limit) : undefined,
+    );
+  }
+
   @Get(':id/leaderboard')
   getLeaderboard(
     @Param('id', ParseUUIDPipe) id: string,

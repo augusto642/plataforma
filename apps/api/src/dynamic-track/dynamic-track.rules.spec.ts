@@ -1,7 +1,9 @@
 import {
+  CAREER_GOALS,
   CAREER_GOAL_TO_TRACK,
   DEFAULT_TRACK,
   MARKET_EVIDENCE_THRESHOLD,
+  REASON_TEXTS,
   buildRationaleText,
   dedupeSignalsByUrl,
   isMarketEvidence,
@@ -31,13 +33,19 @@ describe('suggestTrack — precedência (DESIGN D1)', () => {
     });
   });
 
-  it('hint da landing vence objetivo', () => {
+  it('objetivo explícito vence hint passivo da landing; hint decide sem objetivo', () => {
     const out = suggestTrack({
       sourceTrack: 'web3',
       careerGoal: 'lead',
     });
-    expect(out.track).toBe('web3');
-    expect(out.reasons).toEqual(['landing-hint']);
+    expect(out.track).toBe('backend');
+    expect(out.reasons).toEqual(['career-goal:lead']);
+
+    const hintOnly = suggestTrack({
+      sourceTrack: 'web3',
+    });
+    expect(hintOnly.track).toBe('web3');
+    expect(hintOnly.reasons).toEqual(['landing-hint']);
   });
 
   it('objetivo decide quando não há diagnóstico nem hint', () => {
@@ -47,6 +55,59 @@ describe('suggestTrack — precedência (DESIGN D1)', () => {
     expect(suggestTrack({ careerGoal: 'hackathons' }).track).toBe(
       'frontend',
     );
+    expect(suggestTrack({ careerGoal: 'mlops' }).track).toBe('ai');
+    expect(suggestTrack({ careerGoal: 'platform_engineering' }).track).toBe('backend');
+    expect(suggestTrack({ careerGoal: 'cloud_architect' }).track).toBe('backend');
+    expect(suggestTrack({ careerGoal: 'gamedev' }).track).toBe('frontend');
+    expect(suggestTrack({ careerGoal: 'blockchain' }).track).toBe('web3');
+    expect(suggestTrack({ careerGoal: 'embedded_iot' }).track).toBe('backend');
+    expect(suggestTrack({ careerGoal: 'automation_rpa' }).track).toBe('ai');
+    expect(suggestTrack({ careerGoal: 'product_manager' }).track).toBe('frontend');
+  });
+
+  it('usa careerGoals[0] quando careerGoal não é informado', () => {
+    expect(suggestTrack({ careerGoals: ['mlops', 'cloud_architect'] })).toEqual({
+      track: 'ai',
+      trackName: 'Inteligência Artificial',
+      reasons: ['career-goal:mlops'],
+    });
+    expect(
+      suggestTrack({
+        sourceTrack: 'web3',
+        careerGoals: ['mlops', 'cloud_architect'],
+      }).reasons,
+    ).toEqual(['career-goal:mlops']);
+    expect(
+      suggestTrack({
+        careerGoals: ['fullstack', 'ai', 'data_science'],
+        primaryTechnology: 'python',
+      }),
+    ).toEqual({
+      track: 'ai',
+      trackName: 'Inteligência Artificial',
+      reasons: ['career-goal:ai', 'primary-technology'],
+    });
+    expect(
+      suggestTrack({
+        careerGoals: ['fullstack'],
+        primaryTechnology: 'go',
+      }),
+    ).toEqual({
+      track: 'backend',
+      trackName: 'Desenvolvimento Back-end',
+      reasons: ['career-goal:fullstack', 'primary-technology'],
+    });
+    expect(
+      suggestTrack({
+        careerGoal: 'blockchain',
+        careerGoals: ['mlops'],
+      }).reasons,
+    ).toEqual(['career-goal:blockchain']);
+    expect(suggestTrack({ careerGoals: [] })).toEqual({
+      track: DEFAULT_TRACK,
+      trackName: 'Desenvolvimento Front-end',
+      reasons: ['default-entry'],
+    });
   });
 
   it('fallback é frontend com motivo default-entry', () => {
@@ -65,8 +126,9 @@ describe('suggestTrack — precedência (DESIGN D1)', () => {
 });
 
 describe('suggestTrack — todas as combinações objetivo × nível', () => {
-  const goals: CareerGoal[] = ['global', 'lead', 'startup', 'hackathons'];
+  const goals: CareerGoal[] = [...CAREER_GOALS];
   const levels: Array<ExperienceLevel | null> = [
+    'beginner',
     'junior',
     'mid',
     'senior',
@@ -80,8 +142,24 @@ describe('suggestTrack — todas as combinações objetivo × nível', () => {
       const out = suggestTrack({ careerGoal: goal, expLevel: level });
       expect(out.track).toBe(CAREER_GOAL_TO_TRACK[goal]);
       expect(out.reasons).toEqual([`career-goal:${goal}`]);
+      expect(REASON_TEXTS[`career-goal:${goal}`]).toBeTruthy();
     },
   );
+
+  it('inclui primary-technology no rationale quando primaryTechnology vem informada', () => {
+    const out = suggestTrack({
+      careerGoal: 'backend',
+      primaryTechnology: 'Python',
+    });
+    expect(out.track).toBe('backend');
+    expect(out.reasons).toEqual(['career-goal:backend', 'primary-technology']);
+
+    const text = buildRationaleText(out.reasons, 'profile-only', {
+      primaryTechnology: 'Python',
+    });
+    expect(text).toContain('Back-end');
+    expect(text).toContain('Python');
+  });
 });
 
 describe('scoreMarketSignal — spec last30days §7', () => {
@@ -228,5 +306,19 @@ describe('buildRationaleText', () => {
     const text = buildRationaleText(['career-goal:lead'], 'profile+market');
     expect(text).toContain('liderança técnica');
     expect(text).toContain('sinais de mercado verificados');
+  });
+
+  it('inclui contexto de múltiplos objetivos apenas quando há mais de um objetivo válido', () => {
+    const multi = buildRationaleText(['career-goal:mlops'], 'profile-only', {
+      careerGoals: ['mlops', 'cloud_architect', 'blockchain'],
+    });
+    expect(multi).toContain('MLOps');
+    expect(multi).toContain('Cloud Architect');
+    expect(multi).toContain('Blockchain / Web3');
+
+    const single = buildRationaleText(['career-goal:mlops'], 'profile-only', {
+      careerGoals: ['mlops'],
+    });
+    expect(single).not.toContain('múltiplos objetivos');
   });
 });

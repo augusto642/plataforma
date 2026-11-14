@@ -67,6 +67,15 @@ describe('CsrfOriginMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
+  it('REJEITA mutação com Referer malformado (fail-closed)', () => {
+    const { next, statusCode, body } = run({
+      referer: 'not-a-valid-url-///',
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(statusCode).toBe(403);
+    expect(body).toMatchObject({ errorCode: 'CSRF_ORIGIN_MISMATCH' });
+  });
+
   it('permite mutação sem Origin nem Referer (cliente não-navegador: curl, webhook HMAC do Gitea)', () => {
     const { next, statusCode } = run({});
     expect(next).toHaveBeenCalledTimes(1);

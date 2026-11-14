@@ -18,6 +18,7 @@ import { PedagogicalHintService } from './pedagogical-hint.service';
 import { TutorChatService } from './tutor-chat.service';
 import { ComplexityAnalysisService } from './complexity-analysis.service';
 import { SocraticGuidanceService } from './socratic-guidance.service';
+import { RegistrationLevelService } from './registration-level.service';
 
 @Module({
   imports: [CacheModule, PlansModule, forwardRef(() => KnowledgeModule), AdaptationModule],
@@ -38,6 +39,7 @@ import { SocraticGuidanceService } from './socratic-guidance.service';
     TutorChatService,
     ComplexityAnalysisService,
     SocraticGuidanceService,
+    RegistrationLevelService,
   ],
   exports: [
     AiService,
@@ -53,6 +55,7 @@ import { SocraticGuidanceService } from './socratic-guidance.service';
     TutorChatService,
     ComplexityAnalysisService,
     SocraticGuidanceService,
+    RegistrationLevelService,
   ],
 })
 export class AiModule {}

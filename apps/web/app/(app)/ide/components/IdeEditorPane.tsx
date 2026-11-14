@@ -30,6 +30,10 @@ interface IdeEditorPaneProps {
   onRun: () => void;
   isSubmitting: boolean;
   onFormat?: () => void;
+  fontSize?: number;
+  onChangeFontSize?: (size: 13 | 14 | 16) => void;
+  isFocusMode?: boolean;
+  onToggleFocusMode?: () => void;
   /**
    * Central 219 lote 4 (D14) — esconde a chrome bar interna do editor
    * (arquivo + "Executar Código"). Usar quando o painel que hospeda o
@@ -48,6 +52,10 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
   onRun,
   isSubmitting,
   onFormat,
+  fontSize = 14,
+  onChangeFontSize,
+  isFocusMode = false,
+  onToggleFocusMode,
   hideChromeBar = false,
 }) => {
   const editorRef = useRef<any>(null);
@@ -75,7 +83,7 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
       {/* Editor Toolbar — omitida com hideChromeBar (D14). */}
       {!hideChromeBar && (
       <div className="h-11 px-4 bg-[#0D1017] border-b border-[#1E222D] flex items-center justify-between backdrop-blur-md">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className="font-mono text-xs text-zinc-400">
             solution.{fileExtensions[language] || 'txt'}
           </span>
@@ -85,6 +93,37 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
               className="px-2.5 py-1 text-xs text-zinc-400 hover:text-white border border-[#232738] rounded hover:bg-[#151821] transition-colors"
             >
               Formatar Código
+            </button>
+          )}
+          {onChangeFontSize && (
+            <div className="hidden sm:flex items-center gap-1 border border-[#232738] rounded px-1 py-0.5 bg-[#0A0E1B]">
+              {([13, 14, 16] as const).map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => onChangeFontSize(sz)}
+                  className={`px-1.5 py-0.5 text-[10px] font-mono rounded transition-colors ${
+                    fontSize === sz
+                      ? 'bg-[#8257E5] text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
+          )}
+          {onToggleFocusMode && (
+            <button
+              type="button"
+              onClick={onToggleFocusMode}
+              className={`hidden lg:inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded border transition-colors ${
+                isFocusMode
+                  ? 'border-[#8257E5]/60 bg-[#8257E5]/20 text-[#C4B5FD]'
+                  : 'border-[#232738] text-zinc-400 hover:text-white hover:bg-[#151821]'
+              }`}
+            >
+              {isFocusMode ? 'Mostrar Cursos' : 'Modo Foco'}
             </button>
           )}
         </div>
@@ -121,16 +160,37 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
         <MonacoEditor
           height="100%"
           language={monacoLangs[language] || 'plaintext'}
-          theme="vs-dark"
+          theme="dark-obsidian"
           value={code}
-          onMount={(editor) => {
+          onMount={(editor, monaco) => {
             editorRef.current = editor;
+            monaco.editor.defineTheme('dark-obsidian', {
+              base: 'vs-dark',
+              inherit: true,
+              rules: [
+                { token: 'comment', foreground: '64748B', fontStyle: 'italic' },
+                { token: 'keyword', foreground: '00E5FF', fontStyle: 'bold' },
+                { token: 'string', foreground: '04D361' },
+                { token: 'number', foreground: 'FFA116' },
+                { token: 'type', foreground: '8257E5' },
+              ],
+              colors: {
+                'editor.background': '#070A13',
+                'editor.foreground': '#F1F5F9',
+                'editor.lineHighlightBackground': '#121624',
+                'editorLineNumber.foreground': '#475569',
+                'editorLineNumber.activeForeground': '#00E5FF',
+                'editorCursor.foreground': '#00E5FF',
+                'editor.selectionBackground': '#8257E540',
+              },
+            });
+            monaco.editor.setTheme('dark-obsidian');
             // Atalho de execução ⌘+Enter / Ctrl+Enter (2048 = CtrlCmd, 3 = Enter)
             editor.addCommand(2048 | 3, () => onRun());
           }}
           onChange={(val) => onChange(val || '')}
           options={{
-            fontSize: 14,
+            fontSize,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
             automaticLayout: true,

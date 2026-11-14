@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { UserProfile } from '../types';
+import { BANNER_PRESETS } from '../data';
 
 interface ProfileHeaderProps {
   profile: UserProfile;
@@ -10,6 +11,16 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) {
+  const [avatarError, setAvatarError] = useState(false);
+
+  // Determinar estilo da capa
+  const selectedTheme = BANNER_PRESETS.find((b) => b.id === profile.bannerTheme);
+  const bannerBackground = profile.bannerUrl
+    ? `url(${profile.bannerUrl}) center/cover no-repeat`
+    : selectedTheme
+    ? selectedTheme.gradient
+    : 'linear-gradient(135deg, #18112e 0%, #0d1e2e 50%, #09211d 100%)';
+
   return (
     <section
       style={{
@@ -26,8 +37,8 @@ export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) 
       {/* COVER BANNER */}
       <div
         style={{
-          height: '190px',
-          background: 'linear-gradient(135deg, #18112e 0%, #0d1e2e 50%, #09211d 100%)',
+          height: '210px',
+          background: bannerBackground,
           position: 'relative',
           overflow: 'hidden'
         }}
@@ -36,20 +47,21 @@ export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) 
           style={{
             position: 'absolute',
             inset: 0,
-            opacity: 0.4,
+            opacity: profile.bannerUrl ? 0.2 : 0.4,
             backgroundImage:
               'radial-gradient(circle at 20% 50%, #8257E5 0%, transparent 40%), radial-gradient(circle at 80% 30%, #00E5FF 0%, transparent 35%), radial-gradient(circle at 50% 80%, #04D361 0%, transparent 30%)',
             filter: 'blur(40px)'
           }}
         />
 
+        {/* OVERLAY DE CÓDIGO CIBERNÉTICO */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             fontFamily: 'ui-monospace, monospace',
             fontSize: '11px',
-            color: 'rgba(255, 255, 255, 0.08)',
+            color: 'rgba(255, 255, 255, 0.1)',
             lineHeight: 1.5,
             padding: '16px',
             overflow: 'hidden',
@@ -61,9 +73,39 @@ export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) 
           <br />
           {`await architect.deployMastery(["Rust", "TypeScript", "Distributed Systems", "WASM", "Autonomous Agents"]);`}
           <br />
-          {`// NEXUS CODE VERIFIED PROFILE ID: ${profile.id}`}
+          {`// NEXUS CODE VERIFIED PROFILE ID: ${profile.id} • THEME: ${profile.bannerTheme || 'default'}`}
         </div>
 
+        {/* BOTÃO FLUTUANTE DE PERSONALIZAÇÃO VISUAL */}
+        <button
+          onClick={onEdit}
+          style={{
+            position: 'absolute',
+            bottom: '14px',
+            right: '16px',
+            background: 'rgba(8, 8, 11, 0.75)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(8px)',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            fontSize: '12px',
+            fontWeight: 700,
+            color: '#FFF',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+          Personalizar Capa &amp; Avatar
+        </button>
+
+        {/* STATUS DISPONÍVEL */}
         <div
           style={{
             position: 'absolute',
@@ -109,7 +151,7 @@ export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) 
           position: 'relative'
         }}
       >
-        {/* AVATAR */}
+        {/* AVATAR COM SUPORTE A FOTO PERSONALIZADA OU PRESET */}
         <div
           style={{
             marginTop: '-65px',
@@ -121,21 +163,21 @@ export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) 
         >
           <div
             style={{
-              width: '128px',
-              height: '128px',
-              borderRadius: '28px',
+              width: '132px',
+              height: '132px',
+              borderRadius: '30px',
               background: '#16161D',
               padding: '4px',
               position: 'relative',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.7)',
-              border: '2px solid rgba(130, 87, 229, 0.6)'
+              boxShadow: '0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(130, 87, 229, 0.4)',
+              border: '2px solid rgba(130, 87, 229, 0.8)'
             }}
           >
             <div
               style={{
                 width: '100%',
                 height: '100%',
-                borderRadius: '24px',
+                borderRadius: '26px',
                 background: '#181822',
                 display: 'flex',
                 alignItems: 'center',
@@ -145,10 +187,23 @@ export function ProfileHeader({ profile, onShare, onEdit }: ProfileHeaderProps) 
                 overflow: 'hidden'
               }}
             >
-              <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="#8257E5" strokeWidth="1.8">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+              {profile.avatarUrl && !avatarError ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.name}
+                  onError={() => setAvatarError(true)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="#8257E5" strokeWidth="1.8">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              )}
             </div>
             <div
               style={{

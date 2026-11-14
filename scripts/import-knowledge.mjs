@@ -19,6 +19,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateKnowledge } from './validate-knowledge.mjs';
 
 const apiRequire = createRequire(new URL('../apps/api/package.json', import.meta.url));
@@ -126,7 +127,7 @@ async function checkTables(prisma, only = null) {
   return missing;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   // --help sai 0 ANTES de qualquer validação ou sonda ao banco (B2).

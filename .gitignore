@@ -5,6 +5,11 @@ dist
 .env.local
 .env.*.local
 .env.production
+.env.prod
+.env.prod.*
+.env*.prod
+.env.stage
+.env.staging
 apps/*/dist
 apps/*/.next
 *.log
@@ -35,3 +40,12 @@ apps/web/public/monaco/
 
 # Estado operacional do pipeline de conhecimento (cursor de revarredura, logs) — nunca versionado (Q8)
 data/
+
+# Artefatos temporários de tarefas e rascunhos de design
+scratch_*
+task-*.md
+sketches/
+stitch_*/
+apps/web/scratch_*
+apps/web/qa/
+

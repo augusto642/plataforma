@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useId } from 'react';
 import Link from 'next/link';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   showText?: boolean;
+  subtitle?: string;
   href?: string;
   className?: string;
   theme?: 'light' | 'dark';
@@ -14,69 +15,80 @@ interface LogoProps {
 export const Logo: React.FC<LogoProps> = ({
   size = 'md',
   showText = true,
+  subtitle,
   href = '/',
   className = '',
   theme = 'dark',
 }) => {
-  // Dimension tokens
+  const slashGradId = useId();
   const dimensions = {
-    sm: { box: 'w-7 h-7 min-w-[28px]', text: 'text-sm', badge: 'text-[9px] px-1 py-0.5', gap: 'gap-4' },
-    md: { box: 'w-9 h-9 min-w-[36px]', text: 'text-base', badge: 'text-[10px] px-1.5 py-0.5', gap: 'gap-5' },
-    lg: { box: 'w-11 h-11 min-w-[44px]', text: 'text-lg', badge: 'text-xs px-2 py-0.5', gap: 'gap-6' },
-    xl: { box: 'w-14 h-14 min-w-[56px]', text: 'text-2xl', badge: 'text-xs px-2.5 py-1', gap: 'gap-7' },
-    '2xl': { box: 'w-16 h-16 min-w-[64px]', text: 'text-2xl', badge: 'text-xs px-2.5 py-0.5', gap: 'gap-8' },
+    sm: { box: 'w-7 h-7 min-w-[28px] rounded-lg', svg: 'w-4 h-4', inner: 'rounded-[6px]', text: 'text-sm', gap: 'gap-2.5' },
+    md: { box: 'w-9 h-9 min-w-[36px] rounded-xl', svg: 'w-5 h-5', inner: 'rounded-[10px]', text: 'text-lg', gap: 'gap-3' },
+    lg: { box: 'w-10 h-10 min-w-[40px] rounded-xl', svg: 'w-6 h-6', inner: 'rounded-[10px]', text: 'text-xl', gap: 'gap-3.5' },
+    xl: { box: 'w-12 h-12 min-w-[48px] rounded-xl', svg: 'w-7 h-7', inner: 'rounded-[10px]', text: 'text-2xl', gap: 'gap-4' },
+    '2xl': { box: 'w-14 h-14 min-w-[56px] rounded-2xl', svg: 'w-8 h-8', inner: 'rounded-[14px]', text: 'text-2xl', gap: 'gap-4' },
   }[size];
 
   const content = (
     <div className={`flex items-center ${dimensions.gap} group cursor-pointer select-none ${className}`}>
-      {/* Official Geometric Cyber Badge */}
+      {/* Official Nexus Code Mark (</>) — clean geometric monogram, no center circle */}
       <div
-        className={`${dimensions.box} rounded-xl ${
-          theme === 'light' 
-            ? 'bg-[#0F172A] border border-zinc-700 shadow-md shadow-zinc-300/50' 
-            : 'bg-[#121217] border border-[#8257E5]/50 shadow-[0_0_15px_rgba(130,87,229,0.25)]'
-        } flex items-center justify-center p-1 group-hover:border-[#8257E5] transition-all duration-300`}
+        className={`relative ${dimensions.box} bg-gradient-to-br from-[#8257E5] via-[#6D4AFF] to-[#00E5FF] p-[1.5px] shadow-[0_0_18px_rgba(130,87,229,0.38)] shrink-0 flex items-center justify-center group-hover:scale-105 group-hover:shadow-[0_0_24px_rgba(0,229,255,0.35)] transition-all duration-200`}
       >
-        <svg viewBox="0 0 84 64" className="w-full h-full" fill="none">
-          {/* N Letter */}
-          <path
-            d="M 14 46 L 14 18 L 20 18 L 32 36 L 32 18 L 38 18 L 38 46 L 32 46 L 20 28 L 20 46 Z"
-            fill="#FFFFFF"
-          />
-          {/* Chevron > (Neon Green) */}
-          <path
-            d="M 44 22 L 54 32 L 44 42"
-            stroke="#04D361"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Chevron < (Cyber Purple) */}
-          <path
-            d="M 66 22 L 56 32 L 66 42"
-            stroke="#8257E5"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <div
+          className={`w-full h-full ${
+            theme === 'light' ? 'bg-[#0F172A]' : 'bg-[#090A10]'
+          } ${dimensions.inner} flex items-center justify-center`}
+        >
+          <svg className={dimensions.svg} viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <defs>
+              <linearGradient id={slashGradId} x1="28" y1="10" x2="20" y2="38" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#C4B5FD" />
+                <stop offset="100%" stopColor="#00E5FF" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M16 14L6 24L16 34"
+              stroke="#9D74FF"
+              strokeWidth="4.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M27.5 11.5L20.5 36.5"
+              stroke={`url(#${slashGradId})`}
+              strokeWidth="4.2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M32 14L42 24L32 34"
+              stroke="#00E5FF"
+              strokeWidth="4.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
       </div>
 
-      {/* Brand Typography */}
+      {/* Brand Wordmark */}
       {showText && (
-        <div className={`flex items-center gap-4 sm:gap-5 font-bold tracking-tight font-heading ${
-          theme === 'light' ? 'text-zinc-900' : 'text-white'
-        }`}>
-          <span className={`${dimensions.text} tracking-tight`}>NEXUS</span>
+        <div className="flex flex-col leading-none">
           <span
-            className={`${dimensions.badge} font-mono ${
-              theme === 'light'
-                ? 'text-[#8257E5] bg-[#8257E5]/10 border border-[#8257E5]/30'
-                : 'text-[#04D361] bg-[#04D361]/10 border border-[#04D361]/30'
-            } rounded font-bold uppercase tracking-wider`}
+            className={`font-headline font-black ${dimensions.text} tracking-tight flex items-center ${
+              theme === 'light' ? 'text-zinc-900' : 'text-white'
+            }`}
           >
-            CODE
+            NEXUS{' '}
+            <span className="ml-0.5 text-transparent bg-clip-text bg-gradient-to-r from-[#9D74FF] to-[#8257E5]">
+              CODE
+            </span>
           </span>
+          {subtitle && (
+            <span className="hidden sm:block font-code text-[10px] text-[#00E5FF] tracking-wider uppercase font-bold mt-0.5">
+              {subtitle}
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -84,7 +96,10 @@ export const Logo: React.FC<LogoProps> = ({
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex items-center text-decoration-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8257E5] rounded-xl">
+      <Link
+        href={href}
+        className="inline-flex items-center no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8257E5] rounded-xl"
+      >
         {content}
       </Link>
     );

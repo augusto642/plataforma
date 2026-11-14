@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -20,6 +19,11 @@ import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { MailerService } from '../mail/mailer.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DynamicTrackService } from '../dynamic-track/dynamic-track.service';
+import { isCareerGoal, type CareerGoal } from '../dynamic-track/dynamic-track.rules';
+import {
+  RegistrationLevelService,
+  type DetectedExperienceLevel,
+} from '../ai/registration-level.service';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { OAuthProfile } from './oauth.config';
@@ -84,10 +88,22 @@ export class AuthService {
     // instanciações legadas em testes que constroem o serviço sem o
     // novo provider — sem ele, o cadastro segue sem investigação.
     @Optional() private readonly dynamicTrack?: DynamicTrackService,
+    @Optional() private readonly registrationLevel?: RegistrationLevelService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<RegisterResult> {
+  async checkEmailAvailability(email: string): Promise<{ available: boolean }> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+    return { available: !existing };
+  }
+
+  async register(dto: RegisterDto): Promise<AuthTokens> {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+    const { resolvedLevel, assessmentSource } =
+      await this.resolveRegistrationLevel(dto);
     try {
       const email = dto.email.toLowerCase().trim();
       const user = await this.prisma.user.create({
@@ -96,30 +112,16 @@ export class AuthService {
           name: dto.name.trim(),
           passwordHash,
           role: Role.student,
+          emailVerifiedAt: new Date(),
           utmSource: dto.utmSource?.trim() || null,
           utmMedium: dto.utmMedium?.trim() || null,
           utmCampaign: dto.utmCampaign?.trim() || null,
-          // Sprint 8 — o nível declarado na porta fria vira o
-          // careerTier da conta; sem declaração, o default do modelo
-          // (beginner) se aplica. Trilha/tempo/objetivo não têm coluna
-          // no User: vivem nas props dos eventos signup_* (ver DTO).
-          ...(dto.experienceLevel
-            ? { careerTier: dto.experienceLevel as CareerTier }
-            : {}),
+          // Sprint 8 + Diagnóstico aberto no cadastro: o nível avaliado no
+          // servidor (ou declarado) vira o careerTier da conta; sem
+          // sinalização, o default do modelo (beginner) se aplica.
+          ...(resolvedLevel ? { careerTier: resolvedLevel as CareerTier } : {}),
         },
       });
-      // Usuário nasce NÃO verificado: nenhum token é emitido aqui. O login
-      // só passa após POST /auth/verify-email com o código correto.
-      const code = await this.issueVerificationCode(user.id);
-      // Falha de envio NÃO desfaz o cadastro: o código fica no banco e pode
-      // ser reenviado por POST /auth/resend-code. O erro vai para o log.
-      await this.mailer
-        .sendVerificationCode(user.email, user.name, code)
-        .catch((err: any) => {
-          this.logger.error(
-            `Failed to send verification code to ${user.email}: ${err.message}. The code can be resent via /auth/resend-code.`,
-          );
-        });
       // Sprint 10 (B09) — vincula o resultado anônimo do quiz diagnóstico
       // à conta nova, se houver sessão de diagnóstico no cadastro.
       await this.linkDiagnosticResult(dto.diagnosticSessionToken, user.id);
@@ -131,27 +133,29 @@ export class AuthService {
       // `preferredTrack` NÃO entra no snapshot: é campo depreciado,
       // ignorado para atribuição — o hint da landing viaja em
       // `sourceTrack` (ver RegisterDto).
+      const validGoalsFromArray = Array.isArray(dto.careerGoals)
+        ? dto.careerGoals.filter(isCareerGoal)
+        : [];
+      const singleGoal = isCareerGoal(dto.careerGoal) ? dto.careerGoal : null;
+      const primaryGoal = singleGoal ?? validGoalsFromArray[0] ?? null;
+      const careerGoals = Array.from(
+        new Set<CareerGoal>([
+          ...(primaryGoal ? [primaryGoal] : []),
+          ...validGoalsFromArray,
+        ]),
+      );
+
       await this.dynamicTrack
         ?.createForUser(user.id, {
-          expLevel:
-            dto.experienceLevel === 'junior' ||
-            dto.experienceLevel === 'mid' ||
-            dto.experienceLevel === 'senior'
-              ? dto.experienceLevel
-              : null,
+          expLevel: resolvedLevel,
           timeCommitment:
             dto.weeklyTimeCommitment === '5h' ||
             dto.weeklyTimeCommitment === '10h' ||
             dto.weeklyTimeCommitment === '20h'
               ? dto.weeklyTimeCommitment
               : null,
-          careerGoal:
-            dto.careerGoal === 'global' ||
-            dto.careerGoal === 'lead' ||
-            dto.careerGoal === 'startup' ||
-            dto.careerGoal === 'hackathons'
-              ? dto.careerGoal
-              : null,
+          careerGoal: primaryGoal,
+          careerGoals,
           sourceTrack:
             dto.sourceTrack === 'web3' ||
             dto.sourceTrack === 'backend' ||
@@ -160,16 +164,21 @@ export class AuthService {
               ? dto.sourceTrack
               : null,
           diagnosticTrackId: null,
+          primaryTechnology: dto.primaryTechnology?.trim() || null,
+          hasProgrammedBefore:
+            typeof dto.hasProgrammedBefore === 'boolean'
+              ? dto.hasProgrammedBefore
+              : null,
+          priorLanguage: dto.priorLanguage?.trim() || null,
+          challengeId: dto.challengeId?.trim() || null,
+          assessmentSource,
         })
         .catch((err: Error) => {
           this.logger.error(
             `Failed to create track investigation for ${user.email}: ${err.message}. The account is created; re-enqueue via /dynamic-track/admin.`,
           );
         });
-      return {
-        user: { id: user.id, email: user.email, name: user.name, role: user.role },
-        emailVerificationRequired: true,
-      };
+      return this.issueTokensForUser(user);
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -348,6 +357,78 @@ export class AuthService {
     return code;
   }
 
+  private parseLevel(value: unknown): DetectedExperienceLevel | null {
+    if (
+      value === 'beginner' ||
+      value === 'junior' ||
+      value === 'mid' ||
+      value === 'senior'
+    ) {
+      return value;
+    }
+    return null;
+  }
+
+  private async resolveRegistrationLevel(dto: RegisterDto): Promise<{
+    resolvedLevel: DetectedExperienceLevel | null;
+    assessmentSource: string | null;
+  }> {
+    const explanation = dto.challengeExplanation?.trim();
+    const hasExplanation = Boolean(explanation && explanation.length > 0);
+    const hasProgrammedFlag = typeof dto.hasProgrammedBefore === 'boolean';
+    const fallbackLevel =
+      this.parseLevel(dto.detectedLevel) ?? this.parseLevel(dto.experienceLevel);
+
+    if (hasExplanation || (hasProgrammedFlag && dto.hasProgrammedBefore === false)) {
+      if (this.registrationLevel) {
+        try {
+          const evaluated = await this.registrationLevel.evaluateExplanation({
+            hasProgrammedBefore: dto.hasProgrammedBefore ?? true,
+            language: dto.priorLanguage,
+            challengeId: dto.challengeId,
+            explanation: dto.challengeExplanation ?? '',
+          });
+          return {
+            resolvedLevel: evaluated.detectedLevel,
+            assessmentSource: evaluated.source,
+          };
+        } catch (err) {
+          this.logger.warn(
+            `Failed to evaluate registration explanation on register: ${(err as Error).message}`,
+          );
+          return {
+            resolvedLevel:
+              fallbackLevel ?? (dto.hasProgrammedBefore === false ? 'beginner' : null),
+            assessmentSource: 'fallback',
+          };
+        }
+      }
+      if (fallbackLevel) {
+        return {
+          resolvedLevel: fallbackLevel,
+          assessmentSource: dto.detectedLevel ? 'client-detected' : 'self-declared',
+        };
+      }
+      if (dto.hasProgrammedBefore === false) {
+        return { resolvedLevel: 'beginner', assessmentSource: 'self-declared' };
+      }
+      return { resolvedLevel: null, assessmentSource: null };
+    }
+
+    if (fallbackLevel) {
+      return {
+        resolvedLevel: fallbackLevel,
+        assessmentSource: dto.detectedLevel ? 'client-detected' : 'self-declared',
+      };
+    }
+
+    if (hasProgrammedFlag && dto.hasProgrammedBefore === true) {
+      return { resolvedLevel: null, assessmentSource: null };
+    }
+
+    return { resolvedLevel: null, assessmentSource: null };
+  }
+
   /**
    * Vincula o resultado anônimo do quiz diagnóstico (B09) à conta nova.
    * É um vínculo de conveniência: se qualquer passo falhar (token
@@ -393,16 +474,6 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException(
         withErrorCode('Invalid credentials', ErrorCodes.AUTH_INVALID_CREDENTIALS),
-      );
-    }
-    // C5: sem e-mail confirmado não há sessão — 403 honesto em pt-BR (o
-    // front exibe a mensagem; o usuário reenvia o código pelo cadastro).
-    if (!user.emailVerifiedAt) {
-      throw new ForbiddenException(
-        withErrorCode(
-          'Você precisa confirmar seu e-mail antes de entrar. Verifique o código enviado para o seu e-mail ou solicite um novo código.',
-          ErrorCodes.AUTH_EMAIL_NOT_VERIFIED,
-        ),
       );
     }
     return this.issueTokensForUser(user);

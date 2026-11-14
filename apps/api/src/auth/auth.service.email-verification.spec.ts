@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -56,7 +55,7 @@ describe('AuthService - email verification (C5)', () => {
             name: data.name,
             role: data.role,
             passwordHash: data.passwordHash,
-            emailVerifiedAt: null,
+            emailVerifiedAt: data.emailVerifiedAt ?? null,
           };
           db.users.push(user);
           return user;
@@ -141,37 +140,44 @@ describe('AuthService - email verification (C5)', () => {
   const register = () =>
     auth.register({ email: 'novo@exemplo.com', name: 'Novo', password: 'senha123' } as any);
 
-  it('register cria usuário NÃO verificado, sem tokens, e envia o código', async () => {
+  const seedUnverifiedUser = () => {
+    const user = {
+      id: 'user-1',
+      email: 'novo@exemplo.com',
+      name: 'Novo',
+      role: 'student',
+      passwordHash: 'hashed-password',
+      emailVerifiedAt: null,
+    };
+    db.users.push(user);
+    return user;
+  };
+
+  it('register cria usuário já verificado, emite tokens na hora e NÃO envia código por e-mail', async () => {
     const result = await register();
 
-    expect(result.emailVerificationRequired).toBe(true);
     expect(result.user.email).toBe('novo@exemplo.com');
-    // Nenhum token emitido no cadastro: sem sessão antes da verificação.
-    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
-    expect(db.users[0].emailVerifiedAt).toBeNull();
-    expect(mailer.sendVerificationCode).toHaveBeenCalledTimes(1);
-    const [email, , code] = mailer.sendVerificationCode.mock.calls[0];
-    expect(email).toBe('novo@exemplo.com');
-    expect(code).toMatch(/^\d{6}$/);
-    // Só o hash vai para o banco — o código em claro nunca é persistido.
-    expect(db.codes[0].codeHash).toBe(hashCode(code));
-    expect(db.codes[0].codeHash).not.toContain(code);
+    expect(result.accessToken).toBe('signed-token');
+    expect(result.refreshToken).toBeDefined();
+    expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
+    expect(db.users[0].emailVerifiedAt).not.toBeNull();
+    expect(mailer.sendVerificationCode).not.toHaveBeenCalled();
+    expect(db.codes).toHaveLength(0);
   });
 
-  it('login antes de verificar retorna 403 honesto em pt-BR', async () => {
-    await register();
+  it('login funciona normalmente mesmo se uma conta legada estiver com emailVerifiedAt null', async () => {
+    seedUnverifiedUser();
 
-    await expect(
-      auth.login('novo@exemplo.com', 'senha123'),
-    ).rejects.toThrow(ForbiddenException);
-    await expect(auth.login('novo@exemplo.com', 'senha123')).rejects.toThrow(
-      /confirmar seu e-mail/,
-    );
-    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    const tokens = await auth.login('novo@exemplo.com', 'senha123');
+
+    expect(tokens.accessToken).toBe('signed-token');
+    expect(tokens.user.email).toBe('novo@exemplo.com');
+    expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
   });
 
-  it('código correto verifica o usuário e libera o login', async () => {
-    await register();
+  it('código correto verifica o usuário via resendCode + verifyEmail (compatibilidade)', async () => {
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
     const sentCode = mailer.sendVerificationCode.mock.calls[0][2];
 
     const tokens = await auth.verifyEmail('novo@exemplo.com', sentCode);
@@ -179,13 +185,11 @@ describe('AuthService - email verification (C5)', () => {
     expect(tokens.accessToken).toBe('signed-token');
     expect(db.users[0].emailVerifiedAt).not.toBeNull();
     expect(db.codes[0].consumedAt).not.toBeNull();
-    // Login passa após a verificação.
-    const after = await auth.login('novo@exemplo.com', 'senha123');
-    expect(after.accessToken).toBe('signed-token');
   });
 
   it('D1 (regressão): conta já verificada + código errado é rejeitada, sem tokens', async () => {
-    await register();
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
     // Conta legada backfillada como verificada pela migration do lote.
     db.users[0].emailVerifiedAt = new Date();
 
@@ -205,11 +209,12 @@ describe('AuthService - email verification (C5)', () => {
     await expect(
       auth.verifyEmail('novo@exemplo.com', '000000'),
     ).rejects.toThrow(/Código inválido ou expirado/);
-    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
   });
 
   it('D1: conta já verificada + código válido ainda não consumido é aceita e consome o código', async () => {
-    await register();
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
     const sentCode = mailer.sendVerificationCode.mock.calls[0][2];
     db.users[0].emailVerifiedAt = new Date();
 
@@ -220,7 +225,8 @@ describe('AuthService - email verification (C5)', () => {
   });
 
   it('código errado é rejeitado e conta tentativa; após 5 tentativas bloqueia o código', async () => {
-    await register();
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
 
     for (let i = 0; i < 5; i++) {
       await expect(
@@ -236,7 +242,8 @@ describe('AuthService - email verification (C5)', () => {
   });
 
   it('código expirado é rejeitado', async () => {
-    await register();
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
     const sentCode = mailer.sendVerificationCode.mock.calls[0][2];
     db.codes[0].expiresAt = new Date(Date.now() - 1000);
 
@@ -253,7 +260,8 @@ describe('AuthService - email verification (C5)', () => {
   });
 
   it('resend imediato respeita o cooldown de 60s', async () => {
-    await register();
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
 
     await expect(auth.resendCode('novo@exemplo.com')).rejects.toThrow(
       HttpException,
@@ -268,7 +276,8 @@ describe('AuthService - email verification (C5)', () => {
   });
 
   it('resend após o cooldown invalida o código antigo e envia um novo', async () => {
-    await register();
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
     const oldCode = mailer.sendVerificationCode.mock.calls[0][2];
     db.codes[0].createdAt = new Date(Date.now() - 61 * 1000);
 
@@ -288,8 +297,9 @@ describe('AuthService - email verification (C5)', () => {
   });
 
   it('resend respeita o limite de 5 envios por hora', async () => {
-    await register();
-    // Planta 5 códigos na última hora (o do register + 4), todos com mais de
+    seedUnverifiedUser();
+    await auth.resendCode('novo@exemplo.com');
+    // Planta mais 4 códigos na última hora (total 5), todos com mais de
     // 60 s (fora do cooldown) para alcançar o teto horário.
     for (let i = 0; i < 4; i++)
       seedCode({ createdAt: new Date(Date.now() - 61 * 1000) });

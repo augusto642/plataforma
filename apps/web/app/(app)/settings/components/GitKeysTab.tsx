@@ -12,7 +12,7 @@ function UnavailableCard({
   description: string;
 }) {
   return (
-    <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+    <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h3 className="text-base font-bold text-white font-heading flex items-center gap-2">
@@ -21,7 +21,7 @@ function UnavailableCard({
           </h3>
           <p className="text-xs text-zinc-400 mt-2 leading-relaxed max-w-2xl">{description}</p>
         </div>
-        <span className="shrink-0 bg-zinc-500/15 text-zinc-300 border border-zinc-500/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">
+        <span className="shrink-0 bg-[#121624] text-zinc-300 border border-[#1C2338] text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase">
           Ainda não disponível
         </span>
       </div>

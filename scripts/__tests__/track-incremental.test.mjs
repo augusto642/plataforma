@@ -27,7 +27,8 @@ import {
 } from '../track-incremental.mjs';
 import { loadBudget, recordUsage, reserveCall } from '../pipeline-budget.mjs';
 
-const REPO_ROOT = new URL('../..', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const GEN_AT = '2026-10-24T00:00:00.000Z';
 
 // ---------- fixtures §I8 ----------

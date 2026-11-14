@@ -50,7 +50,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <span className="block text-xs font-mono text-zinc-400 mb-1.5 font-bold">{label}</span>
-      <div className="w-full bg-[#181820] border border-[#27272A] rounded-xl px-3.5 py-2.5 text-xs text-zinc-200">
+      <div className="w-full bg-[#121624] border border-[#1C2338] rounded-xl px-3.5 py-2.5 text-xs text-zinc-200">
         {value}
       </div>
     </div>
@@ -69,7 +69,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
 
   if (isLoading) {
     return (
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6">
         <h3 className="text-base font-bold text-white font-heading mb-1">Seu perfil</h3>
         <p className="text-xs text-zinc-400">Consultando os dados reais da sua conta…</p>
       </div>
@@ -78,11 +78,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
 
   if (!user) {
     return (
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6">
         <h3 className="text-base font-bold text-white font-heading mb-1">Seu perfil</h3>
         <p className="text-xs text-zinc-400 max-w-md">
           Não foi possível identificar a sua conta nesta sessão. Entre na sua conta para ver os
-          dados reais do seu perfil — nenhum dado de exemplo é exibido aqui.
+          dados reais do seu perfil.
         </p>
       </div>
     );
@@ -121,15 +121,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
   return (
     <div className="space-y-6">
       {/* Identidade real da conta */}
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 shadow-sm">
         <h3 className="text-base font-bold text-white font-heading mb-1">Identidade da conta</h3>
         <p className="text-xs text-zinc-400 mb-5">
-          Estes são os dados reais associados à sua sessão (GET /users/me).
+          Estes são os dados cadastrados da sua conta de aluno.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#8257E5] to-[#00E5FF] p-[2px] shadow-lg shadow-[#8257E5]/20 shrink-0">
-            <div className="w-full h-full bg-[#181820] rounded-[14px] flex items-center justify-center text-xl font-mono font-black text-[#00E5FF]">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#8257E5] to-[#00E5FF] p-[2px] shadow-md shadow-[#8257E5]/20 shrink-0">
+            <div className="w-full h-full bg-[#121624] rounded-[14px] flex items-center justify-center text-xl font-mono font-black text-[#00E5FF]">
               {initialsOf(user.name)}
             </div>
           </div>
@@ -140,7 +140,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
               <p className="text-xs font-mono text-zinc-400">@{user.nickname}</p>
             )}
             <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-              <span className="bg-[#8257E5]/15 text-[#996DFF] border border-[#8257E5]/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">
+              <span className="bg-[#8257E5]/15 text-[#A379FF] border border-[#8257E5]/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">
                 {ROLE_LABELS[user.role] ?? user.role}
               </span>
               {user.plan && (
@@ -153,8 +153,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
         </div>
       </div>
 
-      {/* Dados da conta (somente leitura — sem endpoint de edição) */}
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 space-y-4">
+      {/* Dados da conta */}
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 space-y-4 shadow-sm">
         <h3 className="text-base font-bold text-white font-heading">Dados da conta</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -179,34 +179,31 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
           />
         </div>
 
-        <div className="bg-[#181820] border border-[#27272A] rounded-xl p-4 text-xs text-zinc-300">
-          <span className="font-bold text-white">Edição de perfil ainda não disponível.</span>{' '}
-          A API atual não oferece atualização de nome, foto, bio ou links sociais, por isso esses
-          dados são exibidos apenas como leitura — nenhum formulário nesta tela simula uma
-          alteração que não aconteceria no servidor.
+        <div className="bg-[#121624] border border-[#1C2338] rounded-xl p-4 text-xs text-zinc-300">
+          <span className="font-bold text-white">Customização de Foto, Bio e Capa:</span>{' '}
+          Você pode personalizar sua foto de perfil, links sociais e capa de fundo acessando a aba{' '}
+          <strong className="text-[#A379FF]">Perfil &amp; Portfólio</strong> no menu superior.
         </div>
       </div>
 
-      {/* Visibilidade no Portal de Talentos — único endpoint real de edição */}
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 space-y-4">
+      {/* Visibilidade no Portal de Talentos */}
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 space-y-4 shadow-sm">
         <h3 className="text-base font-bold text-white font-heading">
           Visibilidade no Portal de Talentos
         </h3>
         <p className="text-xs text-zinc-400 leading-relaxed max-w-2xl">
-          Controla se empresas parceiras podem encontrar o seu perfil no Portal de Talentos. Esta
-          é uma preferência real da sua conta, salva no servidor
-          (PATCH /users/me/talent-visibility).
+          Controla se empresas parceiras e recrutadores tech podem encontrar o seu perfil de código no Portal de Talentos.
         </p>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#181820] border border-[#27272A] rounded-xl p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#121624] border border-[#1C2338] rounded-xl p-4">
           <div>
             <p className="text-xs font-bold text-white">
               {talentVisible ? 'Visível para empresas' : 'Oculto para empresas'}
             </p>
             <p className="text-[11px] text-zinc-400 mt-0.5">
               {talentVisible
-                ? 'Seu perfil pode aparecer nas buscas do Portal de Talentos.'
-                : 'Seu perfil não aparece nas buscas do Portal de Talentos.'}
+                ? 'Seu perfil e repositórios podem aparecer nas buscas de vagas técnicas.'
+                : 'Seu perfil permanece privado e oculto das buscas de recrutadores.'}
             </p>
           </div>
 
@@ -229,7 +226,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
           </button>
         </div>
 
-        {isSaving && <p className="text-[11px] font-mono text-zinc-500">Salvando no servidor…</p>}
+        {isSaving && <p className="text-[11px] font-mono text-zinc-500">Salvando preferências…</p>}
       </div>
     </div>
   );

@@ -24,6 +24,12 @@ import { apiFetch, API_BASE } from '../../lib/apiClient';
 import { nextActivity, passedTestSummary } from './game-layout';
 // Sprint 5 — fundo do funil: primeira atividade concluída (B08 completo)
 import { track } from '../../lib/analytics';
+import {
+  DEFAULT_WORKSPACE_PREFERENCES,
+  readWorkspacePreferences,
+  saveWorkspacePreferences,
+  WorkspaceFontSize,
+} from '../../lib/workspacePrefs';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NEXUS CODE';
 const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_BRAND_LOGO_URL;
@@ -75,6 +81,8 @@ interface Submission {
   maxScore: number | null;
   durationMs: number | null;
   errorMessage?: string;
+  stderr?: string;
+  stdout?: string;
   aiFeedback?: string;
   aiHints?: string;
   createdAt?: string;
@@ -175,7 +183,57 @@ export default function HomePage() {
   // (desafio-jogo.html), visível por padrão; o botão "Tutora de IA" do
   // topo abre/fecha a coluna (e o ✕ do painel também fecha).
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [mobileTab, setMobileTab] = useState<'instructions' | 'editor' | 'terminal' | 'tutor'>('editor');
+  const [editorFontSize, setEditorFontSize] = useState<WorkspaceFontSize>(
+    DEFAULT_WORKSPACE_PREFERENCES.fontSize,
+  );
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(
+    DEFAULT_WORKSPACE_PREFERENCES.focusMode,
+  );
   const editorRef = useRef<any>(null);
+
+  useEffect(() => {
+    const saved = readWorkspacePreferences();
+    setEditorFontSize(saved.fontSize);
+    setIsFocusMode(saved.focusMode);
+    setIsChatOpen(saved.tutorAutoOpen);
+  }, []);
+
+  const handleToggleChat = useCallback(() => {
+    setIsChatOpen((prev) => {
+      const next = !prev;
+      saveWorkspacePreferences({
+        fontSize: editorFontSize,
+        focusMode: isFocusMode,
+        tutorAutoOpen: next,
+      });
+      return next;
+    });
+  }, [editorFontSize, isFocusMode]);
+
+  const handleChangeFontSize = useCallback(
+    (nextSize: WorkspaceFontSize) => {
+      setEditorFontSize(nextSize);
+      saveWorkspacePreferences({
+        fontSize: nextSize,
+        focusMode: isFocusMode,
+        tutorAutoOpen: isChatOpen,
+      });
+    },
+    [isChatOpen, isFocusMode],
+  );
+
+  const handleToggleFocusMode = useCallback(() => {
+    setIsFocusMode((prev) => {
+      const next = !prev;
+      saveWorkspacePreferences({
+        fontSize: editorFontSize,
+        focusMode: next,
+        tutorAutoOpen: isChatOpen,
+      });
+      return next;
+    });
+  }, [editorFontSize, isChatOpen]);
   const submissionStreamAbortRef = useRef<AbortController | null>(null);
   const courseFetchAbortRef = useRef<AbortController | null>(null);
 
@@ -930,7 +988,23 @@ export default function HomePage() {
           )}
 
           <button
-            onClick={() => setIsChatOpen(!isChatOpen)}
+            onClick={handleToggleFocusMode}
+            style={{
+              padding: '6px 12px',
+              background: isFocusMode ? 'rgba(130, 87, 229, 0.2)' : '#27272A',
+              border: `1px solid ${isFocusMode ? '#8257E5' : '#3F3F46'}`,
+              borderRadius: 6,
+              color: isFocusMode ? '#C4B5FD' : '#E4E4E7',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {isFocusMode ? '📐 Sair do Modo Foco' : '🎯 Modo Foco'}
+          </button>
+
+          <button
+            onClick={handleToggleChat}
             style={{
               padding: '6px 14px',
               background: isChatOpen ? '#00E5FF' : 'rgba(0, 229, 255, 0.15)',
@@ -961,6 +1035,7 @@ export default function HomePage() {
       {/* Main Grid */}
       <div className="flex-1 flex relative overflow-y-auto lg:overflow-hidden">
         {/* Sidebar: Courses & Activities */}
+        {!isFocusMode && (
         <aside style={{ width: 280, borderRight: '1px solid #27272A', background: '#0D0E15', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 16, borderBottom: '1px solid #27272A' }}>
             <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#71717A', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Cursos Disponíveis</h3>
@@ -1097,6 +1172,7 @@ export default function HomePage() {
             </div>
           )}
         </aside>
+        )}
 
         {/* Workspace Center */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -1112,13 +1188,63 @@ export default function HomePage() {
                 isInstructor={isInstructor}
               />
 
+              {/* Seletor de Abas no Mobile (< lg) — P2 / UX */}
+              <div className="lg:hidden flex items-center justify-around bg-[#0C0F17] border-b border-[#1C2338] px-2 py-1.5 text-xs font-mono shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('instructions')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                    mobileTab === 'instructions'
+                      ? 'bg-[#121624] text-[#00E5FF] border border-[#1C2338]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  📖 Instruções
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('editor')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                    mobileTab === 'editor'
+                      ? 'bg-[#121624] text-[#00E5FF] border border-[#1C2338]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  💻 Editor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab('terminal')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                    mobileTab === 'terminal'
+                      ? 'bg-[#121624] text-[#00E5FF] border border-[#1C2338]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  ▶ Terminal
+                </button>
+                {isChatOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab('tutor')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      mobileTab === 'tutor'
+                        ? 'bg-[#121624] text-[#8257E5] border border-[#1C2338]'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    ✨ Lumi
+                  </button>
+                )}
+              </div>
+
               {/* Central 219 lote 4 (D4) — tela de jogo em 3 colunas do
                   protótipo desafio-jogo.html: enunciado + casos de teste
                   | editor + terminal + barra de ações | tutora. No
                   mobile as colunas empilham (1 coluna). */}
               <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
                 {/* Coluna 1 — enunciado + casos de teste. */}
-                <div className="lg:col-span-3 lg:border-r border-[#27272A] flex flex-col lg:overflow-y-auto bg-[#12131D] min-w-0">
+                <div className={`${mobileTab === 'instructions' ? 'flex' : 'hidden'} lg:flex lg:col-span-3 lg:border-r border-[#27272A] flex-col lg:overflow-y-auto bg-[#12131D] min-w-0`}>
                   {/* Instructions & Socratic Prompting */}
                   <InstructionsPanel
                     title={selectedActivity.title}
@@ -1336,8 +1462,8 @@ export default function HomePage() {
                 </div>
 
                 {/* Coluna 2 — editor + terminal + barra de ações. */}
-                <div className={`${isChatOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex flex-col min-h-0 min-w-0 bg-[#0A0B10]`}>
-                  <div className="h-[420px] lg:h-auto lg:flex-1 lg:min-h-0">
+                <div className={`${mobileTab === 'editor' || mobileTab === 'terminal' ? 'flex' : 'hidden'} lg:flex ${isChatOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex-col min-h-0 min-w-0 bg-[#0A0B10]`}>
+                  <div className={`${mobileTab === 'terminal' ? 'hidden' : 'block'} lg:block h-[420px] lg:h-auto lg:flex-1 lg:min-h-0`}>
                     <IdeEditorPane
                       language={selectedActivity.language}
                       code={code}
@@ -1345,11 +1471,15 @@ export default function HomePage() {
                       onRun={handleRunCode}
                       isSubmitting={isSubmitting}
                       onFormat={handleFormatCode}
+                      fontSize={editorFontSize}
+                      onChangeFontSize={handleChangeFontSize}
+                      isFocusMode={isFocusMode}
+                      onToggleFocusMode={handleToggleFocusMode}
                     />
                   </div>
 
                   {/* Terminal (Console de Execução) — no protótipo, abaixo do editor. */}
-                  <div className="h-[180px] shrink-0">
+                  <div className={`${mobileTab === 'editor' ? 'hidden' : 'block'} lg:block h-[320px] lg:h-[180px] shrink-0`}>
                     <TerminalConsole
                       logs={isSubmitting ? ['Executando testes no Sandbox isolado...'] : []}
                       stdout={submission ? (submission.status === 'passed' ? 'Todos os testes foram validados com sucesso no Sandbox Piston.' : undefined) : undefined}
@@ -1402,12 +1532,28 @@ export default function HomePage() {
 
                 {/* Coluna 3 — tutora (protótipo: coluna da direita). */}
                 {isChatOpen && (
-                  <div className="lg:col-span-3 h-[560px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#27272A] min-h-0 min-w-0">
+                  <div className={`${mobileTab === 'tutor' ? 'block' : 'hidden'} lg:block lg:col-span-3 h-[560px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#27272A] min-h-0 min-w-0`}>
                     <AITutorPanel
                       variant="inline"
                       activityId={selectedActivity.id}
                       activityTitle={selectedActivity.title}
                       code={code}
+                      testFailure={
+                        submission && submission.status !== 'passed'
+                          ? [
+                              submission.errorMessage ? `Erro: ${submission.errorMessage}` : null,
+                              submission.stderr ? `Stderr:\n${submission.stderr}` : null,
+                              Array.isArray(submission.testResults)
+                                ? submission.testResults
+                                    .filter((t) => !t.passed)
+                                    .map((t) => `Falha no teste "${t.name}": ${t.errorMessage || 'asserção incorreta'}`)
+                                    .join('\n')
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join('\n\n')
+                          : undefined
+                      }
                       token={token}
                       onClose={() => setIsChatOpen(false)}
                     />
@@ -1416,8 +1562,41 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#71717A' }}>
-              Selecione uma atividade para começar a praticar.
+            <div className="flex-1 flex items-center justify-center p-6 bg-[#070A13]">
+              <div className="max-w-lg w-full rounded-2xl p-6 sm:p-8 bg-[#0B1021] border border-[#16203A] text-center shadow-2xl">
+                <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-[#8257E5]/15 border border-[#8257E5]/40 flex items-center justify-center text-2xl">
+                  💻
+                </div>
+                <h2 className="text-lg sm:text-xl font-bold text-white mb-2">
+                  Workspace pronto para praticar
+                </h2>
+                <p className="text-sm text-[#9499AD] mb-6 leading-relaxed">
+                  Escolha um curso e exercício na barra lateral{isFocusMode ? ' (clique em Sair do Modo Foco)' : ''}, ou acesse o catálogo e desafios diários para carregar seu próximo código.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {isFocusMode && (
+                    <button
+                      type="button"
+                      onClick={handleToggleFocusMode}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#8257E5] text-white border-0 cursor-pointer hover:opacity-95"
+                    >
+                      Mostrar lista de cursos
+                    </button>
+                  )}
+                  <a
+                    href="/desafios"
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#121629] border border-[#232B47] text-[#00E5FF] no-underline hover:border-[#00E5FF]/60"
+                  >
+                    ⚡ Ver Desafios
+                  </a>
+                  <a
+                    href="/courses"
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#121629] border border-[#232B47] text-[#E2E8F0] no-underline hover:border-[#8257E5]/60"
+                  >
+                    📚 Explorar Cursos
+                  </a>
+                </div>
+              </div>
             </div>
           )}
         </main>

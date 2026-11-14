@@ -28,10 +28,13 @@ export function CourseFilters({
 }: CourseFiltersProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcut '/' to focus search
+  // Keyboard shortcuts '/' and 'Cmd+K' / 'Ctrl+K' to focus search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+      const isSlash = e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA';
+
+      if (isCmdK || isSlash) {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
@@ -41,43 +44,48 @@ export function CourseFilters({
   }, []);
 
   return (
-    <div className="my-7 space-y-4" id="catalogo">
+    <div className="my-6 space-y-4" id="catalogo">
       <div className="relative">
-        <span className="absolute left-3 top-2.5 text-dark-on-surface-variant select-none">
-          <MaterialIcon name="search" className="text-[16px]" />
+        <span className="absolute left-3.5 top-3 text-[#64748B] select-none pointer-events-none">
+          <MaterialIcon name="search" className="text-[18px]" />
         </span>
         <input
           ref={searchInputRef}
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Buscar tecnologia..."
-          className="w-full bg-dark-surface-container border border-border-subtle rounded py-2 pl-8 pr-16 text-xs text-white placeholder:text-dark-on-surface-variant/60 outline-none focus:border-primary transition-colors"
+          placeholder="Buscar curso, linguagem ou framework..."
+          className="w-full bg-[#111420] border border-[#1C2133] hover:border-[#8257E5]/40 rounded-xl py-3 pl-10 pr-24 text-xs font-mono text-white placeholder:text-[#64748B] outline-none focus:border-[#8257E5] focus:ring-1 focus:ring-[#8257E5]/50 transition-all shadow-inner"
         />
-        <div className="absolute right-3.5 top-2.5 flex items-center gap-1 pointer-events-none">
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold text-zinc-500 bg-[#181820] border border-[#27272A] rounded">
-            /
+        <div className="absolute right-3.5 top-2.5 flex items-center gap-1.5 pointer-events-none">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-mono font-bold text-[#94A3B8] bg-[#07080C] border border-[#1C2133] rounded-md shadow-sm">
+            <span>⌘K</span>
+            <span className="text-[#64748B]">ou</span>
+            <span>/</span>
           </kbd>
         </div>
       </div>
 
       {chips.length > 1 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-label">
-          {chips.map((chip) => (
-            <button
-              key={chip}
-              type="button"
-              onClick={() => onChipChange(chip)}
-              aria-pressed={selectedChip === chip}
-              className={
-                selectedChip === chip
-                  ? 'px-3 py-1.5 rounded bg-primary text-white font-bold flex-shrink-0'
-                  : 'px-3 py-1.5 rounded bg-dark-surface-container border border-border-subtle text-dark-on-surface flex-shrink-0'
-              }
-            >
-              {chip}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono scrollbar-none">
+          {chips.map((chip) => {
+            const isSelected = selectedChip === chip;
+            return (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => onChipChange(chip)}
+                aria-pressed={isSelected}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-medium transition-all flex-shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#8257E5] text-white font-bold shadow-[0_0_12px_rgba(130,87,229,0.3)]'
+                    : 'bg-[#111420] border border-[#1C2133] hover:border-[#8257E5]/40 text-[#94A3B8] hover:text-white'
+                }`}
+              >
+                {chip}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1,7 +1,10 @@
 import { Global, Module } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { CacheService } from '../cache/cache.service';
 import { ConfigError } from '../config/secrets.validation';
+import { TRACK_INVESTIGATION_QUEUE } from '../dynamic-track/dynamic-track.service';
 import { AuthModule } from './auth.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { GitHubStrategy } from './strategies/github.strategy';
@@ -50,9 +53,21 @@ describe('AuthModule — OAuth condicional no boot', () => {
     })
     class TestPrismaModule {}
 
+    const noopQueue = { add: jest.fn(), close: jest.fn() };
+    const noopCache = { get: jest.fn(), set: jest.fn(), del: jest.fn(), increment: jest.fn() };
+
     return Test.createTestingModule({
       imports: [TestConfigModule, TestPrismaModule, AuthModule],
-    }).compile();
+    })
+      .overrideProvider(CacheService)
+      .useValue(noopCache)
+      .overrideProvider(getQueueToken(TRACK_INVESTIGATION_QUEUE))
+      .useValue(noopQueue)
+      .overrideProvider(getQueueToken('research'))
+      .useValue(noopQueue)
+      .overrideProvider(getQueueToken('track-generation'))
+      .useValue(noopQueue)
+      .compile();
   }
 
   it('sem vars OAuth: sobe e as strategies resolvem null (desabilitadas)', async () => {

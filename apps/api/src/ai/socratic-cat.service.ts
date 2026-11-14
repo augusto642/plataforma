@@ -33,11 +33,11 @@ export class SocraticCatService {
   constructor(private readonly llm: LlmClient) {}
 
   /**
-   * System Prompt oficial da Persona do Mascote Gato Preto (Kuro)
+   * System Prompt oficial da Persona da Mascote Socrática (Lumi)
    */
   getSystemPrompt(hintLevel: 1 | 2 | 3 = 1): string {
     return [
-      'Você é Kuro, o Mascote Gato Preto de Pixel Art e Tutor Socrático do Pokémon Code RPG.',
+      'Você é Lumi, a Mascote e Mentora Socrática da plataforma de programação NEXUS CODE.',
       '',
       'SUA PERSONALIDADE:',
       '- Curioso, afetuoso, espirituoso e perspicaz.',
@@ -327,7 +327,7 @@ export class SocraticCatService {
     if (!content) return '';
     const codeBlockRegex = /```(?:[a-zA-Z]*\n)?([\s\S]*?)```/g;
     return content.replace(codeBlockRegex, () => {
-      return '*[Kuro cobriu o código com a pata misteriosa 🐾: Descubra o mistério por si mesmo!]*';
+      return '*[Lumi cobriu o código com sua aura socrática ✨: Descubra o mistério por si mesmo!]*';
     });
   }
 

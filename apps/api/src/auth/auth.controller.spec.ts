@@ -17,6 +17,7 @@ describe('AuthController (cookie-only auth)', () => {
   let auth: {
     register: jest.Mock;
     login: jest.Mock;
+    checkEmailAvailability: jest.Mock;
     refresh: jest.Mock;
     logout: jest.Mock;
     verifyEmail: jest.Mock;
@@ -33,10 +34,9 @@ describe('AuthController (cookie-only auth)', () => {
 
   beforeEach(() => {
     auth = {
-      register: jest
-        .fn()
-        .mockResolvedValue({ user: tokens.user, emailVerificationRequired: true }),
+      register: jest.fn().mockResolvedValue(tokens),
       login: jest.fn().mockResolvedValue(tokens),
+      checkEmailAvailability: jest.fn().mockResolvedValue({ available: true }),
       refresh: jest.fn().mockResolvedValue(tokens),
       logout: jest.fn().mockResolvedValue(undefined),
       verifyEmail: jest.fn().mockResolvedValue(tokens),
@@ -77,17 +77,24 @@ describe('AuthController (cookie-only auth)', () => {
   });
 
   /**
-   * C5: o cadastro NÃO cria sessão — nenhum cookie é emitido e o corpo traz
-   * emailVerificationRequired. A sessão só nasce em POST /auth/verify-email.
+   * Cadastro com sessão imediata: nenhum código por e-mail é exigido;
+   * access/refresh cookies httpOnly são gravados e apenas { user } volta no body.
    */
-  it('register returns NO cookies and flags emailVerificationRequired', async () => {
+  it('register sets httpOnly cookies and returns ONLY the user profile in the body', async () => {
     const body = await controller.register(
       { email: 'a@b.com', password: 'pass', name: 'A' } as any,
+      res as any,
     );
 
-    expect(body).toEqual({ user: tokens.user, emailVerificationRequired: true });
-    expect(res.cookie).not.toHaveBeenCalled();
+    expect(body).toEqual({ user: tokens.user });
     expect(JSON.stringify(body)).not.toContain(tokens.accessToken);
+    expect(JSON.stringify(body)).not.toContain(tokens.refreshToken);
+
+    const cookies = cookiesSet();
+    expect(cookies[ACCESS_TOKEN_COOKIE].value).toBe(tokens.accessToken);
+    expect(cookies[REFRESH_TOKEN_COOKIE].value).toBe(tokens.refreshToken);
+    expect(cookies[ACCESS_TOKEN_COOKIE].options.httpOnly).toBe(true);
+    expect(cookies[REFRESH_TOKEN_COOKIE].options.httpOnly).toBe(true);
   });
 
   it('verify-email sets httpOnly cookies and returns ONLY the user profile', async () => {
@@ -142,5 +149,66 @@ describe('AuthController (cookie-only auth)', () => {
     await controller.logout(req as any, res as any);
     expect(auth.logout).not.toHaveBeenCalled();
     expect(res.clearCookie).toHaveBeenCalledTimes(2);
+  });
+
+  it('getRegistrationChallenge delegates to RegistrationLevelService with parsed query params', () => {
+    const registrationLevel = {
+      getChallenge: jest.fn().mockReturnValue({ id: 'reg-python-v1', language: 'python' }),
+      evaluateExplanation: jest.fn(),
+    };
+    const ctrl = new AuthController(
+      auth as unknown as AuthService,
+      { get: jest.fn() } as any,
+      registrationLevel as any,
+    );
+
+    const out = ctrl.getRegistrationChallenge('true', 'python');
+    expect(registrationLevel.getChallenge).toHaveBeenCalledWith({
+      programmed: true,
+      language: 'python',
+    });
+    expect(out).toEqual({ id: 'reg-python-v1', language: 'python' });
+
+    ctrl.getRegistrationChallenge('false', 'python');
+    expect(registrationLevel.getChallenge).toHaveBeenCalledWith({
+      programmed: false,
+      language: 'python',
+    });
+  });
+
+  it('evaluateLevel delegates to RegistrationLevelService.evaluateExplanation', async () => {
+    const evalResult = {
+      detectedLevel: 'junior',
+      levelLabel: 'Júnior',
+      confidence: 'medium',
+      feedback: 'Bom raciocínio!',
+      detectedConcepts: ['Iteração'],
+      source: 'heuristic',
+    };
+    const registrationLevel = {
+      getChallenge: jest.fn(),
+      evaluateExplanation: jest.fn().mockResolvedValue(evalResult),
+    };
+    const ctrl = new AuthController(
+      auth as unknown as AuthService,
+      { get: jest.fn() } as any,
+      registrationLevel as any,
+    );
+
+    const payload = {
+      hasProgrammedBefore: true,
+      language: 'python',
+      explanation: 'Percorre uma lista e soma os itens.',
+    };
+    const out = await ctrl.evaluateLevel(payload as any);
+    expect(registrationLevel.evaluateExplanation).toHaveBeenCalledWith(payload);
+    expect(out).toEqual(evalResult);
+  });
+
+  it('checkEmail delegates to AuthService.checkEmailAvailability', async () => {
+    auth.checkEmailAvailability.mockResolvedValue({ available: false });
+    const out = await controller.checkEmail({ email: 'ja@existe.com' });
+    expect(auth.checkEmailAvailability).toHaveBeenCalledWith('ja@existe.com');
+    expect(out).toEqual({ available: false });
   });
 });

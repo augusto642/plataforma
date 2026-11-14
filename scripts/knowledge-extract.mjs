@@ -30,6 +30,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateKnowledge } from './validate-knowledge.mjs';
 import { createDriveClient, parseServiceAccountCredentials } from './drive-client.mjs';
 
@@ -170,8 +171,26 @@ export async function extractOne(entry, { download, transcribe, summarize, lesso
  * este script). A transcrição transitória vai só para o stdin do processo
  * filho — nunca para arquivo versionado.
  */
+let resolvedPythonBin;
+export function resolvePythonBin() {
+  if (resolvedPythonBin) return resolvedPythonBin;
+  for (const candidate of ['python3', 'python']) {
+    try {
+      const out = execFileSync(candidate, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] });
+      if (/Python 3\./.test(out || '')) {
+        resolvedPythonBin = candidate;
+        return resolvedPythonBin;
+      }
+    } catch {
+      // ignora candidato indisponível ou stub (ex.: WindowsApps python3.exe)
+    }
+  }
+  resolvedPythonBin = 'python3';
+  return resolvedPythonBin;
+}
+
 export function summarizeWithPipeline(asrText, entry, { pipelineMain } = {}) {
-  const main = pipelineMain || resolve(new URL('../apps/api/dist/knowledge/pipeline/main.js', import.meta.url).pathname);
+  const main = pipelineMain || resolve(fileURLToPath(new URL('../apps/api/dist/knowledge/pipeline/main.js', import.meta.url)));
   return new Promise((resolvePromise, reject) => {
     const child = execFile('node', [main], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) { reject(new Error(`pipeline de resumo falhou: ${stderr || err.message}`)); return; }
@@ -193,7 +212,7 @@ export function summarizeWithPipeline(asrText, entry, { pipelineMain } = {}) {
  * (validate-knowledge reprova qualquer tag fora dele).
  */
 export function loadTopicTags(spinePath) {
-  const p = spinePath || resolve(new URL('../content/concept-spine.json', import.meta.url).pathname);
+  const p = spinePath || resolve(fileURLToPath(new URL('../content/concept-spine.json', import.meta.url)));
   const spine = JSON.parse(readFileSync(p, 'utf8'));
   const tags = (spine.modules || []).map((m) => m.tag).filter(Boolean);
   if (tags.length === 0) throw new Error(`espinha de tópicos vazia ou ilegível: ${p}`);
@@ -222,9 +241,9 @@ function stripJsonFences(text) {
   return m ? m[1].trim() : t;
 }
 
-export function summarizeWithGeminiHelper(asrText, entry, { helperPath, model = 'gemini-3.5-flash-lite', maxTokens = 1024, topicTags, pythonBin = 'python3' } = {}) {
+export function summarizeWithGeminiHelper(asrText, entry, { helperPath, model = 'gemini-3.5-flash-lite', maxTokens = 1024, topicTags, pythonBin = resolvePythonBin() } = {}) {
   const tags = topicTags || loadTopicTags();
-  const helper = helperPath || process.env.GEMINI_HELPER || resolve(new URL('../../custom-connectors/custom.gemini/bin/gemini.py', import.meta.url).pathname);
+  const helper = helperPath || process.env.GEMINI_HELPER || resolve(fileURLToPath(new URL('../../custom-connectors/custom.gemini/bin/gemini.py', import.meta.url)));
   const prompt = buildSummaryPrompt(asrText, entry, tags);
   return new Promise((resolvePromise, reject) => {
     execFile(pythonBin, [helper, 'generate', '--prompt', prompt, '--model', model, '--max-tokens', String(maxTokens)], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
@@ -252,7 +271,7 @@ export function summarizeWithGeminiHelper(asrText, entry, { helperPath, model = 
   });
 }
 
-export function checkAsrAvailable(pythonBin = 'python3') {
+export function checkAsrAvailable(pythonBin = resolvePythonBin()) {
   try {
     execFileSync(pythonBin, ['-c', 'import faster_whisper'], { stdio: 'ignore', timeout: 30000 });
     return { available: true, engine: 'faster-whisper' };
@@ -267,8 +286,8 @@ export function checkAsrAvailable(pythonBin = 'python3') {
  * (o chamador mede RTF = transcribeSeconds / durationSeconds).
  * O binário do venv é o caminho PEP 668: nunca --break-system-packages.
  */
-export function transcribeWithFasterWhisper(videoPath, { pythonBin = 'python3', model = 'small' } = {}) {
-  const script = resolve(new URL('./transcribe.py', import.meta.url).pathname);
+export function transcribeWithFasterWhisper(videoPath, { pythonBin = resolvePythonBin(), model = 'small' } = {}) {
+  const script = resolve(fileURLToPath(new URL('./transcribe.py', import.meta.url)));
   return new Promise((resolvePromise, reject) => {
     const started = Date.now();
     execFile(pythonBin, [script, '--video', videoPath, '--model', model], { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
@@ -281,7 +300,7 @@ export function transcribeWithFasterWhisper(videoPath, { pythonBin = 'python3', 
   });
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
@@ -298,7 +317,7 @@ if (isMain) {
     process.exit(0);
   }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
-  const repoRoot = resolve(new URL('..', import.meta.url).pathname);
+  const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
   const lessonsDir = join(repoRoot, 'content/knowledge/lessons');
   const registryPath = join(repoRoot, 'content/knowledge/extraction-registry.json');
   try {
@@ -316,7 +335,7 @@ if (isMain) {
     }
     const credentials = parseServiceAccountCredentials(process.env.GOOGLE_DRIVE_CREDENTIALS);
     const drive = createDriveClient(credentials);
-    const pythonBin = process.env.ASR_PYTHON || get('--asr-python') || 'python3';
+    const pythonBin = process.env.ASR_PYTHON || get('--asr-python') || resolvePythonBin();
     const model = get('--model') || 'small';
     const asr = checkAsrAvailable(pythonBin);
     if (!asr.available) throw new Error(`BLOQUEADOR Q4: ${asr.reason}`);

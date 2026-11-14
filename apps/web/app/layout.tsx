@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 
@@ -21,6 +21,13 @@ const spaceGrotesk = Space_Grotesk({
   display: 'swap',
 });
 
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-brand',
+  display: 'swap',
+});
+
 // B33 (Sprint 10) — pacote SEO: antes o metadata era só title +
 // description do posicionamento antigo ("Engenharia de Elite",
 // "correção em Git nativo"), sem OpenGraph/Twitter/canonical, e o
@@ -38,7 +45,6 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   // Fase 5 premium (§6.2) — PWA: manifest + cor do tema (roxo Nexus).
   manifest: '/manifest.webmanifest',
-  themeColor: '#8257E5',
   alternates: {
     canonical: '/',
   },
@@ -70,6 +76,10 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: '#8257E5',
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -81,7 +91,7 @@ export default function RootLayout({
   // sem nenhum provider — a allowlist manual de rotas públicas do
   // AuthContext (PUBLIC_PATHS) foi aposentada junto.
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}>
+    <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} ${plusJakartaSans.variable}`}>
       <body className="bg-[#0D0E15] text-[#F4F4F5] antialiased">
         <ServiceWorkerRegister />
         {children}

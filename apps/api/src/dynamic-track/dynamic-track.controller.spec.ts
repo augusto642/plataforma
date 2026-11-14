@@ -4,6 +4,7 @@ function buildController() {
   const service = {
     getMyInvestigation: jest.fn(),
     startForUser: jest.fn(),
+    refreshForUser: jest.fn(),
     markSeen: jest.fn(),
     listInvestigationsAdmin: jest.fn(),
     reenqueueAdmin: jest.fn(),
@@ -43,6 +44,22 @@ describe('DynamicTrackController', () => {
     service.markSeen.mockResolvedValue({ status: 'ready' });
     const out = await controller.markSeen(user);
     expect(out).toEqual({ investigation: { status: 'ready' } });
+  });
+
+  it('POST /me/refresh delega ao service com objetivos e tecnologia', async () => {
+    const { controller, service } = buildController();
+    service.refreshForUser.mockResolvedValue({ status: 'ready', suggestedTrack: 'ai' });
+    const out = await controller.refreshMine(user, {
+      careerGoals: ['ai', 'data_science'],
+      primaryTechnology: 'python',
+    });
+    expect(service.refreshForUser).toHaveBeenCalledWith('user-1', {
+      careerGoals: ['ai', 'data_science'],
+      primaryTechnology: 'python',
+    });
+    expect(out).toEqual({
+      investigation: { status: 'ready', suggestedTrack: 'ai' },
+    });
   });
 
   it('GET /admin/investigations lista para o admin', async () => {

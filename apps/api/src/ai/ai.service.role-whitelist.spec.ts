@@ -88,7 +88,7 @@ describe('AiService — A1 role whitelist no serviço', () => {
       const sent = mockLlmClient.complete.mock.calls[0][0].messages;
       // [0] é o prompt do sistema do SERVIDOR — nunca o conteúdo do aluno.
       expect(sent[0].role).toBe('system');
-      expect(sent[0].content).toContain('Tutor de IA socrático');
+      expect(sent[0].content).toContain('Tutora Lumi');
       expect(sent[0].content).not.toContain(injected);
       // Nenhuma outra mensagem tem role system; a injetada virou user.
       const userRoles = sent.slice(1).map((m: any) => m.role);
@@ -122,7 +122,7 @@ describe('AiService — A1 role whitelist no serviço', () => {
       expect(mockLlmClient.stream).toHaveBeenCalledTimes(1);
       const sent = mockLlmClient.stream.mock.calls[0][0].messages;
       expect(sent[0].role).toBe('system');
-      expect(sent[0].content).toContain('Tutor de IA socrático');
+      expect(sent[0].content).toContain('Tutora Lumi');
       expect(sent.slice(1).map((m: any) => m.role)).not.toContain('system');
       expect(sent[1].role).toBe('user');
       expect(chunks.join('')).toContain('chunk');

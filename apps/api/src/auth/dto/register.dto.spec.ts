@@ -80,4 +80,112 @@ describe('RegisterDto (self-service roles — B1 regression)', () => {
       );
     });
   });
+
+  describe('novos campos de diagnóstico aberto, objetivo e tecnologia', () => {
+    function dtoExtra(extra: Record<string, unknown>) {
+      return Object.assign(new RegisterDto(), { ...base, ...extra });
+    }
+
+    it('aceita todos os novos campos opcionais dentro dos limites', async () => {
+      const errors = await validate(
+        dtoExtra({
+          hasProgrammedBefore: true,
+          priorLanguage: 'typescript',
+          challengeId: 'reg-typescript-v1',
+          challengeExplanation: 'Usa discriminated union com campo ok.',
+          detectedLevel: 'mid',
+          experienceLevel: 'beginner',
+          primaryTechnology: 'Next.js',
+          careerGoal: 'fullstack',
+        }),
+      );
+      expect(errors).toHaveLength(0);
+    });
+
+    it('aceita todos os objetivos ampliados em careerGoal e careerGoals', async () => {
+      const goals = [
+        'frontend',
+        'backend',
+        'ai',
+        'fullstack',
+        'architect',
+        'devops',
+        'data_science',
+        'data_engineering',
+        'design',
+        'freelancer',
+        'mobile',
+        'security',
+        'qa',
+        'global',
+        'lead',
+        'startup',
+        'hackathons',
+        'mlops',
+        'platform_engineering',
+        'cloud_architect',
+        'gamedev',
+        'blockchain',
+        'embedded_iot',
+        'automation_rpa',
+        'product_manager',
+      ];
+      for (const careerGoal of goals) {
+        expect(await validate(dtoExtra({ careerGoal }))).toHaveLength(0);
+      }
+      expect(
+        await validate(
+          dtoExtra({ careerGoals: ['mlops', 'cloud_architect', 'gamedev'] }),
+        ),
+      ).toHaveLength(0);
+      expect(await validate(dtoExtra({ careerGoals: goals }))).toHaveLength(0);
+
+      const invalid = await validate(dtoExtra({ careerGoal: 'invalido' }));
+      expect(invalid.some((e) => e.property === 'careerGoal')).toBe(true);
+
+      const emptyGoals = await validate(dtoExtra({ careerGoals: [] }));
+      expect(emptyGoals.some((e) => e.property === 'careerGoals')).toBe(true);
+
+      const overMaxGoals = await validate(
+        dtoExtra({ careerGoals: [...goals, 'frontend'] }),
+      );
+      expect(overMaxGoals.some((e) => e.property === 'careerGoals')).toBe(true);
+
+      const invalidItem = await validate(
+        dtoExtra({ careerGoals: ['mlops', 'invalido'] }),
+      );
+      expect(invalidItem.some((e) => e.property === 'careerGoals')).toBe(true);
+
+      const notArray = await validate(dtoExtra({ careerGoals: 'mlops' }));
+      expect(notArray.some((e) => e.property === 'careerGoals')).toBe(true);
+    });
+
+    it('rejeita strings acima do MaxLength nos novos campos', async () => {
+      expect(
+        (await validate(dtoExtra({ priorLanguage: 'x'.repeat(51) }))).some(
+          (e) => e.property === 'priorLanguage',
+        ),
+      ).toBe(true);
+      expect(
+        (await validate(dtoExtra({ challengeId: 'x'.repeat(65) }))).some(
+          (e) => e.property === 'challengeId',
+        ),
+      ).toBe(true);
+      expect(
+        (
+          await validate(dtoExtra({ challengeExplanation: 'x'.repeat(2001) }))
+        ).some((e) => e.property === 'challengeExplanation'),
+      ).toBe(true);
+      expect(
+        (await validate(dtoExtra({ primaryTechnology: 'x'.repeat(65) }))).some(
+          (e) => e.property === 'primaryTechnology',
+        ),
+      ).toBe(true);
+      expect(
+        (await validate(dtoExtra({ detectedLevel: 'master' }))).some(
+          (e) => e.property === 'detectedLevel',
+        ),
+      ).toBe(true);
+    });
+  });
 });

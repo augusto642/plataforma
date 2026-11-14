@@ -25,6 +25,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   addRegistryEntrySlug, appendChangelog, entrySlugForLesson, kmsPaths,
   loadEntries, loadLessons, loadResearch, newDraftVersion, newEntryFromLesson,
@@ -200,7 +201,7 @@ function loadQueueSlugs(paths) {
   return out;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
@@ -211,7 +212,7 @@ if (isMain) {
     process.exit(0);
   }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
-  const contentDir = resolve(get('--content') || join(new URL('..', import.meta.url).pathname, 'content'));
+  const contentDir = resolve(get('--content') || join(fileURLToPath(new URL('..', import.meta.url)), 'content'));
   try {
     const apply = args.includes('--apply');
     const report = runBackfill(contentDir, { apply });

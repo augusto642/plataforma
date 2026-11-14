@@ -5,12 +5,6 @@ import Link from 'next/link';
 import { MaterialIcon } from '../../../components/MaterialIcon';
 import { getMyLeagues, type LeagueStanding } from '../../../lib/challenges';
 
-// Central 216 (auditoria do Designer, §5) — a seção "Liga" do Stitch
-// v2 ("Liga Diamante #12") não existe como liga: as tiers reais são
-// bronze/silver/gold (A4, league.service) e só quem tem o recurso
-// `challenges-full` vê ligas (free recebe 403). Fail-closed: sem
-// liga ativa, ou sem acesso, ou com a API fora, o card some inteiro
-// — nunca um ranking inventado.
 const TIER_LABEL: Record<string, string> = {
   bronze: 'Bronze',
   silver: 'Prata',
@@ -39,32 +33,42 @@ export function LeagueCard() {
 
   if (!league) return null;
 
+  const tierName = TIER_LABEL[league.tier] ?? league.tier;
+
   return (
-    <section
-      aria-label="Sua liga"
-      className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#8257E5]/15 border border-[#8257E5]/40 text-[#996DFF]">
-            <MaterialIcon name="emoji_events" className="text-[22px]" />
+    <div className="rounded-3xl bg-[#0C0F17] border border-[#1C2338] p-5 space-y-4">
+      <div className="flex items-center justify-between pb-3 border-b border-[#1C2338]">
+        <div className="flex items-center gap-2">
+          <MaterialIcon name="shield" className="text-[#FFA116] text-[20px]" />
+          <h4 className="font-brand font-bold text-white text-sm">Sua Liga: {tierName}</h4>
+        </div>
+        <span className="text-[11px] font-mono text-[#94A3B8]">Semanal</span>
+      </div>
+
+      {/* Status do Aluno na Liga */}
+      <div className="p-3 rounded-xl bg-[#121624] border border-[#1C2338] flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-lg bg-[#8257E5] text-white flex items-center justify-center font-mono font-bold text-xs shrink-0">
+            #{league.position}
           </span>
-          <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white truncate">
-              Liga {TIER_LABEL[league.tier] ?? league.tier}
-            </h3>
-            <p className="text-xs text-[#A1A1AA]">
-              {league.position}º de {league.participants} · {league.points} pontos
-            </p>
+          <div>
+            <div className="text-xs font-bold text-white">Posição na rodada</div>
+            <div className="text-[10px] font-mono text-[#04D361]">
+              {league.position <= 3 ? 'Zona de promoção' : 'Em disputa'}
+            </div>
           </div>
         </div>
-        <Link
-          href="/desafios"
-          className="shrink-0 whitespace-nowrap px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs transition-colors text-decoration-none"
-        >
-          Ver ligas
+        <span className="text-xs font-mono font-bold text-[#00E5FF] shrink-0">
+          {league.points} pts
+        </span>
+      </div>
+
+      <div className="text-[11px] font-mono text-[#94A3B8] flex items-center justify-between px-1">
+        <span>{league.participants} competidores</span>
+        <Link href="/leaderboard" className="text-[#04D361] hover:underline font-semibold">
+          Ver classificação completa →
         </Link>
       </div>
-    </section>
+    </div>
   );
 }

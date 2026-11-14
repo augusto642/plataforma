@@ -11,6 +11,7 @@ import {
   type InterviewSession,
 } from '../../../lib/interview';
 import Link from 'next/link';
+import Image from 'next/image';
 import { MaterialIcon } from '../../../components/MaterialIcon';
 import { appendTranscript } from '../../../hooks/voice-support';
 import { InterviewVoiceControls } from '../InterviewVoiceControls';
@@ -315,8 +316,15 @@ export default function EntrevistaSessaoPage() {
         >
           <div className="p-4 border-b border-border-subtle bg-dark-surface-container flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 shrink-0 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
-                <MaterialIcon name="record_voice_over" className="text-[22px]" />
+              <div className="relative shrink-0">
+                <Image
+                  src="/images/stitch/tutor-cat.png"
+                  alt="Tutora de IA"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 rounded-lg object-cover border-2 border-primary shadow-[0_0_12px_rgba(130,87,229,0.4)]"
+                />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-secondary border-2 border-dark-surface" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -339,9 +347,13 @@ export default function EntrevistaSessaoPage() {
             {session.turns.map((turn) =>
               turn.role === 'interviewer' ? (
                 <div key={turn.id} className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full bg-primary/20 shrink-0 flex items-center justify-center text-primary text-xs font-code mt-0.5 font-bold">
-                    IA
-                  </div>
+                  <Image
+                    src="/images/stitch/tutor-cat.png"
+                    alt="Tutora de IA"
+                    width={28}
+                    height={28}
+                    className="w-7 h-7 rounded-full object-cover border border-primary/50 shrink-0 mt-0.5"
+                  />
                   <div className="bg-dark-surface-container p-4 rounded-lg border border-border-subtle text-sm text-dark-on-surface leading-relaxed whitespace-pre-wrap max-w-[92%]">
                     {turn.content}
                   </div>

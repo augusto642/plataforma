@@ -10,21 +10,29 @@ import {
   type DailyMission,
 } from '../utils/daily-missions';
 
-// Central 216 (F3) — "Missões de Hoje" no visual do protótipo Stitch
-// v2 (dashboard-aluno.html). Dados reais: submissões de hoje
-// (GET /submissions) e simulação de hoje (GET /interview/sessions/me).
-// Fail-closed: se /submissions falhar, o card some inteiro; se só
-// as sessões falharem, só a missão de entrevista some.
 export function DailyMissions() {
   const [missions, setMissions] = useState<DailyMission[] | null>(null);
+  const [isClaimed, setIsClaimed] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await apiFetch(`${API_BASE}/submissions`);
-        if (!res.ok) return; // sem submissões, sem missões — omitir
-        const subs = (await res.json()) as Array<{ createdAt?: string | null }>;
+        const [subsRes, statusRes] = await Promise.all([
+          apiFetch(`${API_BASE}/submissions`),
+          apiFetch(`${API_BASE}/gamification/daily-status`).catch(() => null),
+        ]);
+
+        if (statusRes && statusRes.ok) {
+          const statusData = await statusRes.json().catch(() => null);
+          if (!cancelled && statusData?.claimed) {
+            setIsClaimed(true);
+          }
+        }
+
+        if (!subsRes.ok) return;
+        const subs = (await subsRes.json()) as Array<{ createdAt?: string | null }>;
         if (!Array.isArray(subs)) return;
         const submissionsToday = countCreatedToday(subs);
         let includeInterview = false;
@@ -42,7 +50,7 @@ export function DailyMissions() {
           );
         }
       } catch {
-        // Rede/API fora: omitir o card, nunca inventar missões.
+        // Silêncio fail-closed
       }
     })();
     return () => {
@@ -50,40 +58,100 @@ export function DailyMissions() {
     };
   }, []);
 
+  const handleClaim = async () => {
+    if (isClaiming || isClaimed) return;
+    setIsClaiming(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/gamification/daily-claim`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        setIsClaimed(true);
+        // Dispara evento customizado para atualizar XP no header e sidebar
+        window.dispatchEvent(new CustomEvent('nexus_profile_updated'));
+      }
+    } catch {
+      // Silêncio fail-closed
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   if (!missions) return null;
-  const allDone = missions.every((m) => m.done);
+  const completedCount = missions.filter((m) => m.done).length;
+  const progressPercent = missions.length > 0 ? (completedCount / missions.length) * 100 : 0;
+  const allDone = completedCount === missions.length && missions.length > 0;
 
   return (
-    <section
-      aria-label="Missões de hoje"
-      className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5"
-    >
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-white">Missões de Hoje</h2>
-        <span className="text-xs font-bold text-zinc-400">
-          {allDone ? 'Concluídas' : 'Em andamento'}
+    <div className="rounded-3xl bg-[#0C0F17] border border-[#1C2338] p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-brand font-bold text-white text-sm">Missões de Hoje</h4>
+        <span className="text-xs font-mono text-[#04D361] font-bold">
+          {completedCount} / {missions.length} feitas
         </span>
       </div>
-      <ul className="space-y-3">
+
+      {/* Barra de Progresso Simples */}
+      <div className="h-1.5 w-full rounded-full bg-[#07090E] border border-[#1C2338] overflow-hidden">
+        <div
+          className="h-full rounded-full bg-[#00B37E] transition-all"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      {/* Checklist */}
+      <div className="space-y-2 text-xs font-mono">
         {missions.map((mission) => (
-          // Central 219 (D2) — Q-8 do laudo pós-217: rótulo e valor
-          // espremidos lado a lado em 2 colunas estreitas. Detalhe
-          // empilhado abaixo do título, sem coluna apertada.
-          <li key={mission.id} className="flex items-start gap-3">
-            <MaterialIcon
-              name={mission.done ? 'check_circle' : 'radio_button_unchecked'}
-              className={`mt-0.5 text-[20px] ${mission.done ? 'text-secondary' : 'text-dark-on-surface-variant'}`}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm text-zinc-300">{mission.title}</span>
-              <span className="mt-0.5 block text-xs text-zinc-500">{mission.detail}</span>
-            </span>
+          <div
+            key={mission.id}
+            className={`p-2.5 rounded-xl border flex items-center justify-between ${
+              mission.done
+                ? 'bg-[#121624] border-[#00B37E]/40 text-[#04D361]'
+                : 'bg-[#121624] border-[#1C2338] text-[#94A3B8]'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {mission.done ? (
+                <span className="shrink-0 font-bold">✓</span>
+              ) : (
+                <span className="w-3.5 h-3.5 rounded border border-[#64748B] shrink-0" />
+              )}
+              <div className="truncate">
+                <span className={mission.done ? 'text-[#E2E8F0]' : 'text-white'}>
+                  {mission.title}
+                </span>
+                <span className="block text-[10px] text-[#64748B] mt-0.5 truncate">
+                  {mission.detail}
+                </span>
+              </div>
+            </div>
             {mission.done && (
-              <MaterialIcon name="check" className="mt-0.5 text-[18px] text-secondary" />
+              <span className="text-[10px] text-[#00E5FF] font-bold shrink-0 ml-2">Feito</span>
             )}
-          </li>
+          </div>
         ))}
-      </ul>
-    </section>
+      </div>
+
+      {/* Recompensa Diária (PLG) */}
+      {allDone && (
+        <div className="pt-1">
+          {isClaimed ? (
+            <div className="p-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-center text-xs font-mono font-bold text-[#00E5FF] flex items-center justify-center gap-2">
+              <span>⭐</span>
+              <span>Bônus diário de +50 XP resgatado!</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClaim}
+              disabled={isClaiming}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#00E5FF] hover:brightness-110 text-black font-bold text-xs font-mono flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              <span>{isClaiming ? 'Resgatando bônus...' : '⭐ Resgatar Bônus Diário (+50 XP)'}</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

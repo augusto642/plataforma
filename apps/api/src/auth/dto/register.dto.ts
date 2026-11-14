@@ -1,5 +1,17 @@
-import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Role } from '@prisma/client';
+import { CAREER_GOALS } from '../../dynamic-track/dynamic-track.rules';
 
 // Auto-registro só permite o papel de estudante. 'instructor' e 'admin' NUNCA
 // podem ser escolhidos publicamente (prevenção de escalada de privilégio).
@@ -81,7 +93,7 @@ export class RegisterDto {
   sourceTrack?: string;
 
   @IsOptional()
-  @IsIn(['junior', 'mid', 'senior'])
+  @IsIn(['beginner', 'junior', 'mid', 'senior'])
   experienceLevel?: string;
 
   @IsOptional()
@@ -89,6 +101,41 @@ export class RegisterDto {
   weeklyTimeCommitment?: string;
 
   @IsOptional()
-  @IsIn(['global', 'lead', 'startup', 'hackathons'])
+  @IsIn(CAREER_GOALS)
   careerGoal?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(25)
+  @IsIn(CAREER_GOALS, { each: true })
+  careerGoals?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  hasProgrammedBefore?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  priorLanguage?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  challengeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  challengeExplanation?: string;
+
+  @IsOptional()
+  @IsIn(['beginner', 'junior', 'mid', 'senior'])
+  detectedLevel?: 'beginner' | 'junior' | 'mid' | 'senior';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  primaryTechnology?: string;
 }

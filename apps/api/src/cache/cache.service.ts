@@ -49,6 +49,15 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     await this.client.del(key);
   }
 
+  async ping(): Promise<boolean> {
+    try {
+      const pong = await this.client.ping();
+      return pong === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Incremento atômico (INCR). Se a chave é nova e `ttlSeconds` foi
    * informado, aplica o TTL na criação — usado por contadores com janela

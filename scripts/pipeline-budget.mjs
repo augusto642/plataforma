@@ -25,6 +25,7 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const PIPELINE_DAILY_CAP_DEFAULT = 200; // PROPOSTA — pendente de aprovação do Augusto (Q7)
 export const PIPELINE_BATCH_SIZE_DEFAULT = 10;
@@ -33,7 +34,7 @@ export const PIPELINE_BUDGET_PENDING_NOTE = 'PENDENTE-Q7: teto diário do pipeli
 export function resolveBudgetDir(env = process.env) {
   if (env.PIPELINE_BUDGET_DIR) return resolve(env.PIPELINE_BUDGET_DIR);
   // A partir de scripts/: raiz do repo + data/. Sob testes, passe PIPELINE_BUDGET_DIR.
-  return resolve(new URL('..', import.meta.url).pathname, 'data');
+  return resolve(fileURLToPath(new URL('..', import.meta.url)), 'data');
 }
 
 export function todayKey(now = new Date()) {
@@ -78,7 +79,7 @@ export function recordUsage(dir, entry) {
   } catch { /* best-effort */ }
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {

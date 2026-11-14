@@ -27,6 +27,7 @@
  */
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   appendChangelog, kmsPaths, loadEntries, loadLessons, loadResearch, newDraftVersion,
   newEntryFromLesson, sha256Text, writeJsonAtomic,
@@ -312,7 +313,7 @@ export async function syncResearchFromDb(paths, prisma) {
   return report;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
@@ -328,7 +329,7 @@ if (isMain) {
     process.exit(0);
   }
   const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
-  const contentDir = resolve(get('--content') || join(new URL('..', import.meta.url).pathname, 'content'));
+  const contentDir = resolve(get('--content') || join(fileURLToPath(new URL('..', import.meta.url)), 'content'));
   const paths = kmsPaths(contentDir);
   const actor = get('--actor') || 'kms-apply';
   try {

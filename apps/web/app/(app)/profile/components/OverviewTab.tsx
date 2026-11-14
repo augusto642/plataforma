@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { TrackProgress, ActivityTimelineItem } from '../types';
 import { ActivityHeatmap } from './ActivityHeatmap';
+import { GameSkillRadar } from './GameSkillRadar';
 
 interface OverviewTabProps {
   tracks: TrackProgress[];
@@ -13,7 +14,10 @@ interface OverviewTabProps {
 
 export function OverviewTab({ tracks, activities, onDayClick }: OverviewTabProps) {
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      {/* GAME SKILL RADAR (HARD & SOFT SKILLS + RPG PERKS) */}
+      <GameSkillRadar />
+
       {/* 365-DAY HEATMAP */}
       <ActivityHeatmap onDayClick={onDayClick} />
 

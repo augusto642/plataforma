@@ -873,6 +873,62 @@ export class CoursesService {
     return result;
   }
 
+  /**
+   * Ranking Global da plataforma (todos os alunos ordenados por XP acumulado).
+   */
+  async getGlobalLeaderboard(
+    page = 1,
+    limit = LEADERBOARD_DEFAULT_LIMIT,
+  ): Promise<LeaderboardEntry[]> {
+    const safePage = clampPage(page);
+    const safeLimit = clampLimit(limit, LEADERBOARD_DEFAULT_LIMIT);
+    const skip = (safePage - 1) * safeLimit;
+    const cacheKey = `leaderboard:global:p${safePage}:l${safeLimit}`;
+
+    try {
+      const cached = await this.cache.get<LeaderboardEntry[]>(cacheKey);
+      if (cached) return cached;
+    } catch (err: any) {
+      this.logger.warn(`Global Leaderboard cache read failed (${cacheKey}): ${err?.message}`);
+    }
+
+    const students = await this.prisma.user.findMany({
+      where: { role: 'student' },
+      orderBy: [{ xp: 'desc' }, { createdAt: 'asc' }],
+      skip,
+      take: safeLimit,
+      include: {
+        badges: {
+          select: { id: true, badgeCode: true, title: true, icon: true },
+        },
+        submissions: {
+          where: { status: 'passed' },
+          distinct: ['activityId'],
+          select: { id: true },
+        },
+      },
+    });
+
+    const result: LeaderboardEntry[] = students.map((u, index) => ({
+      rank: skip + index + 1,
+      userId: u.id,
+      name: u.name,
+      xp: u.xp,
+      level: u.level,
+      streakDays: u.streakDays,
+      badges: u.badges,
+      completedActivitiesCount: u.submissions.length,
+    }));
+
+    try {
+      await this.cache.set(cacheKey, result, LEADERBOARD_CACHE_TTL_SECONDS);
+    } catch (err: any) {
+      this.logger.warn(`Global Leaderboard cache write failed (${cacheKey}): ${err?.message}`);
+    }
+
+    return result;
+  }
+
   private giteaUsernameFor(email: string, userId: string): string {
     const slug = (email || '')
       .split('@')[0]

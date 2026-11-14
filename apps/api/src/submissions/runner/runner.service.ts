@@ -945,7 +945,7 @@ export class PistonRunnerService implements RunnerService {
     const rawMemoryMb = options.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB;
     const memoryMb =
       Number.isFinite(rawMemoryMb) && rawMemoryMb > 0
-        ? Math.min(512, Math.floor(rawMemoryMb))
+        ? Math.min(DEFAULT_MEMORY_LIMIT_MB, Math.floor(rawMemoryMb))
         : DEFAULT_MEMORY_LIMIT_MB;
     const memoryBytes = memoryMb * 1024 * 1024;
 

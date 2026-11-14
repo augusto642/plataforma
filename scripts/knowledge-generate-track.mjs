@@ -14,6 +14,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export function slugify(s) {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -110,7 +111,7 @@ export function generateTrack({ goal, research, lessons, kmsEntries = [], previo
   return { course: { slug: activities[0]?.courseSlug || 'trilha-python-mercado', title: `Trilha Python — ${goal}`, description: `Trilha gerada a partir de pesquisa aprovada (${research.id}) e ${ordered.length} lição(ões) aprovada(s).` }, activities, coverage, gaps, removedSkills, researchId: research.id, entryVersionChanges };
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -31,6 +32,7 @@ interface AITutorPanelProps {
   activityId: string;
   activityTitle: string;
   code: string;
+  testFailure?: string;
   token?: string | null;
   onClose?: () => void;
   /**
@@ -42,7 +44,7 @@ interface AITutorPanelProps {
   variant?: 'drawer' | 'inline';
 }
 
-export default function AITutorPanel({ activityId, activityTitle, code, token, onClose, variant = 'drawer' }: AITutorPanelProps) {
+export default function AITutorPanel({ activityId, activityTitle, code, testFailure, token, onClose, variant = 'drawer' }: AITutorPanelProps) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -73,7 +75,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
             setChatMessages([
               {
                 role: 'assistant',
-                content: `Olá! Sou sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
+                content: `Olá! Sou a Lumi, sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
               },
             ]);
           }
@@ -142,6 +144,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
         body: JSON.stringify({
           activityId,
           code,
+          testFailure,
           messages: baseMessages,
         }),
         signal: controller.signal,
@@ -153,7 +156,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
         const fallbackRes = await fetch(`${API_BASE}/ai/chat`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ activityId, code, messages: baseMessages }),
+          body: JSON.stringify({ activityId, code, testFailure, messages: baseMessages }),
           credentials: 'include',
         });
         if (fallbackRes.ok) {
@@ -300,18 +303,33 @@ export default function AITutorPanel({ activityId, activityTitle, code, token, o
         background: '#121214',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34,
-            height: 34,
-            borderRadius: 10,
-            background: 'linear-gradient(135deg, rgba(130, 87, 229, 0.3) 0%, rgba(0, 229, 255, 0.2) 100%)',
-            border: '1px solid rgba(130, 87, 229, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 18,
-          }}>
-            🧠
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <Image
+              src="/images/stitch/tutor-cat.png"
+              alt="Tutora de IA"
+              width={36}
+              height={36}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '9999px',
+                objectFit: 'cover',
+                border: '2px solid #8257E5',
+                boxShadow: '0 0 12px rgba(130, 87, 229, 0.4)',
+              }}
+            />
+            <span
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                width: 10,
+                height: 10,
+                borderRadius: '9999px',
+                background: '#00E676',
+                border: '2px solid #0D0E15',
+              }}
+            />
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#F4F4F5', display: 'flex', alignItems: 'center', gap: 6 }}>

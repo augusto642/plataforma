@@ -236,48 +236,124 @@ export class AdminService {
   }
 
   async getMetrics(): Promise<AdminMetricsResponseDto> {
+    const cached = await this.cache
+      .get<AdminMetricsResponseDto>('admin:metrics:snapshot')
+      .catch(() => null);
+    if (cached && typeof cached === 'object' && (cached as any).platform) {
+      return cached;
+    }
+
     const now = new Date();
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const [
-      totalUsers,
-      studentUsers,
-      instructorUsers,
-      adminUsers,
-      activeUsers24h,
-      totalCourses,
-      publicCourses,
-      totalEnrollments,
-      totalActivities,
-      totalSubmissions,
-      passedSubmissions,
-      failedSubmissions,
-      pendingOrRunningSubmissions,
-    ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { role: Role.student } }),
-      this.prisma.user.count({ where: { role: Role.instructor } }),
-      this.prisma.user.count({ where: { role: Role.admin } }),
-      this.prisma.user.count({ where: { lastActiveAt: { gte: last24h } } }),
-      this.prisma.course.count(),
-      this.prisma.course.count({ where: { isPublicLibrary: true } }),
-      this.prisma.enrollment.count(),
-      this.prisma.activity.count(),
-      this.prisma.submission.count(),
-      this.prisma.submission.count({ where: { status: SubmissionStatus.passed } }),
-      this.prisma.submission.count({ where: { status: SubmissionStatus.failed } }),
-      this.prisma.submission.count({
-        where: {
-          status: {
-            in: [
-              SubmissionStatus.pending,
-              SubmissionStatus.queued,
-              SubmissionStatus.running,
-            ],
+    let totalUsers = 0;
+    let studentUsers = 0;
+    let instructorUsers = 0;
+    let adminUsers = 0;
+    let activeUsers24h = 0;
+    let totalCourses = 0;
+    let publicCourses = 0;
+    let totalEnrollments = 0;
+    let totalActivities = 0;
+    let totalSubmissions = 0;
+    let passedSubmissions = 0;
+    let failedSubmissions = 0;
+    let pendingOrRunningSubmissions = 0;
+
+    const canGroupBy =
+      typeof this.prisma.user?.groupBy === 'function' &&
+      typeof this.prisma.submission?.groupBy === 'function' &&
+      typeof this.prisma.course?.groupBy === 'function';
+
+    if (canGroupBy) {
+      const [
+        usersByRole,
+        activeUsers,
+        coursesByPublic,
+        enrollmentsCount,
+        activitiesCount,
+        submissionsByStatus,
+      ] = await Promise.all([
+        this.prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
+        this.prisma.user.count({ where: { lastActiveAt: { gte: last24h } } }),
+        this.prisma.course.groupBy({ by: ['isPublicLibrary'], _count: { _all: true } }),
+        this.prisma.enrollment.count(),
+        this.prisma.activity.count(),
+        this.prisma.submission.groupBy({ by: ['status'], _count: { _all: true } }),
+      ]);
+
+      activeUsers24h = activeUsers;
+      totalEnrollments = enrollmentsCount;
+      totalActivities = activitiesCount;
+
+      for (const group of usersByRole) {
+        const c = group._count._all;
+        totalUsers += c;
+        if (group.role === Role.student) studentUsers = c;
+        else if (group.role === Role.instructor) instructorUsers = c;
+        else if (group.role === Role.admin) adminUsers = c;
+      }
+
+      for (const group of coursesByPublic) {
+        const c = group._count._all;
+        totalCourses += c;
+        if (group.isPublicLibrary) publicCourses = c;
+      }
+
+      for (const group of submissionsByStatus) {
+        const c = group._count._all;
+        totalSubmissions += c;
+        if (group.status === SubmissionStatus.passed) passedSubmissions = c;
+        else if (group.status === SubmissionStatus.failed) failedSubmissions = c;
+        else if (
+          group.status === SubmissionStatus.pending ||
+          group.status === SubmissionStatus.queued ||
+          group.status === SubmissionStatus.running
+        ) {
+          pendingOrRunningSubmissions += c;
+        }
+      }
+    } else {
+      [
+        totalUsers,
+        studentUsers,
+        instructorUsers,
+        adminUsers,
+        activeUsers24h,
+        totalCourses,
+        publicCourses,
+        totalEnrollments,
+        totalActivities,
+        totalSubmissions,
+        passedSubmissions,
+        failedSubmissions,
+        pendingOrRunningSubmissions,
+      ] = await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.user.count({ where: { role: Role.student } }),
+        this.prisma.user.count({ where: { role: Role.instructor } }),
+        this.prisma.user.count({ where: { role: Role.admin } }),
+        this.prisma.user.count({ where: { lastActiveAt: { gte: last24h } } }),
+        this.prisma.course.count(),
+        this.prisma.course.count({ where: { isPublicLibrary: true } }),
+        this.prisma.enrollment.count(),
+        this.prisma.activity.count(),
+        this.prisma.submission.count(),
+        this.prisma.submission.count({ where: { status: SubmissionStatus.passed } }),
+        this.prisma.submission.count({ where: { status: SubmissionStatus.failed } }),
+        this.prisma.submission.count({
+          where: {
+            status: {
+              in: [
+                SubmissionStatus.pending,
+                SubmissionStatus.queued,
+                SubmissionStatus.running,
+              ],
+            },
           },
-        },
-      }),
-    ]);
+        }),
+      ]);
+    }
 
     const passRate = totalSubmissions > 0
       ? Math.round((passedSubmissions / totalSubmissions) * 1000) / 10
@@ -297,7 +373,7 @@ export class AdminService {
       cacheStatus = 'unavailable';
     }
 
-    return {
+    const response: AdminMetricsResponseDto = {
       timestamp: now.toISOString(),
       system: {
         uptimeSeconds: Math.round(process.uptime()),
@@ -343,6 +419,12 @@ export class AdminService {
         pingLatencyMs,
       },
     };
+
+    await this.cache
+      .set('admin:metrics:snapshot', response, 30)
+      .catch(() => {});
+
+    return response;
   }
 
   async getHealth() {

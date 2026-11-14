@@ -36,19 +36,19 @@ const CAREER_TIERS_DATA: TierInfo[] = [
   {
     id: 'beginner',
     title: 'Iniciante (Liberado)',
-    tagline: 'Fundamentos de Algoritmos e Criaturas de Código',
+    tagline: 'Fundamentos de Algoritmos & Starter Companion de Código',
     badge: 'EM ANDAMENTO',
     unlocked: true,
     unlockRequirement: 'Acesso imediato concedido no onboarding',
     color: '#04D361',
     activities: [
       { icon: '🎮', name: 'Mundo 2D & Exploração', desc: 'Explorar mapas laboratoriais e interagir com nós didáticos interativos.' },
-      { icon: '🐾', name: 'Adoção & Treino do Pet', desc: 'Adotar um Starter companion (Pythox, Scripty, Gopherus ou Rustor).' },
+      { icon: '🐾', name: 'Ativação do Starter Companion', desc: 'Selecionar um companion de código (Pythox, Scripty, Gopherus ou Rustor).' },
       { icon: '⚡', name: 'Batalhas de Bugs', desc: 'Digitar ataques de sintaxe e consertar pequenos erros de tipagem e lógica.' },
       { icon: '🧩', name: 'Algoritmos Essenciais', desc: 'Variáveis, condicionais, loops e coleções básicas de dados.' },
-      { icon: '🛡️', name: 'Metamorfose do Pet', desc: 'Evoluir o Pet até o Nível 10 para desbloquear a patente Júnior.' },
-      { icon: '🤖', name: 'Consultas ao mascote', desc: 'Tirar dúvidas socráticas sem receber respostas prontas.' },
-      { icon: '🏆', name: 'Primeira Insígnia', desc: 'Bater o chefe do Setor 1 e provar raciocínio computacional sólido.' },
+      { icon: '🛡️', name: 'Evolução de Nível do Companion', desc: 'Evoluir o Companion até o Nível 10 para desbloquear a patente Júnior.' },
+      { icon: '🤖', name: 'Tutoria Socrática Lumi', desc: 'Tirar dúvidas conceituais guiadas sem receber respostas prontas.' },
+      { icon: '🏆', name: 'Desafio do Setor 1', desc: 'Superar o desafio de síntese e provar raciocínio computacional sólido.' },
     ],
   },
   {
@@ -57,7 +57,7 @@ const CAREER_TIERS_DATA: TierInfo[] = [
     tagline: 'Estruturas de Dados, APIs e Engenharia Prática',
     badge: 'BLOQUEADO',
     unlocked: false,
-    unlockRequirement: 'Requer Pet Companion no Nível 10 (Estágio 2)',
+    unlockRequirement: 'Requer Starter Companion no Nível 10 (Estágio 2)',
     color: '#00E5FF',
     activities: [
       { icon: '📚', name: 'Estruturas de Dados Avançadas', desc: 'Pilhas, Filas, Hash Maps e Árvores Binárias de Busca.' },
@@ -129,15 +129,8 @@ export const CareerPetBanner: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* CARD PRINCIPAL EM DARK OBSIDIAN */}
-      <div className="rounded-3xl bg-gradient-to-r from-[#0C1226]/95 via-[#080B18]/95 to-[#130E29]/95 border border-[#1E2945] p-5 md:p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl">
-        {/* Glows Decorativos de Fundo */}
-        <div
-          className="absolute -top-12 -left-12 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none"
-          style={{ background: selectedStarter.color }}
-        />
-        <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full blur-3xl bg-[#00E5FF]/10 pointer-events-none" />
-
+      {/* CARD PRINCIPAL EM DARK OBSIDIAN SÓLIDO */}
+      <div className="rounded-3xl bg-[#0C0F17] border border-[#1C2338] p-5 md:p-6 shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           
           {/* LADO ESQUERDO: PET COMPANION STATUS */}
@@ -201,7 +194,7 @@ export const CareerPetBanner: React.FC = () => {
                     {petXp} / {petMaxXp} XP ({xpPercent}%)
                   </span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-[#050814] overflow-hidden border border-white/10 p-0.5">
+                <div className="w-full h-2 rounded-full bg-[#07090E] overflow-hidden border border-[#1C2338] p-0.5">
                   <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{
@@ -217,7 +210,7 @@ export const CareerPetBanner: React.FC = () => {
           {/* LADO DIREITO: TRILHA DE CARREIRA E DESBLOQUEIOS */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
             {/* Indicador do Nível Iniciante Ativo */}
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-[#070B18]/80 border border-[#04D361]/30 shadow-[0_0_20px_rgba(4,211,97,0.15)]">
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-[#121624] border border-[#04D361]/40 shadow-sm">
               <div className="w-2.5 h-2.5 rounded-full bg-[#04D361] animate-pulse" />
               <div>
                 <div className="flex items-center gap-1.5">
@@ -247,7 +240,7 @@ export const CareerPetBanner: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openTierDetails(CAREER_TIERS_DATA[0])}
-                className="px-3.5 py-2.5 rounded-xl bg-[#141B32] hover:bg-[#1C2646] border border-[#2B3B66] text-white font-mono text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2.5 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] text-white font-mono text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                 title="Ver atividades de todos os 4 níveis de carreira"
               >
                 <span>📋</span>
@@ -260,7 +253,7 @@ export const CareerPetBanner: React.FC = () => {
         </div>
 
         {/* MINI STEPPER DOS 4 NÍVEIS DE CARREIRA */}
-        <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="mt-5 pt-4 border-t border-[#1C2338] grid grid-cols-2 md:grid-cols-4 gap-2.5">
           {CAREER_TIERS_DATA.map((tier) => {
             const isBeginner = tier.id === 'beginner';
             return (
@@ -269,8 +262,8 @@ export const CareerPetBanner: React.FC = () => {
                 onClick={() => openTierDetails(tier)}
                 className={`p-2.5 rounded-xl border transition-all cursor-pointer text-left flex items-center justify-between ${
                   isBeginner
-                    ? 'bg-[#04D361]/10 border-[#04D361]/40 shadow-[0_0_15px_rgba(4,211,97,0.1)] hover:bg-[#04D361]/15'
-                    : 'bg-[#060914]/60 border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                    ? 'bg-[#121624] border-[#04D361]/40 shadow-sm hover:border-[#04D361]'
+                    : 'bg-[#07090E] border-[#1C2338] opacity-75 hover:opacity-100 hover:border-[#2C3550]'
                 }`}
               >
                 <div>
@@ -297,13 +290,13 @@ export const CareerPetBanner: React.FC = () => {
 
       {/* MODAL DE CONSULTA DE ATIVIDADES DE CARREIRA */}
       {showActivitiesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-3xl rounded-3xl bg-[#090D1C] border border-[#1F2B48] shadow-2xl p-6 md:p-8 relative overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-3xl rounded-3xl bg-[#0C0F17] border border-[#1C2338] shadow-2xl p-6 md:p-8 relative overflow-hidden max-h-[90vh] flex flex-col">
             
             {/* Header do Modal */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+            <div className="flex items-center justify-between pb-4 border-b border-[#1C2338]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#141B32] border border-[#2B3B66] flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-xl bg-[#121624] border border-[#1C2338] flex items-center justify-center text-xl">
                   💼
                 </div>
                 <div>
@@ -318,7 +311,7 @@ export const CareerPetBanner: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowActivitiesModal(false)}
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center text-sm font-mono transition-colors"
+                className="w-8 h-8 rounded-full bg-[#121624] hover:bg-[#1C2338] text-zinc-400 hover:text-white flex items-center justify-center text-sm font-mono transition-colors"
               >
                 ✕
               </button>
@@ -335,8 +328,8 @@ export const CareerPetBanner: React.FC = () => {
                     onClick={() => setSelectedTierForModal(tier)}
                     className={`py-2 px-3 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
                       isSelected
-                        ? 'bg-[#1C2646] text-white border-[#00E5FF] shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                        : 'bg-[#070B18] text-zinc-400 border-white/5 hover:border-white/20'
+                        ? 'bg-[#1C2338] text-white border-[#00E5FF] shadow-sm'
+                        : 'bg-[#121624] text-zinc-400 border-[#1C2338] hover:border-[#2E3A5A]'
                     }`}
                   >
                     <span>{tier.unlocked ? '🔓' : '🔒'}</span>
@@ -387,9 +380,9 @@ export const CareerPetBanner: React.FC = () => {
                   {selectedTierForModal.activities.map((act, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-xl bg-[#070A18] border border-white/5 hover:border-white/15 transition-all flex items-start gap-3"
+                      className="p-3 rounded-xl bg-[#121624] border border-[#1C2338] hover:border-[#2C3550] transition-all flex items-start gap-3"
                     >
-                      <span className="text-xl shrink-0 p-1 rounded-lg bg-white/5">{act.icon}</span>
+                      <span className="text-xl shrink-0 p-1 rounded-lg bg-[#07090E] border border-[#1C2338]">{act.icon}</span>
                       <div>
                         <div className="text-xs font-bold text-white font-sans">{act.name}</div>
                         <div className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">{act.desc}</div>
@@ -401,7 +394,7 @@ export const CareerPetBanner: React.FC = () => {
             </div>
 
             {/* Footer do Modal */}
-            <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+            <div className="pt-4 border-t border-[#1C2338] flex justify-between items-center">
               <span className="text-xs font-mono text-zinc-500">
                 {selectedTierForModal.unlocked
                   ? '✨ Nível atual ativo no seu perfil.'
@@ -410,7 +403,7 @@ export const CareerPetBanner: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowActivitiesModal(false)}
-                className="px-5 py-2 rounded-xl bg-[#141B32] hover:bg-[#1C2646] text-white text-xs font-mono font-bold transition-all"
+                className="px-5 py-2 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] text-white text-xs font-mono font-bold transition-all"
               >
                 Entendido
               </button>

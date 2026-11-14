@@ -378,13 +378,46 @@ export default function DiagnosticoPage() {
     questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen w-full bg-background text-ink-body">
-      <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-5 sm:px-6">
-        <Logo size="md" href="/" />
-        <span className="text-sm text-ink-span">Diagnóstico gratuito</span>
+    <div className="min-h-screen w-full bg-dark-surface text-dark-on-surface flex flex-col font-body">
+      {/* Top Navbar Stitch */}
+      <header className="sticky top-0 z-50 h-16 border-b border-border-subtle bg-dark-surface/90 backdrop-blur-md">
+        <div className="mx-auto flex h-full w-full max-w-5xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <Logo size="md" href="/" />
+            <div className="hidden sm:block h-4 w-px bg-border-strong mx-1" />
+            <span className="hidden sm:flex items-center gap-1.5 text-xs font-code uppercase tracking-wider text-dark-on-surface-variant">
+              <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
+              Diagnóstico de Perfil
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-code text-dark-on-surface-variant">
+              {phase === 'quiz' && questions.length > 0 ? (
+                <>
+                  Etapa{' '}
+                  <span className="text-primary font-semibold">
+                    {String(current + 1).padStart(2, '0')}
+                  </span>{' '}
+                  de {String(questions.length).padStart(2, '0')}
+                </>
+              ) : (
+                'Diagnóstico gratuito'
+              )}
+            </span>
+            {phase === 'quiz' && (
+              <div className="hidden sm:block w-28 h-1.5 bg-border-subtle rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-tertiary rounded-full transition-all duration-300"
+                  style={{ width: `${Math.max(8, progress)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
+      <main className="mx-auto w-full max-w-3xl px-4 py-10 pb-16 sm:px-6 flex-1">
         {phase === 'loading' && (
           <div className="py-24 text-center" role="status">
             <div
@@ -415,11 +448,11 @@ export default function DiagnosticoPage() {
         )}
 
         {phase === 'intro' && (
-          <section className="rounded-2xl border border-border-2 bg-surface-2 p-6 sm:p-10">
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand-purple-light">
-              Descubra seu ponto de partida
-            </p>
-            <h1 className="mt-3 font-heading text-3xl font-bold leading-tight text-ink-heading sm:text-4xl">
+          <section className="rounded-2xl border border-border-strong bg-dark-surface-container-low p-6 sm:p-10 shadow-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-code font-medium mb-4">
+              Análise Investigativa do Aluno
+            </div>
+            <h1 className="font-headline text-3xl font-extrabold leading-tight text-white sm:text-4xl tracking-tight">
               Qual é o seu perfil de programador?
             </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed">

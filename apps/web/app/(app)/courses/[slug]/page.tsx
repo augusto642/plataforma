@@ -3,6 +3,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
+import { StudentSidebar } from '../../../components/StudentSidebar';
+import { StudentHeader } from '../../../components/StudentHeader';
+import { useSidebar } from '../../../context/SidebarContext';
 import { apiFetch, API_BASE } from '../../../lib/apiClient';
 import { track } from '../../../lib/analytics';
 import {
@@ -129,6 +132,7 @@ function groupActivities(activities: ApiActivity[]): SegmentGroup[] {
 
 export default function CourseDetailPage({ params }: { params: { slug: string } }) {
   const { slug } = params;
+  const { isCollapsed } = useSidebar();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
   // Sprint 21 — caminho de adaptação do aluno neste curso (módulos,
@@ -192,81 +196,71 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
   }, [load, reloadKey]);
 
   return (
-    <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans selection:bg-[#04D361] selection:text-black pb-24">
-      <header className="sticky top-0 z-40 bg-[#08080B]/90 backdrop-blur-md border-b border-[#27272A] h-16">
-        <div className="max-w-[1240px] mx-auto px-5 h-full flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Logo size="md" href="/" />
-            <nav className="hidden md:flex items-center gap-5 text-sm font-medium">
-              <Link href="/dashboard" className="text-zinc-400 hover:text-white transition-colors">
-                Dashboard
-              </Link>
-              <Link
-                href="/courses"
-                className="text-white border-b-2 border-[#04D361] pb-1 font-semibold"
-              >
-                Cursos &amp; Trilhas
-              </Link>
-              <Link href="/leaderboard" className="text-zinc-400 hover:text-white transition-colors">
-                Leaderboard
-              </Link>
-              <Link href="/ide" className="text-zinc-400 hover:text-white transition-colors">
-                IDE Sandbox
-              </Link>
-            </nav>
-          </div>
-          <Link
-            href="/courses"
-            className="text-xs font-semibold text-zinc-400 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#181820] border border-[#27272A]"
-          >
-            ← Voltar aos Cursos
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#07090E] text-[#F1F5F9] font-sans antialiased flex selection:bg-[#8257E5] selection:text-white">
+      {/* Sidebar Lateral Retrátil Oficial */}
+      <StudentSidebar />
 
-      <main className="max-w-[1240px] mx-auto px-5 pt-8 space-y-8">
+      {/* Conteúdo com Largura Dinâmica */}
+      <div
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'md:ml-20' : 'md:ml-64'
+        }`}
+      >
+        <StudentHeader
+          title={state.kind === 'ready' ? state.course.title : 'Detalhes do Curso'}
+          subtitle={state.kind === 'ready' ? `Curso • ${state.course.slug}` : 'Ementa Técnica'}
+          actions={
+            <Link
+              href="/courses"
+              className="text-xs font-semibold text-zinc-400 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#121624] border border-[#1C2338] hover:border-[#8257E5] transition-colors"
+            >
+              ← Voltar aos Cursos
+            </Link>
+          }
+        />
+
+        <main className="max-w-[1240px] w-full mx-auto px-5 lg:px-8 py-8 space-y-8 flex-1">
         {state.kind === 'loading' && (
-          <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-8">
+          <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-8">
             <p className="text-sm text-zinc-400">Carregando os dados reais do curso…</p>
           </div>
         )}
 
         {state.kind === 'auth-error' && (
-          <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-8 space-y-4">
+          <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-8 space-y-4">
             <h1 className="text-xl font-bold text-white font-heading">
-              Detalhes do curso disponíveis para alunos conectados
+              Acesso aos módulos reservado para alunos inscritos
             </h1>
             <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
-              A API de cursos da plataforma exige uma sessão ativa, por isso o detalhe deste curso
-              não é exibido publicamente. Entre na sua conta ou crie uma para ver o conteúdo real
-              do curso — nenhum dado de exemplo é mostrado aqui.
+              Os laboratórios práticos e testes automatizados deste curso exigem uma sessão ativa de aluno.
+              Entre na sua conta ou cadastre-se gratuitamente para começar agora.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/login"
                 className="px-5 py-2.5 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs transition-all"
               >
-                Entrar
+                Entrar na Conta
               </Link>
               <Link
                 href="/register"
-                className="px-5 py-2.5 rounded-xl bg-[#181820] border border-[#27272A] hover:border-zinc-500 text-white font-bold text-xs transition-all"
+                className="px-5 py-2.5 rounded-xl bg-[#121624] border border-[#1C2338] hover:border-[#8257E5] text-white font-bold text-xs transition-all"
               >
-                Criar conta
+                Cadastrar Gratuitamente
               </Link>
             </div>
           </div>
         )}
 
         {state.kind === 'not-found' && (
-          <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-8 space-y-3">
+          <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-8 space-y-3">
             <h1 className="text-xl font-bold text-white font-heading">Curso não encontrado</h1>
             <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
               Não existe um curso com o endereço “{slug}” no catálogo atual da plataforma.
             </p>
             <Link
               href="/courses"
-              className="inline-block px-5 py-2.5 rounded-xl bg-[#181820] border border-[#27272A] hover:border-zinc-500 text-white font-bold text-xs transition-all"
+              className="inline-block px-5 py-2.5 rounded-xl bg-[#121624] border border-[#1C2338] hover:border-[#8257E5] text-white font-bold text-xs transition-all"
             >
               Ver o catálogo de cursos
             </Link>
@@ -274,7 +268,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
         )}
 
         {state.kind === 'error' && (
-          <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-8 space-y-4">
+          <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-8 space-y-4">
             <h1 className="text-xl font-bold text-white font-heading">
               Não foi possível carregar o curso
             </h1>
@@ -282,7 +276,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
             <button
               type="button"
               onClick={() => setReloadKey((k) => k + 1)}
-              className="px-5 py-2.5 rounded-xl bg-[#181820] border border-[#27272A] hover:border-zinc-500 text-white font-bold text-xs transition-all cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-[#121624] border border-[#1C2338] hover:border-[#8257E5] text-white font-bold text-xs transition-all cursor-pointer"
             >
               Tentar novamente
             </button>
@@ -292,17 +286,15 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
         {state.kind === 'ready' && (
           <>
             {/* Hero com os dados reais do curso */}
-            <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
-              <div className="absolute right-0 top-0 w-96 h-96 bg-[#8257E5]/15 rounded-full blur-3xl pointer-events-none" />
-
+            <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-xl">
               <div className="flex flex-wrap items-center gap-2.5 mb-4 relative">
-                <span className="text-xs font-mono font-bold bg-[#8257E5]/15 text-[#996DFF] border border-[#8257E5]/30 px-3 py-1 rounded-full">
+                <span className="text-xs font-mono font-bold bg-[#121624] text-[#A379FF] border border-[#8257E5]/40 px-3 py-1 rounded-full">
                   CURSO · {state.course.slug}
                 </span>
-                <span className="text-xs font-mono bg-zinc-800 text-zinc-300 border border-zinc-700 px-2.5 py-1 rounded-full font-semibold">
+                <span className="text-xs font-mono bg-[#121624] text-zinc-300 border border-[#1C2338] px-2.5 py-1 rounded-full font-semibold">
                   {(state.course.activities?.length ?? state.course._count?.activities ?? 0)} atividades
                 </span>
-                <span className="text-xs font-mono bg-zinc-800 text-zinc-300 border border-zinc-700 px-2.5 py-1 rounded-full font-semibold">
+                <span className="text-xs font-mono bg-[#121624] text-zinc-300 border border-[#1C2338] px-2.5 py-1 rounded-full font-semibold">
                   {(state.course._count?.enrollments ?? 0).toLocaleString('pt-BR')} alunos matriculados
                 </span>
               </div>
@@ -316,11 +308,11 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pt-4 border-t border-[#27272A] relative">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pt-4 border-t border-[#1C2338] relative">
                 {state.course.instructor ? (
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#8257E5] to-[#00E5FF] p-[1.5px] shrink-0">
-                      <div className="w-full h-full bg-[#181820] rounded-[10px] flex items-center justify-center font-mono font-black text-sm text-white">
+                      <div className="w-full h-full bg-[#121624] rounded-[10px] flex items-center justify-center font-mono font-black text-sm text-white">
                         {initialsOf(state.course.instructor.name)}
                       </div>
                     </div>
@@ -355,7 +347,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                 módulo mostra seu estado real, com o desafio de entrada
                 (test-out) para quem já domina o conteúdo. */}
             {path && path.nextActivity && (
-              <div className="bg-[#0E1A12] border border-[#04D361]/40 rounded-2xl p-6 md:p-8">
+              <div className="bg-[#0C0F17] border border-[#04D361]/40 rounded-2xl p-6 md:p-8 shadow-sm">
                 <p className="text-[11px] font-mono font-bold tracking-widest text-[#04D361] mb-2">
                   SEU PRÓXIMO PASSO
                 </p>
@@ -371,7 +363,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                 )}
                 <Link
                   href={`/ide?course=${state.course.id}&activity=${path.nextActivity.id}`}
-                  className="inline-block mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00B37E] to-[#04D361] text-[#08080B] font-black text-xs transition-all"
+                  className="inline-block mt-4 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00B37E] to-[#04D361] text-[#08080B] font-black text-xs transition-all shadow-sm"
                 >
                   Continuar na IDE →
                 </Link>
@@ -379,7 +371,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
             )}
 
             {path && path.isSyntaxTrack && path.modules.length > 0 && (
-              <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8">
+              <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 md:p-8 shadow-sm">
                 <h2 className="text-base font-bold text-white font-heading mb-1">
                   Módulos da trilha
                 </h2>
@@ -392,7 +384,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                   {path.modules.map((mod) => (
                     <li
                       key={mod.tag}
-                      className="flex flex-wrap items-center gap-3 bg-[#181820] border border-[#27272A] rounded-xl p-4"
+                      className="flex flex-wrap items-center gap-3 bg-[#121624] border border-[#1C2338] rounded-xl p-4"
                     >
                       <span className="text-xs font-mono font-black text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/30 rounded-lg px-2 py-1 shrink-0">
                         {String(mod.order).padStart(2, '0')}
@@ -439,7 +431,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
             )}
 
             {/* Atividades reais do curso */}
-            <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8">
+            <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 md:p-8 shadow-sm">
               <h2 className="text-base font-bold text-white font-heading mb-1">
                 Atividades do curso
               </h2>
@@ -448,22 +440,21 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
               </p>
 
               {(!state.course.activities || state.course.activities.length === 0) && (
-                <p className="text-xs text-zinc-400 bg-[#181820] border border-[#27272A] rounded-xl p-4">
+                <p className="text-xs text-zinc-400 bg-[#121624] border border-[#1C2338] rounded-xl p-4">
                   Este curso ainda não tem atividades publicadas.
                 </p>
               )}
 
-              <div className="mb-5 rounded-xl border border-[#27272A] bg-[#121217] p-4">
+              <div className="mb-5 rounded-xl border border-[#1C2338] bg-[#121624] p-4">
                 <p className="text-sm font-bold text-white">Próximos passos</p>
                 <p className="text-xs text-zinc-400 leading-relaxed mt-1">
                   Segmentos em revisão (draft) ainda não são jogáveis e não aparecem aqui; o próximo segmento só entra
-                  quando aprovado por um admin. Não há endpoint de geração para o aluno (Q13 pendente) — o botão abaixo
-                  apenas recarrega o curso para mostrar segmentos aprovados desde a última visita.
+                  quando aprovado por um admin. O botão abaixo recarrega o curso para mostrar atividades aprovadas.
                 </p>
                 <button
                   type="button"
                   onClick={() => setReloadKey((k) => k + 1)}
-                  className="mt-3 rounded-lg bg-[#8257E5]/15 border border-[#8257E5]/30 text-[#996DFF] px-4 py-2 text-xs font-bold"
+                  className="mt-3 rounded-lg bg-[#8257E5]/15 border border-[#8257E5]/40 text-[#A379FF] hover:bg-[#8257E5]/25 px-4 py-2 text-xs font-bold transition-colors cursor-pointer"
                 >
                   Verificar novos segmentos
                 </button>
@@ -496,7 +487,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                     {group.activities.map((activity, index) => (
                       <li
                         key={activity.id}
-                        className="flex items-start gap-4 bg-[#181820] border border-[#27272A] rounded-xl p-4"
+                        className="flex items-start gap-4 bg-[#121624] border border-[#1C2338] rounded-xl p-4"
                       >
                         <span className="text-xs font-mono font-black text-[#00E5FF] bg-[#00E5FF]/10 border border-[#00E5FF]/30 rounded-lg px-2 py-1 shrink-0">
                           {String(index + 1).padStart(2, '0')}
@@ -510,7 +501,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
                           )}
                         </div>
                         {activity.language && (
-                          <span className="ml-auto shrink-0 text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded">
+                          <span className="ml-auto shrink-0 text-[10px] font-mono uppercase bg-[#0C0F17] text-zinc-300 border border-[#1C2338] px-2 py-0.5 rounded">
                             {activity.language}
                           </span>
                         )}
@@ -523,6 +514,7 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
           </>
         )}
       </main>
+      </div>
     </div>
   );
 }

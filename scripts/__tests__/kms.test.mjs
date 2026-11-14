@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateKnowledge, realTestExpressions } from '../../scripts/validate-knowledge.mjs';
 import { kmsPaths, loadEntries } from '../../scripts/kms-lib.mjs';
 import { proposeForSource, writeReviewItem } from '../../scripts/kms-merge.mjs';
@@ -404,7 +405,7 @@ test('rodada 3 — toUuidOrNull: admin:<uuid> vira uuid, ator de arquivo vira nu
 
 test('backfill CLI: árvore vazia prova 0 entradas (dry-run default)', () => {
   const content = kmsTree({});
-  const out = execFileSync('node', ['scripts/kms-backfill.mjs', '--content', content], { cwd: new URL('../..', import.meta.url).pathname, encoding: 'utf8' });
+  const out = execFileSync('node', ['scripts/kms-backfill.mjs', '--content', content], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
   assert.match(out, /lições-aprovadas=0/);
   assert.match(out, /criaria 0 entrada/);
   assert.equal(existsSync(join(content, 'knowledge', 'entries', 'x.json')), false);

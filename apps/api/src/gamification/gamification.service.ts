@@ -197,6 +197,83 @@ export class GamificationService {
   }
 
   /**
+   * P2 / PLG: Resgate de bônus diário por completar as missões do dia.
+   * Concede 50 XP e 25 bits atomicamente, com trava única diária em UserBadge.
+   */
+  async claimDailyBonus(userId: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const badgeCode = `daily_bonus_${today}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.userBadge.findUnique({
+        where: {
+          userId_badgeCode: {
+            userId,
+            badgeCode,
+          },
+        },
+      });
+
+      if (existing) {
+        return { claimed: false, message: 'Bônus diário já resgatado hoje.', xpAwarded: 0 };
+      }
+
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          xp: { increment: 50 },
+          bitsBalance: { increment: 25 },
+        },
+      });
+
+      const newLevel = Math.floor(updatedUser.xp / 200) + 1;
+      if (newLevel !== updatedUser.level) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { level: newLevel },
+        });
+      }
+
+      await tx.userBadge.create({
+        data: {
+          userId,
+          badgeCode,
+          title: 'Missões Diárias Concluídas',
+          description: `Completou todas as missões diárias em ${today}`,
+          icon: '⭐',
+        },
+      });
+
+      this.logger.log(`Daily missions bonus awarded to user ${userId}: +50 XP, +25 bits`);
+
+      return {
+        claimed: true,
+        xpAwarded: 50,
+        bitsAwarded: 25,
+        newXp: updatedUser.xp,
+        newLevel,
+      };
+    });
+  }
+
+  async getDailyBonusStatus(userId: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const badgeCode = `daily_bonus_${today}`;
+    const badge = await this.prisma.userBadge.findUnique({
+      where: {
+        userId_badgeCode: {
+          userId,
+          badgeCode,
+        },
+      },
+    });
+    return {
+      claimed: !!badge,
+      date: today,
+    };
+  }
+
+  /**
    * C8 — Reconciliação periódica users.xp × XP esperado das submissões.
    * Leitura por padrão; fix=true corrige xp+level (ver xp-reconciliation.ts
    * para a regra e a cadência recomendada: 1×/semana).

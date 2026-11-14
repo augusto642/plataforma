@@ -12,6 +12,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { KMS_MATCH_THRESHOLDS, KMS_MATCH_VERSION, decideMatch, scoreEntry } from './kms-lib.mjs';
 
 function entry(slug, title, topicIds, courseSlug) {
@@ -96,7 +97,7 @@ export function runCalibration(cases = CALIBRATION_CASES) {
   return report;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {

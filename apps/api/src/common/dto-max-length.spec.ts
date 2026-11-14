@@ -7,6 +7,8 @@ import { BattleRunDto } from '../submissions/dto/battle-run.dto';
 import { CreateSubmissionDto } from '../submissions/dto/create-submission.dto';
 import { CreateCourseDto } from '../courses/dto/create-course.dto';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { EvaluateRegistrationLevelDto } from '../ai/dto/evaluate-registration-level.dto';
+import { RequestResearchDto } from '../ai/dto/request-research.dto';
 import { CreateActivityDto } from '../activities/dto/create-activity.dto';
 
 /**
@@ -149,6 +151,33 @@ describe('DTOs — M14 tetos de tamanho', () => {
         password: str(129),
       });
       expect(hasConstraint(await validate(password), 'password', 'maxLength')).toBe(true);
+
+      const challengeExplanation = Object.assign(new RegisterDto(), {
+        email: 'a@b.com',
+        name: 'Ana',
+        password: '12345678',
+        challengeExplanation: str(2001),
+      });
+      expect(
+        hasConstraint(await validate(challengeExplanation), 'challengeExplanation', 'maxLength'),
+      ).toBe(true);
+    });
+
+    it('EvaluateRegistrationLevelDto: aceita explicação com 2.000, rejeita com 2.001', async () => {
+      const ok = Object.assign(new EvaluateRegistrationLevelDto(), {
+        hasProgrammedBefore: true,
+        language: 'python',
+        explanation: str(2000),
+      });
+      expect(await validate(ok)).toHaveLength(0);
+      const over = Object.assign(new EvaluateRegistrationLevelDto(), {
+        hasProgrammedBefore: true,
+        language: 'python',
+        explanation: str(2001),
+      });
+      expect(
+        hasConstraint(await validate(over), 'explanation', 'maxLength'),
+      ).toBe(true);
     });
 
     it('CreateActivityDto: rejeita initialCode com 200.001 caracteres', async () => {
@@ -160,6 +189,18 @@ describe('DTOs — M14 tetos de tamanho', () => {
         initialCode: str(200001),
       });
       expect(hasConstraint(await validate(dto), 'initialCode', 'maxLength')).toBe(true);
+    });
+
+    it('RequestResearchDto: aceita meta com 200 caracteres, rejeita com 201', async () => {
+      const ok = Object.assign(new RequestResearchDto(), {
+        goal: str(200),
+      });
+      expect(await validate(ok)).toHaveLength(0);
+
+      const over = Object.assign(new RequestResearchDto(), {
+        goal: str(201),
+      });
+      expect(hasConstraint(await validate(over), 'goal', 'maxLength')).toBe(true);
     });
   });
 });

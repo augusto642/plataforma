@@ -4,7 +4,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Optional,
   Post,
+  Query,
   Req,
   Res,
   SetMetadata,
@@ -15,11 +17,14 @@ import {
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { RegistrationLevelService } from '../ai/registration-level.service';
+import { EvaluateRegistrationLevelDto } from '../ai/dto/evaluate-registration-level.dto';
 import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { IS_PUBLIC_KEY, Public } from './decorators/public.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
+import { CheckEmailDto } from './dto/check-email.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendCodeDto } from './dto/resend-code.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
@@ -45,10 +50,47 @@ import {
 @Controller('auth')
 @Public()
 export class AuthController {
+  private fallbackRegistrationLevel?: RegistrationLevelService;
+
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
+    @Optional() private readonly registrationLevel?: RegistrationLevelService,
   ) {}
+
+  private getRegistrationLevelService(): RegistrationLevelService {
+    return (
+      this.registrationLevel ??
+      (this.fallbackRegistrationLevel ??= new RegistrationLevelService())
+    );
+  }
+
+  @Get('registration-challenge')
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  getRegistrationChallenge(
+    @Query('programmed') programmed?: string,
+    @Query('language') language?: string,
+  ) {
+    const hasProgrammed =
+      programmed === 'true' || programmed === '1'
+        ? true
+        : programmed === 'false' || programmed === '0'
+          ? false
+          : undefined;
+    return this.getRegistrationLevelService().getChallenge({
+      programmed: hasProgrammed,
+      language,
+    });
+  }
+
+  @Post('evaluate-level')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  evaluateLevel(@Body() dto: EvaluateRegistrationLevelDto) {
+    return this.getRegistrationLevelService().evaluateExplanation(dto);
+  }
 
   /**
    * OAuth 2.0 real (Google/GitHub) — Authorization Code Flow via Passport.
@@ -118,16 +160,24 @@ export class AuthController {
     return res.redirect(`${webAppBaseUrl(this.config)}/dashboard`);
   }
 
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    return this.auth.checkEmailAvailability(dto.email);
+  }
+
   /**
-   * C5: o cadastro NÃO cria sessão. A resposta é { user,
-   * emailVerificationRequired: true } e nenhum cookie é emitido — o login só
-   * passa após POST /auth/verify-email. O front exibe o passo de digitação
-   * do código em seguida.
+   * Cadastro com sessão imediata: cria o usuário já ativo (sem código por
+   * e-mail), emite access/refresh tokens nos cookies httpOnly e retorna
+   * apenas { user }.
    */
   @Post('register')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.auth.register(dto);
+    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user: tokens.user };
   }
 
   @Post('verify-email')

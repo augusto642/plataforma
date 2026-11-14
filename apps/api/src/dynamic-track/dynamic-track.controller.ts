@@ -4,6 +4,7 @@
 // Endpoints admin exigem Role.admin (RolesGuard, mesmo padrão do
 // AdminController).
 import {
+  Body,
   Controller,
   Get,
   NotFoundException,
@@ -38,6 +39,20 @@ export class DynamicTrackController {
   async startMine(@CurrentUser() user: JwtPayload) {
     const { view, created } = await this.dynamicTrack.startForUser(user.sub);
     return { investigation: view, created };
+  }
+
+  /** Recalcula a sugestão do aluno com objetivos/stack atualizados ou diagnóstico. */
+  @Post('me/refresh')
+  async refreshMine(
+    @CurrentUser() user: JwtPayload,
+    @Body()
+    body?: {
+      careerGoals?: string[];
+      primaryTechnology?: string | null;
+    },
+  ) {
+    const investigation = await this.dynamicTrack.refreshForUser(user.sub, body);
+    return { investigation };
   }
 
   /** Marca a sugestão como vista (só quando ready e ainda não vista). */

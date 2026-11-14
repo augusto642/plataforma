@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Logo from '../../../components/Logo';
 import { MaterialIcon } from '../../../components/MaterialIcon';
 
 /**
@@ -29,14 +30,7 @@ export function TrackTopbar({
   return (
     <header className="h-16 border-b border-border-subtle bg-dark-surface-container-low px-6 lg:px-8 flex items-center justify-between flex-shrink-0 sticky top-0 z-40 w-full">
       <div className="flex items-center gap-6">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded bg-primary/15 border border-primary/40 flex items-center justify-center text-primary group-hover:border-primary transition-all">
-            <MaterialIcon name="terminal" className="text-[20px]" />
-          </div>
-          <span className="font-headline font-extrabold text-lg tracking-tight text-white">
-            NEXUS<span className="text-primary">CODE</span>
-          </span>
-        </Link>
+        <Logo size="sm" href="/" />
         <nav className="hidden md:flex items-center gap-6 text-xs font-label text-dark-on-surface-variant">
           {active === 'aguardando' ? (
             <span className="text-white font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded bg-dark-surface-container">

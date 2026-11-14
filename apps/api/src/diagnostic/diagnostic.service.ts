@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +14,7 @@ import {
   primaryModuleTag,
 } from '../adaptation/adaptation.rules';
 import { SPINE_MODULE_BY_TAG } from '../adaptation/data/concept-spine';
+import { DynamicTrackService } from '../dynamic-track/dynamic-track.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ARCHETYPES,
@@ -119,6 +121,7 @@ export class DiagnosticService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    @Optional() private readonly dynamicTrack?: DynamicTrackService,
   ) {}
 
   /**
@@ -167,12 +170,23 @@ export class DiagnosticService {
           where: { id: existing.id },
           data: { ...data, userId: existing.userId ?? userId },
         });
+        const ownerId = existing.userId ?? userId;
+        if (ownerId) {
+          await this.dynamicTrack
+            ?.syncFromDiagnostic(ownerId, archetype.recommendedTrack)
+            .catch(() => undefined);
+        }
         return this.toView(updated.sessionToken, scores, archetype, offer);
       }
       if (!existing) {
         const created = await this.prisma.diagnosticResult.create({
           data: { ...data, sessionToken: dto.sessionToken, userId },
         });
+        if (userId) {
+          await this.dynamicTrack
+            ?.syncFromDiagnostic(userId, archetype.recommendedTrack)
+            .catch(() => undefined);
+        }
         return this.toView(created.sessionToken, scores, archetype, offer);
       }
     }
@@ -180,6 +194,11 @@ export class DiagnosticService {
     const created = await this.prisma.diagnosticResult.create({
       data: { ...data, sessionToken: randomUUID(), userId },
     });
+    if (userId) {
+      await this.dynamicTrack
+        ?.syncFromDiagnostic(userId, archetype.recommendedTrack)
+        .catch(() => undefined);
+    }
     return this.toView(created.sessionToken, scores, archetype, offer);
   }
 

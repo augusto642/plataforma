@@ -1,462 +1,239 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ExpLevel, TimeCommitment, CareerGoal } from './StepGoals';
+import {
+  AssessedLevel,
+  CAREER_GOAL_MAP,
+  CareerGoal,
+  PRIMARY_TECH_MAP,
+  PrimaryTechId,
+  TIME_COMMITMENT_MAP,
+  TimeCommitment,
+} from '../data/registrationOptions';
+import { getWorkspaceStarterTemplate } from '../../../lib/workspacePrefs';
+import { useAuth } from '../../../context/AuthContext';
+import { GameLoadingTransition } from './GameLoadingTransition';
 
-interface LogItem {
-  pct: number;
-  time: string;
-  msg: string;
-  color: string;
-}
-
-// Redesign v2 (Central 213) — sem selectedTrack: a trilha é sugerida
-// pela investigação (até 2 dias), não escolhida no cadastro.
 interface StepTerminalProvisionProps {
   name: string;
   email: string;
   role: string;
-  expLevel: ExpLevel;
+  assessedLevel: AssessedLevel;
   timeCommitment: TimeCommitment;
-  careerGoal: CareerGoal;
+  careerGoals: CareerGoal[];
+  primaryTechnology: PrimaryTechId;
   onFinished: () => void;
 }
 
-const EXP_LABELS: Record<ExpLevel, string> = {
-  junior: 'Iniciante / Transição',
-  mid: 'Pleno / Intermediário',
-  senior: 'Sênior / Tech Lead',
-};
-
-const TIME_LABELS: Record<TimeCommitment, string> = {
-  '5h': '5 horas/semana',
-  '10h': '10-15 horas/semana',
-  '20h': '20+ horas/semana',
-};
-
-const GOAL_LABELS: Record<CareerGoal, string> = {
-  global: 'Carreira Internacional (USD/EUR)',
-  lead: 'Evolução Staff / Tech Lead',
-  startup: 'Fundar Startup / Web3',
-  hackathons: 'Vencer Hackathons & Ranking',
+const TIER_LABEL: Record<string, string> = {
+  bronze: 'Liga Bronze',
+  silver: 'Liga Prata',
+  gold: 'Liga Ouro',
 };
 
 export const StepTerminalProvision: React.FC<StepTerminalProvisionProps> = ({
   name,
   email,
-  role,
-  expLevel,
+  assessedLevel,
   timeCommitment,
-  careerGoal,
+  careerGoals,
+  primaryTechnology,
   onFinished,
 }) => {
   const router = useRouter();
-  const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState<LogItem[]>([]);
-  const [isDone, setIsDone] = useState(false);
-  const terminalScreenRef = useRef<HTMLDivElement | null>(null);
+  const { user } = useAuth();
+  const [visibleLines, setVisibleLines] = useState<number>(1);
+  const [isDone, setIsDone] = useState<boolean>(false);
+  const [showGameLoading, setShowGameLoading] = useState<boolean>(false);
+  const finishedFiredRef = useRef<boolean>(false);
 
+  const effectiveGoals: CareerGoal[] = careerGoals.length > 0 ? careerGoals : ['fullstack'];
+  const selectedGoals = effectiveGoals
+    .map((id) => CAREER_GOAL_MAP[id])
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const goalsSummary = selectedGoals.map((goal) => goal.title).join(', ');
+  const timeInfo = TIME_COMMITMENT_MAP[timeCommitment];
+  const techInfo = PRIMARY_TECH_MAP[primaryTechnology];
+  const starter = getWorkspaceStarterTemplate(primaryTechnology);
+
+  const displayName = (user?.name || name || 'Dev').trim();
+  const firstName = displayName.split(/\s+/)[0] || 'Dev';
+  const rawTier = user?.careerTier?.toLowerCase();
+  const leagueLabel =
+    (rawTier && TIER_LABEL[rawTier]) ||
+    (user?.careerTier ? `Liga ${user.careerTier}` : 'Liga Bronze');
+  const totalXp = typeof user?.xp === 'number' ? user.xp : 0;
+
+  // IMPORTANTE: este efeito apenas anima os logs de preparação e dispara o confete visual (onFinished).
+  // A ida para /dashboard acontece somente quando o aluno clicar no botão.
   useEffect(() => {
-    let isCancelled = false;
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-    const sequence: LogItem[] = [
-      {
-        pct: 10,
-        time: '00:00:01',
-        msg: '🟢 Initializing sandbox micro-VM hypervisor (KVM/QEMU kernel 6.8.0-nexus)...',
-        color: '#00E5FF',
-      },
-      {
-        pct: 25,
-        time: '00:00:02',
-        msg: '📦 Pulling pre-cached Docker image (nexus/devcontainer:latest)...',
-        color: '#00E5FF',
-      },
-      {
-        pct: 40,
-        time: '00:00:03',
-        msg: '🔑 Generating Ed25519 ephemeral SSH keypair & zero-trust security token...',
-        color: '#996DFF',
-      },
-      {
-        pct: 55,
-        time: '00:00:04',
-        msg: '⚡ Allocating dedicated Redis cluster & isolated memory sandbox (2 vCPU, 4GB RAM)...',
-        color: '#00E5FF',
-      },
-      {
-        pct: 70,
-        time: '00:00:05',
-        msg: `🤖 Booting Socratic AI Tutor v4 with vector memory index (${EXP_LABELS[expLevel]})...`,
-        color: '#996DFF',
-      },
-      {
-        pct: 85,
-        time: '00:00:06',
-        // Redesign v2 — a trilha é sugerida pela investigação (até 2
-        // dias), não compilada aqui: sem nome de trilha no log.
-        msg: '🎯 Analisando seu perfil para sugerir sua trilha personalizada...',
-        color: '#F59E0B',
-      },
-      {
-        pct: 95,
-        time: '00:00:07',
-        msg: '🚀 Attaching live Monaco Editor WebSocket stream & test runner sandbox...',
-        color: '#00E5FF',
-      },
-      {
-        pct: 100,
-        time: '00:00:08',
-        msg: '✅ ALL SYSTEMS OPERATIONAL: Sandbox IP allocated [10.244.18.99] • Ready to Code!',
-        color: '#04D361',
-      },
-    ];
-
-    let currentIdx = 0;
-
-    const runStep = () => {
-      if (isCancelled) return;
-      if (currentIdx < sequence.length) {
-        const item = sequence[currentIdx];
-        setLogs((prev) => [...prev, item]);
-        setProgress(item.pct);
-        currentIdx++;
-        const delay = currentIdx === sequence.length ? 700 : 500;
-        setTimeout(runStep, delay);
-      } else {
-        setIsDone(true);
-        onFinished();
-      }
-    };
-
-    const initialTimer = setTimeout(runStep, 350);
+    timers.push(
+      setTimeout(() => {
+        if (!cancelled) setVisibleLines(2);
+      }, 240),
+    );
+    timers.push(
+      setTimeout(() => {
+        if (!cancelled) setVisibleLines(3);
+      }, 520),
+    );
+    timers.push(
+      setTimeout(() => {
+        if (!cancelled) setVisibleLines(4);
+      }, 800),
+    );
+    timers.push(
+      setTimeout(() => {
+        if (!cancelled) {
+          setVisibleLines(5);
+          setIsDone(true);
+          if (!finishedFiredRef.current) {
+            finishedFiredRef.current = true;
+            onFinished();
+          }
+        }
+      }, 1050),
+    );
 
     return () => {
-      isCancelled = true;
-      clearTimeout(initialTimer);
+      cancelled = true;
+      timers.forEach((t) => clearTimeout(t));
     };
-  }, [expLevel, onFinished]);
+  }, [onFinished]);
 
-  // Auto scroll terminal logs
-  useEffect(() => {
-    if (terminalScreenRef.current) {
-      terminalScreenRef.current.scrollTop = terminalScreenRef.current.scrollHeight;
-    }
-  }, [logs]);
+  const handleOpenDashboardDirect = useCallback(() => {
+    router.push('/dashboard');
+  }, [router]);
 
-  // Sprint 6 — ponte pós-cadastro: o sucesso do /register leva à
-  // PRIMEIRA MISSÃO NA IDE, não a um painel genérico. A /ide abre já no
-  // primeiro curso e na primeira atividade (loadCourses/selectCourse em
-  // ide/page.tsx), então o destino É a missão, sem clique intermediário.
-  // (A sessão fabricada em localStorage que vivia aqui era código morto:
-  // nada lia 'user_session' — a sessão real é a do AuthContext.)
-  const handleGoToFirstMission = () => {
-    router.push('/ide');
+  const handleStartDashboardTransition = () => {
+    setShowGameLoading(true);
   };
 
+  const progressPct = isDone ? 100 : Math.min(95, Math.round((visibleLines / 5) * 100));
+
   return (
-    <div style={{ animation: 'fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
-      {/* Provisioning Progress Card */}
-      <div
-        style={{
-          background: '#151821',
-          border: '1px solid #232738',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-          <div style={{ fontWeight: 600, color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {!isDone && (
-              <div
-                style={{
-                  width: '14px',
-                  height: '14px',
-                  border: '2px solid rgba(130, 87, 229, 0.3)',
-                  borderTopColor: '#996DFF',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                }}
-              />
-            )}
-            {isDone ? (
-              <span style={{ color: '#04D361' }}>✓ Ambiente Provisionado com Sucesso!</span>
-            ) : (
-              <span>Provisionando seu Ambiente NEXUS Sandbox...</span>
-            )}
+    <>
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header Stitch */}
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-[#00E676] text-xs font-mono font-semibold uppercase tracking-wider mb-2">
+            🚀 Ambiente Pronto
           </div>
-          <div style={{ fontWeight: 800, fontFamily: '"Fira Code", monospace', color: '#00E5FF' }}>
-            {progress}%
-          </div>
-        </div>
-
-        <div
-          style={{
-            width: '100%',
-            height: '8px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '6px',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${progress}%`,
-              background: 'linear-gradient(90deg, #8257E5, #00E5FF, #04D361)',
-              borderRadius: '6px',
-              transition: 'width 0.3s ease',
-              boxShadow: '0 0 16px rgba(4, 211, 97, 0.6)',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* CLI Terminal Window */}
-      <div
-        style={{
-          background: '#090A10',
-          border: '1px solid #232738',
-          borderRadius: '18px',
-          overflow: 'hidden',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-          marginBottom: '24px',
-          fontFamily: '"Fira Code", "JetBrains Mono", Menlo, monospace',
-        }}
-      >
-        <div
-          style={{
-            background: '#12141F',
-            borderBottom: '1px solid #232738',
-            padding: '10px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FF5F56' }} />
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FFBD2E' }} />
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27C93F' }} />
-          </div>
-          <div style={{ fontSize: '11px', color: '#64687A', fontWeight: 600, letterSpacing: '0.5px' }}>
-            nexus-sandbox-provisioner ~ micro-vm-instantiator
-          </div>
-          <div
-            style={{
-              fontSize: '10px',
-              background: isDone ? 'rgba(4, 211, 97, 0.2)' : 'rgba(4, 211, 97, 0.15)',
-              color: '#04D361',
-              border: '1px solid rgba(4, 211, 97, 0.3)',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              fontWeight: 700,
-            }}
-          >
-            {isDone ? 'READY (100%)' : 'LIVE EXEC'}
-          </div>
-        </div>
-
-        <div
-          ref={terminalScreenRef}
-          style={{
-            padding: '20px',
-            height: '240px',
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            fontSize: '12px',
-            color: '#E1E1E6',
-            lineHeight: 1.5,
-          }}
-        >
-          {logs.map((log, index) => (
-            <div
-              key={index}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                animation: 'terminalLineIn 0.2s ease-out',
-              }}
-            >
-              <span style={{ color: '#64687A', fontSize: '11px', flexShrink: 0 }}>[{log.time}]</span>
-              <span style={{ flex: 1, color: log.color, fontWeight: log.pct === 100 ? 600 : 400 }}>
-                {log.msg}
-              </span>
-            </div>
-          ))}
-
-          {!isDone && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: '#64687A', fontSize: '11px' }}>[00:00:0{logs.length + 1}]</span>
-              <span style={{ color: '#00E5FF' }}>provisioning container...</span>
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: '8px',
-                  height: '14px',
-                  background: '#04D361',
-                  animation: 'blink 1s infinite',
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Celebration Card */}
-      {isDone && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '24px',
-            background: 'linear-gradient(180deg, rgba(130, 87, 229, 0.1) 0%, rgba(4, 211, 97, 0.05) 100%)',
-            border: '1px solid rgba(4, 211, 97, 0.4)',
-            borderRadius: '18px',
-            marginBottom: '24px',
-            animation: 'scalePop 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-            position: 'relative',
-          }}
-        >
-          <div style={{ fontSize: '48px', marginBottom: '8px' }}>🎉</div>
-          <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>
-            Bem-vindo(a) à Elite NEXUS CODE!
-          </h3>
-          <p style={{ fontSize: '13px', color: '#9499AD', maxWidth: '500px', margin: '0 auto 16px' }}>
-            Seu ambiente de desenvolvimento Docker foi instanciado e o Tutor IA socrático foi calibrado.
+          <h1 className="text-2xl sm:text-3xl font-brand font-black text-white tracking-tight">
+            Seu Workspace foi inicializado com sucesso!
+          </h1>
+          <p className="text-sm text-[#94A3B8] mt-1 leading-relaxed">
+            Sua conta já está ativa com o diagnóstico de nível{' '}
+            <strong className="text-white">{assessedLevel}</strong>, foco em{' '}
+            <strong className="text-white">{techInfo.title}</strong>, ritmo{' '}
+            <strong className="text-white">{timeInfo.title}</strong> e a Tutora de IA conectada.
           </p>
+        </div>
 
-          <div
-            style={{
-              display: 'inline-flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '10px 16px',
-              background: '#0F1117',
-              border: '1px solid #232738',
-              borderRadius: '12px',
-              fontSize: '12px',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '3px 8px',
-                borderRadius: '4px',
-                background: 'rgba(130, 87, 229, 0.15)',
-                border: '1px solid #8257E5',
-                color: '#996DFF',
-                fontFamily: '"Fira Code", monospace',
-              }}
-            >
-              👤 {name || 'Desenvolvedor'}
-            </span>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '3px 8px',
-                borderRadius: '4px',
-                background: 'rgba(4, 211, 97, 0.15)',
-                border: '1px solid #04D361',
-                color: '#04D361',
-                fontFamily: '"Fira Code", monospace',
-              }}
-            >
-              ⚡ {EXP_LABELS[expLevel]}
-            </span>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '3px 8px',
-                borderRadius: '4px',
-                background: 'rgba(0, 229, 255, 0.15)',
-                border: '1px solid #00E5FF',
-                color: '#00E5FF',
-                fontFamily: '"Fira Code", monospace',
-              }}
-            >
-              ⏱️ {TIME_LABELS[timeCommitment]}
-            </span>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '3px 8px',
-                borderRadius: '4px',
-                background: 'rgba(245, 158, 11, 0.15)',
-                border: '1px solid #F59E0B',
-                color: '#F59E0B',
-                fontFamily: '"Fira Code", monospace',
-              }}
-            >
-              🎯 {GOAL_LABELS[careerGoal]}
+        {/* Terminal sandbox-runner.sh animado progressivamente em tempo real */}
+        <div className="rounded-2xl bg-[#07080C] border border-[#1C2133] overflow-hidden">
+          <div className="px-4 py-2 bg-[#0C0E15] border-b border-[#1C2133] flex items-center justify-between gap-2 text-xs font-mono text-[#64748B]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" aria-hidden="true" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" aria-hidden="true" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" aria-hidden="true" />
+              <span className="ml-2 text-white">workspace-setup.sh</span>
+            </div>
+            <span className="text-[#00E676] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
+              {isDone ? 'Ambiente Online' : `Preparando (${progressPct}%)`}
             </span>
           </div>
-        </div>
-      )}
 
-      {/* Final Action Buttons — Sprint 8: a IDE é o ÚNICO próximo
-          passo em destaque (o "Explorar Catálogo de Trilhas" competia
-          com a primeira missão e saiu); o primário segue o roxo sólido
-          da casa, sem o gradiente verde aposentado */}
-      {isDone && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '16px',
-            marginTop: '28px',
-            paddingTop: '20px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-          }}
-        >
+          <div
+            className="p-5 font-mono text-xs sm:text-sm text-[#F1F5F9] leading-relaxed space-y-2"
+            aria-live="polite"
+          >
+            <p className="text-[#64748B] m-0">
+              [0.02s] Ativando conta e preparando seu perfil ({starter.runtimeLabel})...
+            </p>
+            {visibleLines >= 2 && (
+              <p className="text-[#00E5FF] m-0">
+                [0.18s] Carregando perfil do aluno: {firstName}
+                {email ? ` (${email})` : ''} • Nível {assessedLevel}
+              </p>
+            )}
+            {visibleLines >= 3 && (
+              <p className="text-[#A379FF] m-0">
+                [0.45s] Salvando objetivos e trilha personalizada: {techInfo.title} ({goalsSummary})
+              </p>
+            )}
+            {visibleLines >= 4 && (
+              <p className="text-[#00E676] m-0">
+                [0.72s] Conexão com Tutora de IA (Lumi Socrática) estabelecida com sucesso!
+              </p>
+            )}
+            {visibleLines >= 5 && (
+              <p className="text-white bg-[#111420] p-2.5 rounded-lg border border-[#1C2133] mt-2 mb-0 flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Status: <strong>Tudo pronto para acessar seu Dashboard de estudos</strong>
+                </span>
+                <span className="text-[#00E676] font-bold">100% READY</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Card Único focado no Dashboard do Aluno */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-[#181C2C]/70 border border-[#1C2133] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-4 min-w-0">
+            <div
+              aria-hidden="true"
+              className="w-12 h-12 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 flex items-center justify-center text-xl shrink-0"
+            >
+              📊
+            </div>
+            <div className="min-w-0">
+              <div className="text-base font-bold text-white">Seu Dashboard do Aluno</div>
+              <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed mb-0">
+                No painel você acompanha sua trilha personalizada, metas da semana, progresso e as próximas etapas guiadas pela Tutora de IA.
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
-            onClick={handleGoToFirstMission}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '13px 28px',
-              background: '#8257E5',
-              border: 'none',
-              borderRadius: '12px',
-              color: '#FFFFFF',
-              fontSize: '14px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: '0 8px 24px -4px rgba(130, 87, 229, 0.4)',
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 12px 30px -4px rgba(130, 87, 229, 0.65)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(130, 87, 229, 0.4)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
+            onClick={handleOpenDashboardDirect}
+            className="shrink-0 text-xs font-mono text-[#00E5FF] hover:underline font-semibold bg-transparent border-0 cursor-pointer text-left sm:text-right p-0"
           >
-            🚀 Começar minha primeira missão na IDE
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg>
+            Ir direto para o Painel →
           </button>
         </div>
-      )}
-    </div>
+
+        {/* Rodapé com ação manual para abrir o Dashboard do Aluno */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-[#1C2133]">
+          <span className="text-xs font-mono text-[#64748B]">
+            Etapa 6 de 6: Conta criada e configurada
+          </span>
+
+          <button
+            type="button"
+            onClick={handleStartDashboardTransition}
+            className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00E5FF] hover:brightness-110 text-black font-extrabold text-sm shadow-[0_0_30px_rgba(0,230,116,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer border-0"
+          >
+            <span>Abrir Dashboard do Aluno</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Overlay de Transição: aberto SOMENTE ao clicar no botão */}
+      <GameLoadingTransition
+        isOpen={showGameLoading}
+        studentName={displayName}
+        leagueLabel={leagueLabel}
+        totalXp={totalXp}
+        onNavigateDashboard={handleOpenDashboardDirect}
+      />
+    </>
   );
 };

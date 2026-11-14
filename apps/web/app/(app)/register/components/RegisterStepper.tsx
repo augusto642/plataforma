@@ -4,146 +4,111 @@ import React from 'react';
 
 interface RegisterStepperProps {
   currentStep: number;
+  maxStep?: number;
+  onSelectStep?: (step: number) => void;
 }
 
-// Redesign v2 (Central 213) — mesma ordem da trilha dinâmica (Central
-// 209): a trilha NÃO é escolhida no cadastro; o passo 3 é a sugestão
-// (estado "preparando" enquanto não há backend de investigação neste
-// branch — nunca uma sugestão inventada).
 const STEPS = [
   { num: 1, tag: 'Etapa 01', title: 'Credenciais' },
-  { num: 2, tag: 'Etapa 02', title: 'Perfil & Metas' },
-  { num: 3, tag: 'Etapa 03', title: 'Trilha Sugerida' },
-  { num: 4, tag: 'Etapa 04', title: 'Workspace' },
-];
+  { num: 2, tag: 'Etapa 02', title: 'Experiência' },
+  { num: 3, tag: 'Etapa 03', title: 'Objetivo & Ritmo' },
+  { num: 4, tag: 'Etapa 04', title: 'Stack & Tech' },
+  { num: 5, tag: 'Etapa 05', title: 'Trilha IA' },
+  { num: 6, tag: 'Etapa 06', title: 'Workspace' },
+] as const;
 
-export const RegisterStepper: React.FC<RegisterStepperProps> = ({ currentStep }) => {
-  const percentage = Math.max(25, ((currentStep - 1) / 3) * 100);
+export const RegisterStepper: React.FC<RegisterStepperProps> = ({
+  currentStep,
+  maxStep,
+  onSelectStep,
+}) => {
+  const clampedStep = Math.min(Math.max(currentStep, 1), STEPS.length);
+  const highestReached = Math.min(Math.max(maxStep ?? clampedStep, clampedStep), STEPS.length);
 
   return (
-    <div style={{ width: '100%', maxWidth: '760px', marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '12px',
-          position: 'relative',
-        }}
-      >
+    <nav aria-label="Progresso do cadastro" className="w-full">
+      <ol className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 list-none p-0 m-0">
         {STEPS.map((step) => {
-          const isActive = currentStep === step.num;
-          const isCompleted = currentStep > step.num;
+          const isActive = clampedStep === step.num;
+          const isCompleted = clampedStep > step.num;
+          const isFinalStepActive = isActive && step.num === 6;
+          const canSelect =
+            Boolean(onSelectStep) &&
+            clampedStep < 6 &&
+            !isActive &&
+            step.num <= highestReached;
 
-          return (
-            <div
-              key={step.num}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 14px',
-                background: isActive
-                  ? 'rgba(130, 87, 229, 0.12)'
-                  : isCompleted
-                  ? 'rgba(4, 211, 97, 0.08)'
-                  : 'rgba(21, 24, 33, 0.7)',
-                border: `1px solid ${
-                  isActive
-                    ? 'rgba(130, 87, 229, 0.5)'
-                    : isCompleted
-                    ? 'rgba(4, 211, 97, 0.35)'
-                    : '#232738'
-                }`,
-                borderRadius: '12px',
-                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                position: 'relative',
-                boxShadow: isActive ? '0 0 20px rgba(130, 87, 229, 0.15)' : 'none',
-              }}
-            >
+          const cardClasses = isFinalStepActive
+            ? 'bg-[#111420] border-[#00E676] text-white shadow-[0_0_20px_rgba(0,230,116,0.3)] ring-1 ring-[#00E676]'
+            : isActive
+            ? 'bg-[#111420] border-[#8257E5] text-white shadow-[0_0_20px_rgba(130,87,229,0.3)] ring-1 ring-[#8257E5]'
+            : isCompleted
+            ? 'bg-[#0C0E15] border-[#00E676]/40 text-[#00E676]'
+            : 'bg-[#0C0E15] border-[#1C2133] text-[#64748B]';
+
+          const badgeClasses = isFinalStepActive
+            ? 'bg-[#00E676] text-black'
+            : isActive
+            ? 'bg-[#8257E5] text-white'
+            : isCompleted
+            ? 'bg-[#00E676]/20 text-[#00E676]'
+            : 'bg-[#181C2C] text-[#64748B]';
+
+          const tagColorClass = isFinalStepActive
+            ? 'text-[#00E676]'
+            : isActive
+            ? 'text-[#A379FF]'
+            : isCompleted
+            ? 'text-[#94A3B8]'
+            : 'text-[#64748B]';
+
+          const titleClasses = isActive
+            ? 'text-xs font-bold truncate text-white'
+            : isCompleted
+            ? 'text-xs font-semibold truncate text-white'
+            : 'text-xs font-medium truncate text-[#94A3B8]';
+
+          const inner = (
+            <>
               <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  background: isActive
-                    ? '#8257E5'
-                    : isCompleted
-                    ? '#04D361'
-                    : '#1B1E2B',
-                  color: isActive ? '#FFF' : isCompleted ? '#07080B' : '#64687A',
-                  border: `1px solid ${
-                    isActive
-                      ? '#996DFF'
-                      : isCompleted
-                      ? '#04D361'
-                      : '#232738'
-                  }`,
-                  boxShadow: isActive
-                    ? '0 0 12px rgba(130, 87, 229, 0.6)'
-                    : isCompleted
-                    ? '0 0 10px rgba(4, 211, 97, 0.4)'
-                    : 'none',
-                  flexShrink: 0,
-                  transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
+                aria-hidden="true"
+                className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${badgeClasses}`}
               >
                 {isCompleted ? '✓' : step.num}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    color: isActive ? '#996DFF' : isCompleted ? '#04D361' : '#64687A',
-                    fontWeight: 600,
-                  }}
-                >
+              <div className="truncate min-w-0">
+                <div className={`text-[10px] font-mono uppercase tracking-wider ${tagColorClass}`}>
                   {step.tag}
-                </span>
-                <span
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: isActive ? '#FFFFFF' : isCompleted ? '#F4F4F6' : '#9499AD',
-                    whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis',
-                    overflow: 'hidden',
-                  }}
-                >
+                </div>
+                <div className={titleClasses} title={step.title}>
                   {step.title}
-                </span>
+                </div>
               </div>
-            </div>
+            </>
+          );
+
+          return (
+            <li key={step.num} aria-current={isActive ? 'step' : undefined}>
+              {canSelect ? (
+                <button
+                  type="button"
+                  onClick={() => onSelectStep?.(step.num)}
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer hover:border-[#2D3552] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF] ${cardClasses}`}
+                  aria-label={`Ir para ${step.tag}: ${step.title}`}
+                >
+                  {inner}
+                </button>
+              ) : (
+                <div
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all ${cardClasses}`}
+                >
+                  {inner}
+                </div>
+              )}
+            </li>
           );
         })}
-      </div>
-
-      <div
-        style={{
-          width: '100%',
-          height: '4px',
-          background: 'rgba(255, 255, 255, 0.05)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        <div
-          style={{
-            height: '100%',
-            width: `${percentage}%`,
-            background: 'linear-gradient(90deg, #8257E5 0%, #04D361 100%)',
-            transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-            boxShadow: '0 0 12px rgba(130, 87, 229, 0.6)',
-          }}
-        />
-      </div>
-    </div>
+      </ol>
+    </nav>
   );
 };

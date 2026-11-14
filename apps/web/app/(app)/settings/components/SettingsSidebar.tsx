@@ -42,7 +42,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
 
   return (
     <aside className="w-full md:w-64 shrink-0">
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-3 flex flex-row md:flex-col gap-1.5 overflow-x-auto">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-3 flex flex-row md:flex-col gap-1.5 overflow-x-auto shadow-sm">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -53,7 +53,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all text-left whitespace-nowrap md:whitespace-normal cursor-pointer ${
                 isActive
                   ? 'bg-[#8257E5] text-white shadow-md shadow-[#8257E5]/30'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#181820]'
+                  : 'text-zinc-400 hover:text-white hover:bg-[#121624]'
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -65,7 +65,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                   className={`text-[10px] font-mono px-2 py-0.5 rounded-md hidden sm:inline-block ${
                     isActive
                       ? 'bg-black/30 text-white'
-                      : 'bg-[#1E1E26] text-zinc-400 border border-zinc-700'
+                      : 'bg-[#121624] text-zinc-400 border border-[#1C2338]'
                   }`}
                 >
                   {tab.badge}
@@ -76,20 +76,13 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
         })}
       </div>
 
-      {/* Helper Box — B43 (Sprint 15): o texto anterior prometia que
-          "suas chaves SSH e configurações são sincronizadas em tempo
-          real com seu pod isolado Piston Linux" — promessa falsa (não
-          há chaves nem sincronização na API). O box agora diz apenas o
-          que é verdade sobre esta área. */}
-      <div className="hidden md:block mt-4 bg-[#121217] border border-[#27272A] rounded-2xl p-4 text-xs text-zinc-400">
+      <div className="hidden md:block mt-4 bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-4 text-xs text-zinc-400 shadow-sm">
         <div className="flex items-center gap-2 text-white font-bold mb-1">
           <span>⚡</span>
           <span>Estado real da conta</span>
         </div>
-        <p className="text-[11px] leading-relaxed text-zinc-500">
-          Cada aba mostra apenas o estado real da sua conta, consultado na API da
-          plataforma. Recursos ainda não disponíveis — como chaves SSH e 2FA —
-          aparecem identificados nas próprias abas, sem dados de exemplo.
+        <p className="text-[11px] leading-relaxed text-zinc-400">
+          Cada aba mostra o estado real da sua conta sincronizado com a plataforma. Preferências de IA e dados de perfil são atualizados em tempo real.
         </p>
       </div>
     </aside>

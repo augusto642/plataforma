@@ -92,14 +92,33 @@ function runJavaScript(program, label) {
   });
 }
 
+let resolvedPythonBin;
+function getPythonBin() {
+  if (resolvedPythonBin) return resolvedPythonBin;
+  for (const candidate of ['python3', 'python']) {
+    const check = spawnSync(candidate, ['--version'], {
+      encoding: 'utf8',
+      timeout: TIMEOUT_MS,
+    });
+    const versionOut = `${check.stdout || ''}${check.stderr || ''}`;
+    if (!check.error && check.status === 0 && /Python 3\./.test(versionOut)) {
+      resolvedPythonBin = candidate;
+      return resolvedPythonBin;
+    }
+  }
+  resolvedPythonBin = 'python3';
+  return resolvedPythonBin;
+}
+
 function runPython(program) {
-  const result = spawnSync('python3', ['-'], {
+  const pythonBin = getPythonBin();
+  const result = spawnSync(pythonBin, ['-'], {
     input: program,
     encoding: 'utf8',
     timeout: TIMEOUT_MS,
   });
   if (result.error) {
-    throw new Error(`python3 indisponível/falhou: ${result.error.message}`);
+    throw new Error(`${pythonBin} indisponível/falhou: ${result.error.message}`);
   }
   if (result.status !== 0) {
     const detail = (result.stderr || '').trim().split('\n').pop();
@@ -108,8 +127,9 @@ function runPython(program) {
 }
 
 function checkPythonSyntax(code) {
+  const pythonBin = getPythonBin();
   const result = spawnSync(
-    'python3',
+    pythonBin,
     ['-c', 'import sys; compile(sys.stdin.read(), "<analogous>", "exec")'],
     { input: code, encoding: 'utf8', timeout: TIMEOUT_MS },
   );

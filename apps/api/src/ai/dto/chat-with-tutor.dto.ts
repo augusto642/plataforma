@@ -48,6 +48,11 @@ export class ChatWithTutorDto {
   @MaxLength(100000)
   code?: string;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(8000)
+  testFailure?: string;
+
   @IsArray()
   @ArrayMaxSize(50)
   @ValidateNested({ each: true })

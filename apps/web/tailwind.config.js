@@ -13,8 +13,15 @@ module.exports = {
       colors: {
         // Central 216 — tokens alinhados ao Stitch v2 (antes: escala
         // própria #0B0B10/#13131B/#1A1A24/#22222F/#2B2B3B/#E0E0EE/#8B8B9A).
-        // Os nomes legados (background/surface/border/ink) são mantidos
-        // como aliases — só os valores mudam para os do protótipo.
+        // Tokens canônicos do Dark Obsidian da área de estudo do aluno:
+        obsidian: {
+          root: '#07090E',
+          card: '#0C0F17',
+          surface: '#121624',
+          border: '#1C2338',
+          text: '#F1F5F9',
+          muted: '#94A3B8',
+        },
         background: '#0D0E15',
         surface: {
           // Escala nomeada de superfícies (elevação por clareamento sutil)
@@ -106,6 +113,7 @@ module.exports = {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
         heading: ['var(--font-space)', 'Space Grotesk', 'sans-serif'],
+        brand: ['var(--font-brand)', 'Plus Jakarta Sans', 'sans-serif'],
         // Aliases do Stitch v2 (display/headline/body/code/label = Inter,
         // code = JetBrains Mono) — as telas novas usam font-display etc.
         display: ['Inter', 'sans-serif'],

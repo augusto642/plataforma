@@ -20,31 +20,37 @@ export interface User {
   talentVisible?: boolean;
 }
 
+export interface RegisterPayload {
+  email: string;
+  name: string;
+  password: string;
+  role?: string;
+  // B07/B09 — atribuição e diagnóstico (ver implementação)
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  diagnosticSessionToken?: string;
+  // Trilha dinâmica v1 + Novo Onboarding (Diagnóstico por desafio + Objetivo + Tech)
+  sourceTrack?: string;
+  experienceLevel?: string;
+  weeklyTimeCommitment?: string;
+  careerGoal?: string;
+  careerGoals?: string[];
+  hasProgrammedBefore?: boolean;
+  priorLanguage?: string;
+  challengeId?: string;
+  challengeExplanation?: string;
+  detectedLevel?: 'beginner' | 'junior' | 'mid' | 'senior';
+  primaryTechnology?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
-  register: (dto: {
-    email: string;
-    name: string;
-    password: string;
-    role?: string;
-    // B07/B09 — atribuição e diagnóstico (ver implementação)
-    utmSource?: string;
-    utmMedium?: string;
-    utmCampaign?: string;
-    diagnosticSessionToken?: string;
-    // Trilha dinâmica v1 — escolhas da etapa 2 do /register
-    // (nível/tempo/objetivo) + hint da landing (sourceTrack).
-    // preferredTrack foi REMOVIDO: depreciado na API, a trilha é
-    // sugerida pela investigação, não escolhida no cadastro.
-    sourceTrack?: string;
-    experienceLevel?: string;
-    weeklyTimeCommitment?: string;
-    careerGoal?: string;
-  }) => Promise<{ success: boolean; error?: string; emailVerificationRequired?: boolean }>;
+  register: (dto: RegisterPayload) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -157,28 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (dto: {
-    email: string;
-    name: string;
-    password: string;
-    role?: string;
-    // B07 — atribuição de marketing capturada na página de registro
-    // (camelCase: é o contrato do RegisterDto da API; snake_case é rejeitado
-    // pelo ValidationPipe com forbidNonWhitelisted)
-    utmSource?: string;
-    utmMedium?: string;
-    utmCampaign?: string;
-    // B09 — token da sessão do quiz diagnóstico: presente quando o aluno fez
-    // o quiz antes de se cadastrar; a API vincula o resultado à conta nova
-    diagnosticSessionToken?: string;
-    // Trilha dinâmica v1 — escolhas da etapa 2 do /register: a API
-    // persiste o nível como careerTier; o hint da landing viaja como
-    // sourceTrack (ver RegisterDto). preferredTrack removido (depreciado).
-    sourceTrack?: string;
-    experienceLevel?: string;
-    weeklyTimeCommitment?: string;
-    careerGoal?: string;
-  }): Promise<{ success: boolean; error?: string; emailVerificationRequired?: boolean }> => {
+  const register = async (
+    dto: RegisterPayload,
+  ): Promise<{ success: boolean; error?: string; user?: User }> => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -194,15 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.message || 'Erro ao realizar cadastro.' };
       }
 
-      // C5 (Lote 1): o cadastro NÃO cria sessão — a conta nasce não
-      // verificada e o wizard mostra o passo de digitação do código. Não há
-      // usuário a hidratar aqui (não há cookies de sessão).
-      if ((data as any).emailVerificationRequired) {
-        setIsLoading(false);
-        return { success: true, emailVerificationRequired: true };
-      }
-
-      // Corpo agora é { user }; sessão vive nos cookies httpOnly.
+      // Corpo agora é { user }; sessão vive nos cookies httpOnly imediatamente após o cadastro.
       const registeredUser = normalizeUser(data.user) ?? {
         id: 'user-id',
         name: dto.name,
@@ -215,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (fullProfile) setUser(fullProfile);
 
       setIsLoading(false);
-      return { success: true };
+      return { success: true, user: fullProfile ?? registeredUser };
     } catch (err: any) {
       setIsLoading(false);
       return { success: false, error: err.message || 'Erro ao conectar ao servidor.' };

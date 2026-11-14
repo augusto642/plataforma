@@ -36,6 +36,10 @@ export interface DynamicTrackView {
   notifiedAt: string | null;
   failureReason: string | null;
   startCourse: { slug: string; title: string } | null;
+  profilePreferences?: {
+    careerGoals: string[];
+    primaryTechnology: string | null;
+  };
 }
 
 /** GET /dynamic-track/me — null quando não há investigação ou a API falha. */
@@ -75,6 +79,36 @@ export async function markInvestigationSeen(): Promise<void> {
     await apiFetch(`${API_BASE}/dynamic-track/me/seen`, { method: 'POST' });
   } catch {
     // Best-effort: o toast pode reaparecer; nada quebra por isso.
+  }
+}
+
+/** POST /dynamic-track/me/refresh — recalcula a trilha com objetivos/stack atuais. */
+export async function refreshInvestigation(params?: {
+  careerGoals?: string[];
+  primaryTechnology?: string | null;
+}): Promise<{ ok: boolean; investigation?: DynamicTrackView; error?: string }> {
+  try {
+    const res = await apiFetch(`${API_BASE}/dynamic-track/me/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params ?? {}),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      return {
+        ok: false,
+        error:
+          (data?.message as string) ||
+          'Não foi possível recalcular sua trilha agora. Tente novamente.',
+      };
+    }
+    const data = await res.json();
+    return { ok: true, investigation: data?.investigation as DynamicTrackView };
+  } catch {
+    return {
+      ok: false,
+      error: 'Não foi possível conectar ao servidor. Tente novamente.',
+    };
   }
 }
 

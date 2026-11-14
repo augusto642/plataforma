@@ -1,4 +1,4 @@
-export type ProfileTab = 'overview' | 'repos' | 'achievements' | 'radar';
+export type ProfileTab = 'overview' | 'repos' | 'achievements' | 'certificates' | 'radar';
 
 export interface UserProfile {
   id: string;
@@ -18,6 +18,10 @@ export interface UserProfile {
   bio: string;
   location: string;
   status: string;
+  avatarUrl?: string;
+  avatarPresetId?: string;
+  bannerUrl?: string;
+  bannerTheme?: string;
   githubUrl: string;
   linkedinUrl: string;
   twitterUrl: string;
@@ -128,6 +132,36 @@ export interface SkillAxis {
   score: number;
   color: string;
   description: string;
+  metricOrigin?: string; // Como foi medido (ex: "84 testes unitários no Sandbox Piston")
+  benchmark?: number; // Score de referência (ex: Senior/FAANG = 85)
+  category?: 'hard' | 'soft';
+}
+
+export interface DeveloperPerk {
+  id: string;
+  name: string;
+  type: 'passive' | 'aura' | 'trait';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  icon: string;
+  description: string;
+  buffEffect: string;
+}
+
+export interface SkillMeasurementTelemetry {
+  skillId: string;
+  skillName: string;
+  category: 'hard' | 'soft';
+  currentScore: number;
+  evaluationMethod: string;
+  dataPointsCount: number;
+  lastEvaluatedAt: string;
+  confidenceScore: number; // 0 - 100%
+  breakdown: {
+    factor: string;
+    weight: number;
+    value: number;
+    auditLog: string;
+  }[];
 }
 
 export interface Skill6DItem {

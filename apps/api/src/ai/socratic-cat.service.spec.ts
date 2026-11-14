@@ -43,7 +43,7 @@ describe('SocraticCatService', () => {
     it('deve conter o axioma inegociável de nunca fornecer a linha de código corrigida', () => {
       const prompt = service.getSystemPrompt(1);
       expect(prompt).toContain('NUNCA, SOB NENHUMA CIRCUNSTÂNCIA, ENTREGUE A LINHA DE CÓDIGO CORRIGIDA');
-      expect(prompt).toContain('Kuro');
+      expect(prompt).toContain('Lumi');
       expect(prompt).toContain('Caixas de papelão etiquetadas 📦');
       expect(prompt).toContain('Xícaras de café ☕');
     });

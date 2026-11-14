@@ -3,7 +3,7 @@
  * NEXUS CODE - Frontend Socratic Cat Prompts & Realtime Heuristics
  * 
  * Fornece:
- * 1. Persona oficial do Gato Preto Socrático (Kuro)
+ * 1. Persona oficial da Tutora Socrática (Lumi)
  * 2. Níveis de dica (Hint 1: Conceitual, Hint 2: Raciocínio, Hint 3: Analogia)
  * 3. Gerador heurístico socrático instantâneo no cliente para resposta com zero latência
  * 4. Frequências e parâmetros sonoros para sintetizar miados 8-bit no AudioSynthesizer

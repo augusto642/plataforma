@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { MailModule } from '../mail/mail.module';
 import { DynamicTrackModule } from '../dynamic-track/dynamic-track.module';
+import { AiModule } from '../ai/ai.module';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GitHubStrategy } from './strategies/github.strategy';
@@ -48,6 +49,7 @@ function oauthStrategyProvider(
     PassportModule,
     MailModule,
     DynamicTrackModule,
+    AiModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

@@ -27,6 +27,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const FORBIDDEN_LESSON_FIELDS = new Set([
   'transcript', 'fullText', 'captions', 'transcription', 'videoUrl', 'downloadUrl', 'content',
@@ -542,7 +543,7 @@ export function validateKnowledge(contentDir) {
   return { failures, warnings, registry, registryPath, lessonsById };
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {
@@ -554,7 +555,7 @@ if (isMain) {
     process.exit(0);
   }
   const contentIdx = args.indexOf('--content');
-  const contentDir = contentIdx >= 0 ? resolve(args[contentIdx + 1]) : resolve(new URL('../content', import.meta.url).pathname);
+  const contentDir = contentIdx >= 0 ? resolve(args[contentIdx + 1]) : resolve(fileURLToPath(new URL('../content', import.meta.url)));
   const acceptManual = args.includes('--accept-manual-edit');
   const { failures, warnings, registry, registryPath, lessonsById } = validateKnowledge(contentDir);
   const hashFails = failures.filter((f) => f.startsWith('__HASH_MISMATCH__:'));

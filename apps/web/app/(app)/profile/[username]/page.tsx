@@ -18,6 +18,7 @@ import { ProfileHeader } from '../components/ProfileHeader';
 import { OverviewTab } from '../components/OverviewTab';
 import { RepositoriesTab } from '../components/RepositoriesTab';
 import { AchievementsTab } from '../components/AchievementsTab';
+import { CertificatesTab } from '../components/CertificatesTab';
 import { SkillRadarTab } from '../components/SkillRadarTab';
 import { CertificateModal } from '../components/CertificateModal';
 import { ProfileEditModal } from '../components/ProfileEditModal';
@@ -221,7 +222,8 @@ export default function DynamicProfilePage() {
             [
               { id: 'overview', label: 'Visão Geral', icon: '📊' },
               { id: 'repos', label: 'Repositórios & Capstones', icon: '📁', count: GIT_REPOSITORIES_DATA.length },
-              { id: 'achievements', label: 'Conquistas & Badges', icon: '🏆', count: CERTIFICATES_DATA.length },
+              { id: 'achievements', label: 'Conquistas', icon: '🏆', count: BADGES_DATA.length },
+              { id: 'certificates', label: 'Certificados Oficiais', icon: '📜', count: CERTIFICATES_DATA.length },
               { id: 'radar', label: 'Radar de Habilidades 6D', icon: '⚡' },
             ] as const
           ).map((tab) => (
@@ -273,9 +275,10 @@ export default function DynamicProfilePage() {
 
         {activeTab === 'repos' && <RepositoriesTab repos={GIT_REPOSITORIES_DATA} />}
 
-        {activeTab === 'achievements' && (
-          <AchievementsTab
-            badges={BADGES_DATA}
+        {activeTab === 'achievements' && <AchievementsTab badges={BADGES_DATA} />}
+
+        {activeTab === 'certificates' && (
+          <CertificatesTab
             certificates={CERTIFICATES_DATA}
             onOpenCertificate={(cert) => setSelectedCertificate(cert)}
           />

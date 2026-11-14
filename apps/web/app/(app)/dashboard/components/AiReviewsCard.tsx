@@ -2,29 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MaterialIcon } from '../../../components/MaterialIcon';
 import { listMyReviews, type SavedReview } from '../../../lib/reviews';
-
-// Central 219 (D2) — "Revisões da IA Salvas": módulo de apoio do
-// protótipo Stitch v2 (dashboard-aluno.html), ao lado do Simulador
-// de Entrevista. Dados reais de GET /reviews/me (só as revisões das
-// próprias submissões; free recebe 403 pelo gate 'code-review').
-// Fail-closed: sem acesso, com a API fora ou ainda carregando, o
-// card some inteiro — nunca uma lista inventada. Com acesso e zero
-// revisões, estado vazio honesto (não some: o módulo existe no
-// protótipo e o usuário precisa saber onde as revisões vão aparecer).
-const KIND_LABEL: Record<string, string> = { ai: 'IA', peer: 'Pares' };
-const STATUS_LABEL: Record<string, string> = {
-  completed: 'Concluída',
-  pending: 'Pendente',
-  failed: 'Falhou',
-};
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('pt-BR');
-}
 
 export function AiReviewsCard() {
   const [reviews, setReviews] = useState<SavedReview[] | null>(null);
@@ -47,57 +25,47 @@ export function AiReviewsCard() {
   if (!reviews) return null;
 
   return (
-    <section
-      aria-label="Revisões da IA salvas"
-      className="rounded-xl bg-dark-surface-container-low border border-border-subtle p-5 flex items-start gap-4"
-    >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary/15 text-secondary">
-        <MaterialIcon name="code_blocks" className="text-[22px]" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h2 className="font-headline text-sm font-bold text-white">
-          Revisões da IA Salvas
-        </h2>
-        <p className="text-xs text-dark-on-surface-variant mt-0.5 mb-3">
-          Suas soluções revisadas pela IA.
-        </p>
-        {reviews.length === 0 ? (
-          <p className="text-xs text-dark-on-surface-variant leading-relaxed">
-            Nenhuma revisão salva ainda — revise uma solução no editor para
-            vê-la aqui.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {reviews.map((review) => (
-              <li
-                key={review.id}
-                className="rounded-lg border border-border-subtle bg-dark-surface-container px-3 py-2"
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-white truncate">
-                    {review.activityTitle ?? 'Revisão de código'}
-                  </span>
-                  <span className="shrink-0 text-[11px] font-code text-dark-on-surface-variant">
-                    {KIND_LABEL[review.kind] ?? review.kind} ·{' '}
-                    {STATUS_LABEL[review.status] ?? review.status}
-                  </span>
-                </span>
-                <span className="mt-0.5 block text-[11px] text-dark-on-surface-variant">
-                  {formatDate(review.createdAt)}
-                  {review.summary ? ` · ${review.summary.slice(0, 120)}` : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link
-          href="/ide"
-          className="mt-3 inline-flex items-center gap-1 text-xs font-code font-bold text-secondary hover:underline"
-        >
-          Abrir o editor
-          <MaterialIcon name="arrow_forward" className="text-[14px]" />
-        </Link>
+    <div className="rounded-3xl bg-[#0C0F17] border border-[#1C2338] p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-brand font-bold text-white text-sm">Revisões da IA Salvas</h4>
+        <span className="text-[10px] font-mono text-[#00E5FF] bg-[#121624] px-2 py-0.5 rounded border border-[#00E5FF]/30 font-bold">
+          Code Review
+        </span>
       </div>
-    </section>
+
+      <p className="text-xs text-[#94A3B8] leading-relaxed">
+        Feedbacks socráticos gravados com sugestões de otimização de complexidade e Clean Code.
+      </p>
+
+      {reviews.length > 0 ? (
+        <div className="space-y-2">
+          {reviews.slice(0, 2).map((rev) => (
+            <div
+              key={rev.id}
+              className="p-3 rounded-xl bg-[#121624] border border-[#1C2338] text-xs font-mono text-[#94A3B8] space-y-1"
+            >
+              <div className="text-white font-medium flex items-center justify-between">
+                <span className="truncate max-w-[160px]">
+                  {rev.activityTitle || 'Atividade de Código'}
+                </span>
+                <span className="text-[#04D361]">{rev.kind === 'ai' ? 'IA' : 'Revisão'}</span>
+              </div>
+              <p className="text-[11px] text-[#64748B] line-clamp-1">{rev.summary}</p>
+            </div>
+          ))}
+          <Link
+            href="/revisao"
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-[#00E5FF] hover:underline pt-1"
+          >
+            <span>Ver todas as análises salvas</span>
+            <span>→</span>
+          </Link>
+        </div>
+      ) : (
+        <div className="p-3 rounded-xl bg-[#121624] border border-[#1C2338] text-xs font-mono text-[#64748B]">
+          Nenhuma revisão salva ainda. Ao enviar seu código no sandbox, peça feedback à Tutora de IA.
+        </div>
+      )}
+    </div>
   );
 }

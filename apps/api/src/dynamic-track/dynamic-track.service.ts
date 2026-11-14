@@ -23,6 +23,7 @@ import { MailerService } from '../mail/mailer.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   buildRationaleText,
+  isCareerGoal,
   isSlaOverdue,
   slaDueAtFrom,
   suggestTrack,
@@ -55,9 +56,15 @@ export interface TrackProfileSnapshot {
   expLevel?: ExperienceLevel | null;
   timeCommitment?: TimeCommitment | null;
   careerGoal?: CareerGoal | null;
+  careerGoals?: CareerGoal[];
   /** Hint da landing (?track=): interesse declarado, não escolha. */
   sourceTrack?: TrackId | null;
   diagnosticTrackId?: TrackId | null;
+  primaryTechnology?: string | null;
+  hasProgrammedBefore?: boolean | null;
+  priorLanguage?: string | null;
+  challengeId?: string | null;
+  assessmentSource?: string | null;
 }
 
 export interface TrackInvestigationView {
@@ -77,6 +84,11 @@ export interface TrackInvestigationView {
   failureReason: string | null;
   /** Curso real que abre a trilha (null quando o slug não existe). */
   startCourse: { slug: string; title: string } | null;
+  /** Preferências usadas na investigação (para ajuste/recálculo no app). */
+  profilePreferences?: {
+    careerGoals: CareerGoal[];
+    primaryTechnology: string | null;
+  };
   createdAt: Date;
 }
 
@@ -113,12 +125,23 @@ function parseSnapshot(raw: unknown): TrackProfileSnapshot {
   const s = raw as Record<string, unknown>;
   const pick = (key: string): string | null =>
     typeof s[key] === 'string' ? (s[key] as string) : null;
+  const rawCareerGoal = pick('careerGoal');
+  const careerGoals = Array.isArray(s.careerGoals)
+    ? s.careerGoals.filter(isCareerGoal)
+    : undefined;
   return {
     expLevel: (pick('expLevel') as ExperienceLevel | null) ?? null,
     timeCommitment: (pick('timeCommitment') as TimeCommitment | null) ?? null,
-    careerGoal: (pick('careerGoal') as CareerGoal | null) ?? null,
+    careerGoal: isCareerGoal(rawCareerGoal) ? rawCareerGoal : null,
+    ...(careerGoals !== undefined ? { careerGoals } : {}),
     sourceTrack: (pick('sourceTrack') as TrackId | null) ?? null,
     diagnosticTrackId: (pick('diagnosticTrackId') as TrackId | null) ?? null,
+    primaryTechnology: pick('primaryTechnology'),
+    hasProgrammedBefore:
+      typeof s.hasProgrammedBefore === 'boolean' ? s.hasProgrammedBefore : null,
+    priorLanguage: pick('priorLanguage'),
+    challengeId: pick('challengeId'),
+    assessmentSource: pick('assessmentSource'),
   };
 }
 
@@ -363,6 +386,155 @@ export class DynamicTrackService {
     };
   }
 
+  /**
+   * POST /dynamic-track/me/refresh: recalcula a sugestão com base no perfil
+   * atualizado (novos objetivos / tecnologia / resultado diagnóstico mais
+   * recente) sem exigir 24h de espera nem duplicar a investigação.
+   */
+  async refreshForUser(
+    userId: string,
+    overrides?: {
+      careerGoals?: string[];
+      primaryTechnology?: string | null;
+    },
+  ): Promise<TrackInvestigationView> {
+    let existing = (await this.prisma.trackInvestigation.findUnique({
+      where: { userId },
+    })) as InvestigationRow | null;
+
+    if (!existing) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { careerTier: true },
+      });
+      existing = (await this.prisma.trackInvestigation.create({
+        data: {
+          userId,
+          status: 'investigating',
+          profileSnapshot: {
+            expLevel: careerTierToExpLevel(user?.careerTier ?? null),
+            timeCommitment: null,
+            careerGoal: null,
+            sourceTrack: null,
+            diagnosticTrackId: null,
+          } as unknown as Prisma.InputJsonValue,
+          slaDueAt: slaDueAtFrom(new Date()),
+        },
+      })) as InvestigationRow;
+    }
+
+    const prevSnapshot = parseSnapshot(existing.profileSnapshot);
+    const validOverrideGoals = Array.isArray(overrides?.careerGoals)
+      ? Array.from(new Set(overrides.careerGoals.filter(isCareerGoal)))
+      : undefined;
+
+    const nextSnapshot: TrackProfileSnapshot = {
+      ...prevSnapshot,
+      ...(validOverrideGoals !== undefined
+        ? {
+            careerGoals: validOverrideGoals,
+            careerGoal: validOverrideGoals[0] ?? null,
+          }
+        : {}),
+      ...(overrides?.primaryTechnology !== undefined
+        ? {
+            primaryTechnology: overrides.primaryTechnology?.trim() || null,
+          }
+        : {}),
+    };
+
+    const latestDiagnostic = await this.prisma.diagnosticResult.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const archetype = latestDiagnostic?.archetype as
+      | keyof typeof ARCHETYPES
+      | undefined;
+    const diagnosticTrackId =
+      nextSnapshot.diagnosticTrackId ??
+      (archetype && ARCHETYPES[archetype]?.recommendedTrack) ??
+      null;
+
+    const suggestion = suggestTrack({
+      ...nextSnapshot,
+      diagnosticTrackId,
+    });
+
+    const prevRationale = parseRationale(existing.rationale);
+    const evidence = parseEvidence(existing.marketEvidence);
+    const basis: SuggestionBasis =
+      evidence.length > 0 ? 'profile+market' : 'profile-only';
+    const rationale = {
+      reasons: suggestion.reasons,
+      basis,
+      ...(prevRationale.researchDocId
+        ? { researchDocId: prevRationale.researchDocId }
+        : {}),
+      ...(prevRationale.researchSourcesAvailable
+        ? { researchSourcesAvailable: prevRationale.researchSourcesAvailable }
+        : {}),
+      ...(prevRationale.researchSourcesUnavailable
+        ? {
+            researchSourcesUnavailable:
+              prevRationale.researchSourcesUnavailable,
+          }
+        : {}),
+    };
+
+    const updated = (await this.prisma.trackInvestigation.update({
+      where: { userId },
+      data: {
+        status: 'ready',
+        profileSnapshot: nextSnapshot as unknown as Prisma.InputJsonValue,
+        suggestedTrack: suggestion.track,
+        rationale: rationale as unknown as Prisma.InputJsonValue,
+        completedAt: existing.completedAt ?? new Date(),
+        failureReason: null,
+      },
+    })) as InvestigationRow;
+
+    return this.toView(updated);
+  }
+
+  /** Sincroniza investigação existente quando o aluno conclui o quiz diagnóstico. */
+  async syncFromDiagnostic(
+    userId: string,
+    diagnosticTrackId: TrackId,
+  ): Promise<void> {
+    const existing = (await this.prisma.trackInvestigation.findUnique({
+      where: { userId },
+    })) as InvestigationRow | null;
+    if (!existing) return;
+
+    const snapshot = {
+      ...parseSnapshot(existing.profileSnapshot),
+      diagnosticTrackId,
+    };
+    const suggestion = suggestTrack(snapshot);
+    const prevRationale = parseRationale(existing.rationale);
+    const evidence = parseEvidence(existing.marketEvidence);
+    const basis: SuggestionBasis =
+      evidence.length > 0 ? 'profile+market' : 'profile-only';
+    const rationale = {
+      reasons: suggestion.reasons,
+      basis,
+      ...(prevRationale.researchDocId
+        ? { researchDocId: prevRationale.researchDocId }
+        : {}),
+    };
+
+    await this.prisma.trackInvestigation.update({
+      where: { userId },
+      data: {
+        status: 'ready',
+        profileSnapshot: snapshot as unknown as Prisma.InputJsonValue,
+        suggestedTrack: suggestion.track,
+        rationale: rationale as unknown as Prisma.InputJsonValue,
+        completedAt: existing.completedAt ?? new Date(),
+      },
+    });
+  }
+
   /** POST /dynamic-track/me/seen: marca notifiedAt (GET não tem efeito colateral). */
   async markSeen(userId: string): Promise<TrackInvestigationView | null> {
     const row = (await this.prisma.trackInvestigation.findUnique({
@@ -415,13 +587,19 @@ export class DynamicTrackService {
     let researchSourcesAvailable: string[] | undefined;
     let researchSourcesUnavailable: string[] | undefined;
     try {
-      const goal = input.careerGoal ?? 'trilha';
+      const winnerReason = suggestion.reasons.find((r) =>
+        r.startsWith('career-goal:'),
+      );
+      const primaryGoal = winnerReason
+        ? (winnerReason.slice('career-goal:'.length) as CareerGoal)
+        : (input.careerGoal ?? input.careerGoals?.[0] ?? null);
+      const goal = primaryGoal ?? suggestion.track ?? 'trilha';
       const doc = await this.research?.collect(goal);
       if (doc) {
         researchDocId = doc.id;
         researchSourcesAvailable = doc.sourcesAvailable ?? [];
         researchSourcesUnavailable = doc.sourcesUnavailable ?? [];
-        evidence = this.signalsFromResearchDoc(doc, input.careerGoal ?? null);
+        evidence = this.signalsFromResearchDoc(doc, primaryGoal);
         if (evidence.length > 0) basis = 'profile+market';
       }
     } catch (err) {
@@ -653,7 +831,14 @@ export class DynamicTrackService {
   private async toView(row: InvestigationRow): Promise<TrackInvestigationView> {
     const rationale = parseRationale(row.rationale);
     const evidence = parseEvidence(row.marketEvidence);
+    const snapshot = parseSnapshot(row.profileSnapshot);
     const track = (row.suggestedTrack as TrackId | null) ?? null;
+    const snapshotGoals = Array.from(
+      new Set<CareerGoal>([
+        ...(snapshot.careerGoal ? [snapshot.careerGoal] : []),
+        ...(snapshot.careerGoals ?? []),
+      ]),
+    );
     return {
       id: row.id,
       status: row.status,
@@ -662,7 +847,10 @@ export class DynamicTrackService {
       reasons: rationale.reasons,
       rationaleText:
         row.status === 'ready'
-          ? buildRationaleText(rationale.reasons, rationale.basis ?? 'profile-only')
+          ? buildRationaleText(rationale.reasons, rationale.basis ?? 'profile-only', {
+              primaryTechnology: snapshot.primaryTechnology,
+              careerGoals: snapshot.careerGoals,
+            })
           : null,
       basis: rationale.basis,
       marketEvidence: evidence,
@@ -676,6 +864,10 @@ export class DynamicTrackService {
       failureReason: row.failureReason,
       startCourse:
         row.status === 'ready' ? await this.resolveStartCourse(track) : null,
+      profilePreferences: {
+        careerGoals: snapshotGoals,
+        primaryTechnology: snapshot.primaryTechnology ?? null,
+      },
       createdAt: row.createdAt,
     };
   }

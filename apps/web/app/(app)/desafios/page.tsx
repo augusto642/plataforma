@@ -18,6 +18,9 @@ import { apiFetch, API_BASE } from '../../lib/apiClient';
 import { IdeEditorPane } from '../ide/components/IdeEditorPane';
 import { TestResultsGrid } from '../ide/components/TestResultsGrid';
 import { useSubmissionStream, type SubmissionEvent } from '../../hooks/useSubmissionStream';
+import { StudentSidebar } from '../../components/StudentSidebar';
+import { StudentHeader } from '../../components/StudentHeader';
+import { useSidebar } from '../../context/SidebarContext';
 
 /**
  * Fase 3 premium (desenho §4.1) — desafio da semana + liga + ranking.
@@ -58,6 +61,7 @@ interface ChallengeActivity {
 
 export default function DesafiosPage() {
   const { user, token, isLoading } = useAuth();
+  const { isCollapsed } = useSidebar();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [ranking, setRanking] = useState<ChallengeRankingEntry[]>([]);
   const [leagues, setLeagues] = useState<LeagueStanding[]>([]);
@@ -218,28 +222,40 @@ export default function DesafiosPage() {
     : '/ide';
 
   return (
-    <div className="min-h-screen bg-dark-surface text-dark-on-surface px-4 md:px-8 py-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#07090E] text-[#F1F5F9] font-sans antialiased flex selection:bg-[#8257E5] selection:text-white">
+      {/* Sidebar Lateral Retrátil Oficial */}
+      <StudentSidebar />
+
+      {/* Conteúdo à Direita com Largura Dinâmica */}
+      <div
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'md:ml-20' : 'md:ml-64'
+        }`}
+      >
+        <StudentHeader
+          title="Desafios de Código"
+          subtitle="Desafio Semanal & Ranking da Liga"
+        />
+
+        <main className="p-4 md:p-8 space-y-6 flex-1 max-w-7xl w-full mx-auto">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-xs font-mono text-[#94A3B8] hover:text-white transition-colors mb-2"
         >
-          <MaterialIcon name="arrow_back" className="text-[18px]" />
-          Voltar ao mapa
+          <MaterialIcon name="arrow_back" className="text-[16px]" />
+          Voltar à Visão Geral
         </Link>
 
-        <p className="font-code text-[11px] text-primary font-bold uppercase tracking-wider">
+        <p className="font-mono text-xs text-[#8257E5] font-bold uppercase tracking-wider">
           {challenge
             ? `Desafio da semana · ${challenge.status === 'active' ? 'em andamento' : challenge.status === 'upcoming' ? 'começa em breve' : 'encerrado'}`
             : 'Desafio da semana'}
         </p>
-        <h1 className="text-2xl font-black text-white mt-1">
-          {challenge ? challenge.title : 'Desafio da semana'}
+        <h1 className="text-2xl md:text-3xl font-brand font-black text-white mt-1">
+          {challenge ? challenge.title : 'Desafio de Código da Semana'}
         </h1>
-        <p className="text-sm text-zinc-400 mt-2 max-w-2xl">
-          Um problema curto por semana, com ranking por nível — iniciante compete com
-          iniciante. Participar já rende pontos; vencer rende mais. Prêmio é XP e posição
-          na liga, sem promessa de emprego.
+        <p className="text-sm text-[#94A3B8] mt-2 max-w-2xl leading-relaxed">
+          Desafio algorítmico avaliado por runner isolado com bateria de testes unitários automatizados. Sua pontuação mensura correção lógica, complexidade assintótica Big-O e cobertura de casos de borda. Suba de divisão nas Ligas Técnicas e consolide seu portfólio.
         </p>
         {error && <p className="text-sm text-red-400 mt-4">{error}</p>}
 
@@ -265,8 +281,7 @@ export default function DesafiosPage() {
               </button>
               {!challenge.joined && (
                 <span className="text-xs text-zinc-500">
-                  Sem inscrição, você não entra no ranking — o desafio nunca inscreve ninguém
-                  sozinho.
+                  Inscrição voluntária (opt-in): necessária para submeter execuções ao ranking oficial da sua divisão.
                 </span>
               )}
             </div>
@@ -277,7 +292,7 @@ export default function DesafiosPage() {
                 {/* Coluna 1 — enunciado + casos de teste. */}
                 <section
                   aria-label="Enunciado do desafio"
-                  className="lg:col-span-3 rounded-xl border border-border-subtle bg-dark-surface-container-low p-5 min-w-0"
+                  className="lg:col-span-3 rounded-2xl border border-[#1C2338] bg-[#0C0F17] p-5 min-w-0 shadow-sm"
                 >
                   <p className="font-code text-[11px] text-secondary font-bold uppercase tracking-wider">
                     Missão de código
@@ -339,9 +354,9 @@ export default function DesafiosPage() {
                 {/* Coluna 2 — editor + terminal. */}
                 <section
                   aria-label="Editor e terminal"
-                  className="lg:col-span-6 rounded-xl border border-border-subtle bg-dark-surface-container-low overflow-hidden min-w-0"
+                  className="lg:col-span-6 rounded-2xl border border-[#1C2338] bg-[#0C0F17] overflow-hidden min-w-0 shadow-sm"
                 >
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border-subtle">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1C2338] bg-[#07090E]">
                     <span className="font-code text-xs text-dark-on-surface-variant">
                       {activity.language} · {activity.title.toLowerCase().replace(/\s+/g, '-')}.{' '}
                       {activity.language === 'python' ? 'py' : 'js'}
@@ -350,7 +365,7 @@ export default function DesafiosPage() {
                       type="button"
                       onClick={() => void runTests()}
                       disabled={isSubmitting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-bold transition-colors"
                     >
                       <MaterialIcon name="play_arrow" className="text-[16px]" />
                       {isSubmitting ? 'Executando…' : 'Executar testes (Ctrl + Enter)'}
@@ -365,7 +380,7 @@ export default function DesafiosPage() {
                       isSubmitting={isSubmitting}
                     />
                   </div>
-                  <div className="border-t border-border-subtle">
+                  <div className="border-t border-[#1C2338] bg-[#07090E]/60">
                     <p className="px-4 pt-3 pb-1 font-code text-xs text-dark-on-surface-variant">
                       Console de execução
                     </p>
@@ -408,7 +423,7 @@ export default function DesafiosPage() {
                 {/* Coluna 3 — tutora. */}
                 <section
                   aria-label="Tutora de IA"
-                  className="lg:col-span-3 rounded-xl border border-border-subtle bg-dark-surface-container-low p-5 min-w-0"
+                  className="lg:col-span-3 rounded-2xl border border-[#1C2338] bg-[#0C0F17] p-5 min-w-0 shadow-sm"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple/20 text-dark-primary font-bold text-xs">
@@ -423,7 +438,7 @@ export default function DesafiosPage() {
                     A tutora não entrega a resposta pronta: ela guia seu raciocínio.
                   </p>
                   {submission?.aiFeedback && (
-                    <div className="mt-4 rounded-xl border border-border-subtle bg-dark-surface-container p-3">
+                    <div className="mt-4 rounded-xl border border-[#1C2338] bg-[#121624] p-3">
                       <p className="text-xs font-bold text-zinc-300 mb-1">
                         Feedback da IA sobre sua submissão
                       </p>
@@ -433,7 +448,7 @@ export default function DesafiosPage() {
                     </div>
                   )}
                   {aiHints && (
-                    <div className="mt-4 rounded-xl border border-border-subtle bg-dark-surface-container p-3">
+                    <div className="mt-4 rounded-xl border border-[#1C2338] bg-[#121624] p-3">
                       <p className="text-xs font-bold text-zinc-300 mb-1">Dica da IA</p>
                       <p className="text-sm text-zinc-400 whitespace-pre-wrap">{aiHints}</p>
                     </div>
@@ -444,7 +459,7 @@ export default function DesafiosPage() {
                         type="button"
                         onClick={() => void askAiHint()}
                         disabled={loadingHints}
-                        className="w-full px-4 py-2 rounded-xl bg-dark-surface-container border border-border-strong text-sm font-bold text-dark-on-surface hover:text-white disabled:opacity-50 transition-colors"
+                        className="w-full px-4 py-2 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] text-sm font-bold text-dark-on-surface hover:text-white disabled:opacity-50 transition-colors"
                       >
                         {loadingHints ? 'Carregando dica…' : 'Pedir dica da IA'}
                       </button>
@@ -459,7 +474,7 @@ export default function DesafiosPage() {
                 </section>
               </div>
             ) : (
-              <div className="mt-6 rounded-xl border border-border-subtle bg-dark-surface-container-low p-5 max-w-2xl">
+              <div className="mt-6 rounded-2xl border border-[#1C2338] bg-[#0C0F17] p-5 max-w-2xl">
                 <p className="text-sm text-zinc-400">
                   {activityError ??
                     'O desafio ativo ainda não tem uma atividade para resolver.'}
@@ -480,7 +495,7 @@ export default function DesafiosPage() {
                   {ranking.map((r) => (
                     <li
                       key={r.userId}
-                      className="flex justify-between rounded-xl border border-zinc-800 bg-[#121217] px-4 py-2 text-sm"
+                      className="flex justify-between rounded-xl border border-[#1C2338] bg-[#0C0F17] px-4 py-2.5 text-sm"
                     >
                       <span className="text-zinc-300">
                         {r.position}º {r.name} <span className="text-zinc-500">· nível {r.level}</span>
@@ -513,7 +528,7 @@ export default function DesafiosPage() {
               {leagues.map((l) => (
                 <li
                   key={l.seasonId}
-                  className="flex justify-between rounded-xl border border-zinc-800 bg-[#121217] px-4 py-2 text-sm"
+                  className="flex justify-between rounded-xl border border-[#1C2338] bg-[#0C0F17] px-4 py-2.5 text-sm"
                 >
                   <span className="text-zinc-300">
                     Liga {TIER_LABEL[l.tier] ?? l.tier} · {l.position}º de {l.participants}
@@ -524,6 +539,7 @@ export default function DesafiosPage() {
             </ul>
           )}
         </section>
+        </main>
       </div>
     </div>
   );

@@ -69,8 +69,10 @@ export class CsrfOriginMiddleware implements NestMiddleware {
           return;
         }
       } catch {
-        // Referer malformado: não dá para validar a origem — trata como
-        // ausente (cliente não-navegador) em vez de bloquear às cegas.
+        // Referer malformado: se o cabeçalho foi enviado mas não é uma URL válida,
+        // rejeita por segurança (fail-closed) para evitar evasão de CSRF.
+        this.reject(res);
+        return;
       }
     }
 

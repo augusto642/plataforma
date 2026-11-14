@@ -31,6 +31,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const TRACK_WINDOW_DAYS = 730;
 export const ROADMAP_REUSE_DAYS = 90;
@@ -358,7 +359,7 @@ export function writeSegmentFiles(tracksDir, segment, report) {
   return { segPath, repPath };
 }
 
-const isMain = process.argv[1] && resolvePath(process.argv[1]) === resolvePath(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolvePath(process.argv[1]) === resolvePath(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) {

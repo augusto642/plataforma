@@ -74,6 +74,7 @@ export async function fetchDashboardData(): Promise<StudentDashboardData | null>
     if (data.coursesProgress && data.coursesProgress.length > 0) {
       const primary = data.coursesProgress[0];
       activeMission = {
+        courseId: typeof primary.courseId === 'string' ? primary.courseId : undefined,
         trackTitle: primary.courseTitle ? `TRILHA ATIVA: ${primary.courseTitle}` : 'TRILHA ATIVA',
         title: primary.courseTitle || 'Seu curso',
         progressPercent: primary.progressPercent ?? 0,
@@ -89,13 +90,17 @@ export async function fetchDashboardData(): Promise<StudentDashboardData | null>
     let primaryCourseId: string | null = null;
     if (Array.isArray(courses) && courses.length > 0) {
       const firstCourse = courses[0];
-      if (typeof firstCourse.id === 'string' && firstCourse.id) {
-        primaryCourseId = firstCourse.id;
+      const matchedCourse =
+        (activeMission?.courseId
+          ? courses.find((c: { id?: string }) => c.id === activeMission?.courseId)
+          : null) ?? firstCourse;
+      if (typeof matchedCourse.id === 'string' && matchedCourse.id) {
+        primaryCourseId = matchedCourse.id;
       }
       if (activeMission) {
-        activeMission.courseId = firstCourse.id;
-        if (firstCourse.activities && firstCourse.activities.length > 0) {
-          const firstAct = firstCourse.activities[0];
+        activeMission.courseId = matchedCourse.id;
+        if (matchedCourse.activities && matchedCourse.activities.length > 0) {
+          const firstAct = matchedCourse.activities[0];
           activeMission.activityId = firstAct.id;
           if (firstAct.giteaCloneUrl) {
             activeMission.gitCloneUrl = `git clone ${firstAct.giteaCloneUrl}`;
@@ -112,33 +117,38 @@ export async function fetchDashboardData(): Promise<StudentDashboardData | null>
       const resLeaderboard = await apiFetch(
         `${API_BASE}/courses/${primaryCourseId}/leaderboard`,
       ).catch(() => null);
-      if (!resLeaderboard || !resLeaderboard.ok) return null;
-      const lb = await resLeaderboard.json();
-      if (!Array.isArray(lb)) return null;
-      const gradients = [
-        'from-[#FFA116] to-[#F43F5E]',
-        'from-[#8257E5] to-[#996DFF]',
-        'from-[#00B37E] to-[#00E5FF]',
-        'from-[#996DFF] to-[#8257E5]',
-        'from-[#00E676] to-[#00B37E]',
-      ];
-      leaderboard = lb.slice(0, 5).map((entry, idx) => {
-        const nameParts = (entry.name || 'Aluno').split(' ');
-        const initials = (nameParts[0]?.[0] || 'A') + (nameParts[1]?.[0] || 'S');
-        return {
-          rank: idx + 1,
-          name: entry.name || 'Aluno',
-          initials: initials.toUpperCase(),
-          avatarGradient: gradients[idx % gradients.length],
-          // D7: sem contagem real, 0 — nunca `?? 12` / `?? 2000`.
-          completedCount:
-            typeof entry.completedActivitiesCount === 'number'
-              ? entry.completedActivitiesCount
-              : 0,
-          xp: typeof entry.xp === 'number' ? entry.xp : 0,
-          isCurrentUser: isRealCurrentUser(entry),
-        };
-      });
+      if (resLeaderboard && resLeaderboard.status === 403) {
+        // Aluno recém-cadastrado ou ainda não matriculado no curso: ranking vazio honesto.
+        leaderboard = [];
+      } else {
+        if (!resLeaderboard || !resLeaderboard.ok) return null;
+        const lb = await resLeaderboard.json();
+        if (!Array.isArray(lb)) return null;
+        const gradients = [
+          'from-[#FFA116] to-[#F43F5E]',
+          'from-[#8257E5] to-[#996DFF]',
+          'from-[#00B37E] to-[#00E5FF]',
+          'from-[#996DFF] to-[#8257E5]',
+          'from-[#00E676] to-[#00B37E]',
+        ];
+        leaderboard = lb.slice(0, 5).map((entry, idx) => {
+          const nameParts = (entry.name || 'Aluno').split(' ');
+          const initials = (nameParts[0]?.[0] || 'A') + (nameParts[1]?.[0] || 'S');
+          return {
+            rank: idx + 1,
+            name: entry.name || 'Aluno',
+            initials: initials.toUpperCase(),
+            avatarGradient: gradients[idx % gradients.length],
+            // D7: sem contagem real, 0 — nunca `?? 12` / `?? 2000`.
+            completedCount:
+              typeof entry.completedActivitiesCount === 'number'
+                ? entry.completedActivitiesCount
+                : 0,
+            xp: typeof entry.xp === 'number' ? entry.xp : 0,
+            isCurrentUser: isRealCurrentUser(entry),
+          };
+        });
+      }
     }
 
     // 4. Submissões — central (heatmap.totalSubmissions). Sucesso

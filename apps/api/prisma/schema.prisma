@@ -128,6 +128,7 @@ model User {
 
   @@index([role])
   @@index([createdAt])
+  @@index([lastActiveAt])
   @@map("users")
 }
 
@@ -891,7 +892,7 @@ model InterviewReport {
   nextSteps String[] @map("next_steps")
   createdAt DateTime @default(now()) @map("created_at")
 
-  session InterviewSession @relation(fields: [sessionId], references: [id])
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("interview_reports")
 }
@@ -972,6 +973,7 @@ model ChallengeParticipant {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([challengeId, userId])
+  @@index([userId])
   @@map("challenge_participants")
 }
 
@@ -994,6 +996,7 @@ model LeagueEntry {
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([seasonId, userId])
+  @@index([userId])
   @@map("league_entries")
 }
 
@@ -1044,6 +1047,7 @@ model SolutionShare {
   submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("solution_shares")
 }
 
@@ -1076,6 +1080,7 @@ model JobPosting {
   introductions TalentIntroduction[]
 
   @@index([level, expiresAt])
+  @@index([companyId])
   @@map("job_postings")
 }
 
@@ -1136,6 +1141,7 @@ model Organization {
 
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
+  @@index([companyId])
   @@map("organizations")
 }
 
@@ -1149,6 +1155,7 @@ model OrgMember {
   user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, userId])
+  @@index([userId])
   @@map("org_members")
 }
 

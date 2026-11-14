@@ -37,8 +37,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-plataforma}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (openssl rand -hex 32)}
       POSTGRES_DB: ${POSTGRES_DB:-plataforma}
+    # Blindagem de segurança: vinculado exclusivamente ao loopback do host (127.0.0.1)
+    # para evitar exposição pública direta em ambientes de produção com IP externo.
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/postgres/init-gitea.sql:/docker-entrypoint-initdb.d/init-gitea.sql:ro
@@ -93,6 +95,8 @@ services:
   piston:
     image: ghcr.io/engineer-man/piston:latest
     privileged: true
+    # Blindagem de segurança: porta NÃO publicada no host (ports removido).
+    # O Piston é acessível exclusivamente pela API através da rede interna sandbox-net.
     expose:
       - '2000'
     restart: unless-stopped

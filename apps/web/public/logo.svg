@@ -28,9 +28,6 @@
       
       <!-- Chevron < (Rocket Purple #8257E5) -->
       <path d="M 72 22 L 61 33 L 72 44" stroke="#8257E5" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
-      
-      <!-- Central Nexus Spark -->
-      <circle cx="60" cy="33" r="2.2" fill="#FFFFFF"/>
     </g>
   </g>
 

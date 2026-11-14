@@ -50,9 +50,11 @@ export const TutorModal: React.FC<TutorModalProps> = ({
 
     setTimeout(() => {
       const responses = [
-        'Excelente pergunta! Pense na invariante do seu laço: o que precisa ser verdadeiro antes e depois de cada iteração para evitar ciclos infinitos?',
-        'Ótima observação. Se você utilizar uma estrutura Map/Set para rastrear nós visitados, qual seria a complexidade espacial resultante?',
-        'Lembre-se do princípio da Idempotência: caso o consumidor receba a mesma mensagem duas vezes pelo Kafka, como o Redis pode garantir que a transação compensatória não seja executada em duplicidade?',
+        'Excelente raciocínio preliminar! Pense na invariante do seu laço: qual condição precisa ser mantida antes e depois de cada iteração para evitar ciclos infinitos e garantir a terminação do algoritmo?',
+        'Ótima observação. Se você substituir esse aninhamento condicional por uma estrutura indexada em Hash Map (ou Set), como ficaria sua complexidade assintótica de tempo e espaço Big-O?',
+        'Atenção à complexidade ciclomática: quantos caminhos de execução independentes essa função possui no momento? Seria possível decompor os desvios em funções puras ou aplicar o padrão Strategy?',
+        'Perceba a mutação de estado: sua função altera os dados originais in-place. Quais os riscos disso para concorrência em memória e testes unitários determinísticos?',
+        'Lembre-se do princípio de Idempotência: caso a mesma mensagem ou payload chegue duplicado ao runner, como podemos assegurar que o processamento compensatório não cause inconsistência?',
       ];
       const aiReply: Message = {
         id: (Date.now() + 1).toString(),

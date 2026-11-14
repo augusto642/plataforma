@@ -24,7 +24,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['app/**/__tests__/**/*.spec.ts', 'app/**/*.spec.ts'],
+    include: [
+      'app/**/__tests__/**/*.spec.ts',
+      'app/**/*.spec.ts',
+      'app/**/__tests__/**/*.test.ts',
+      'app/**/*.test.ts',
+    ],
     exclude: ['node_modules', '.next', 'e2e'],
   },
 });

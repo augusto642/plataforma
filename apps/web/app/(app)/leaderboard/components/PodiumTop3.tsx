@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import type { LeaderboardDisplayUser } from '../types';
 
 interface PodiumTop3Props {
@@ -18,12 +17,12 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
   return (
     <div className="mb-10">
       <div className="text-center mb-6">
-        <h3 className="text-xl sm:text-2xl font-black font-heading text-white tracking-tight flex items-center justify-center gap-2">
+        <h3 className="text-xl sm:text-2xl font-black font-brand text-white tracking-tight flex items-center justify-center gap-2">
           <span>👑</span>
-          <span>Pódio do Ranking</span>
+          <span>Pódio de Honra</span>
         </h3>
-        <p className="text-xs text-zinc-400 mt-1">
-          Os 3 desenvolvedores com maior XP acumulado neste ranking.
+        <p className="text-xs text-[#94A3B8] mt-1">
+          Os 3 desenvolvedores em destaque com maior XP acumulado e consistência de código.
         </p>
       </div>
 
@@ -34,11 +33,11 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
         <div className="order-2 md:order-1 flex flex-col items-center">
           {/* Avatar & Aura */}
           <div className="relative mb-3 group">
-            <div className="w-20 h-20 rounded-2xl bg-[#181820] border-2 border-[#E2E8F0] shadow-[0_0_25px_rgba(226,232,240,0.35)] flex items-center justify-center text-xl font-mono font-black text-white relative transition-transform group-hover:scale-105">
+            <div className="w-20 h-20 rounded-2xl bg-[#0F1424] border-2 border-[#E2E8F0] shadow-[0_0_25px_rgba(226,232,240,0.25)] flex items-center justify-center text-xl font-mono font-black text-white relative transition-transform group-hover:scale-105">
               {second.avatarInitials}
               <span className="absolute -top-3 -right-2 text-2xl filter drop-shadow">🥈</span>
             </div>
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#E2E8F0] text-[#08080B] text-[10px] font-mono font-black px-2 py-0.5 rounded-full shadow-md">
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#E2E8F0] text-[#07090E] text-[10px] font-mono font-black px-2 py-0.5 rounded-full shadow-md whitespace-nowrap">
               #2 LUGAR
             </div>
           </div>
@@ -47,23 +46,28 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
           <div className="text-center mb-3">
             <h4 className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
               {second.name}
+              {second.isCurrentUser && (
+                <span className="bg-[#8257E5] text-white text-[9px] font-mono font-black px-1.5 py-0.2 rounded">
+                  VOCÊ
+                </span>
+              )}
             </h4>
-            <p className="text-[11px] font-mono text-zinc-400">Nível {second.level}</p>
+            <p className="text-[11px] font-mono text-[#94A3B8]">Nível {second.level}</p>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
-              <span className="text-[10px] font-mono bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">
-                {second.badges.length} {second.badges.length === 1 ? 'badge' : 'badges'}
+              <span className="text-[10px] font-mono bg-[#141A29] text-[#94A3B8] px-2 py-0.5 rounded border border-[#1E2638]">
+                {second.badges.length} {second.badges.length === 1 ? 'insígnia' : 'insígnias'}
               </span>
             </div>
           </div>
 
           {/* Pedestal Block */}
-          <div className="w-full bg-gradient-to-t from-[#121217] to-[#181820] border-t-4 border-t-[#E2E8F0] border-x border-b border-[#27272A] rounded-t-2xl p-4 text-center h-36 flex flex-col justify-between shadow-[0_-5px_20px_rgba(226,232,240,0.08)]">
+          <div className="w-full bg-[#0C101C] border-t-4 border-t-[#E2E8F0] border-x border-b border-[#1C2338] rounded-t-2xl p-4 text-center h-36 flex flex-col justify-between shadow-[0_-5px_20px_rgba(226,232,240,0.06)]">
             <div>
               <div className="text-base font-black font-mono text-[#E2E8F0]">
                 {second.xp.toLocaleString('pt-BR')} XP
               </div>
-              <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
-                🔥 {second.streakDays} dias • {second.completedActivitiesCount} atividades concluídas
+              <div className="text-[10px] font-mono text-[#64748B] mt-0.5">
+                🔥 {second.streakDays}d ofensiva • {second.completedActivitiesCount} missões
               </div>
             </div>
             <div className="text-[11px] font-mono text-[#E2E8F0] bg-[#E2E8F0]/10 border border-[#E2E8F0]/30 py-1 rounded-lg font-bold">
@@ -81,9 +85,9 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
             <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-3xl animate-bounce">
               👑
             </div>
-            <div className="w-24 h-24 rounded-2xl bg-[#1C1917] border-2 border-[#FFA116] shadow-[0_0_35px_rgba(255,161,22,0.45)] flex items-center justify-center text-2xl font-mono font-black text-[#FFA116] relative transition-transform group-hover:scale-105">
+            <div className="w-24 h-24 rounded-2xl bg-[#14121A] border-2 border-[#FFA116] shadow-[0_0_35px_rgba(255,161,22,0.35)] flex items-center justify-center text-2xl font-mono font-black text-[#FFA116] relative transition-transform group-hover:scale-105">
               {first.avatarInitials}
-              <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#FFA116] text-[#08080B] text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full shadow-lg">
+              <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#FFA116] text-[#07090E] text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap">
                 #1 LUGAR
               </span>
             </div>
@@ -93,27 +97,32 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
           <div className="text-center mb-3">
             <h4 className="text-base font-black text-white flex items-center justify-center gap-1.5">
               {first.name}
+              {first.isCurrentUser && (
+                <span className="bg-[#8257E5] text-white text-[9px] font-mono font-black px-1.5 py-0.2 rounded">
+                  VOCÊ
+                </span>
+              )}
             </h4>
-            <p className="text-xs font-mono text-amber-400/90">Nível {first.level}</p>
+            <p className="text-xs font-mono text-amber-400">Nível {first.level}</p>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
               <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 px-2.5 py-0.5 rounded border border-amber-500/30">
-                {first.badges.length} {first.badges.length === 1 ? 'badge' : 'badges'}
+                {first.badges.length} {first.badges.length === 1 ? 'insígnia' : 'insígnias'}
               </span>
             </div>
           </div>
 
           {/* Pedestal Block */}
-          <div className="w-full bg-gradient-to-t from-[#16120E] to-[#241B12] border-t-4 border-t-[#FFA116] border-x border-b border-amber-500/30 rounded-t-2xl p-4 text-center h-48 flex flex-col justify-between shadow-[0_-8px_25px_rgba(255,161,22,0.15)]">
+          <div className="w-full bg-[#0E121E] border-t-4 border-t-[#FFA116] border-x border-b border-[#1C2338] rounded-t-2xl p-4 text-center h-44 flex flex-col justify-between shadow-[0_-8px_25px_rgba(255,161,22,0.12)]">
             <div>
-              <div className="text-xl font-black font-mono text-[#FFA116]">
+              <div className="text-lg font-black font-mono text-[#FFA116]">
                 {first.xp.toLocaleString('pt-BR')} XP
               </div>
-              <div className="text-xs font-mono text-zinc-300 mt-0.5">
-                🔥 {first.streakDays} dias streak • {first.completedActivitiesCount} atividades concluídas
+              <div className="text-[10px] font-mono text-[#64748B] mt-0.5">
+                🔥 {first.streakDays}d ofensiva • {first.completedActivitiesCount} missões
               </div>
             </div>
-            <div className="text-xs font-mono text-[#FFA116] bg-[#FFA116]/15 border border-[#FFA116]/40 py-1.5 rounded-lg font-black">
-              🏆 1º lugar do ranking
+            <div className="text-xs font-mono text-[#FFA116] bg-[#FFA116]/10 border border-[#FFA116]/30 py-1.5 rounded-lg font-bold">
+              👑 Campeão da Divisão
             </div>
           </div>
         </div>
@@ -121,14 +130,14 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
         {/* ========================================================================= */}
         {/* RANK 3 - BRONZE (#CD7F32)                                                 */}
         {/* ========================================================================= */}
-        <div className="order-3 flex flex-col items-center">
+        <div className="order-3 md:order-3 flex flex-col items-center">
           {/* Avatar & Aura */}
           <div className="relative mb-3 group">
-            <div className="w-20 h-20 rounded-2xl bg-[#181820] border-2 border-[#CD7F32] shadow-[0_0_25px_rgba(205,127,50,0.35)] flex items-center justify-center text-xl font-mono font-black text-white relative transition-transform group-hover:scale-105">
+            <div className="w-20 h-20 rounded-2xl bg-[#14101A] border-2 border-[#CD7F32] shadow-[0_0_25px_rgba(205,127,50,0.25)] flex items-center justify-center text-xl font-mono font-black text-white relative transition-transform group-hover:scale-105">
               {third.avatarInitials}
               <span className="absolute -top-3 -right-2 text-2xl filter drop-shadow">🥉</span>
             </div>
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#CD7F32] text-[#08080B] text-[10px] font-mono font-black px-2 py-0.5 rounded-full shadow-md">
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#CD7F32] text-[#07090E] text-[10px] font-mono font-black px-2 py-0.5 rounded-full shadow-md whitespace-nowrap">
               #3 LUGAR
             </div>
           </div>
@@ -137,23 +146,28 @@ export const PodiumTop3: React.FC<PodiumTop3Props> = ({ top3 }) => {
           <div className="text-center mb-3">
             <h4 className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
               {third.name}
+              {third.isCurrentUser && (
+                <span className="bg-[#8257E5] text-white text-[9px] font-mono font-black px-1.5 py-0.2 rounded">
+                  VOCÊ
+                </span>
+              )}
             </h4>
-            <p className="text-[11px] font-mono text-zinc-400">Nível {third.level}</p>
+            <p className="text-[11px] font-mono text-[#94A3B8]">Nível {third.level}</p>
             <div className="flex items-center justify-center gap-1.5 mt-1.5">
-              <span className="text-[10px] font-mono bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700">
-                {third.badges.length} {third.badges.length === 1 ? 'badge' : 'badges'}
+              <span className="text-[10px] font-mono bg-[#141A29] text-[#94A3B8] px-2 py-0.5 rounded border border-[#1E2638]">
+                {third.badges.length} {third.badges.length === 1 ? 'insígnia' : 'insígnias'}
               </span>
             </div>
           </div>
 
           {/* Pedestal Block */}
-          <div className="w-full bg-gradient-to-t from-[#121217] to-[#181820] border-t-4 border-t-[#CD7F32] border-x border-b border-[#27272A] rounded-t-2xl p-4 text-center h-32 flex flex-col justify-between shadow-[0_-5px_20px_rgba(205,127,50,0.08)]">
+          <div className="w-full bg-[#0C101C] border-t-4 border-t-[#CD7F32] border-x border-b border-[#1C2338] rounded-t-2xl p-4 text-center h-32 flex flex-col justify-between shadow-[0_-5px_20px_rgba(205,127,50,0.06)]">
             <div>
               <div className="text-base font-black font-mono text-[#CD7F32]">
                 {third.xp.toLocaleString('pt-BR')} XP
               </div>
-              <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
-                🔥 {third.streakDays} dias • {third.completedActivitiesCount} atividades concluídas
+              <div className="text-[10px] font-mono text-[#64748B] mt-0.5">
+                🔥 {third.streakDays}d ofensiva • {third.completedActivitiesCount} missões
               </div>
             </div>
             <div className="text-[11px] font-mono text-[#CD7F32] bg-[#CD7F32]/10 border border-[#CD7F32]/30 py-1 rounded-lg font-bold">

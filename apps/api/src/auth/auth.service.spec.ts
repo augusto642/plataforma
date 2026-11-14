@@ -307,3 +307,202 @@ describe('AuthService register — escolhas da porta fria (Sprint 8)', () => {
     expect(create.mock.calls[0][0].data.careerTier).toBeUndefined();
   });
 });
+
+describe('AuthService register — diagnóstico aberto e trilha dinâmica', () => {
+  function makeExtendedService(opts: {
+    evaluateExplanation?: jest.Mock;
+    createForUser?: jest.Mock;
+  } = {}) {
+    const create = jest.fn().mockImplementation(({ data }: any) =>
+      Promise.resolve({ id: 'user-22', ...data }),
+    );
+    const prismaReg: any = {
+      user: { create, findUnique: jest.fn() },
+      refreshToken: { create: jest.fn().mockResolvedValue({ id: 'rt-22' }) },
+      $transaction: jest.fn(async (fn: any) =>
+        fn({
+          emailVerificationCode: {
+            deleteMany: jest.fn().mockResolvedValue({}),
+            create: jest.fn().mockResolvedValue({}),
+          },
+        }),
+      ),
+    };
+    const jwtReg: any = { signAsync: jest.fn().mockResolvedValue('signed-token') };
+    const configReg: any = {
+      get: jest.fn((key: string, def?: any) => {
+        if (key === 'JWT_ACCESS_SECRET') return 'configured-secret';
+        return def;
+      }),
+    };
+    const mailerReg: any = { sendVerificationCode: jest.fn().mockResolvedValue(undefined) };
+    const dynamicTrack = {
+      createForUser: opts.createForUser ?? jest.fn().mockResolvedValue({}),
+    };
+    const registrationLevel = {
+      evaluateExplanation:
+        opts.evaluateExplanation ??
+        jest.fn().mockResolvedValue({
+          detectedLevel: 'mid',
+          levelLabel: 'Pleno',
+          confidence: 'high',
+          feedback: 'Ótima leitura!',
+          detectedConcepts: ['Prepared statements'],
+          source: 'llm',
+        }),
+    };
+    const svc = new AuthService(
+      prismaReg,
+      jwtReg,
+      configReg,
+      mailerReg,
+      dynamicTrack as any,
+      registrationLevel as any,
+    );
+    return { svc, create, dynamicTrack, registrationLevel };
+  }
+
+  it('avalia challengeExplanation no servidor, grava careerTier e envia snapshot completo ao dynamicTrack', async () => {
+    const { svc, create, dynamicTrack, registrationLevel } = makeExtendedService();
+
+    await svc.register({
+      email: 'diag@example.com',
+      name: 'Aluna Diagnostico',
+      password: '12345678',
+      hasProgrammedBefore: true,
+      priorLanguage: 'php',
+      challengeId: 'reg-php-v1',
+      challengeExplanation: 'Usa prepared statement para evitar SQL injection.',
+      detectedLevel: 'junior',
+      primaryTechnology: 'Laravel',
+      careerGoal: 'backend',
+      weeklyTimeCommitment: '10h',
+    } as any);
+
+    expect(registrationLevel.evaluateExplanation).toHaveBeenCalledWith({
+      hasProgrammedBefore: true,
+      language: 'php',
+      challengeId: 'reg-php-v1',
+      explanation: 'Usa prepared statement para evitar SQL injection.',
+    });
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ careerTier: 'mid' }),
+    });
+    expect(dynamicTrack.createForUser).toHaveBeenCalledWith('user-22', {
+      expLevel: 'mid',
+      timeCommitment: '10h',
+      careerGoal: 'backend',
+      careerGoals: ['backend'],
+      sourceTrack: null,
+      diagnosticTrackId: null,
+      primaryTechnology: 'Laravel',
+      hasProgrammedBefore: true,
+      priorLanguage: 'php',
+      challengeId: 'reg-php-v1',
+      assessmentSource: 'llm',
+    });
+  });
+
+  it('normaliza múltiplos careerGoals sem careerGoal usando careerGoals[0] como objetivo principal', async () => {
+    const { svc, dynamicTrack } = makeExtendedService();
+
+    await svc.register({
+      email: 'multigoals@example.com',
+      name: 'Multi Objetivos',
+      password: '12345678',
+      careerGoals: ['mlops', 'cloud_architect', 'mlops'],
+    } as any);
+
+    expect(dynamicTrack.createForUser).toHaveBeenCalledWith(
+      'user-22',
+      expect.objectContaining({
+        careerGoal: 'mlops',
+        careerGoals: ['mlops', 'cloud_architect'],
+      }),
+    );
+  });
+
+  it('combina careerGoal e careerGoals preservando primaryGoal na lista normalizada', async () => {
+    const { svc, dynamicTrack } = makeExtendedService();
+
+    await svc.register({
+      email: 'bothgoals@example.com',
+      name: 'Ambos Objetivos',
+      password: '12345678',
+      careerGoal: 'blockchain',
+      careerGoals: ['embedded_iot', 'automation_rpa'],
+    } as any);
+
+    expect(dynamicTrack.createForUser).toHaveBeenCalledWith(
+      'user-22',
+      expect.objectContaining({
+        careerGoal: 'blockchain',
+        careerGoals: ['blockchain', 'embedded_iot', 'automation_rpa'],
+      }),
+    );
+  });
+
+  it('faz fallback seguro quando registrationLevel lança erro', async () => {
+    const { svc, create, dynamicTrack } = makeExtendedService({
+      evaluateExplanation: jest.fn().mockRejectedValue(new Error('erro inesperado')),
+    });
+
+    await svc.register({
+      email: 'fallback@example.com',
+      name: 'Fallback',
+      password: '12345678',
+      hasProgrammedBefore: true,
+      challengeExplanation: 'Percorre a lista.',
+      detectedLevel: 'junior',
+      careerGoal: 'qa',
+    } as any);
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ careerTier: 'junior' }),
+    });
+    expect(dynamicTrack.createForUser).toHaveBeenCalledWith(
+      'user-22',
+      expect.objectContaining({
+        expLevel: 'junior',
+        careerGoal: 'qa',
+        assessmentSource: 'fallback',
+      }),
+    );
+  });
+
+  it('grava beginner quando hasProgrammedBefore=false sem explicação', async () => {
+    const { svc, create, dynamicTrack } = makeExtendedService({
+      evaluateExplanation: jest.fn().mockResolvedValue({
+        detectedLevel: 'beginner',
+        levelLabel: 'Iniciante',
+        confidence: 'high',
+        feedback: 'Bem-vindo!',
+        detectedConcepts: [],
+        source: 'heuristic',
+      }),
+    });
+
+    await svc.register({
+      email: 'zero@example.com',
+      name: 'Iniciante',
+      password: '12345678',
+      hasProgrammedBefore: false,
+      careerGoal: 'frontend',
+      primaryTechnology: 'React',
+    } as any);
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ careerTier: 'beginner' }),
+    });
+    expect(dynamicTrack.createForUser).toHaveBeenCalledWith(
+      'user-22',
+      expect.objectContaining({
+        expLevel: 'beginner',
+        careerGoal: 'frontend',
+        primaryTechnology: 'React',
+        hasProgrammedBefore: false,
+        assessmentSource: 'heuristic',
+      }),
+    );
+  });
+});

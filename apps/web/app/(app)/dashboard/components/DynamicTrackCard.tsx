@@ -6,59 +6,43 @@ import {
   fetchMyInvestigation,
   formatTrackDate,
   markInvestigationSeen,
+  refreshInvestigation,
   startInvestigation,
   type DynamicTrackView,
 } from '../../../lib/dynamic-track';
-
-// Redesign v2 (Central 213) — card "Sua trilha" do dashboard, adaptado
-// do DynamicTrackCard da trilha dinâmica (Central 209). Consome o
-// CONTRATO da API da 209 (GET /dynamic-track/me; POST /dynamic-track/
-// me/seen; POST /dynamic-track/me/start) e mostra um dos 3 estados do
-// brief da trilha dinâmica: preparando, sugerida e toast de pronta.
-//
-// MERGE 209+213: o backend da 209 existe nesta árvore (módulo
-// dynamic-track + migration), então o GET é real. A sugestão só
-// renderiza quando a API devolver uma sugestão real (status ready) —
-// NUNCA uma sugestão inventada. Sem investigação (conta anterior à
-// trilha dinâmica), o card oferece iniciar (POST /me/start, fiação 209).
-//
-// Central 216 (F1) — o tipo e a fiação vivem em lib/dynamic-track.ts
-// (compartilhados com as rotas /trilha/aguardando e /trilha/sugerida);
-// o card linka para essas rotas em vez de só exibir o estado.
+import { MaterialIcon } from '../../../components/MaterialIcon';
 
 function formatDate(iso: string | null): string {
   return formatTrackDate(iso);
 }
 
-// Etapas da investigação (brief Tela 1) — exibidas sem prometer
-// conclusão de nenhuma: são o andamento declarado, não progresso medido.
 const INVESTIGATION_STEPS = [
-  'motivo e objetivo',
-  'mercado e vagas',
-  'stack',
-  'desafios',
+  'Motivo & Objetivo',
+  'Mercado & Vagas',
+  'Stack Prática',
+  'Desafios no Sandbox',
 ];
 
 function PreparingLinks() {
   return (
-    <div className="mt-4 flex flex-wrap gap-2">
+    <div className="mt-4 flex flex-wrap gap-2 text-xs font-mono">
       <Link
         href="/desafios"
-        className="text-xs font-bold px-3 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
+        className="px-3.5 py-2 rounded-xl bg-[#121624] border border-[#1C2338] text-[#F1F5F9] hover:border-[#8257E5] hover:text-white transition-colors flex items-center gap-1.5"
       >
-        🏆 Começar desafios iniciais
+        <span>🏆</span> Começar desafios iniciais
       </Link>
       <Link
         href="/courses"
-        className="text-xs font-bold px-3 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
+        className="px-3.5 py-2 rounded-xl bg-[#121624] border border-[#1C2338] text-[#F1F5F9] hover:border-[#8257E5] hover:text-white transition-colors flex items-center gap-1.5"
       >
-        📚 Ver cursos avulsos
+        <span>📚</span> Ver catálogo de cursos
       </Link>
       <Link
         href="/ide"
-        className="text-xs font-bold px-3 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
+        className="px-3.5 py-2 rounded-xl bg-[#121624] border border-[#1C2338] text-[#F1F5F9] hover:border-[#8257E5] hover:text-white transition-colors flex items-center gap-1.5"
       >
-        🚀 Explorar a plataforma
+        <span>🚀</span> Explorar o sandbox
       </Link>
     </div>
   );
@@ -73,9 +57,6 @@ function PreparingView({
 }: {
   slaDueAt?: string | null;
   overdue?: boolean;
-  // Fiação 209: só presente quando NÃO há investigação (conta anterior
-  // à trilha dinâmica) — o card oferece iniciar em vez de fingir que
-  // algo está sendo preparado.
   onStart?: () => void;
   starting?: boolean;
   startError?: string | null;
@@ -83,90 +64,117 @@ function PreparingView({
   return (
     <section
       aria-label="Sua trilha"
-      className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5"
+      className="rounded-3xl bg-[#0C0F17] border border-[#1C2338] p-6 md:p-8 relative overflow-hidden shadow-xl"
     >
-      <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
-        Sua trilha
-      </span>
-      <h2 className="font-bold text-white mt-2">
-        {onStart
-          ? 'Receba uma trilha sugerida para você'
-          : 'Sua trilha está sendo preparada'}
-      </h2>
-      <p className="text-sm text-zinc-400 mt-1">
-        {onStart
-          ? 'Analisamos seu perfil e suas metas — motivo, mercado, stack, desafios e vagas — e sugerimos a melhor trilha em até 2 dias.'
-          : 'A IA está analisando seu perfil, o mercado e as vagas para montar sua trilha personalizada. Ela chega em até 2 dias — avisaremos você aqui na plataforma.'}
-      </p>
-      {!onStart && (
-        <div className="mt-4">
-          <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-            Andamento da investigação
-          </h3>
-          <ul className="mt-2 space-y-1.5">
-            {INVESTIGATION_STEPS.map((step) => (
-              <li key={step} className="flex items-center gap-2 text-sm text-zinc-400">
-                <span className="w-2 h-2 rounded-full bg-[#8257E5] animate-pulse shrink-0" />
-                {step}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {slaDueAt && (
-        <p className="text-xs text-zinc-500 mt-3">
-          Prazo: até {formatDate(slaDueAt)}.
-          {overdue
-            ? ' Prazo estendido — a investigação continua em andamento. Nada foi inventado para cumprir o prazo.'
-            : ''}
-        </p>
-      )}
-      {!onStart && (
-        <div className="mt-3">
-          <Link
-            href="/trilha/aguardando"
-            className="text-xs font-bold text-[#996DFF] hover:underline"
-          >
-            Acompanhar o andamento da investigação →
-          </Link>
-        </div>
-      )}
-      {onStart && (
-        <>
-          {startError && (
-            <p role="alert" className="text-sm text-red-400 mt-3">
-              {startError}
+      <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="space-y-3 max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#8257E5]/15 text-[#A379FF] border border-[#8257E5]/30 text-xs font-mono font-bold uppercase tracking-wider">
+              <span>✦</span> Trilha Personalizada por IA
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFA116]/15 text-[#FFA116] border border-[#FFA116]/30 text-xs font-mono font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FFA116] animate-pulse" />
+              {onStart ? 'Aguardando Início' : 'Investigação em Andamento'}
+            </span>
+          </div>
+
+          <div>
+            <h2 className="font-brand font-black text-xl sm:text-2xl text-white tracking-tight">
+              {onStart
+                ? 'Receba uma trilha sob medida para seus objetivos'
+                : 'Sua trilha está sendo preparada pela Tutora de IA'}
+            </h2>
+            <p className="text-xs sm:text-sm text-[#94A3B8] mt-1 leading-relaxed">
+              {onStart
+                ? 'Analisamos suas respostas, nível de raciocínio lógico, mercado de trabalho e sugerimos a melhor trilha para você em até 48h.'
+                : 'A IA está analisando seu perfil, vagas de tecnologia e desafios para montar sua rota personalizada.'}
+            </p>
+          </div>
+
+          {slaDueAt && (
+            <p className="text-xs font-mono text-[#64748B] pt-1">
+              Prazo estimado: até <strong className="text-white">{formatDate(slaDueAt)}</strong>.
+              {overdue
+                ? ' Prazo estendido — a análise continua em andamento com dados reais.'
+                : ''}
             </p>
           )}
-          <div className="mt-4">
+        </div>
+
+        {onStart && (
+          <div className="shrink-0 w-full lg:w-auto">
             <button
               type="button"
               onClick={onStart}
               disabled={starting}
-              className="bg-[#8257E5] hover:bg-[#996DFF] disabled:opacity-60 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#7146D1] hover:brightness-110 disabled:opacity-60 text-white font-semibold text-xs font-mono tracking-wide uppercase shadow-[0_0_25px_rgba(130,87,229,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              {starting ? 'Iniciando…' : '✨ Sugerir minha trilha'}
+              <span>{starting ? 'Iniciando…' : 'Sugerir minha trilha'}</span>
+              <span>→</span>
             </button>
           </div>
-        </>
+        )}
+      </div>
+
+      {startError && (
+        <p role="alert" className="text-xs font-mono text-[#F43F5E] mt-3">
+          {startError}
+        </p>
       )}
-      <p className="text-sm text-zinc-400 mt-3">O que fazer enquanto espera:</p>
+
+      {/* Protocolo de 4 Etapas da IA */}
+      <div className="mt-6 pt-5 border-t border-[#1C2133]/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+        {INVESTIGATION_STEPS.map((step, idx) => (
+          <div key={step} className="p-2.5 rounded-xl bg-[#07080C]/80 border border-[#1C2133] flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${onStart ? 'bg-[#64748B]' : 'bg-[#8257E5] animate-pulse'}`} />
+            <div className="truncate">
+              <div className="text-[10px] text-[#64748B] uppercase">Etapa 0{idx + 1}</div>
+              <div className="text-white truncate font-medium">{step}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <PreparingLinks />
     </section>
   );
 }
 
-export function DynamicTrackCard() {
+export function DynamicTrackCard({
+  onLoaded,
+}: {
+  onLoaded?: (inv: DynamicTrackView | null) => void;
+} = {}) {
   const [investigation, setInvestigation] = useState<DynamicTrackView | null | undefined>(undefined);
   const [toastVisible, setToastVisible] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [switchingTrack, setSwitchingTrack] = useState<string | null>(null);
   const seenRef = useRef(false);
 
-  // Fiação 209 — POST /dynamic-track/me/start: contas criadas antes da
-  // trilha dinâmica (ou com investigação falha) iniciam/tentam de novo.
   async function load() {
-    setInvestigation(await fetchMyInvestigation());
+    const inv = await fetchMyInvestigation();
+    setInvestigation(inv);
+    onLoaded?.(inv);
+  }
+
+  async function handleSwitchTrack(trackKey: 'frontend' | 'backend' | 'ai' | 'web3') {
+    setSwitchingTrack(trackKey);
+    const params =
+      trackKey === 'backend'
+        ? { careerGoals: ['backend', 'architect'], primaryTechnology: 'python' }
+        : trackKey === 'ai'
+        ? { careerGoals: ['ai', 'data_science'], primaryTechnology: 'python' }
+        : trackKey === 'web3'
+        ? { careerGoals: ['blockchain', 'startup'], primaryTechnology: 'javascript' }
+        : { careerGoals: ['frontend', 'fullstack'], primaryTechnology: 'javascript' };
+
+    const res = await refreshInvestigation(params);
+    if (res.ok && res.investigation) {
+      setInvestigation(res.investigation);
+      onLoaded?.(res.investigation);
+    }
+    setSwitchingTrack(null);
   }
 
   async function handleStart() {
@@ -184,15 +192,16 @@ export function DynamicTrackCard() {
   useEffect(() => {
     let cancelled = false;
     fetchMyInvestigation().then((inv) => {
-      if (!cancelled) setInvestigation(inv);
+      if (!cancelled) {
+        setInvestigation(inv);
+        onLoaded?.(inv);
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onLoaded]);
 
-  // Quando a sugestão fica pronta e ainda não foi vista, mostra o toast
-  // (Tela 3 do brief) e marca seen — GET não tem efeito colateral.
   useEffect(() => {
     if (
       investigation &&
@@ -206,21 +215,17 @@ export function DynamicTrackCard() {
     }
   }, [investigation]);
 
-  // Carregando: reserva o espaço sem prometer nada.
   if (investigation === undefined) {
     return (
       <section
         aria-label="Sua trilha"
-        className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5 animate-pulse"
+        className="rounded-3xl bg-[#111420] border border-[#1C2133] p-6 animate-pulse"
       >
-        <p className="text-sm text-zinc-500">Carregando sua trilha…</p>
+        <p className="text-xs font-mono text-[#64748B]">Carregando trilha personalizada…</p>
       </section>
     );
   }
 
-  // Sem investigação (conta anterior à trilha dinâmica): oferece
-  // iniciar — o aluno nunca fica sem caminho nem com um "preparando"
-  // falso (nada está em andamento aqui).
   if (investigation === null) {
     return (
       <PreparingView
@@ -241,31 +246,31 @@ export function DynamicTrackCard() {
     return (
       <section
         aria-label="Sua trilha"
-        className="spotlight-card rounded-2xl border border-zinc-800 bg-[#121217] p-5"
+        className="rounded-3xl bg-[#111420] border border-[#F43F5E]/30 p-6 md:p-8 space-y-4"
       >
-        <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
+        <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#F43F5E]">
           Sua trilha
         </span>
-        <h2 className="font-bold text-white mt-2">
-          A investigação da sua trilha falhou
+        <h2 className="font-brand font-bold text-lg text-white">
+          A investigação da sua trilha não pôde ser concluída
         </h2>
-        <p className="text-sm text-zinc-400 mt-1">
+        <p className="text-xs sm:text-sm text-[#94A3B8]">
           {investigation.failureReason
             ? `Motivo: ${investigation.failureReason}`
-            : 'Não foi possível concluir a investigação da sua trilha.'}{' '}
-          Você pode tentar novamente — 1 tentativa a cada 24 horas.
+            : 'Ocorreu um erro ao gerar sua trilha personalizada.'}{' '}
+          Você pode tentar novamente (1 tentativa a cada 24 horas).
         </p>
         {startError && (
-          <p role="alert" className="text-sm text-red-400 mt-3">
+          <p role="alert" className="text-xs font-mono text-[#F43F5E]">
             {startError}
           </p>
         )}
-        <div className="mt-4">
+        <div>
           <button
             type="button"
             onClick={() => void handleStart()}
             disabled={starting}
-            className="bg-[#8257E5] hover:bg-[#996DFF] disabled:opacity-60 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-mono font-bold cursor-pointer"
           >
             {starting ? 'Tentando novamente…' : '↻ Tentar de novo'}
           </button>
@@ -275,128 +280,188 @@ export function DynamicTrackCard() {
     );
   }
 
-  // ready — SÓ renderiza com sugestão real da API.
+  // ready — Renderiza a trilha sugerida por IA
   return (
     <>
       {toastVisible && (
         <div
           role="status"
-          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#8257E5]/50 bg-[#8257E5]/15 px-4 py-3"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#8257E5]/50 bg-[#8257E5]/15 px-5 py-3.5 shadow-[0_0_20px_rgba(130,87,229,0.25)]"
         >
-          <span className="text-sm font-bold text-white">
-            Sua trilha personalizada está pronta — Começar agora
-          </span>
-          <span className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">✨</span>
+            <span className="text-sm font-semibold text-white">
+              Sua trilha personalizada está pronta!
+            </span>
+          </div>
+          <div className="flex items-center gap-2.5">
             <Link
               href="/trilha/sugerida"
-              className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
+              className="px-3.5 py-1.5 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-mono font-bold transition-all"
             >
               Ver trilha sugerida
             </Link>
-            {investigation.startCourse ? (
+            {investigation.startCourse && (
               <Link
                 href={`/courses/${investigation.startCourse.slug}`}
-                className="text-xs font-bold px-3 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
+                className="px-3.5 py-1.5 rounded-xl border border-[#1C2133] hover:border-[#8257E5]/50 text-white text-xs font-mono transition-colors"
               >
                 Começar agora
               </Link>
-            ) : null}
+            )}
             <button
               type="button"
               onClick={() => setToastVisible(false)}
               aria-label="Fechar aviso"
-              className="text-zinc-400 hover:text-white text-sm px-2 py-1 cursor-pointer"
+              className="text-[#94A3B8] hover:text-white text-sm px-1.5 py-1 cursor-pointer"
             >
               ✕
             </button>
-          </span>
+          </div>
         </div>
       )}
+
       <section
         aria-label="Sua trilha"
-        className="spotlight-card rounded-2xl border border-[#8257E5]/40 bg-[#121217] p-5"
+        className="rounded-3xl bg-[#0C0F17] border border-[#1C2338] p-6 md:p-8 relative overflow-hidden shadow-xl"
       >
-        <span className="text-xs font-bold text-[#8257E5] uppercase tracking-wider">
-          Sua trilha chegou!
-        </span>
-        <p className="text-lg font-bold text-white mt-2">
-          {investigation.trackName ?? 'Trilha sugerida'}
-        </p>
-        {investigation.rationaleText && (
-          <p className="text-sm text-zinc-400 mt-1">
-            <span className="font-semibold text-zinc-300">
-              Sugerida para você porque:{' '}
-            </span>
-            {investigation.rationaleText}
-          </p>
-        )}
-        {investigation.basis === 'profile-only' && (
-          <p className="text-xs text-zinc-500 mt-2">
-            Sugestão baseada só no seu perfil — nenhuma fonte de mercado
-            estava disponível no momento da investigação.
-          </p>
-        )}
-        {/* Guarda 209+213: marketEvidence pode vir null/undefined da API
-            — a seção só existe com evidência real (e a API só devolve
-            sinais >= 70). */}
-        {(investigation.marketEvidence?.length ?? 0) > 0 && (
-          <div className="mt-4">
-            <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-              Evidências de mercado
-            </h3>
-            <ul className="mt-2 space-y-2">
-              {investigation.marketEvidence?.map((item) => (
-                <li
-                  key={item.sourceUrl}
-                  className="text-sm text-zinc-400 border border-zinc-800 rounded-xl p-3"
-                >
-                  <span className="block font-semibold text-zinc-200">
-                    {item.titulo}
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#121624] text-[#A379FF] border border-[#8257E5]/40 text-xs font-mono font-bold uppercase tracking-wider">
+                <span>✦</span> Trilha Personalizada por IA
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#121624] text-[#04D361] border border-[#04D361]/40 text-xs font-mono font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#04D361] animate-pulse" />
+                Diagnóstico Concluído
+              </span>
+            </div>
+
+            <div>
+              <h2 className="font-brand font-black text-xl sm:text-2xl text-white tracking-tight">
+                {investigation.trackName ?? 'Trilha Personalizada'}
+              </h2>
+              {investigation.rationaleText && (
+                <p className="text-xs sm:text-sm text-[#94A3B8] mt-1 leading-relaxed">
+                  <strong className="text-white">Justificativa personalizada:</strong>{' '}
+                  {investigation.rationaleText}
+                </p>
+              )}
+            </div>
+
+            {/* Evidências de Mercado ou Base */}
+            {investigation.marketEvidence && investigation.marketEvidence.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-4 text-xs font-mono pt-1">
+                <div className="flex items-center gap-1.5 text-[#00E5FF]">
+                  <MaterialIcon name="trending_up" className="text-[16px]" />
+                  <span>
+                    Demanda:{' '}
+                    <strong className="text-white">{investigation.marketEvidence[0].titulo}</strong>
                   </span>
-                  {item.evidencia && (
-                    <span className="block mt-1">{item.evidencia}</span>
-                  )}
-                  <a
-                    href={item.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block mt-1 text-[#996DFF] hover:underline break-all"
-                  >
-                    {item.sourceName} — {formatDate(item.publishedAt)}
-                  </a>
-                </li>
-              ))}
-            </ul>
+                </div>
+                {investigation.startCourse && (
+                  <>
+                    <span className="text-[#1C2338]">•</span>
+                    <div className="text-[#94A3B8]">
+                      Ponto de partida:{' '}
+                      <strong className="text-white">{investigation.startCourse.title}</strong>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : investigation.basis === 'profile-only' ? (
+              <p className="text-xs font-mono text-[#64748B]">
+                Sugestão formulada com base no seu perfil e metas de estudo.
+              </p>
+            ) : null}
           </div>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/trilha/sugerida"
-            className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
-          >
-            Ver trilha sugerida
-          </Link>
-          {investigation.startCourse ? (
+
+          {/* CTA da Trilha */}
+          <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row gap-2">
             <Link
-              href={`/courses/${investigation.startCourse.slug}`}
-              className="text-xs font-bold px-4 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
+              href="/trilha/sugerida"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#7146D1] hover:brightness-110 text-white font-semibold text-xs font-mono tracking-wide uppercase shadow-[0_0_20px_rgba(130,87,229,0.3)] transition-all flex items-center justify-center gap-2"
             >
-              🚀 Começar minha trilha — {investigation.startCourse.title}
+              <span>Ver Trilha Completa</span>
+              <span>→</span>
             </Link>
-          ) : (
-            <p className="text-sm text-zinc-400">
-              O curso desta trilha ainda não está publicado — veja os cursos
-              avulsos abaixo.
-            </p>
-          )}
-          <Link
-            href="/courses"
-            className="text-xs font-bold px-4 py-2 rounded-xl border border-zinc-700 text-zinc-200 hover:border-[#8257E5] hover:text-white transition-colors"
-          >
-            📚 Prefere escolher? Veja os cursos avulsos
-          </Link>
+            {investigation.startCourse && (
+              <Link
+                href={`/courses/${investigation.startCourse.slug}`}
+                className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] hover:border-[#8257E5] text-white font-mono text-xs font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <span>Começar Agora</span>
+              </Link>
+            )}
+          </div>
         </div>
-        <PreparingLinks />
+
+        {/* SELETOR INTERATIVO DAS 4 TRILHAS MESTRAS */}
+        <div className="mt-5 pt-4 border-t border-[#1C2338] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+          <span className="text-[#94A3B8] font-medium flex items-center gap-1.5">
+            <span>🧭</span> Explorar ou Alternar Trilha Inteligente:
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'frontend', label: 'Front-end & Web', icon: '🌐' },
+              { id: 'backend', label: 'Back-end & Sistemas', icon: '⚙️' },
+              { id: 'ai', label: 'Inteligência Artificial', icon: '🤖' },
+              { id: 'web3', label: 'Web3 & Blockchain', icon: '⛓️' },
+            ].map((t) => {
+              const isCurrent = investigation.suggestedTrack === t.id;
+              const isSwitching = switchingTrack === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleSwitchTrack(t.id as any)}
+                  disabled={Boolean(switchingTrack)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isCurrent
+                      ? 'bg-[#8257E5] border-[#8257E5] text-white font-bold shadow-sm'
+                      : 'bg-[#121624] border-[#1C2338] text-[#94A3B8] hover:text-white hover:border-[#8257E5]'
+                  }`}
+                >
+                  <span>{t.icon}</span>
+                  <span>{isSwitching ? 'Calculando…' : t.label}</span>
+                  {isCurrent && <span className="text-[#04D361] text-[10px]">● Ativa</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4 Etapas Concluídas */}
+        <div className="mt-6 pt-5 border-t border-[#1C2338] grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+          <div className="p-2.5 rounded-xl bg-[#121624] border border-[#1C2338] flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#00B37E]" />
+            <div className="truncate">
+              <div className="text-[10px] text-[#94A3B8] uppercase">Etapa 01</div>
+              <div className="text-white truncate font-medium">Motivo &amp; Objetivo</div>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#121624] border border-[#1C2338] flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#00B37E]" />
+            <div className="truncate">
+              <div className="text-[10px] text-[#94A3B8] uppercase">Etapa 02</div>
+              <div className="text-white truncate font-medium">Mercado &amp; Vagas</div>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#121624] border border-[#1C2338] flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#00B37E]" />
+            <div className="truncate">
+              <div className="text-[10px] text-[#94A3B8] uppercase">Etapa 03</div>
+              <div className="text-white truncate font-medium">Stack Prática</div>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-[#121624] border border-[#8257E5]/50 flex items-center gap-2 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-[#00E5FF]" />
+            <div className="truncate">
+              <div className="text-[10px] text-[#A379FF] uppercase">Etapa 04</div>
+              <div className="text-white truncate font-bold">Desafios no Sandbox</div>
+            </div>
+          </div>
+        </div>
       </section>
     </>
   );

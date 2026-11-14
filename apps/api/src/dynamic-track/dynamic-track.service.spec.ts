@@ -219,6 +219,59 @@ describe('DynamicTrackService.getMyInvestigation', () => {
     expect(view!.basis).toBe('profile-only');
   });
 
+  it('ready com primaryTechnology no snapshot inclui a tecnologia no rationaleText', async () => {
+    const { service, prisma } = buildService();
+    (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(
+      investigationRow({
+        status: 'ready',
+        suggestedTrack: 'ai',
+        profileSnapshot: {
+          expLevel: 'junior',
+          careerGoal: 'data_science',
+          primaryTechnology: 'Python',
+          hasProgrammedBefore: true,
+          priorLanguage: 'python',
+          challengeId: 'reg-python-v1',
+          assessmentSource: 'llm',
+        },
+        rationale: {
+          reasons: ['career-goal:data_science', 'primary-technology'],
+          basis: 'profile-only',
+        },
+        marketEvidence: [],
+      }),
+    );
+    (prisma.course.findUnique as jest.Mock).mockResolvedValue(null);
+    const view = await service.getMyInvestigation('user-1');
+    expect(view!.rationaleText).toContain('Ciência de Dados');
+    expect(view!.rationaleText).toContain('Python');
+  });
+
+  it('ready com múltiplos careerGoals no snapshot inclui contexto no rationaleText', async () => {
+    const { service, prisma } = buildService();
+    (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(
+      investigationRow({
+        status: 'ready',
+        suggestedTrack: 'ai',
+        profileSnapshot: {
+          expLevel: 'mid',
+          careerGoal: 'mlops',
+          careerGoals: ['mlops', 'platform_engineering', 'gamedev'],
+        },
+        rationale: {
+          reasons: ['career-goal:mlops'],
+          basis: 'profile-only',
+        },
+        marketEvidence: [],
+      }),
+    );
+    (prisma.course.findUnique as jest.Mock).mockResolvedValue(null);
+    const view = await service.getMyInvestigation('user-1');
+    expect(view!.rationaleText).toContain('MLOps');
+    expect(view!.rationaleText).toContain('Platform Engineering');
+    expect(view!.rationaleText).toContain('Game Developer');
+  });
+
   it('ready com slug inexistente ⇒ startCourse null (nunca slug inventado)', async () => {
     const { service, prisma } = buildService();
     (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(
@@ -498,6 +551,38 @@ describe('DynamicTrackService.runInvestigation', () => {
     );
     expect(statuses[1].emailStatus).toBe('pending-smtp');
   });
+
+  it('parseSnapshot filtra careerGoals inválidos e runInvestigation usa careerGoals[0] como fallback', async () => {
+    const collect = jest.fn().mockResolvedValue(null);
+    const { service, prisma } = buildService({
+      research: { collect },
+      mailer: null,
+    });
+    const rowWithMultiple = investigationRow({
+      profileSnapshot: {
+        expLevel: 'junior',
+        careerGoal: null,
+        careerGoals: ['invalido', 'blockchain', 'embedded_iot'],
+      },
+    });
+    (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(
+      rowWithMultiple,
+    );
+    (prisma.diagnosticResult.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.trackInvestigation.update as jest.Mock).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...rowWithMultiple,
+        ...data,
+      }),
+    );
+
+    const input = await service.resolveSuggestionInput('user-1');
+    expect(input.careerGoals).toEqual(['blockchain', 'embedded_iot']);
+
+    const result = await service.runInvestigation('user-1');
+    expect(result.track).toBe('web3');
+    expect(collect).toHaveBeenCalledWith('blockchain');
+  });
 });
 
 describe('DynamicTrackService admin', () => {
@@ -517,5 +602,47 @@ describe('DynamicTrackService admin', () => {
     const out = await service.reenqueueAdmin('inv-1');
     expect(out.investigation.status).toBe('investigating');
     expect(queue!.add).toHaveBeenCalled();
+  });
+});
+
+describe('DynamicTrackService.refreshForUser', () => {
+  it('recalcula trilha com novos objetivos e tecnologia sem bloquear 24h', async () => {
+    const { service, prisma } = buildService({ research: null, mailer: null });
+    const existing = investigationRow({
+      status: 'ready',
+      suggestedTrack: 'frontend',
+      profileSnapshot: {
+        expLevel: 'beginner',
+        careerGoal: 'fullstack',
+        careerGoals: ['fullstack'],
+        primaryTechnology: 'javascript',
+      },
+      rationale: {
+        reasons: ['career-goal:fullstack', 'primary-technology'],
+        basis: 'profile-only',
+      },
+      completedAt: new Date('2026-11-10T11:00:00.000Z'),
+    });
+    (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(existing);
+    (prisma.diagnosticResult.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.course.findUnique as jest.Mock).mockResolvedValue({
+      slug: 'introducao-python',
+      title: 'Introdução à Programação com Python',
+    });
+    (prisma.trackInvestigation.update as jest.Mock).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...existing,
+        ...data,
+      }),
+    );
+
+    const view = await service.refreshForUser('user-1', {
+      careerGoals: ['ai', 'data_science'],
+      primaryTechnology: 'python',
+    });
+
+    expect(view.suggestedTrack).toBe('ai');
+    expect(view.trackName).toBe('Inteligência Artificial');
+    expect(view.startCourse?.slug).toBe('introducao-python');
   });
 });

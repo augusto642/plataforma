@@ -101,6 +101,14 @@ describe('fetchDashboardData (D5)', () => {
       expect(await fetchDashboardData()).toBeNull();
     });
 
+    it('aluno recém-cadastrado sem matrícula (/leaderboard em 403) → painel abre com ranking vazio', async () => {
+      stubQaRepro({ leaderboard: { ok: false, status: 403, json: async () => ({}) }, submissions: okResponse([]) });
+      const data = await fetchDashboardData();
+      expect(data).not.toBeNull();
+      expect(data!.leaderboard).toEqual([]);
+      expect(data!.user.name).toBe('Maria Teste');
+    });
+
     it('só /submissions em 500 → null', async () => {
       stubQaRepro({
         leaderboard: okResponse([

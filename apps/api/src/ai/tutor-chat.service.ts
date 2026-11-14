@@ -13,6 +13,7 @@ import type { SocraticTier } from './socratic-tier.service';
 import { SocraticTierService } from './socratic-tier.service';
 import { TutorKnowledgeService } from './tutor-knowledge.service';
 import { PromptSafetyService } from './prompt-safety.service';
+import { ChatWithTutorDto } from './dto/chat-with-tutor.dto';
 
 /** Sprint 22 — evento de proveniência emitido ao controller do chat/stream. */
 export interface TutorSourceInfo {
@@ -63,7 +64,7 @@ export class TutorChatService {
   }
 
   async *streamChatWithTutor(
-    dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
+    dto: ChatWithTutorDto,
     userId?: string,
     /**
      * Sprint 22 — callback de proveniência: disparado UMA vez, antes do
@@ -168,8 +169,9 @@ export class TutorChatService {
     if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.safety.sanitizePrompt(dto.code) : '';
+        const sanitizedTestFailure = dto.testFailure ? this.safety.sanitizePrompt(dto.testFailure) : '';
         const systemPrompt = [
-          'Você é o Tutor de IA socrático e rigoroso da plataforma NEXUS CODE.',
+          'Você é a Tutora Lumi, mentora de IA socrática e companheira de jornada de programação da plataforma NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
           tierInstructions[tier],
@@ -177,6 +179,9 @@ export class TutorChatService {
           UNTRUSTED_DATA_SYSTEM_NOTE,
           sanitizedCode
             ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
+            : '',
+          sanitizedTestFailure
+            ? `Resultado dos Testes / Erro no Terminal (dado não confiável):\n${sanitizedTestFailure}`
             : '',
           'Instruções pedagógicas:',
           '- NUNCA escreva o código pronto da solução.',
@@ -266,7 +271,7 @@ export class TutorChatService {
   }
 
   async chatWithTutor(
-    dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
+    dto: ChatWithTutorDto,
     userId?: string,
   ): Promise<{
     role: 'assistant';
@@ -386,8 +391,9 @@ export class TutorChatService {
     if (this.llm.isAvailable) {
       try {
         const sanitizedCode = dto.code ? this.safety.sanitizePrompt(dto.code) : '';
+        const sanitizedTestFailure = dto.testFailure ? this.safety.sanitizePrompt(dto.testFailure) : '';
         const systemPrompt = [
-          'Você é o Tutor de IA socrático e rigoroso da plataforma NEXUS CODE.',
+          'Você é a Tutora Lumi, mentora de IA socrática e companheira de jornada de programação da plataforma NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
           tierInstructions[tier],
@@ -396,6 +402,9 @@ export class TutorChatService {
           chatLearnerBlock ?? '',
           sanitizedCode
             ? `Contexto do aluno (dado não confiável):\n${buildUntrustedStudentContext({ code: sanitizedCode })}`
+            : '',
+          sanitizedTestFailure
+            ? `Resultado dos Testes / Erro no Terminal (dado não confiável):\n${sanitizedTestFailure}`
             : '',
           'Instruções pedagógicas:',
           '- NUNCA escreva o código pronto da solução.',

@@ -84,7 +84,7 @@ export const BillingTab: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6">
         <h3 className="text-base font-bold text-white font-heading mb-1">Seu plano</h3>
         <p className="text-xs text-zinc-400">Consultando o plano associado à sua conta…</p>
       </div>
@@ -93,11 +93,11 @@ export const BillingTab: React.FC = () => {
 
   if (!user || !user.plan) {
     return (
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6">
         <h3 className="text-base font-bold text-white font-heading mb-1">Seu plano</h3>
         <p className="text-xs text-zinc-400 max-w-md">
           Não foi possível identificar o plano da sua conta nesta sessão. Entre na sua conta para
-          consultar o plano associado a ela — nenhuma cobrança é exibida sem uma fonte real.
+          consultar o plano associado a ela.
         </p>
       </div>
     );
@@ -112,9 +112,7 @@ export const BillingTab: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. CURRENT PLAN (REAL — GET /users/me)                                    */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-br from-[#181820] to-[#121217] border border-[#8257E5]/50 rounded-2xl p-6 relative overflow-hidden shadow-2xl">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-[#8257E5]/10 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="bg-[#0C0F17] border border-[#8257E5]/50 rounded-2xl p-6 relative overflow-hidden shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -149,7 +147,7 @@ export const BillingTab: React.FC = () => {
             )}
             <Link
               href="/#precos"
-              className="px-4 py-2 rounded-xl bg-[#181820] border border-[#27272A] text-zinc-200 font-bold text-xs transition-all"
+              className="px-4 py-2 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] text-zinc-200 font-bold text-xs transition-all"
             >
               Ver planos e preços
             </Link>
@@ -168,25 +166,25 @@ export const BillingTab: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. ENTITLEMENTS — A DIFERENÇA QUE A MATRIZ DA API IMPLEMENTA HOJE         */}
       {/* ========================================================================= */}
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 shadow-sm">
         <h3 className="text-base font-bold text-white font-heading mb-1">
           O que muda entre os planos
         </h3>
         <p className="text-xs text-zinc-400 mb-4">
-          Diferença de entitlement implementada hoje na plataforma (matriz de planos da API):
+          Diferença de entitlement implementada na plataforma:
         </p>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[#27272A] text-zinc-400 font-mono uppercase tracking-wider">
+              <tr className="border-b border-[#1C2338] text-zinc-400 font-mono uppercase tracking-wider">
                 <th className="py-2 pr-4">Recurso</th>
                 <th className="py-2 pr-4">Explorer (grátis)</th>
                 <th className="py-2">Pro</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-[#27272A]/50">
+              <tr className="border-b border-[#1C2338]/50">
                 <td className="py-2.5 pr-4 font-bold text-zinc-200">Tutora de IA socrática</td>
                 <td className="py-2.5 pr-4 text-zinc-400">Somente no nível Iniciante</td>
                 <td className="py-2.5 text-zinc-200">Em todas as trilhas e níveis de carreira</td>
@@ -199,7 +197,7 @@ export const BillingTab: React.FC = () => {
       {/* ========================================================================= */}
       {/* 3. BILLING STATE — FASE 1: ASSINATURA REAL, EM MODO DE TESTES            */}
       {/* ========================================================================= */}
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+      <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 shadow-sm">
         <h3 className="text-base font-bold text-white font-heading mb-1">
           Assinatura e cobranças
         </h3>
@@ -233,7 +231,7 @@ export const BillingTab: React.FC = () => {
                 type="button"
                 onClick={handleCancel}
                 disabled={canceling}
-                className="mt-2 px-4 py-2 rounded-xl bg-[#181820] border border-[#27272A] hover:border-rose-500/50 text-zinc-200 disabled:opacity-50 font-bold text-xs"
+                className="mt-2 px-4 py-2 rounded-xl bg-[#121624] border border-[#1C2338] hover:border-rose-500/50 text-zinc-200 disabled:opacity-50 font-bold text-xs cursor-pointer"
               >
                 {canceling ? 'Cancelando…' : 'Cancelar assinatura'}
               </button>
@@ -259,7 +257,7 @@ export const BillingTab: React.FC = () => {
       {/* 4. LISTA DE INTERESSADOS (B54 — SPRINT 17): REGISTRO REAL, SEM COBRANÇA   */}
       {/* ========================================================================= */}
       {interest && (
-        <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+        <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 shadow-sm">
           <h3 className="text-base font-bold text-white font-heading mb-1">
             Lista de interessados — plano {planDisplayName(interest.plan)}
           </h3>

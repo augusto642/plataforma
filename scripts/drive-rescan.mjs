@@ -24,6 +24,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export function fingerprint(f) {
   // D2: md5Checksum primário; sem ele, (modifiedTime, size) + flag unverified.
@@ -84,7 +85,7 @@ export function atomicWrite(path, text) {
   renameSync(tmp, path);
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(new URL(import.meta.url)));
 if (isMain) {
   void (async () => {
   const args = process.argv.slice(2);
@@ -96,7 +97,7 @@ if (isMain) {
     process.exit(0);
   }
   const get = (flag, dflt) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : dflt; };
-  const repoRoot = resolve(new URL('..', import.meta.url).pathname);
+  const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
   const scope = get('--scope', 'python');
   const statePath = resolve(get('--state', join(repoRoot, 'data/drive-scan-state.json')));
   const registryPath = resolve(get('--registry', join(repoRoot, 'content/knowledge/extraction-registry.json')));
