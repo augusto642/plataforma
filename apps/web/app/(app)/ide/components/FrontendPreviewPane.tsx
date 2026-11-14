@@ -77,6 +77,7 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      if (iframeRef.current && event.source !== iframeRef.current.contentWindow) return;
       if (event.data?.type === 'PREVIEW_CONSOLE_LOG') {
         setConsoleLogs((prev) => [...prev.slice(-19), `[LOG] ${event.data.message}`]);
       } else if (event.data?.type === 'PREVIEW_CONSOLE_ERROR') {

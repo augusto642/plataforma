@@ -393,9 +393,31 @@ export class WebhooksController {
   @Post('sonar')
   @HttpCode(HttpStatus.OK)
   async handleSonarWebhook(
+    @Req() req: Request,
     @Body() payload: any,
     @Headers('x-sonar-webhook-hmac-sha256') signature?: string,
   ) {
+    const sonarSecret = this.config.get<string>('SONAR_WEBHOOK_SECRET');
+    if (sonarSecret && signature) {
+      const rawBody = (req as any).rawBody;
+      if (Buffer.isBuffer(rawBody)) {
+        const computedHmac = crypto
+          .createHmac('sha256', sonarSecret)
+          .update(rawBody)
+          .digest('hex');
+        const received = normalizeSignature(signature);
+        const sigBuffer = Buffer.from(received, 'utf8');
+        const compBuffer = Buffer.from(computedHmac, 'utf8');
+        if (
+          sigBuffer.length !== compBuffer.length ||
+          !crypto.timingSafeEqual(sigBuffer, compBuffer)
+        ) {
+          this.logger.warn('Invalid SonarQube webhook HMAC signature');
+          throw new UnauthorizedException('Assinatura do webhook SonarQube inválida');
+        }
+      }
+    }
+
     this.logger.log(`Received SonarQube webhook for project ${payload?.project?.key}`);
 
     const projectKey: string = payload?.project?.key || '';

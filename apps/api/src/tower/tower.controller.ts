@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -65,12 +65,12 @@ export class TowerController {
   }
 
   @Get('party/:id')
-  getParty(@CurrentUser() user: JwtPayload, @Body() body: any) {
-    return this.tower.getParty(body?.id || '');
+  getParty(@Param('id') id: string) {
+    return this.tower.getParty(id);
   }
 
   @Post('party/:id/join')
-  joinParty(@CurrentUser() user: JwtPayload, @Body() body: { partyId: string }) {
-    return this.tower.joinParty(user.sub, body.partyId);
+  joinParty(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.tower.joinParty(user.sub, id);
   }
 }
