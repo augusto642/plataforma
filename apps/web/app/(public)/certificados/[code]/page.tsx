@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
+import { CertificateHoloBadge3D } from './components/CertificateHoloBadge3D';
 
 /**
  * Fase 1 premium (desenho §2.5) — página pública de verificação de
@@ -168,11 +169,11 @@ function FoundCertificate({ record }: { record: VerifiedCertificate }) {
         </div>
       </div>
 
-      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8">
-        <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 mb-4">
-          Certificado de conclusão
-        </div>
-        <div className="space-y-4">
+      <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-8">
+        <div className="flex-1 space-y-4 w-full">
+          <div className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 mb-4">
+            Certificado de conclusão
+          </div>
           <div>
             <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Aluno</div>
             <div className="text-xl font-heading font-black text-white">{record.studentName}</div>
@@ -205,15 +206,27 @@ function FoundCertificate({ record }: { record: VerifiedCertificate }) {
               {record.verificationCode}
             </div>
           </div>
+
+          <a
+            href={linkedInUrl(record)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block mt-6 px-4 py-2 rounded-xl bg-[#0A66C2] hover:bg-[#004182] text-white font-bold text-xs"
+          >
+            Adicionar ao LinkedIn
+          </a>
         </div>
-        <a
-          href={linkedInUrl(record)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-block mt-6 px-4 py-2 rounded-xl bg-[#0A66C2] hover:bg-[#004182] text-white font-bold text-xs"
-        >
-          Adicionar ao LinkedIn
-        </a>
+
+        {/* Emblema Holográfico 3D Three.js */}
+        <div className="shrink-0 flex flex-col items-center justify-center p-4 rounded-2xl bg-[#0B0B10] border border-[#27272A] shadow-xl">
+          <CertificateHoloBadge3D code={record.verificationCode} />
+          <span className="text-[10px] font-mono text-[#F59E0B] mt-2 font-bold tracking-wider uppercase">
+            Selo 3D de Autenticidade
+          </span>
+          <span className="text-[9px] font-mono text-zinc-500 mt-0.5">
+            Quality Gate SonarQube Pass
+          </span>
+        </div>
       </div>
     </div>
   );

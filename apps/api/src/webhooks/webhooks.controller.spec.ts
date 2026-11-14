@@ -382,4 +382,48 @@ describe('WebhooksController (fail-closed webhook)', () => {
       );
     });
   });
+
+  describe('handleCiRunnerWebhook (pluggable CI/CD runners)', () => {
+    it('successfully processes successful test run from Gitea Actions / GitHub Actions and awards XP', async () => {
+      const mocks = makeMocks();
+      mocks.prisma.user.findFirst.mockResolvedValue({ id: 'user-ci-1' });
+      const { controller } = makeController({ prisma: mocks.prisma });
+
+      const result = await controller.handleCiRunnerWebhook({
+        runnerType: 'gitea_actions',
+        repoName: 'sistema-imobiliario-student1',
+        commitSha: 'commit123',
+        status: 'SUCCESS',
+        testsTotal: 12,
+        testsPassed: 12,
+        testsFailed: 0,
+      });
+
+      expect(result.status).toBe('processed');
+      expect(result.isSuccess).toBe(true);
+      expect(result.testsPassed).toBe(12);
+      expect(result.runner).toBe('gitea_actions');
+    });
+
+    it('processes failed pipeline run without awarding bonus XP', async () => {
+      const mocks = makeMocks();
+      mocks.prisma.user.findFirst.mockResolvedValue({ id: 'user-ci-1' });
+      const { controller } = makeController({ prisma: mocks.prisma });
+
+      const result = await controller.handleCiRunnerWebhook({
+        runnerType: 'jenkins',
+        repoName: 'sistema-imobiliario-student1',
+        commitSha: 'commit123',
+        status: 'FAILURE',
+        testsTotal: 10,
+        testsPassed: 8,
+        testsFailed: 2,
+      });
+
+      expect(result.status).toBe('processed');
+      expect(result.isSuccess).toBe(false);
+      expect(result.testsFailed).toBe(2);
+      expect(result.xpAwarded).toBe(false);
+    });
+  });
 });

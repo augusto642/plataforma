@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { MaterialIcon } from '../MaterialIcon';
 import { TrackedLink } from './TrackedLink';
+import { CodeGalaxy3D } from './CodeGalaxy3D';
 
 export const HeroSection: React.FC = () => (
   <section
@@ -90,9 +91,14 @@ export const HeroSection: React.FC = () => (
           </div>
         </div>
 
-        {/* Right Column: Interactive Editor / Game Trail Preview */}
-        <div className="lg:col-span-6 w-full">
-          <div className="relative rounded-lg bg-dark-surface-container-low border border-border-strong shadow-2xl overflow-hidden">
+        {/* Right Column: Interactive Editor / Game Trail Preview + Three.js 3D Galaxy */}
+        <div className="lg:col-span-6 w-full relative">
+          {/* Three.js 3D Code Galaxy Background Effect */}
+          <div className="absolute -top-16 -right-12 w-[380px] h-[380px] md:w-[480px] md:h-[480px] pointer-events-none opacity-40 md:opacity-60 -z-0">
+            <CodeGalaxy3D />
+          </div>
+
+          <div className="relative rounded-lg bg-dark-surface-container-low/95 backdrop-blur-sm border border-border-strong shadow-2xl overflow-hidden z-10">
             {/* Editor Top Chrome */}
             <div className="bg-dark-surface-container-high px-4 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">

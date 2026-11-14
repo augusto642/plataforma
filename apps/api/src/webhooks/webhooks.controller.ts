@@ -480,4 +480,95 @@ export class WebhooksController {
       socraticFeedback: evaluation?.socraticSuggestions || [],
     };
   }
+
+  /**
+   * Webhook flexível e agnóstico de CI/CD runners (Gitea Actions, GitHub Actions, Jenkins, GitLab CI ou runners locais).
+   * Recebe o relatório padronizado de execução de baterias de testes automatizados e integra na gamificação / progresso.
+   */
+  @Post('ci-runner')
+  @HttpCode(HttpStatus.OK)
+  async handleCiRunnerWebhook(
+    @Body()
+    payload: {
+      runnerType?: string;
+      projectName?: string;
+      repoName?: string;
+      commitSha?: string;
+      branch?: string;
+      status: 'SUCCESS' | 'FAILURE' | string;
+      testsTotal?: number;
+      testsPassed?: number;
+      testsFailed?: number;
+      durationSeconds?: number;
+      pipelineUrl?: string;
+    },
+    @Headers('x-ci-token') ciToken?: string,
+    @Headers('x-ci-signature') ciSignature?: string,
+  ) {
+    const expectedSecret =
+      this.config.get<string>('CI_WEBHOOK_SECRET') ||
+      this.config.get<string>('GITEA_WEBHOOK_SECRET');
+
+    // Validação de token/assinatura se configurado
+    if (expectedSecret && (ciToken || ciSignature)) {
+      const provided = ciToken || ciSignature || '';
+      const providedBuffer = Buffer.from(provided);
+      const expectedBuffer = Buffer.from(expectedSecret);
+
+      if (
+        providedBuffer.length !== expectedBuffer.length ||
+        !crypto.timingSafeEqual(providedBuffer, expectedBuffer)
+      ) {
+        this.logger.warn('Token ou assinatura de CI Runner inválida');
+        throw new UnauthorizedException('Token de CI Runner inválido');
+      }
+    }
+
+    const runner = payload.runnerType || 'gitea_actions';
+    const repo = payload.repoName || payload.projectName || 'unknown-repo';
+    const isSuccess = payload.status === 'SUCCESS' && (payload.testsFailed ?? 0) === 0;
+
+    this.logger.log(
+      `Received CI pipeline result from ${runner} for repo ${repo}: status=${payload.status}, passed=${payload.testsPassed}/${payload.testsTotal}`,
+    );
+
+    // Identifica o aluno pelo repositório
+    const repoMatch = REPO_NAME_PATTERN.exec(repo);
+    const giteaUsername = repoMatch?.groups?.username;
+    let user = null;
+
+    if (giteaUsername) {
+      user = await this.prisma.user.findFirst({
+        where: {
+          studentRepos: {
+            some: { giteaUsername },
+          },
+        },
+      });
+    }
+
+    let xpResult = null;
+    if (user && isSuccess && this.gamification) {
+      // Credita bônus pela esteira de testes verde
+      xpResult = await this.gamification.awardGiteaProjectXp(user.id, {
+        projectSlug: repo,
+        basePassed: true,
+        baseXp: 150,
+        sonarBonusMultiplier: 1.0,
+        qualityGatePassed: true,
+      });
+    }
+
+    return {
+      status: 'processed',
+      runner,
+      repo,
+      isSuccess,
+      testsPassed: payload.testsPassed ?? 0,
+      testsFailed: payload.testsFailed ?? 0,
+      testsTotal: payload.testsTotal ?? 0,
+      xpAwarded: !!xpResult,
+      userId: user?.id ?? null,
+    };
+  }
 }

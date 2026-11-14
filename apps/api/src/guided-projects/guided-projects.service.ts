@@ -34,7 +34,7 @@ export class GuidedProjectsService {
             title: 'Sistema Imobiliário Full Stack & DevOps',
             slug: 'sistema-imobiliario-fullstack-devops',
             description:
-              'Desenvolva um sistema completo de gestão imobiliária profissional com microsserviços, pipeline CI/CD no Jenkins, validação estrita no SonarQube e deploy em containers Docker.',
+              'Desenvolva um sistema completo de gestão imobiliária profissional com microsserviços, pipeline CI/CD automatizado (Gitea Actions, GitHub Actions ou Jenkins), validação estrita no SonarQube e deploy em containers Docker.',
             level: 'junior',
             prerequisites: [
               { id: 'logic', title: 'Fundamentos de Algoritmos e Lógica de Programação', required: true },
@@ -50,7 +50,7 @@ export class GuidedProjectsService {
               'React',
               'REST API',
               'Docker',
-              'Jenkins',
+              'CI/CD (Gitea/GitHub Actions/Jenkins)',
               'SonarQube',
             ],
             giteaTemplateRepo: 'template-imobiliaria',
@@ -82,13 +82,13 @@ export class GuidedProjectsService {
                 },
                 {
                   order: 3,
-                  title: 'Sprint 3: Docker Compose & Pipeline CI Jenkins',
-                  description: 'Containerize o banco, a API e o front; crie o Jenkinsfile automatizado.',
+                  title: 'Sprint 3: Docker Compose & Pipeline CI/CD Automatizado',
+                  description: 'Containerize o banco, a API e o front; configure pipeline de testes contínuos (Gitea Actions, GitHub Actions ou Jenkins).',
                   baseXp: 400,
                   tasks: [
                     'Dockerfile multi-stage para Java e React',
                     'docker-compose.yml orquestrando banco, backend e frontend',
-                    'Jenkinsfile disparando build e testes automáticos no commit',
+                    'Pipeline de testes automatizados (.gitea/workflows, Jenkinsfile ou .github/workflows)',
                   ],
                 },
                 {

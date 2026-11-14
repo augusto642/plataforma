@@ -12,6 +12,7 @@ import {
   type DynamicTrackView,
 } from '../../../lib/dynamic-track';
 import { TrackFooter, TrackTopbar } from '../components/track-chrome';
+import { ImmersionRadar3D } from './components/ImmersionRadar3D';
 
 // Central 216 (F1) — rota "Aguardando Trilha" (mobile + desktop num só
 // layout responsivo), enriquecida com o Módulo de Imersão Visual do Pacote 2.3.
@@ -360,7 +361,7 @@ export default function AguardandoTrilhaPage() {
           <InvestigationSteps />
         </section>
 
-        {/* Pacote 2.3 — Módulo de Imersão: Status Vivo da Pesquisa (48h) */}
+        {/* Pacote 2.3 — Módulo de Imersão: Status Vivo da Pesquisa (48h) com Three.js */}
         {immersion && (
           <section className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-6 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -373,6 +374,11 @@ export default function AguardandoTrilhaPage() {
               <span className="font-code text-xs text-[#00E5FF] bg-[#00E5FF]/10 px-2.5 py-1 rounded-full border border-[#00E5FF]/30">
                 {immersion.workersActive} Workers Minerando em Background
               </span>
+            </div>
+
+            {/* Radar Holográfico 3D de Pesquisa de Mercado */}
+            <div className="rounded-lg bg-[#07090E]/60 border border-[#1C2338]/60 overflow-hidden">
+              <ImmersionRadar3D workersActive={immersion.workersActive} />
             </div>
 
             <div className="space-y-2">

@@ -87,7 +87,7 @@ export default function ProjetosGuiadosPage() {
             Projetos Práticos do Mundo Real
           </h1>
           <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-            Desenvolva soluções completas com esteira CI/CD real (Jenkins, SonarQube, Gitea e Docker).
+            Desenvolva soluções completas com esteira CI/CD real e pluggável (Gitea Actions, GitHub Actions, Jenkins, Docker e SonarQube).
             Seu código é auditado automaticamente e bônus de Clean Code multiplicam seu XP.
           </p>
         </div>

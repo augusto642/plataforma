@@ -10,6 +10,7 @@ import { DynamicTrackCard } from './components/DynamicTrackCard';
 import { DailyMissions } from './components/DailyMissions';
 import { LeagueCard } from './components/LeagueCard';
 import { AiReviewsCard } from './components/AiReviewsCard';
+import { NexusCore3D } from './components/NexusCore3D';
 import { deriveHeroEyebrow } from './utils/hero';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import { fetchDashboardData } from './utils/api';
@@ -222,53 +223,59 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            {/* Botões de Ação do Hero (Hierarquia Linear: 1 CTA Primário Dominante) */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
-              {mission ? (
-                <>
-                  <Link
-                    href="/ide"
-                    className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#7142D6] hover:from-[#996DFF] hover:to-[#8257E5] text-white font-mono font-bold text-sm shadow-[0_0_20px_rgba(130,87,229,0.3)] transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
-                  >
-                    <MaterialIcon name="play_arrow" className="text-[18px]" />
-                    <span>Continuar Missão Técnica</span>
-                  </Link>
+            {/* Botões de Ação do Hero + Núcleo 3D Interativo */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto shrink-0">
+              <div className="hidden lg:block shrink-0">
+                <NexusCore3D level={data?.user?.level ?? 1} streakDays={data?.user?.streakDays ?? 0} />
+              </div>
 
-                  {primaryCourse?.slug && (
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                {mission ? (
+                  <>
                     <Link
-                      href={`/courses/${primaryCourse.slug}`}
+                      href="/ide"
+                      className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#7142D6] hover:from-[#996DFF] hover:to-[#8257E5] text-white font-mono font-bold text-sm shadow-[0_0_20px_rgba(130,87,229,0.3)] transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
+                    >
+                      <MaterialIcon name="play_arrow" className="text-[18px]" />
+                      <span>Continuar Missão Técnica</span>
+                    </Link>
+
+                    {primaryCourse?.slug && (
+                      <Link
+                        href={`/courses/${primaryCourse.slug}`}
+                        className="px-5 py-3.5 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] hover:border-[#8257E5] text-[#94A3B8] hover:text-white text-sm font-mono transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                      >
+                        <MaterialIcon name="menu_book" className="text-[16px] text-[#00E5FF]" />
+                        <span>Ementa da Trilha</span>
+                      </Link>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href={
+                        trackInvestigation?.status === 'ready' && trackInvestigation.startCourse
+                          ? `/courses/${trackInvestigation.startCourse.slug}`
+                          : '/trilha/sugerida'
+                      }
+                      className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#7142D6] hover:from-[#996DFF] hover:to-[#8257E5] text-white font-mono font-bold text-sm shadow-[0_0_20px_rgba(130,87,229,0.3)] transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
+                    >
+                      <span>
+                        {trackInvestigation?.status === 'ready'
+                          ? 'Iniciar Trilha Recomendada'
+                          : 'Gerar Trilha com IA'}
+                      </span>
+                      <MaterialIcon name="arrow_forward" className="text-[16px]" />
+                    </Link>
+                    <Link
+                      href="/courses"
                       className="px-5 py-3.5 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] hover:border-[#8257E5] text-[#94A3B8] hover:text-white text-sm font-mono transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
                     >
-                      <MaterialIcon name="menu_book" className="text-[16px] text-[#00E5FF]" />
-                      <span>Ementa da Trilha</span>
+                      <span>Explorar Catálogo</span>
                     </Link>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Link
-                    href={
-                      trackInvestigation?.status === 'ready' && trackInvestigation.startCourse
-                        ? `/courses/${trackInvestigation.startCourse.slug}`
-                        : '/trilha/sugerida'
-                    }
-                    className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#8257E5] to-[#7142D6] hover:from-[#996DFF] hover:to-[#8257E5] text-white font-mono font-bold text-sm shadow-[0_0_20px_rgba(130,87,229,0.3)] transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
-                  >
-                    <span>
-                      {trackInvestigation?.status === 'ready'
-                        ? 'Iniciar Trilha Recomendada'
-                        : 'Gerar Trilha com IA'}
-                    </span>
-                    <MaterialIcon name="arrow_forward" className="text-[16px]" />
-                  </Link>
-                  <Link
-                    href="/courses"
-                    className="px-5 py-3.5 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] hover:border-[#8257E5] text-[#94A3B8] hover:text-white text-sm font-mono transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
-                  >
-                    <span>Explorar Catálogo</span>
-                  </Link>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </section>
 

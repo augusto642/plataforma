@@ -125,8 +125,8 @@ export class DynamicTrackController {
         title: 'Esteira Contínua e Sandboxes',
         description:
           'Pipelines CI/CD automatizadas, análise estática de código e isolamento de runtime.',
-        technologies: ['Docker', 'Jenkins', 'SonarQube', 'Piston Sandbox'],
-        diagramFlow: 'Git Push ➔ Webhook ➔ Jenkins Runner ➔ Sonar Quality Gate ➔ Sandbox Execution',
+        technologies: ['Docker', 'Gitea/GitHub Actions', 'Jenkins', 'SonarQube', 'Piston Sandbox'],
+        diagramFlow: 'Git Push ➔ Webhook ➔ CI Runner (Gitea/GitHub Actions/Jenkins) ➔ Sonar Quality Gate ➔ Sandbox Execution',
         practicalExample:
           'Execução de código de alunos em contêiner sem rede com teto de 256MB e Quality Gate.',
       },
