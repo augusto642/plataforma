@@ -18,7 +18,10 @@ import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegistrationLevelService } from '../ai/registration-level.service';
-import { EvaluateRegistrationLevelDto } from '../ai/dto/evaluate-registration-level.dto';
+import {
+  EvaluateRegistrationLevelDto,
+  GenerateRegistrationFollowUpDto,
+} from '../ai/dto/evaluate-registration-level.dto';
 import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { IS_PUBLIC_KEY, Public } from './decorators/public.decorator';
@@ -90,6 +93,14 @@ export class AuthController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   evaluateLevel(@Body() dto: EvaluateRegistrationLevelDto) {
     return this.getRegistrationLevelService().evaluateExplanation(dto);
+  }
+
+  @Post('registration-follow-up')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  generateRegistrationFollowUp(@Body() dto: GenerateRegistrationFollowUpDto) {
+    return this.getRegistrationLevelService().generateFollowUpQuestion(dto);
   }
 
   /**

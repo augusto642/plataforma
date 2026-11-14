@@ -147,6 +147,43 @@ export const AdminKnowledgeTab: React.FC = () => {
     [goalSlug, loadSegments],
   );
 
+  const [bookTitle, setBookTitle] = useState('');
+  const [bookAuthor, setBookAuthor] = useState('');
+  const [bookTags, setBookTags] = useState('');
+  const [bookLevel, setBookLevel] = useState('all');
+  const [bookContentMd, setBookContentMd] = useState('');
+  const [bookBusy, setBookBusy] = useState(false);
+  const [bookFeedback, setBookFeedback] = useState<string | null>(null);
+
+  const handleIngestBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookTitle.trim() || !bookContentMd.trim()) {
+      setBookFeedback('Título e conteúdo Markdown são obrigatórios.');
+      return;
+    }
+    setBookBusy(true);
+    setBookFeedback(null);
+    try {
+      const res = await apiClient.post('/admin/knowledge/ingest-book', {
+        title: bookTitle.trim(),
+        author: bookAuthor.trim() || undefined,
+        tags: bookTags.split(',').map((t) => t.trim()).filter(Boolean),
+        level: bookLevel,
+        contentMd: bookContentMd,
+      });
+      const data = (await readJson(res)) as { slug: string; path: string };
+      setBookFeedback(`Documento ingerido com sucesso! Slug: ${data.slug}`);
+      setBookTitle('');
+      setBookAuthor('');
+      setBookTags('');
+      setBookContentMd('');
+    } catch (err) {
+      setBookFeedback(`Falha ao ingerir: ${(err as Error).message}`);
+    } finally {
+      setBookBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div>
@@ -310,6 +347,94 @@ export const AdminKnowledgeTab: React.FC = () => {
           Segmento draft aparece como “em revisão” para o aluno, sem acesso às atividades; só vira jogável com a aprovação
           acima (gate §I6.3). Nenhuma auto-aprovação como default (Q12 aberta).
         </p>
+      </div>
+
+      {/* Pacote 2.2: Ingestão de Livros/PDFs e Artigos Técnicos (.md / .html) */}
+      <div className="p-6 rounded-2xl bg-[#121217] border border-[#27272A] space-y-4">
+        <div>
+          <h3 className="text-base font-bold text-white font-heading">
+            Ingestão KMS / RAG: Livros, PDFs e Artigos Técnicos (.md)
+          </h3>
+          <p className="text-xs text-zinc-400 mt-1">
+            Alimenta a base de conhecimento estruturada em Markdown com frontmatter. O gerador de trilhas consulta este repositório antes de pesquisar fontes externas.
+          </p>
+        </div>
+
+        <form onSubmit={handleIngestBook} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">Título do Livro / Artigo</label>
+              <input
+                type="text"
+                value={bookTitle}
+                onChange={(e) => setBookTitle(e.target.value)}
+                placeholder="Ex: Clean Architecture & Domain-Driven Design"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2.5 text-sm text-white outline-none focus:border-[#8257E5]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">Autor / Fonte</label>
+              <input
+                type="text"
+                value={bookAuthor}
+                onChange={(e) => setBookAuthor(e.target.value)}
+                placeholder="Ex: Robert C. Martin / Eric Evans"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2.5 text-sm text-white outline-none focus:border-[#8257E5]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">Tags (separadas por vírgula)</label>
+              <input
+                type="text"
+                value={bookTags}
+                onChange={(e) => setBookTags(e.target.value)}
+                placeholder="arquitetura, clean-code, java, typescript, microservices"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2.5 text-sm text-white outline-none focus:border-[#8257E5]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">Nível de Destino</label>
+              <select
+                value={bookLevel}
+                onChange={(e) => setBookLevel(e.target.value)}
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2.5 text-sm text-white outline-none focus:border-[#8257E5]"
+              >
+                <option value="all">Todos os Níveis</option>
+                <option value="beginner">Iniciante</option>
+                <option value="junior">Júnior</option>
+                <option value="mid">Pleno</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">Conteúdo Markdown (.md estruturado)</label>
+            <textarea
+              rows={6}
+              value={bookContentMd}
+              onChange={(e) => setBookContentMd(e.target.value)}
+              placeholder="Cole aqui o conteúdo técnico em formato Markdown, capítulos de livros ou resumos de artigos..."
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2.5 text-xs text-white font-mono outline-none focus:border-[#8257E5]"
+            />
+          </div>
+
+          {bookFeedback && (
+            <p className={`text-xs ${bookFeedback.includes('sucesso') ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {bookFeedback}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={bookBusy}
+            className="rounded-xl bg-[#8257E5] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#996DFF] transition-colors disabled:opacity-50"
+          >
+            {bookBusy ? 'Ingerindo documento...' : 'Ingerir Documento no KMS/RAG'}
+          </button>
+        </form>
       </div>
     </div>
   );

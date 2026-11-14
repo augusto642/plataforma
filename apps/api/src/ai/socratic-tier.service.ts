@@ -44,4 +44,80 @@ export class SocraticTierService {
       return 1;
     }
   }
+
+  /**
+   * Pacote 1.2 — Limite de 3 Dicas Graduais por Atividade com Penalidade de XP
+   * Nível 1: -10% XP base
+   * Nível 2: -25% XP base
+   * Nível 3: -50% XP base
+   */
+  async getHintUsage(
+    userId: string,
+    activityId: string,
+  ): Promise<{
+    consumedCount: number;
+    maxHints: number;
+    nextHintLevel: SocraticTier;
+    currentPenaltyPercent: number;
+    canRequestHint: boolean;
+  }> {
+    try {
+      const usages = await this.prisma.activityHintUsage.findMany({
+        where: { userId, activityId },
+        orderBy: { hintLevel: 'asc' },
+      });
+
+      const consumedCount = usages.length;
+      const nextHintLevel = (Math.min(3, Math.max(1, consumedCount + 1))) as SocraticTier;
+      const currentPenaltyPercent = usages.reduce((max, u) => Math.max(max, u.xpPenaltyPercent), 0);
+
+      return {
+        consumedCount,
+        maxHints: 3,
+        nextHintLevel,
+        currentPenaltyPercent,
+        canRequestHint: consumedCount < 3,
+      };
+    } catch {
+      return {
+        consumedCount: 0,
+        maxHints: 3,
+        nextHintLevel: 1,
+        currentPenaltyPercent: 0,
+        canRequestHint: true,
+      };
+    }
+  }
+
+  async recordHintUsage(
+    userId: string,
+    activityId: string,
+    hintLevel: SocraticTier,
+  ): Promise<{ hintLevel: SocraticTier; penaltyPercent: number }> {
+    const penalties: Record<SocraticTier, number> = { 1: 10, 2: 25, 3: 50 };
+    const penaltyPercent = penalties[hintLevel] ?? 10;
+
+    try {
+      await this.prisma.activityHintUsage.upsert({
+        where: {
+          userId_activityId_hintLevel: {
+            userId,
+            activityId,
+            hintLevel,
+          },
+        },
+        update: { xpPenaltyPercent: penaltyPercent },
+        create: {
+          userId,
+          activityId,
+          hintLevel,
+          xpPenaltyPercent: penaltyPercent,
+        },
+      });
+    } catch {
+      // Fallback gracioso se a tabela não tiver sido migrada
+    }
+
+    return { hintLevel, penaltyPercent };
+  }
 }

@@ -143,10 +143,35 @@ export class TutorChatService {
 
     let fullAssistantContent = '';
     const tier = userId ? await this.tier.calculateTier(userId, dto.activityId) : 1;
+
+    // Pacote 1.2: Limite estrito de 3 dicas graduais por atividade com penalidade de XP
+    if (userId) {
+      const hintUsage = await this.tier.getHintUsage(userId, dto.activityId);
+      if (!hintUsage.canRequestHint) {
+        const limitMessage =
+          'Você já utilizou as 3 dicas graduais disponíveis para esta atividade! Agora é a sua vez de testar a solução na prática e submeter o código. Se travar, releia os apontamentos conceituais das dicas anteriores!';
+        if (userId) {
+          await this.prisma.aiChatMessage.create({
+            data: {
+              userId,
+              activityId: dto.activityId,
+              role: 'assistant',
+              content: limitMessage,
+            },
+          });
+        }
+        for (const word of limitMessage.split(' ')) {
+          yield `${word} `;
+        }
+        return;
+      }
+      await this.tier.recordHintUsage(userId, dto.activityId, tier);
+    }
+
     const tierInstructions: Record<SocraticTier, string> = {
-      1: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 1 (MODELO MENTAL & INVARIANTES). Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
-      2: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 2 (CASOS DE BORDA & TESTE DE MESA). O aluno já tentou e falhou. Destaque cenários limites e incentive o rastreamento manual linha a linha.',
-      3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
+      1: 'DIRETRIZ PEDAGÓGICA: DICA 1/3 (-10% XP BASE). Pergunta sutil norteadora. Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
+      2: 'DIRETRIZ PEDAGÓGICA: DICA 2/3 (-25% XP BASE). Apontamento conceitual e linha/bloco lógico com falha. Destaque cenários limites e incentive o rastreamento manual linha a linha.',
+      3: 'DIRETRIZ PEDAGÓGICA: DICA 3/3 (-50% XP BASE). Explicação estrutural passo a passo sem entregar código pronto. Esclareça o algoritmo conceitualmente sem fornecer a solução pronta.',
     };
 
     // Se há provedor de LLM utilizável, chama o endpoint de streaming.
@@ -368,10 +393,30 @@ export class TutorChatService {
     let source: TutorResponseSource | undefined;
     let fallbackReason: LlmUnavailableReason | undefined;
     const tier = userId ? await this.tier.calculateTier(userId, dto.activityId) : 1;
+
+    // Pacote 1.2: Limite estrito de 3 dicas graduais por atividade com penalidade de XP
+    if (userId) {
+      const hintUsage = await this.tier.getHintUsage(userId, dto.activityId);
+      if (!hintUsage.canRequestHint) {
+        const limitMessage =
+          'Você já utilizou as 3 dicas graduais disponíveis para esta atividade! Agora é a sua vez de testar a solução na prática e submeter o código. Se travar, releia os apontamentos conceituais das dicas anteriores!';
+        await this.prisma.aiChatMessage.create({
+          data: {
+            userId,
+            activityId: dto.activityId,
+            role: 'assistant',
+            content: limitMessage,
+          },
+        });
+        return { role: 'assistant', content: limitMessage };
+      }
+      await this.tier.recordHintUsage(userId, dto.activityId, tier);
+    }
+
     const tierInstructions: Record<SocraticTier, string> = {
-      1: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 1 (MODELO MENTAL & INVARIANTES). Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
-      2: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 2 (CASOS DE BORDA & TESTE DE MESA). O aluno já tentou e falhou. Destaque cenários limites e incentive o rastreamento manual linha a linha.',
-      3: 'DIRETRIZ PEDAGÓGICA ATUAL: TIER 3 (COMPLEXIDADE BIG-O & TRADE-OFFS). Discuta a ordem de complexidade temporal/espacial O(N) vs O(N²) e estruturas mais eficientes.',
+      1: 'DIRETRIZ PEDAGÓGICA: DICA 1/3 (-10% XP BASE). Pergunta sutil norteadora. Ajude o aluno a clarear o modelo mental com perguntas conceituais. Não cite código pronto nem sintaxe.',
+      2: 'DIRETRIZ PEDAGÓGICA: DICA 2/3 (-25% XP BASE). Apontamento conceitual e linha/bloco lógico com falha. Destaque cenários limites e incentive o rastreamento manual linha a linha.',
+      3: 'DIRETRIZ PEDAGÓGICA: DICA 3/3 (-50% XP BASE). Explicação estrutural passo a passo sem entregar código pronto. Esclareça o algoritmo conceitualmente sem fornecer a solução pronta.',
     };
 
     // KMS no chat (§13.5): entradas active por conceptTags, antes do LLM.

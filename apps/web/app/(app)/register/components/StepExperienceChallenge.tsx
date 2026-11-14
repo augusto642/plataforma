@@ -201,7 +201,51 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [copyPasteWarning, setCopyPasteWarning] = useState(false);
+
+  // Pacote 1.1: Follow-up Relâmpago (60 segundos)
+  const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null);
+  const [followUpAnswer, setFollowUpAnswer] = useState('');
+  const [followUpTimer, setFollowUpTimer] = useState(60);
+  const [isRequestingFollowUp, setIsRequestingFollowUp] = useState(false);
+  const [isFollowUpCompleted, setIsFollowUpCompleted] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
+
+  // Listener para contabilizar trocas de aba (Anti-Cheat)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        setTabSwitchCount((prev) => prev + 1);
+      }
+    };
+    const handleBlur = () => {
+      setTabSwitchCount((prev) => prev + 1);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  // Cronômetro regressivo de 60 segundos do Follow-up Relâmpago
+  useEffect(() => {
+    if (!followUpQuestion || isFollowUpCompleted || evaluation) return;
+    if (followUpTimer <= 0) {
+      // Auto-avalia ao esgotar o cronômetro
+      void runEvaluationFinal(followUpAnswer);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setFollowUpTimer((t) => t - 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [followUpQuestion, followUpTimer, isFollowUpCompleted, evaluation, followUpAnswer]);
 
   const shouldLoadChallenge =
     hasProgrammedBefore === false || (hasProgrammedBefore === true && priorLanguage !== '');
@@ -301,6 +345,67 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
     trimmedLength >= MIN_EXPLANATION_CHARS &&
     !isEvaluating;
 
+  const runEvaluationFinal = useCallback(
+    async (currentFollowUpAnswer: string) => {
+      if (!challenge || hasProgrammedBefore === null) return;
+      setIsEvaluating(true);
+      setEvalError(null);
+      setIsFollowUpCompleted(true);
+
+      const payload = {
+        hasProgrammedBefore,
+        language: hasProgrammedBefore && priorLanguage ? priorLanguage : undefined,
+        challengeId: challenge.id,
+        explanation: explanation.trim(),
+        tabSwitchCount,
+        followUpQuestion: followUpQuestion || undefined,
+        followUpAnswer: currentFollowUpAnswer.trim() || undefined,
+      };
+
+      let result: LevelEvaluationResult | null = null;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/evaluate-level`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          const data: unknown = await res.json().catch(() => null);
+          result = normalizeApiEvaluation(data, hasProgrammedBefore, explanation);
+        }
+      } catch {
+        // Fallback local garante resiliência quando a API estiver indisponível
+      }
+
+      if (!result) {
+        result = evaluateChallengeLocally({
+          hasProgrammedBefore,
+          priorLanguage: hasProgrammedBefore && priorLanguage ? priorLanguage : undefined,
+          explanation,
+        });
+      }
+
+      setEvaluation(result);
+      setIsEvaluating(false);
+
+      requestAnimationFrame(() => {
+        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    },
+    [
+      challenge,
+      hasProgrammedBefore,
+      priorLanguage,
+      explanation,
+      tabSwitchCount,
+      followUpQuestion,
+      setEvaluation,
+    ],
+  );
+
   const runEvaluation = useCallback(async () => {
     if (!challenge || hasProgrammedBefore === null) return;
     if (explanation.trim().length < MIN_EXPLANATION_CHARS) {
@@ -310,49 +415,48 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
       return;
     }
 
-    setIsEvaluating(true);
-    setEvalError(null);
+    // Se já programou antes e ainda não fez a pergunta relâmpago, solicita o follow-up
+    if (hasProgrammedBefore && !followUpQuestion && !isFollowUpCompleted) {
+      setIsRequestingFollowUp(true);
+      setEvalError(null);
+      try {
+        const res = await fetch(`${API_BASE}/auth/registration-follow-up`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            challengeId: challenge.id,
+            language: priorLanguage || undefined,
+            explanation: explanation.trim(),
+          }),
+        });
 
-    const payload = {
-      hasProgrammedBefore,
-      language: hasProgrammedBefore && priorLanguage ? priorLanguage : undefined,
-      challengeId: challenge.id,
-      explanation: explanation.trim(),
-    };
-
-    let result: LevelEvaluationResult | null = null;
-
-    try {
-      const res = await fetch(`${API_BASE}/auth/evaluate-level`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const data: unknown = await res.json().catch(() => null);
-        result = normalizeApiEvaluation(data, hasProgrammedBefore, explanation);
+        if (res.ok) {
+          const data = (await res.json()) as { question?: string; timeLimitSeconds?: number };
+          if (data?.question) {
+            setFollowUpQuestion(data.question);
+            setFollowUpTimer(data.timeLimitSeconds ?? 60);
+            setIsRequestingFollowUp(false);
+            return;
+          }
+        }
+      } catch {
+        // Fallback para seguir direto para avaliação se o endpoint falhar
       }
-    } catch {
-      // Fallback local garante resiliência quando a API estiver indisponível
+      setIsRequestingFollowUp(false);
     }
 
-    if (!result) {
-      result = evaluateChallengeLocally({
-        hasProgrammedBefore,
-        priorLanguage: hasProgrammedBefore && priorLanguage ? priorLanguage : undefined,
-        explanation,
-      });
-    }
-
-    setEvaluation(result);
-    setIsEvaluating(false);
-
-    requestAnimationFrame(() => {
-      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-  }, [challenge, hasProgrammedBefore, priorLanguage, explanation, setEvaluation]);
+    await runEvaluationFinal(followUpAnswer);
+  }, [
+    challenge,
+    hasProgrammedBefore,
+    explanation,
+    followUpQuestion,
+    isFollowUpCompleted,
+    priorLanguage,
+    followUpAnswer,
+    runEvaluationFinal,
+  ]);
 
   const handleFooterNext = async () => {
     if (evaluation) {
@@ -541,7 +645,20 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                 {/* Código com numeração e destaque sintático */}
                 <pre
                   aria-label={`Código do desafio: ${challenge.title}`}
-                  className="m-0 p-4 overflow-x-auto font-mono text-xs sm:text-sm text-[#F1F5F9] leading-relaxed"
+                  onCopy={(e) => {
+                    e.preventDefault();
+                    setCopyPasteWarning(true);
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    setCopyPasteWarning(true);
+                  }}
+                  onCut={(e) => {
+                    e.preventDefault();
+                    setCopyPasteWarning(true);
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="m-0 p-4 overflow-x-auto font-mono text-xs sm:text-sm text-[#F1F5F9] leading-relaxed select-none"
                 >
                   <code className="block space-y-1">
                     {codeLines.map((line, index) => (
@@ -558,6 +675,15 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                   </code>
                 </pre>
               </div>
+
+              {copyPasteWarning && (
+                <div className="rounded-xl p-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5 animate-fadeIn">
+                  <span className="text-base">🛡️</span>
+                  <span>
+                    <strong>Digitação manual obrigatória:</strong> Cópia e cola estão desativadas neste desafio para garantir uma avaliação de nível real e justa.
+                  </span>
+                </div>
+              )}
 
               {challenge.hint && (
                 <div className="flex flex-col items-start gap-2">
@@ -597,6 +723,19 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                   rows={3}
                   value={explanation}
                   onChange={(e) => handleExplanationChange(e.target.value)}
+                  onCopy={(e) => {
+                    e.preventDefault();
+                    setCopyPasteWarning(true);
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    setCopyPasteWarning(true);
+                  }}
+                  onCut={(e) => {
+                    e.preventDefault();
+                    setCopyPasteWarning(true);
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
                   onKeyDown={(e) => {
                     // Garante que Enter dentro da textarea insere quebra de linha e nunca avança o wizard
                     if (e.key === 'Enter') {
@@ -611,6 +750,59 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                   className="w-full px-4 py-3 rounded-xl bg-[#181C2C] border border-[#1C2133] focus:border-[#00E5FF] focus:outline-none text-sm text-white font-sans placeholder-[#64748B] transition-colors resize-y min-h-[108px] leading-relaxed"
                 />
 
+                {/* Pergunta Relâmpago Follow-up (60 segundos) */}
+                {followUpQuestion && !isFollowUpCompleted && !evaluation && (
+                  <div className="rounded-2xl p-4 bg-gradient-to-r from-[#181C2C] to-[#121624] border-2 border-[#00E5FF]/60 shadow-[0_0_25px_rgba(0,229,255,0.18)] space-y-3 animate-fadeIn mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#00E5FF] flex items-center gap-2">
+                        <span>⚡ Pergunta Relâmpago da IA (Follow-up)</span>
+                      </span>
+                      <span
+                        className={`px-2.5 py-1 rounded font-mono text-xs font-bold ${
+                          followUpTimer <= 15
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
+                            : 'bg-[#00E5FF]/20 text-[#00E5FF]'
+                        }`}
+                      >
+                        ⏱️ {followUpTimer}s
+                      </span>
+                    </div>
+
+                    <p className="text-sm font-semibold text-white leading-relaxed m-0">
+                      {followUpQuestion}
+                    </p>
+
+                    <input
+                      type="text"
+                      value={followUpAnswer}
+                      onChange={(e) => setFollowUpAnswer(e.target.value)}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        setCopyPasteWarning(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void runEvaluationFinal(followUpAnswer);
+                        }
+                      }}
+                      placeholder="Responda rapidamente em poucas palavras..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#090B12] border border-[#1C2133] focus:border-[#00E5FF] text-white text-sm outline-none"
+                    />
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => void runEvaluationFinal(followUpAnswer)}
+                        disabled={isEvaluating}
+                        className="px-4 py-2 rounded-lg bg-[#00E5FF] hover:bg-[#00B4D8] text-black font-bold text-xs cursor-pointer transition-all"
+                      >
+                        Confirmar Resposta ({followUpTimer}s)
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                   <span className="text-[11px] font-mono text-[#64748B]">
                     Não existe resposta errada — escreva como você explicaria para um amigo.
@@ -619,20 +811,27 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                   <button
                     type="button"
                     onClick={runEvaluation}
-                    disabled={!canEvaluate}
+                    disabled={!canEvaluate || isRequestingFollowUp}
                     className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold font-mono transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       evaluation
                         ? 'bg-[#8257E5]/15 border border-[#8257E5]/45 text-[#A379FF] hover:bg-[#8257E5]/25'
                         : 'bg-[#00E5FF]/10 border border-[#00E5FF]/40 text-[#00E5FF] hover:bg-[#00E5FF]/20'
                     }`}
                   >
-                    {isEvaluating ? (
+                    {isRequestingFollowUp ? (
+                      <>
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-[#00E5FF]/30 border-t-[#00E5FF] animate-spin" />
+                        <span>Gerando Pergunta Relâmpago...</span>
+                      </>
+                    ) : isEvaluating ? (
                       <>
                         <span className="w-3.5 h-3.5 rounded-full border-2 border-[#00E5FF]/30 border-t-[#00E5FF] animate-spin" />
                         <span>Analisando sua resposta...</span>
                       </>
                     ) : evaluation ? (
                       <span>🔄 Reanalisar minha resposta com IA</span>
+                    ) : followUpQuestion && !isFollowUpCompleted ? (
+                      <span>⚡ Responda a Pergunta Relâmpago acima</span>
                     ) : (
                       <span>✨ Analisar minha resposta com IA</span>
                     )}

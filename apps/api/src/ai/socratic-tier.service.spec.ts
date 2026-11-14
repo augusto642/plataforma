@@ -59,4 +59,40 @@ describe('SocraticTierService', () => {
       await expect(service.calculateTier('u1', 'a1')).resolves.toBe(1);
     });
   });
+
+  describe('Pacote 1.2 — getHintUsage & recordHintUsage', () => {
+    it('calcula o próximo nível de dica e limites até 3', async () => {
+      (prismaMock as any).activityHintUsage = {
+        findMany: jest.fn().mockResolvedValue([
+          { hintLevel: 1, xpPenaltyPercent: 10 },
+        ]),
+        upsert: jest.fn().mockResolvedValue({ hintLevel: 2, xpPenaltyPercent: 25 }),
+      };
+
+      const usage = await service.getHintUsage('u1', 'a1');
+      expect(usage.consumedCount).toBe(1);
+      expect(usage.maxHints).toBe(3);
+      expect(usage.nextHintLevel).toBe(2);
+      expect(usage.currentPenaltyPercent).toBe(10);
+      expect(usage.canRequestHint).toBe(true);
+
+      const recorded = await service.recordHintUsage('u1', 'a1', 2);
+      expect(recorded.penaltyPercent).toBe(25);
+    });
+
+    it('bloqueia novas dicas quando atingir 3 dicas consumidas', async () => {
+      (prismaMock as any).activityHintUsage = {
+        findMany: jest.fn().mockResolvedValue([
+          { hintLevel: 1, xpPenaltyPercent: 10 },
+          { hintLevel: 2, xpPenaltyPercent: 25 },
+          { hintLevel: 3, xpPenaltyPercent: 50 },
+        ]),
+      };
+
+      const usage = await service.getHintUsage('u1', 'a1');
+      expect(usage.consumedCount).toBe(3);
+      expect(usage.canRequestHint).toBe(false);
+      expect(usage.currentPenaltyPercent).toBe(50);
+    });
+  });
 });

@@ -6,6 +6,7 @@ import { KnowledgeService } from './knowledge.service';
 import { KmsService } from './kms.service';
 import { ResearchService } from './research/research.service';
 import { ResearchProcessor } from './research/research.processor';
+import { JobsMarketProvider } from './research/jobs-market.provider';
 import { TrackGenerationService } from './track-generation/track-generation.service';
 import { TrackGenerationProcessor } from './track-generation/track-generation.processor';
 
@@ -20,7 +21,15 @@ import { TrackGenerationProcessor } from './track-generation/track-generation.pr
     // vale também para módulos.
     forwardRef(() => AiModule),
   ],
-  providers: [KnowledgeService, KmsService, ResearchService, ResearchProcessor, TrackGenerationService, TrackGenerationProcessor],
-  exports: [KnowledgeService, KmsService, ResearchService, TrackGenerationService],
+  providers: [
+    KnowledgeService,
+    KmsService,
+    ResearchService,
+    ResearchProcessor,
+    JobsMarketProvider,
+    TrackGenerationService,
+    TrackGenerationProcessor,
+  ],
+  exports: [KnowledgeService, KmsService, ResearchService, JobsMarketProvider, TrackGenerationService],
 })
 export class KnowledgeModule {}

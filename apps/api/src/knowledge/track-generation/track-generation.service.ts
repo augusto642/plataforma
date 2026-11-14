@@ -30,6 +30,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFile
 import { join } from 'node:path';
 import { LlmClient } from '../../ai/llm-client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { KmsService } from '../kms.service';
 import { ResearchService } from '../research/research.service';
 import { resolveKnowledgeContentDir } from '../knowledge.service';
 import { loadBudget, recordUsage, reserveCall } from './pipeline-budget';
@@ -172,6 +173,7 @@ export class TrackGenerationService {
     @Optional() @Inject(forwardRef(() => LlmClient)) private readonly llm?: LlmClient,
     @Optional() @Inject('TRACK_CONTENT_DIR') contentDir?: string,
     @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly kms?: KmsService,
   ) {
     // Fail-closed (V2): diretório resolvido só vale se o checkout existir
     // de fato (content/knowledge presente). Diretório explícito (operador)
@@ -190,6 +192,14 @@ export class TrackGenerationService {
 
   hasLlm(): boolean {
     return Boolean(this.llm);
+  }
+
+  /**
+   * Pacote 2.1 — Consulta primeiro o RAG local para reaproveitar módulos .md/.html existentes
+   */
+  async checkLocalRagReuse(topics: string[], language?: string) {
+    if (!this.kms) return [];
+    return this.kms.searchLocalRag({ topics, language });
   }
 
   /**

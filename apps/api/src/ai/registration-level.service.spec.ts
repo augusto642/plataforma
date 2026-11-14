@@ -259,5 +259,45 @@ describe('RegistrationLevelService', () => {
       const err2 = await validate(overLanguage);
       expect(err2.some((e) => e.property === 'language')).toBe(true);
     });
+
+    it('aceita campos do Pacote 1 (tabSwitchCount, followUpQuestion, followUpAnswer)', async () => {
+      const dto = Object.assign(new EvaluateRegistrationLevelDto(), {
+        hasProgrammedBefore: true,
+        language: 'javascript',
+        explanation: 'Filtra os elementos pares do array.',
+        tabSwitchCount: 2,
+        followUpQuestion: 'O que acontece com array vazio?',
+        followUpAnswer: 'Retorna array vazio []',
+      });
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  describe('Pacote 1.1 — Follow-up Relâmpago e Anti-Cheat', () => {
+    const service = new RegistrationLevelService();
+
+    it('gera pergunta relâmpago de 60s com fallback inteligente', async () => {
+      const followUp = await service.generateFollowUpQuestion({
+        language: 'python',
+        explanation: 'Itera sobre o dicionário.',
+      });
+      expect(followUp.timeLimitSeconds).toBe(60);
+      expect(typeof followUp.question).toBe('string');
+      expect(followUp.question.length).toBeGreaterThan(10);
+    });
+
+    it('aplica escrutínio anti-cheat quando ocorrem muitas trocas de aba sem resposta no follow-up', async () => {
+      const res = await service.evaluateExplanation({
+        hasProgrammedBefore: true,
+        language: 'python',
+        explanation:
+          'Ela itera a lista de pedidos pagos em O(n), usa .get com valor padrão para evitar KeyError e agrupa a soma no dicionário, mas deveria validar valores None ou negativos.',
+        tabSwitchCount: 4,
+        followUpAnswer: '',
+      });
+      expect(res.confidence).toBe('low');
+      expect(res.detectedLevel).toBe('junior');
+    });
   });
 });

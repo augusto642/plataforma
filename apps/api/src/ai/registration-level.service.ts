@@ -51,6 +51,9 @@ export interface EvaluateRegistrationLevelInput {
   language?: string;
   challengeId?: string;
   explanation: string;
+  tabSwitchCount?: number;
+  followUpQuestion?: string;
+  followUpAnswer?: string;
 }
 
 export interface EvaluateRegistrationLevelResult {
@@ -735,6 +738,74 @@ export class RegistrationLevelService {
     };
   }
 
+  /**
+   * Pacote 1.1 — Follow-up Relâmpago de 60s
+   * Gera uma pergunta curta e desafiadora baseada na explicação do aluno para mitigar cheat/copy-paste.
+   */
+  async generateFollowUpQuestion(input: {
+    challengeId?: string;
+    language?: string;
+    explanation: string;
+  }): Promise<{ question: string; timeLimitSeconds: number }> {
+    const challenge = this.resolveChallengeForEval({
+      hasProgrammedBefore: true,
+      language: input.language,
+      challengeId: input.challengeId,
+      explanation: input.explanation,
+    });
+
+    if (this.canUseLlm()) {
+      try {
+        const prompt = [
+          'Você é um examinador técnico socrático da NEXUS CODE.',
+          'O aluno explicou o seguinte desafio de código:',
+          `Desafio: ${challenge.title} (${challenge.languageLabel})`,
+          'Código:',
+          challenge.codeSnippet,
+          '',
+          'Explicação enviada pelo aluno:',
+          input.explanation,
+          '',
+          'Gere UMA única pergunta relâmpago direta (máximo 20 palavras) questionando um ponto específico de fluxo, caso de borda ou sintaxe da resposta dele.',
+          'Responda APENAS com a pergunta em texto puro, sem aspas.',
+        ].join('\n');
+
+        const raw = await this.llm!.complete({
+          messages: [{ role: 'user', content: prompt }],
+          timeoutMs: 4000,
+          purpose: 'registration-followup',
+        });
+
+        if (raw && raw.trim().length > 10) {
+          return {
+            question: raw.trim().replace(/^"|"$/g, ''),
+            timeLimitSeconds: 60,
+          };
+        }
+      } catch (err) {
+        this.logger.warn(`Follow-up question LLM generation failed: ${(err as Error).message}`);
+      }
+    }
+
+    const fallbackQuestions: Record<string, string> = {
+      python: 'O que aconteceria se a lista passada estivesse vazia ou contivesse valores não esperados?',
+      javascript: 'O que a função retornaria se o parâmetro de entrada fosse null ou undefined?',
+      typescript: 'Como o compilador reagiria se o tipo da propriedade esperada fosse divergente?',
+      java: 'O que aconteceria em tempo de execução se o objeto recebido fosse nulo (NullPointerException)?',
+      csharp: 'Como essa estrutura se comportaria se o índice buscado não existisse na coleção?',
+      logic: 'Qual seria o resultado final se a sequência de passos recebesse valores invertidos?',
+    };
+
+    const q =
+      fallbackQuestions[challenge.language] ||
+      'Se a entrada fornecida fosse nula ou vazia, qual seria o retorno esperado na execução?';
+
+    return {
+      question: q,
+      timeLimitSeconds: 60,
+    };
+  }
+
   async evaluateExplanation(
     input: EvaluateRegistrationLevelInput,
   ): Promise<EvaluateRegistrationLevelResult> {
@@ -755,12 +826,11 @@ export class RegistrationLevelService {
       };
     }
 
+    let result: EvaluateRegistrationLevelResult | null = null;
+
     if (explanation.length > 0 && this.canUseLlm()) {
       try {
-        const llmResult = await this.evaluateWithLlm(input, challenge, explanation);
-        if (llmResult) {
-          return llmResult;
-        }
+        result = await this.evaluateWithLlm(input, challenge, explanation);
       } catch (err) {
         this.logger.warn(
           `Registration level LLM evaluation fell back to heuristic: ${(err as Error).message}`,
@@ -768,7 +838,36 @@ export class RegistrationLevelService {
       }
     }
 
-    return this.evaluateWithHeuristic(input, challenge, explanation);
+    if (!result) {
+      result = this.evaluateWithHeuristic(input, challenge, explanation);
+    }
+
+    // Calibração estrita do PRD para a IA: BEGINNER, JUNIOR ou MID_LEVEL (Pleno).
+    // Qualquer classificação avançada via LLM é calibrada para mid (Pleno), alinhada com as 3 macro-trilhas.
+    let finalLevel: DetectedExperienceLevel = result.detectedLevel;
+    if (result.source === 'llm' && finalLevel === 'senior') {
+      finalLevel = 'mid';
+    }
+
+    // Validação Anti-Cheat: se houve muitas trocas de aba (tabSwitchCount > 2)
+    // e o follow-up relâmpago não foi respondido satisfatoriamente, reduz o nível/confiança.
+    let finalConfidence = result.confidence;
+    const tabSwitches = input.tabSwitchCount ?? 0;
+    const followUpLen = (input.followUpAnswer ?? '').trim().length;
+
+    if (tabSwitches >= 3 && followUpLen < 6) {
+      finalConfidence = 'low';
+      if (finalLevel === 'mid') {
+        finalLevel = 'junior';
+      }
+    }
+
+    return {
+      ...result,
+      detectedLevel: finalLevel,
+      levelLabel: LEVEL_LABELS[finalLevel],
+      confidence: finalConfidence,
+    };
   }
 
   private resolveChallenge(

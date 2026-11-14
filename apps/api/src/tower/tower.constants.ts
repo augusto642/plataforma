@@ -45,6 +45,50 @@ export const TOWER_TIME_LIMIT_SECONDS_BY_DIFFICULTY: Record<TowerDifficulty, num
 /** Slug do curso que guarda as atividades da torre (criado pelo seed). */
 export const TOWER_COURSE_SLUG = 'torre-de-desafios';
 
+export const TOWER_DEFAULT_ITEMS = [
+  {
+    code: 'SHIELD',
+    name: 'Escudo Protetor',
+    description: 'Evita a penalidade de recuo (Origem - 1) se errar ou estourar o tempo do desafio.',
+    category: 'support',
+    costCoins: 40,
+    icon: '🛡️',
+  },
+  {
+    code: 'EXTRA_TIME',
+    name: 'Ampulheta Mística',
+    description: 'Adiciona +60 segundos ao cronômetro do desafio da casa atual.',
+    category: 'support',
+    costCoins: 30,
+    icon: '⏳',
+  },
+  {
+    code: 'DOUBLE_DICE',
+    name: 'Dado Duplo da Sorte',
+    description: 'Rola dois dados no próximo turno e soma os resultados para avançar mais rápido.',
+    category: 'support',
+    costCoins: 50,
+    icon: '🎲',
+  },
+  {
+    code: 'ORACLE_SCROLL',
+    name: 'Pergaminho do Oráculo',
+    description: 'Libera 1 dica norteadora da IA Socrática para o desafio da casa da Torre.',
+    category: 'socratic',
+    costCoins: 35,
+    icon: '📜',
+  },
+  {
+    code: 'CHAOS_BANANA',
+    name: 'Armadilha Competitiva',
+    description: 'Sabotagem assíncrona: aplica -1 casa no próximo movimento de um rival no tabuleiro.',
+    category: 'competitive',
+    costCoins: 60,
+    icon: '🍌',
+  },
+];
+
+
 /** XP da torre na Fase 1: reusa a regra do GamificationService
  *  (70 passou / 20 errou / +50 nota 100). A tabela por dificuldade
  *  (fácil 30 / médio 50 / difícil 80 / chefe 150) é proposta do conceito

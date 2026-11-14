@@ -14,16 +14,44 @@ import {
 import { TrackFooter, TrackTopbar } from '../components/track-chrome';
 
 // Central 216 (F1) — rota "Aguardando Trilha" (mobile + desktop num só
-// layout responsivo), no visual do protótipo Stitch v2
-// (aguardando-trilha-desktop.html / aguardando-trilha-mobile.html).
-// Estados reais de GET /dynamic-track/me:
-// - ready → redireciona para /trilha/sugerida;
-// - failed → motivo real + nova tentativa;
-// - sem investigação → oferece iniciar (POST /me/start);
-// - investigating → o layout do protótipo.
-// As 4 etapas são o fluxo declarado da investigação (mesma convenção
-// do DynamicTrackCard), não progresso medido: a API não expõe em que
-// etapa a investigação está.
+// layout responsivo), enriquecida com o Módulo de Imersão Visual do Pacote 2.3.
+import { API_BASE } from '../../../lib/apiClient';
+
+interface ImmersionData {
+  goal: string;
+  hoursElapsed: number;
+  progressPercentage: number;
+  miningStage: string;
+  workersActive: number;
+  visualArchitecture: Array<{
+    layer: string;
+    title: string;
+    description: string;
+    technologies: string[];
+    diagramFlow: string;
+    practicalExample: string;
+  }>;
+  marketXRay: {
+    goal: string;
+    periodMonths: number;
+    totalJobsAnalyzed: number;
+    brazil: {
+      averageSalaryBrl: { junior: number; mid: number; senior: number };
+      topDemandedSkills: Array<{ skill: string; percentage: number }>;
+      hiringRegimes: { clt: number; pj: number };
+    };
+    international: {
+      averageSalaryUsdMonthly: { junior: number; mid: number; senior: number };
+      topDemandedSkills: Array<{ skill: string; percentage: number }>;
+      remoteOpportunitiesPercentage: number;
+    };
+    recommendedMacroTrack: Array<{
+      macroLevel: string;
+      microSkills: string[];
+      graduationChallenge: string;
+    }>;
+  };
+}
 
 const INVESTIGATION_STEPS = [
   {
@@ -109,6 +137,7 @@ export default function AguardandoTrilhaPage() {
   const [investigation, setInvestigation] = useState<DynamicTrackView | null | undefined>(
     undefined,
   );
+  const [immersion, setImmersion] = useState<ImmersionData | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -118,6 +147,13 @@ export default function AguardandoTrilhaPage() {
     fetchMyInvestigation().then((inv) => {
       if (!cancelled) setInvestigation(inv);
     });
+    fetch(`${API_BASE}/dynamic-track/me/immersion`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setImmersion(data);
+      })
+      .catch(() => null);
+
     return () => {
       cancelled = true;
     };
@@ -323,6 +359,220 @@ export default function AguardandoTrilhaPage() {
           </div>
           <InvestigationSteps />
         </section>
+
+        {/* Pacote 2.3 — Módulo de Imersão: Status Vivo da Pesquisa (48h) */}
+        {immersion && (
+          <section className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#00E5FF] animate-ping" />
+                <h2 className="font-headline font-bold text-sm text-white uppercase tracking-wider m-0">
+                  Status Vivo da Pesquisa de Mercado (Janela 48h)
+                </h2>
+              </div>
+              <span className="font-code text-xs text-[#00E5FF] bg-[#00E5FF]/10 px-2.5 py-1 rounded-full border border-[#00E5FF]/30">
+                {immersion.workersActive} Workers Minerando em Background
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-mono text-[#94A3B8]">
+                <span>Etapa Atual: <strong className="text-white">{immersion.miningStage}</strong></span>
+                <span>{immersion.progressPercentage}% ({immersion.hoursElapsed}h / 48h)</span>
+              </div>
+              <div className="w-full h-2.5 rounded-full bg-[#121624] overflow-hidden border border-[#1C2338]">
+                <div
+                  className="h-full bg-gradient-to-r from-[#8257E5] via-[#A379FF] to-[#00E5FF] transition-all duration-1000"
+                  style={{ width: `${immersion.progressPercentage}%` }}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Pacote 2.3 — Módulo de Imersão: Arquitetura Visual da Área */}
+        {immersion?.visualArchitecture && (
+          <section className="space-y-4">
+            <div>
+              <span className="font-code text-xs text-[#00E5FF] font-bold uppercase tracking-wider block mb-1">
+                Mapa de Engenharia
+              </span>
+              <h2 className="font-headline text-headline-sm font-bold text-white tracking-tight">
+                Arquitetura Visual da Sua Área ({immersion.goal})
+              </h2>
+              <p className="text-body-sm text-[#94A3B8]">
+                Entenda como cada camada de um sistema em produção se conecta, da interface do usuário até o banco de dados.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {immersion.visualArchitecture.map((arch) => (
+                <div
+                  key={arch.layer}
+                  className="rounded-xl bg-[#0C0F17] border border-[#1C2338] hover:border-[#8257E5]/50 p-5 space-y-3 transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-[#A379FF] bg-[#8257E5]/15 px-2 py-0.5 rounded border border-[#8257E5]/30">
+                      {arch.layer}
+                    </span>
+                  </div>
+                  <h3 className="font-headline font-bold text-sm text-white m-0">
+                    {arch.title}
+                  </h3>
+                  <p className="text-xs text-[#94A3B8] leading-relaxed m-0">
+                    {arch.description}
+                  </p>
+                  <div className="pt-2 border-t border-[#1C2338] space-y-1">
+                    <span className="text-[10px] font-mono text-[#00E5FF] block">Fluxo de Dados:</span>
+                    <div className="font-mono text-[11px] text-[#F1F5F9] bg-[#07090E] p-2 rounded border border-[#1C2338]">
+                      {arch.diagramFlow}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {arch.technologies.map((tech) => (
+                      <span key={tech} className="text-[10px] font-mono bg-[#121624] text-[#94A3B8] px-2 py-0.5 rounded">
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Pacote 2.3 — Módulo de Imersão: Raio-X do Mercado (Brasil vs. Internacional USD) */}
+        {immersion?.marketXRay && (
+          <section className="space-y-4">
+            <div>
+              <span className="font-code text-xs text-secondary font-bold uppercase tracking-wider block mb-1">
+                Sinais Reais (Últimos 2 Anos)
+              </span>
+              <h2 className="font-headline text-headline-sm font-bold text-white tracking-tight">
+                Raio-X de Mercado & Faixas Salariais
+              </h2>
+              <p className="text-body-sm text-[#94A3B8]">
+                Com base em {immersion.marketXRay.totalJobsAnalyzed.toLocaleString('pt-BR')} vagas analisadas no Brasil e internacional remoto.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Mercado Brasil */}
+              <div className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-headline font-bold text-white flex items-center gap-2">
+                    <span>🇧🇷 Mercado Brasil (BRL)</span>
+                  </span>
+                  <span className="text-xs font-mono text-[#94A3B8]">
+                    CLT {immersion.marketXRay.brazil.hiringRegimes.clt}% • PJ {immersion.marketXRay.brazil.hiringRegimes.pj}%
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-[#121624] p-2.5 rounded-lg border border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-[#94A3B8] block">Júnior</span>
+                    <strong className="text-sm font-code text-white">R$ {immersion.marketXRay.brazil.averageSalaryBrl.junior.toLocaleString('pt-BR')}</strong>
+                  </div>
+                  <div className="bg-[#121624] p-2.5 rounded-lg border border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-[#00E5FF] block">Pleno</span>
+                    <strong className="text-sm font-code text-[#00E5FF]">R$ {immersion.marketXRay.brazil.averageSalaryBrl.mid.toLocaleString('pt-BR')}</strong>
+                  </div>
+                  <div className="bg-[#121624] p-2.5 rounded-lg border border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-[#A379FF] block">Sênior</span>
+                    <strong className="text-sm font-code text-[#A379FF]">R$ {immersion.marketXRay.brazil.averageSalaryBrl.senior.toLocaleString('pt-BR')}</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <span className="text-xs font-mono text-[#94A3B8] block">Top Competências Exigidas:</span>
+                  {immersion.marketXRay.brazil.topDemandedSkills.slice(0, 4).map((s) => (
+                    <div key={s.skill} className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#F1F5F9]">{s.skill}</span>
+                      <span className="text-[#00E5FF] font-bold">{s.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mercado Internacional */}
+              <div className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-headline font-bold text-white flex items-center gap-2">
+                    <span>🌍 Internacional Remoto (USD)</span>
+                  </span>
+                  <span className="text-xs font-mono text-emerald-400 font-bold">
+                    {immersion.marketXRay.international.remoteOpportunitiesPercentage}% Remoto
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-[#121624] p-2.5 rounded-lg border border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-[#94A3B8] block">Junior</span>
+                    <strong className="text-sm font-code text-white">${immersion.marketXRay.international.averageSalaryUsdMonthly.junior.toLocaleString('en-US')}/mês</strong>
+                  </div>
+                  <div className="bg-[#121624] p-2.5 rounded-lg border border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-emerald-400 block">Mid-Level</span>
+                    <strong className="text-sm font-code text-emerald-400">${immersion.marketXRay.international.averageSalaryUsdMonthly.mid.toLocaleString('en-US')}/mês</strong>
+                  </div>
+                  <div className="bg-[#121624] p-2.5 rounded-lg border border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-[#A379FF] block">Senior</span>
+                    <strong className="text-sm font-code text-[#A379FF]">${immersion.marketXRay.international.averageSalaryUsdMonthly.senior.toLocaleString('en-US')}/mês</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <span className="text-xs font-mono text-[#94A3B8] block">Requisitos Globais:</span>
+                  {immersion.marketXRay.international.topDemandedSkills.slice(0, 4).map((s) => (
+                    <div key={s.skill} className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#F1F5F9]">{s.skill}</span>
+                      <span className="text-emerald-400 font-bold">{s.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Pacote 2.2 — Macro-trilha & Desafios de Graduação */}
+        {immersion?.marketXRay?.recommendedMacroTrack && (
+          <section className="space-y-4">
+            <div>
+              <span className="font-code text-xs text-[#A379FF] font-bold uppercase tracking-wider block mb-1">
+                Progressão do Aluno
+              </span>
+              <h2 className="font-headline text-headline-sm font-bold text-white tracking-tight">
+                Macro-Trilha & Desafios de Graduação
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {immersion.marketXRay.recommendedMacroTrack.map((track) => (
+                <div key={track.macroLevel} className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-5 space-y-3">
+                  <span className="text-xs font-mono font-bold text-white bg-[#8257E5]/20 border border-[#8257E5]/40 px-2.5 py-1 rounded inline-block">
+                    Nível {track.macroLevel}
+                  </span>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-mono text-[#94A3B8] block">Habilidades Técnicas:</span>
+                    <ul className="text-xs text-[#F1F5F9] space-y-1 pl-4 list-disc m-0">
+                      {track.microSkills.map((sk) => (
+                        <li key={sk}>{sk}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="pt-2 border-t border-[#1C2338]">
+                    <span className="text-[10px] font-mono text-[#00E5FF] uppercase font-bold block mb-1">
+                      🎓 Desafio de Graduação:
+                    </span>
+                    <p className="text-xs text-white bg-[#07090E] p-2.5 rounded border border-[#1C2338] leading-snug m-0">
+                      {track.graduationChallenge}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-4">
           <div>

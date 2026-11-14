@@ -59,6 +59,7 @@ export class KmsService {
 
   private get kdir(): string { return join(this.contentDir, 'knowledge'); }
   private get entriesDir(): string { return join(this.kdir, 'entries'); }
+  private get documentsDir(): string { return join(this.kdir, 'documents'); }
   private get reviewDir(): string { return join(this.kdir, 'review-queue'); }
   private get changelogPath(): string { return join(this.kdir, 'changelog.json'); }
   private get registryPath(): string { return join(this.kdir, 'extraction-registry.json'); }
@@ -343,5 +344,135 @@ export class KmsService {
       queue: { openByKind: queueByKind, avgResolutionMs, oldestOpen, pendingSync, pendingSyncVersions },
       coverage, growthByMonth, changelogTotal: changelog.length,
     };
+  }
+
+  /**
+   * Pacote 2.1 — Armazenamento estruturado de conhecimento em .md ou .html com metadados
+   */
+  async saveStructuredDocument(opts: {
+    slug: string;
+    title: string;
+    format: 'md' | 'html';
+    content: string;
+    metadata: {
+      language?: string;
+      level?: string;
+      tags?: string[];
+      date?: string;
+      sourceUrl?: string;
+      author?: string;
+      type?: 'track_module' | 'book_pdf' | 'job_market' | 'challenge' | 'video_transcript';
+    };
+  }): Promise<{ path: string; slug: string }> {
+    mkdirSync(this.documentsDir, { recursive: true });
+    const filename = `${opts.slug}.${opts.format}`;
+    const filePath = join(this.documentsDir, filename);
+
+    const frontmatter = [
+      '---',
+      `title: "${opts.title.replace(/"/g, '\\"')}"`,
+      `format: "${opts.format}"`,
+      `language: "${opts.metadata.language || 'generic'}"`,
+      `level: "${opts.metadata.level || 'all'}"`,
+      `tags: [${(opts.metadata.tags || []).map((t) => `"${t}"`).join(', ')}]`,
+      `date: "${opts.metadata.date || new Date().toISOString()}"`,
+      `type: "${opts.metadata.type || 'track_module'}"`,
+      opts.metadata.sourceUrl ? `sourceUrl: "${opts.metadata.sourceUrl}"` : '',
+      opts.metadata.author ? `author: "${opts.metadata.author}"` : '',
+      '---',
+      '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const fileContent = `${frontmatter}\n${opts.content}\n`;
+    writeFileSync(filePath, fileContent, 'utf8');
+
+    this.logger.log(`KMS document saved: ${filePath}`);
+    return { path: filePath, slug: opts.slug };
+  }
+
+  /**
+   * Pacote 2.1 — Busca semântica local no RAG para reaproveitamento antes de chamar a web
+   */
+  async searchLocalRag(query: {
+    topics: string[];
+    language?: string;
+    level?: string;
+  }): Promise<Array<{ slug: string; title: string; contentSnippet: string; tags: string[]; relevance: number }>> {
+    if (!existsSync(this.documentsDir)) return [];
+
+    const results: Array<{ slug: string; title: string; contentSnippet: string; tags: string[]; relevance: number }> = [];
+    const queryTokens = new Set(
+      query.topics.flatMap((t) => t.toLowerCase().split(/\s+/)).concat(query.language ? [query.language.toLowerCase()] : []),
+    );
+
+    try {
+      const files = readdirSync(this.documentsDir).filter((f) => f.endsWith('.md') || f.endsWith('.html'));
+
+      for (const f of files) {
+        const fullPath = join(this.documentsDir, f);
+        const raw = readFileSync(fullPath, 'utf8');
+        const slug = f.replace(/\.(md|html)$/, '');
+
+        // Match tags and tokens
+        let score = 0;
+        const lowerRaw = raw.toLowerCase();
+
+        for (const token of queryTokens) {
+          if (lowerRaw.includes(token)) {
+            score += 10;
+          }
+        }
+
+        if (query.level && lowerRaw.includes(query.level.toLowerCase())) {
+          score += 5;
+        }
+
+        if (score > 0) {
+          // Extrai título simples
+          const titleMatch = raw.match(/title:\s*"([^"]+)"/);
+          const title = titleMatch ? titleMatch[1] : slug;
+          const snippet = raw.slice(0, 300).replace(/---[\s\S]*?---/, '').trim();
+
+          results.push({
+            slug,
+            title,
+            contentSnippet: snippet,
+            tags: query.topics,
+            relevance: score,
+          });
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`searchLocalRag error: ${(err as Error).message}`);
+    }
+
+    return results.sort((a, b) => b.relevance - a.relevance).slice(0, 5);
+  }
+
+  /**
+   * Pacote 2.2 — Ingestão de Livros/PDFs e Artigos Técnicos convertidos em .md
+   */
+  async ingestBookOrPdf(opts: {
+    title: string;
+    author?: string;
+    contentMd: string;
+    tags: string[];
+    level?: string;
+  }): Promise<{ slug: string; path: string }> {
+    const slug = `book-${opts.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}-${Date.now()}`;
+    return this.saveStructuredDocument({
+      slug,
+      title: opts.title,
+      format: 'md',
+      content: opts.contentMd,
+      metadata: {
+        author: opts.author,
+        tags: opts.tags,
+        level: opts.level || 'all',
+        type: 'book_pdf',
+      },
+    });
   }
 }

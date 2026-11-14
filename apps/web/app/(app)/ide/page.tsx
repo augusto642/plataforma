@@ -5,6 +5,7 @@ import { IdeHeader } from './components/IdeHeader';
 import { IdeEditorPane } from './components/IdeEditorPane';
 import { InstructionsPanel } from './components/InstructionsPanel';
 import { TerminalConsole } from './components/TerminalConsole';
+import { FrontendPreviewPane } from './components/FrontendPreviewPane';
 import { TestResultsGrid } from './components/TestResultsGrid';
 import { CodeReviewPanel } from './components/CodeReviewPanel';
 import { SubmissionsHistoryDrawer } from './components/SubmissionsHistoryDrawer';
@@ -127,6 +128,7 @@ export default function HomePage() {
   const [submissionHistory, setSubmissionHistory] = useState<Submission[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [streamingSubmissionId, setStreamingSubmissionId] = useState<string | null>(null);
+  const [bottomPaneTab, setBottomPaneTab] = useState<'terminal' | 'preview'>('terminal');
 
   // Progress & Gamification State
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -1478,16 +1480,53 @@ export default function HomePage() {
                     />
                   </div>
 
-                  {/* Terminal (Console de Execução) — no protótipo, abaixo do editor. */}
-                  <div className={`${mobileTab === 'editor' ? 'hidden' : 'block'} lg:block h-[320px] lg:h-[180px] shrink-0`}>
-                    <TerminalConsole
-                      logs={isSubmitting ? ['Executando testes no Sandbox isolado...'] : []}
-                      stdout={submission ? (submission.status === 'passed' ? 'Todos os testes foram validados com sucesso no Sandbox Piston.' : undefined) : undefined}
-                      stderr={submission?.errorMessage || undefined}
-                      durationMs={submission?.durationMs ?? undefined}
-                      memoryRssKb={submission?.durationMs ? 48 * 1024 : undefined}
-                      status={submission?.status}
-                    />
+                  {/* Seletor de Painel Inferior: Terminal vs Preview Front-end (Pacote 5) */}
+                  <div className="flex items-center justify-between border-t border-[#27272A] bg-[#0E0F17] px-3 py-1.5 shrink-0">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setBottomPaneTab('terminal')}
+                        className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                          bottomPaneTab === 'terminal'
+                            ? 'bg-[#181926] text-white border border-[#27272A]'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Terminal & Testes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBottomPaneTab('preview')}
+                        className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1.5 transition-all ${
+                          bottomPaneTab === 'preview'
+                            ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span>👁️</span>
+                        <span>Preview Front-end</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Terminal (Console de Execução) ou Preview Front-end */}
+                  <div className={`${mobileTab === 'editor' ? 'hidden' : 'block'} lg:block ${bottomPaneTab === 'preview' ? 'h-[360px]' : 'h-[320px] lg:h-[180px]'} shrink-0`}>
+                    {bottomPaneTab === 'terminal' ? (
+                      <TerminalConsole
+                        logs={isSubmitting ? ['Executando testes no Sandbox isolado...'] : []}
+                        stdout={submission ? (submission.status === 'passed' ? 'Todos os testes foram validados com sucesso no Sandbox Piston.' : undefined) : undefined}
+                        stderr={submission?.errorMessage || undefined}
+                        durationMs={submission?.durationMs ?? undefined}
+                        memoryRssKb={submission?.durationMs ? 48 * 1024 : undefined}
+                        status={submission?.status}
+                      />
+                    ) : (
+                      <FrontendPreviewPane
+                        code={code}
+                        language={selectedActivity?.language || 'html'}
+                      />
+                    )}
                   </div>
 
                   {/* Barra de ações do protótipo: status real + próxima fase real. */}

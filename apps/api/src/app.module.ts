@@ -37,7 +37,9 @@ import { CommunityModule } from './community/community.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { CertprepModule } from './certprep/certprep.module';
 import { CommonModule } from './common/common.module';
+import { GuidedProjectsModule } from './guided-projects/guided-projects.module';
 import { PlansModule } from './plans/plans.module';
+import { SonarModule } from './sonar/sonar.module';
 import { DynamicTrackModule } from './dynamic-track/dynamic-track.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
@@ -115,6 +117,8 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     CommunityModule,
     OrganizationsModule,
     CertprepModule,
+    SonarModule,
+    GuidedProjectsModule,
     // Fase 4 premium — correção de defeito pré-existente: TalentModule era
     // importado aqui desde o início mas nunca registrado, então as rotas
     // /talent/* não existiam no boot (404). Sem o registro, nenhuma rota

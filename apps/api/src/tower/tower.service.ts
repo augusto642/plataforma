@@ -18,6 +18,7 @@ import {
 import { DiceService } from './dice.service';
 import { TowerBoardService, type TowerSquareInfo } from './tower-board.service';
 import {
+  TOWER_DEFAULT_ITEMS,
   TOWER_FREE_DAILY_MOVES,
   TOWER_MAX_FLOOR_BY_TIER,
   TOWER_PRO_DAILY_MOVES,
@@ -118,6 +119,25 @@ export class TowerService {
     private readonly gamification: GamificationService,
   ) {}
 
+  async onModuleInit() {
+    await this.seedTowerItems();
+  }
+
+  async seedTowerItems() {
+    try {
+      for (const item of TOWER_DEFAULT_ITEMS) {
+        await (this.prisma as any).towerItem.upsert({
+          where: { code: item.code },
+          create: item,
+          update: item,
+        });
+      }
+      this.logger.log('Tower items seeded successfully');
+    } catch (err) {
+      this.logger.warn(`Could not seed tower items: ${(err as Error).message}`);
+    }
+  }
+
   /** Progresso atual (cria o registro na primeira leitura). */
   async getProgress(userId: string): Promise<TowerProgressView> {
     const db = this.db();
@@ -182,7 +202,24 @@ export class TowerService {
         );
       }
 
-      const roll = this.dice.roll();
+      let roll = this.dice.roll();
+      try {
+        const doubleDiceEffect = await (tx as any).towerActiveEffect.findFirst({
+          where: { userId, effectType: 'DOUBLE_DICE', charges: { gt: 0 } },
+        });
+        if (doubleDiceEffect) {
+          roll += this.dice.roll();
+          if (doubleDiceEffect.charges <= 1) {
+            await (tx as any).towerActiveEffect.delete({ where: { id: doubleDiceEffect.id } });
+          } else {
+            await (tx as any).towerActiveEffect.update({
+              where: { id: doubleDiceEffect.id },
+              data: { charges: doubleDiceEffect.charges - 1 },
+            });
+          }
+        }
+      } catch {}
+
       const fromSquare = progress.square;
       const toSquare = Math.min(fromSquare + roll, TOWER_SQUARES_PER_FLOOR);
       const info = this.board.getSquare(progress.floor, toSquare);
@@ -204,7 +241,11 @@ export class TowerService {
       const newSquare = activityId ? fromSquare : toSquare;
       progress = await tx.towerProgress.update({
         where: { id: progress.id },
-        data: { square: newSquare, movesLeftToday: progress.movesLeftToday - 1 },
+        data: {
+          square: newSquare,
+          previousSquare: fromSquare,
+          movesLeftToday: progress.movesLeftToday - 1,
+        },
       });
 
       const move = await tx.towerMove.create({
@@ -256,7 +297,27 @@ export class TowerService {
         }
         await this.lockProgress(tx, userId);
         const progress = await tx.towerProgress.findUnique({ where: { userId } });
-        const newSquare = Math.max(0, pending.fromSquare - 1);
+
+        // Checagem de Escudo Protetor (SHIELD) no timeout
+        let shieldActive = false;
+        try {
+          const shield = await (tx as any).towerActiveEffect.findFirst({
+            where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
+          });
+          if (shield) {
+            shieldActive = true;
+            if (shield.charges <= 1) {
+              await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
+            } else {
+              await (tx as any).towerActiveEffect.update({
+                where: { id: shield.id },
+                data: { charges: shield.charges - 1 },
+              });
+            }
+          }
+        } catch {}
+
+        const newSquare = shieldActive ? pending.fromSquare : Math.max(0, pending.fromSquare - 1);
         const updated = progress
           ? await tx.towerProgress.update({
               where: { id: progress.id },
@@ -364,7 +425,30 @@ export class TowerService {
       const maxFloor = this.maxFloor(user.careerTier);
       const guardianDefeated = passed && this.isGuardian(info);
       let newFloor = progress.floor;
-      let newSquare = passed ? pending.toSquare : Math.max(0, pending.fromSquare - 1);
+
+      // Checagem de Escudo Protetor (SHIELD) em caso de erro
+      let shieldActive = false;
+      if (!passed) {
+        try {
+          const shield = await (tx as any).towerActiveEffect.findFirst({
+            where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
+          });
+          if (shield) {
+            shieldActive = true;
+            if (shield.charges <= 1) {
+              await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
+            } else {
+              await (tx as any).towerActiveEffect.update({
+                where: { id: shield.id },
+                data: { charges: shield.charges - 1 },
+              });
+            }
+          }
+        } catch {}
+      }
+
+      const penaltySquare = shieldActive ? pending.fromSquare : Math.max(0, pending.fromSquare - 1);
+      let newSquare = passed ? pending.toSquare : penaltySquare;
       let tierComplete = false;
       if (guardianDefeated) {
         if (progress.floor >= maxFloor) {
@@ -375,6 +459,15 @@ export class TowerService {
           newFloor = progress.floor + 1;
           newSquare = 0;
         }
+      }
+
+      if (passed) {
+        try {
+          await (tx as any).user.update({
+            where: { id: userId },
+            data: { coins: { increment: 15 } },
+          });
+        } catch {}
       }
 
       const updated = await tx.towerProgress.update({
@@ -548,5 +641,212 @@ export class TowerService {
       movesResetDate: progress.movesResetDate.toISOString().slice(0, 10),
       pendingChallenge: pending && info ? this.toPendingChallenge(pending, info) : null,
     };
+  }
+
+  // ── Mercador, Economia e Inventário (Pacote 4) ───────────────────────
+
+  async listMerchantItems() {
+    try {
+      const items = await (this.prisma as any).towerItem.findMany({
+        orderBy: { costCoins: 'asc' },
+      });
+      return items.length > 0 ? items : TOWER_DEFAULT_ITEMS;
+    } catch {
+      return TOWER_DEFAULT_ITEMS;
+    }
+  }
+
+  async getUserInventory(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, coins: true },
+    });
+
+    try {
+      const [inventory, activeEffects] = await Promise.all([
+        (this.prisma as any).userTowerInventory.findMany({
+          where: { userId, quantity: { gt: 0 } },
+          include: { item: true },
+        }),
+        (this.prisma as any).towerActiveEffect.findMany({
+          where: { userId, charges: { gt: 0 } },
+        }),
+      ]);
+
+      return {
+        coins: user?.coins ?? 0,
+        inventory: inventory.map((inv: any) => ({
+          itemCode: inv.itemCode,
+          name: inv.item?.name || inv.itemCode,
+          description: inv.item?.description,
+          icon: inv.item?.icon,
+          quantity: inv.quantity,
+        })),
+        activeEffects: activeEffects.map((eff: any) => ({
+          effectType: eff.effectType,
+          charges: eff.charges,
+          expiresAt: eff.expiresAt,
+        })),
+      };
+    } catch {
+      return {
+        coins: user?.coins ?? 0,
+        inventory: [],
+        activeEffects: [],
+      };
+    }
+  }
+
+  async buyItem(userId: string, itemCode: string) {
+    const item = TOWER_DEFAULT_ITEMS.find((i) => i.code === itemCode);
+    const cost = item ? item.costCoins : 50;
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { coins: true } });
+      const currentCoins = user?.coins ?? 0;
+      if (currentCoins < cost) {
+        throw new ConflictException(`Nexus Coins insuficientes. Você tem ${currentCoins} e o item custa ${cost}.`);
+      }
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { coins: { decrement: cost } },
+      });
+
+      const inv = await (tx as any).userTowerInventory.upsert({
+        where: {
+          userId_itemCode: { userId, itemCode },
+        },
+        create: {
+          userId,
+          itemCode,
+          quantity: 1,
+        },
+        update: {
+          quantity: { increment: 1 },
+        },
+      });
+
+      return {
+        success: true,
+        itemCode,
+        remainingCoins: currentCoins - cost,
+        inventoryQuantity: inv.quantity,
+      };
+    });
+  }
+
+  async useItem(userId: string, itemCode: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const inv = await (tx as any).userTowerInventory.findUnique({
+        where: { userId_itemCode: { userId, itemCode } },
+      });
+
+      if (!inv || inv.quantity <= 0) {
+        throw new ConflictException('Você não possui este item em seu inventário.');
+      }
+
+      // Decrementa inventário
+      await (tx as any).userTowerInventory.update({
+        where: { id: inv.id },
+        data: { quantity: inv.quantity - 1 },
+      });
+
+      // Cria/adiciona efeito ativo
+      const effect = await (tx as any).towerActiveEffect.create({
+        data: {
+          userId,
+          effectType: itemCode,
+          charges: 1,
+        },
+      });
+
+      return {
+        success: true,
+        activatedEffect: effect.effectType,
+        charges: effect.charges,
+      };
+    });
+  }
+
+  async askOracleHint(userId: string) {
+    const db = this.db();
+    const pending = await this.findPendingMove(db, userId);
+    if (!pending || !pending.activityId) {
+      throw new ConflictException('Nenhum desafio pendente na torre para receber dica.');
+    }
+
+    // Verifica se possui item ORACLE_SCROLL ou efeito ativo
+    const inv = await (this.prisma as any).userTowerInventory.findUnique({
+      where: { userId_itemCode: { userId, itemCode: 'ORACLE_SCROLL' } },
+    });
+
+    if (!inv || inv.quantity <= 0) {
+      throw new ForbiddenException(
+        'A IA Socrática na Torre exige o Pergaminho do Oráculo (ORACLE_SCROLL). Adquira-o no Mercador.',
+      );
+    }
+
+    // Consome 1 pergaminho
+    await (this.prisma as any).userTowerInventory.update({
+      where: { id: inv.id },
+      data: { quantity: inv.quantity - 1 },
+    });
+
+    const activity = await this.prisma.activity.findUnique({
+      where: { id: pending.activityId as string },
+    });
+
+    return {
+      success: true,
+      hint: `[Oráculo da Torre]: Observe atentamente as estruturas condicionais e o escopo de variáveis deste desafio (${activity?.title || 'Casa Atual'}). Qual caso base garante a terminação correta?`,
+      consumedItem: 'ORACLE_SCROLL',
+    };
+  }
+
+  // ── Modo Party nas Torres Altas (Pacote 4.1) ─────────────────────────
+
+  async createParty(userId: string, name: string) {
+    const party = await (this.prisma as any).towerParty.create({
+      data: {
+        name,
+        leaderId: userId,
+        members: [{ userId, joinedAt: new Date().toISOString() }],
+        floor: 10,
+        subtasks: [
+          { id: 'task-1', title: 'Implementar Algoritmo de Otimização', status: 'pending' },
+          { id: 'task-2', title: 'Cobrir Testes de Resiliência', status: 'pending' },
+        ],
+      },
+    });
+
+    return party;
+  }
+
+  async getParty(partyId: string) {
+    const party = await (this.prisma as any).towerParty.findUnique({
+      where: { id: partyId },
+      include: { leader: { select: { id: true, name: true, email: true } } },
+    });
+    if (!party) throw new NotFoundException('Party não encontrada');
+    return party;
+  }
+
+  async joinParty(userId: string, partyId: string) {
+    const party = await (this.prisma as any).towerParty.findUnique({
+      where: { id: partyId },
+    });
+    if (!party) throw new NotFoundException('Party não encontrada');
+
+    const members: any[] = Array.isArray(party.members) ? party.members : [];
+    if (!members.some((m) => m.userId === userId)) {
+      members.push({ userId, joinedAt: new Date().toISOString() });
+      await (this.prisma as any).towerParty.update({
+        where: { id: partyId },
+        data: { members },
+      });
+    }
+
+    return { success: true, partyId, membersCount: members.length };
   }
 }

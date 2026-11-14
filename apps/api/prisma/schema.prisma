@@ -81,6 +81,7 @@ model User {
   level        Int       @default(1)
   streakDays   Int       @default(0) @map("streak_days")
   bitsBalance  Int       @default(420) @map("bits_balance")
+  coins        Int       @default(0)
   streakFreezes Int      @default(0) @map("streak_freezes")
   talentVisible Boolean  @default(false) @map("talent_visible")
   lastActiveAt DateTime? @map("last_active_at")
@@ -125,6 +126,12 @@ model User {
   towerMoves        TowerMove[]
   // Trilha dinâmica v1 (Central 209): 1 investigação por usuário.
   trackInvestigation TrackInvestigation?
+  // Pacotes Finais do PRD
+  hintUsages            ActivityHintUsage[]
+  guidedProjectProgress UserGuidedProjectProgress[]
+  towerInventory        UserTowerInventory[]
+  towerEffects          TowerActiveEffect[]
+  towerPartiesLed       TowerParty[] @relation("TowerPartyLeader")
 
   @@index([role])
   @@index([createdAt])
@@ -154,7 +161,10 @@ model TowerProgress {
   userId          String   @unique @map("user_id") @db.Uuid
   floor           Int      @default(1)
   square          Int      @default(0)
-  movesLeftToday  Int      @default(5) @map("moves_left_today")
+  previousSquare  Int      @default(0) @map("previous_square")
+  dailyRollsCount Int      @default(0) @map("daily_rolls_count")
+  lastRollDate    DateTime @default(now()) @db.Date @map("last_roll_date")
+  movesLeftToday  Int      @default(3) @map("moves_left_today")
   movesResetDate  DateTime @default(now()) @db.Date @map("moves_reset_date")
   powers          Json     @default("[]")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -344,6 +354,7 @@ model Activity {
   studentRepos StudentRepo[]
   // Fase 3 premium (desenho §4.1): a Activity vira o problema do desafio.
   challenges   Challenge[]
+  hintUsages   ActivityHintUsage[]
 
   @@unique([courseId, slug])
   @@index([courseId, order])
@@ -1242,3 +1253,147 @@ model MarketSignal {
   @@index([investigationId])
   @@map("market_signals")
 }
+
+// ==========================================
+// PACOTES FINAIS DO PRD: NOVOS MODELOS
+// ==========================================
+
+// Pacote 1: Dicas Graduais com Penalidade de XP
+model ActivityHintUsage {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  activityId       String   @map("activity_id") @db.Uuid
+  hintLevel        Int      @map("hint_level") // 1 (-10%), 2 (-25%), 3 (-50%)
+  xpPenaltyPercent Int      @default(0) @map("xp_penalty_percent")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId, hintLevel])
+  @@index([userId, activityId])
+  @@map("activity_hint_usages")
+}
+
+// Pacote 3: Projetos Práticos Guiados (Nível Júnior/Pleno)
+model GuidedProject {
+  id                String   @id @default(uuid()) @db.Uuid
+  title             String
+  slug              String   @unique
+  description       String
+  level             String   @default("junior") // junior | mid
+  prerequisites     Json     @default("[]") // Lista de requisitos/cursos necessários
+  techStack         String[] @default([]) @map("tech_stack")
+  giteaTemplateRepo String?  @map("gitea_template_repo")
+  sonarProjectKey   String?  @map("sonar_project_key")
+  order             Int      @default(0)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  sprints      GuidedProjectSprint[]
+  userProgress UserGuidedProjectProgress[]
+
+  @@map("guided_projects")
+}
+
+model GuidedProjectSprint {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  order       Int      @default(1)
+  title       String
+  description String
+  tasks       Json     @default("[]")
+  baseXp      Int      @default(250) @map("base_xp")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project GuidedProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, order])
+  @@map("guided_project_sprints")
+}
+
+model UserGuidedProjectProgress {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  projectId        String    @map("project_id") @db.Uuid
+  currentSprint    Int       @default(1) @map("current_sprint")
+  status           String    @default("in_progress") // in_progress | completed
+  giteaRepoName    String?   @map("gitea_repo_name")
+  sonarQualityGate String?   @map("sonar_quality_gate") // OK | ERROR
+  sonarMetrics     Json?     @map("sonar_metrics")
+  completedAt      DateTime? @map("completed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project GuidedProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId, status])
+  @@map("user_guided_project_progress")
+}
+
+// Pacote 4: Torre 3D - Itens, Inventário, Efeitos Ativos e Party
+model TowerItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String
+  category    String   @default("support") // support | competitive | socratic
+  costCoins   Int      @default(50) @map("cost_coins")
+  icon        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  inventories UserTowerInventory[]
+
+  @@map("tower_items")
+}
+
+model UserTowerInventory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  itemCode  String   @map("item_code")
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item TowerItem @relation(fields: [itemCode], references: [code], onDelete: Cascade)
+
+  @@unique([userId, itemCode])
+  @@index([userId])
+  @@map("user_tower_inventory")
+}
+
+model TowerActiveEffect {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  effectType String    @map("effect_type") // SHIELD | DOUBLE_DICE | EXTRA_TIME | ORACLE
+  charges    Int       @default(1)
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, effectType])
+  @@map("tower_active_effects")
+}
+
+model TowerParty {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  floor           Int      @default(10)
+  leaderId        String   @map("leader_id") @db.Uuid
+  members         Json     @default("[]")
+  activeChallenge Json?    @map("active_challenge")
+  subtasks        Json     @default("[]")
+  status          String   @default("active") // active | completed
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  leader User @relation("TowerPartyLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+
+  @@map("tower_parties")
+}
+

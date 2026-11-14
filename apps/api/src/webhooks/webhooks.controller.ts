@@ -7,6 +7,7 @@ import {
   HttpStatus,
   InternalServerErrorException,
   Logger,
+  Optional,
   Post,
   Req,
   UnauthorizedException,
@@ -16,8 +17,10 @@ import * as crypto from 'crypto';
 import type { Request } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
 import { ConfigError } from '../config/secrets.validation';
+import { GamificationService } from '../gamification/gamification.service';
 import { GiteaService } from '../gitea/gitea.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SonarService, SonarMetrics } from '../sonar/sonar.service';
 import { SubmissionsService } from '../submissions/submissions.service';
 
 const MAX_PAYLOAD_BYTES = 1024 * 1024;
@@ -110,6 +113,8 @@ export class WebhooksController {
     private readonly submissions: SubmissionsService,
     private readonly gitea: GiteaService,
     private readonly config: ConfigService,
+    @Optional() private readonly sonar?: SonarService,
+    @Optional() private readonly gamification?: GamificationService,
   ) {}
 
   @Post('gitea')
@@ -382,6 +387,75 @@ export class WebhooksController {
     return {
       status: 'success',
       submissionId: submission.id,
+    };
+  }
+
+  @Post('sonar')
+  @HttpCode(HttpStatus.OK)
+  async handleSonarWebhook(
+    @Body() payload: any,
+    @Headers('x-sonar-webhook-hmac-sha256') signature?: string,
+  ) {
+    this.logger.log(`Received SonarQube webhook for project ${payload?.project?.key}`);
+
+    const projectKey: string = payload?.project?.key || '';
+    const repoMatch = REPO_NAME_PATTERN.exec(projectKey);
+    const giteaUsername = repoMatch?.groups?.username;
+    const projectSlug = repoMatch?.groups?.slug || projectKey;
+
+    let user = null;
+    if (giteaUsername) {
+      user = await this.prisma.user.findFirst({
+        where: {
+          studentRepos: {
+            some: { giteaUsername },
+          },
+        },
+      });
+    }
+
+    if (!user) {
+      return { status: 'ignored', reason: 'User not found for project key' };
+    }
+
+    const qgStatus = payload?.qualityGate?.status === 'OK' ? 'OK' : 'ERROR';
+    const conditions: Array<{ metric: string; value: string }> = payload?.qualityGate?.conditions || [];
+    const conditionMap = new Map(conditions.map((c) => [c.metric, c.value]));
+
+    const metrics: SonarMetrics = {
+      qualityGateStatus: qgStatus,
+      maintainabilityRating: (conditionMap.get('sqale_rating') as any) || 'A',
+      reliabilityRating: (conditionMap.get('reliability_rating') as any) || 'A',
+      securityRating: (conditionMap.get('security_rating') as any) || 'A',
+      coveragePercent: Number(conditionMap.get('coverage') || 80),
+      codeSmellsCount: Number(conditionMap.get('code_smells') || 0),
+      bugsCount: Number(conditionMap.get('bugs') || 0),
+      vulnerabilitiesCount: Number(conditionMap.get('vulnerabilities') || 0),
+    };
+
+    let evaluation = null;
+    if (this.sonar) {
+      evaluation = this.sonar.evaluateCleanCode(metrics, 300);
+    }
+
+    let xpResult = null;
+    if (this.gamification && evaluation) {
+      xpResult = await this.gamification.awardGiteaProjectXp(user.id, {
+        projectSlug,
+        basePassed: evaluation.qualityGatePassed,
+        baseXp: evaluation.baseXp,
+        sonarBonusMultiplier: evaluation.totalMultiplier,
+        qualityGatePassed: evaluation.qualityGatePassed,
+      });
+    }
+
+    return {
+      status: 'processed',
+      user: user.id,
+      projectSlug,
+      evaluation,
+      xpResult,
+      socraticFeedback: evaluation?.socraticSuggestions || [],
     };
   }
 }

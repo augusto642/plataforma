@@ -224,6 +224,22 @@ export class AdminController {
     return this.kms!.evolutionReport();
   }
 
+  @Post('knowledge/ingest-book')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  ingestBookOrPdf(
+    @Body() dto: { title: string; author?: string; contentMd: string; tags?: string[]; level?: string },
+  ) {
+    if (!this.kms) throw new Error('KmsService indisponível');
+    return this.kms.ingestBookOrPdf({
+      title: dto.title,
+      author: dto.author,
+      contentMd: dto.contentMd,
+      tags: dto.tags || [],
+      level: dto.level,
+    });
+  }
+
   // ── Trilhas incrementais (DESIGN §4.5) — mesmas guardas admin ───────
   // T3 = ação do admin (força geração/regeneração de um segmento). NÃO é
   // endpoint de geração para o aluno (R12): o aluno só vê o mapa e o botão

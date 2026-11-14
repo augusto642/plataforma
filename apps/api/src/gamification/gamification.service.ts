@@ -25,11 +25,11 @@ export class GamificationService {
     tx?: Prisma.TransactionClient,
   ) {
     if (tx) {
-      return this.awardSubmissionXpInner(tx, userId, passed, score);
+      return this.awardSubmissionXpInner(tx, userId, activityId, passed, score);
     }
     try {
       return await this.prisma.$transaction(async (t) =>
-        this.awardSubmissionXpInner(t, userId, passed, score),
+        this.awardSubmissionXpInner(t, userId, activityId, passed, score),
       );
     } catch (err: any) {
       this.logger.error(`Failed to award gamification XP: ${err.message}`);
@@ -40,10 +40,27 @@ export class GamificationService {
   private async awardSubmissionXpInner(
     tx: Prisma.TransactionClient,
     userId: string,
+    activityId: string,
     passed: boolean,
     score: number,
   ) {
-    const xpGained = passed ? 70 : 20;
+    // Pacote 1.2: Penalidade de XP por dicas graduais consumidas na atividade (-10%, -25%, -50%)
+    let hintPenaltyMultiplier = 1.0;
+    if (activityId) {
+      try {
+        const hintUsages = await tx.activityHintUsage.findMany({
+          where: { userId, activityId },
+        });
+        if (hintUsages.length > 0) {
+          const maxPenalty = hintUsages.reduce((max, u) => Math.max(max, u.xpPenaltyPercent), 0);
+          hintPenaltyMultiplier = Math.max(0.1, (100 - maxPenalty) / 100);
+        }
+      } catch {
+        // Tolerância para ambientes sem migração ativa
+      }
+    }
+
+    const xpGained = Math.round((passed ? 70 : 20) * hintPenaltyMultiplier);
     const perfectBonus = score === 100 ? 50 : 0;
     const totalXpDelta = xpGained + perfectBonus;
 
@@ -271,6 +288,64 @@ export class GamificationService {
       claimed: !!badge,
       date: today,
     };
+  }
+
+  /**
+   * Pacote 3.1: Concessão de XP para entregas de Projetos no Gitea com Multiplicador SonarQube Clean Code
+   */
+  async awardGiteaProjectXp(
+    userId: string,
+    opts: {
+      projectSlug: string;
+      basePassed: boolean;
+      baseXp?: number;
+      sonarBonusMultiplier?: number;
+      qualityGatePassed?: boolean;
+    },
+  ) {
+    const baseXp = opts.baseXp || 300;
+    const multiplier = opts.sonarBonusMultiplier ?? (opts.qualityGatePassed ? 1.5 : 0.5);
+    const xpDelta = opts.basePassed ? Math.round(baseXp * multiplier) : 50;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          xp: { increment: xpDelta },
+          lastActiveAt: new Date(),
+        },
+      });
+
+      const newLevel = Math.floor(updatedUser.xp / 200) + 1;
+      if (newLevel !== updatedUser.level) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { level: newLevel },
+        });
+      }
+
+      if (opts.qualityGatePassed) {
+        await tx.userBadge.createMany({
+          data: [
+            {
+              userId,
+              badgeCode: `devops_clean_code_${opts.projectSlug}`,
+              title: `DevOps Clean Code: ${opts.projectSlug}`,
+              description: 'Passou no Quality Gate do SonarQube com excelência em manutenibilidade e cobertura!',
+              icon: '🛡️',
+            },
+          ],
+          skipDuplicates: true,
+        });
+      }
+
+      return {
+        awardedXp: xpDelta,
+        newXp: updatedUser.xp,
+        newLevel,
+        qualityGatePassed: opts.qualityGatePassed,
+      };
+    });
   }
 
   /**

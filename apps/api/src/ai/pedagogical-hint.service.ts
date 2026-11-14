@@ -111,6 +111,9 @@ export class PedagogicalHintService {
     );
     if (escape) feedback.escape = escape;
 
+    // Pacote 1.2: Registra o uso da dica com a penalidade correspondente
+    await this.tier.recordHintUsage(userId, submission.activityId, tier).catch(() => null);
+
     return feedback;
   }
 
