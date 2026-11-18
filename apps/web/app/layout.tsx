@@ -1,29 +1,43 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono, Plus_Jakarta_Sans, Space_Grotesk } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 
-const inter = Inter({
-  subsets: ['latin'],
+// Fontes auto-hospedadas (next/font/local) — os arquivos .woff2 são os
+// MESMOS servidos pelo Google Fonts (variáveis, subset latin; licenças
+// OFL na mesma pasta). Motivo: `next/font/google` busca o CSS no Google
+// Fonts em build-time e o loader quebra quando a resposta não casa com o
+// padrão esperado — foi o que derrubou o `next build` dentro do Docker
+// no CI (PR #11), embora o mesmo build passasse no host do runner. Com
+// os arquivos locais o build não depende de rede externa e o resultado
+// visual é o mesmo: mesmas famílias, mesmos pesos, mesmas variáveis CSS.
+// Nota: só o subset latin é empacotado — `next/font/local` não emite
+// unicode-range, então subsets extras nunca seriam usados; o produto é
+// 100% pt-BR e o latin cobre todo o conteúdo.
+const inter = localFont({
+  src: './fonts/inter-latin.woff2',
+  weight: '100 900',
   variable: '--font-inter',
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
+const jetbrainsMono = localFont({
+  src: './fonts/jetbrains-mono-latin.woff2',
+  weight: '100 800',
   variable: '--font-mono',
   display: 'swap',
 });
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
+const spaceGrotesk = localFont({
+  src: './fonts/space-grotesk-latin.woff2',
+  weight: '300 700',
   variable: '--font-space',
   display: 'swap',
 });
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
+const plusJakartaSans = localFont({
+  src: './fonts/plus-jakarta-sans-latin.woff2',
+  weight: '500 800',
   variable: '--font-brand',
   display: 'swap',
 });
