@@ -1,0 +1,107 @@
+groups:
+  - name: nexus-reliability
+    interval: 30s
+    rules:
+      - alert: NexusApiScrapeUnavailable
+        expr: up{job="nexus-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Nexus API metrics scrape is unavailable
+          description: Prometheus has failed to scrape the Nexus API for at least 2 minutes.
+
+      - alert: NexusDependencyUnavailable
+        expr: nexus_dependency_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Nexus dependency is unavailable
+          description: The API cannot reach {{ $labels.service }}.
+
+      - alert: NexusRunnerDiagnosticFailed
+        expr: nexus_runner_diagnostic_success == 0 and on(language) nexus_runner_diagnostic_timestamp_seconds > 0 and on() nexus_runner_enabled == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Runner diagnostic failed
+          description: The latest {{ $labels.language }} runner diagnostic failed; investigate the private gateway and runner.
+
+      - alert: NexusRunnerDiagnosticStale
+        expr: (time() - nexus_runner_diagnostic_timestamp_seconds > 2100) and on() nexus_runner_enabled == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Runner diagnostic is stale
+          description: No completed {{ $labels.language }} diagnostic was recorded in 35 minutes.
+
+      - alert: NexusRunnerDiagnosticsUnavailable
+        expr: nexus_runner_enabled == 1 and nexus_runner_diagnostics_available == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Runner diagnostic history is unavailable
+          description: The API could not read runner diagnostic results.
+
+      - alert: NexusApiErrorRatioHigh
+        expr: |
+          (
+            sum(rate(nexus_http_errors_total[5m]))
+            /
+            sum(rate(nexus_http_requests_total[5m]))
+          ) > 0.02
+          and
+          sum(rate(nexus_http_requests_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nexus API error ratio is elevated
+          description: More than 2% of HTTP requests have failed for at least 10 minutes with sufficient traffic.
+
+      - alert: NexusApiP95LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(nexus_http_request_duration_seconds_bucket[5m]))
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nexus API p95 latency is elevated
+          description: HTTP p95 latency exceeded 1.5 seconds for at least 10 minutes.
+
+      - alert: NexusQueueMetricsUnavailable
+        expr: nexus_queue_metrics_available == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nexus queue metrics are unavailable
+          description: Queue state could not be read for {{ $labels.queue }} for at least 5 minutes.
+
+      - alert: NexusQueueWaitingTooLong
+        expr: |
+          nexus_queue_head_waiting_age_seconds > 300
+          and on (queue)
+          nexus_queue_jobs{state="waiting"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nexus queue has a long-waiting job
+          description: The oldest waiting job in {{ $labels.queue }} has waited more than 5 minutes.
+
+      - alert: NexusQueueFailedJobsAccumulated
+        expr: nexus_queue_jobs{state="failed"} > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nexus queue has retained failed jobs
+          description: More than 10 failed jobs remain in {{ $labels.queue }}; inspect them before taking action.

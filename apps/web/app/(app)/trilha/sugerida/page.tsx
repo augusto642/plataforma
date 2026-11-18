@@ -8,6 +8,7 @@ import { MaterialIcon } from '../../../components/MaterialIcon';
 import {
   fetchMyInvestigation,
   formatTrackDate,
+  formatTrackDateTime,
   hasMarketEvidence,
   markInvestigationSeen,
   refreshInvestigation,
@@ -23,6 +24,7 @@ import {
 import { TrackFooter, TrackTopbar } from '../components/track-chrome';
 import { StudentSidebar } from '../../../components/StudentSidebar';
 import { useSidebar } from '../../../context/SidebarContext';
+import { SkillEvidence } from './SkillEvidence';
 
 // Central 216 (F1) — rota "Trilha Sugerida" (mobile + desktop num só
 // layout responsivo), no visual do protótipo Stitch v2
@@ -265,6 +267,7 @@ export default function TrilhaSugeridaPage() {
   // ready — SÓ com sugestão real da API.
   const rationale = investigation.rationaleText ?? investigation.reasons?.[0] ?? null;
   const marketBased = hasMarketEvidence(investigation);
+  const marketSkillEvidence = investigation.marketSkillEvidence ?? [];
   const startHref = investigation.startCourse
     ? `/courses/${investigation.startCourse.slug}`
     : '/desafios';
@@ -371,7 +374,7 @@ export default function TrilhaSugeridaPage() {
           )}
 
           {/* A6 — evidências de mercado SÓ com evidência real. */}
-          {marketBased && (
+          {investigation.marketEvidence?.length > 0 && (
             <div className="mb-8">
               <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
                 Evidências de mercado
@@ -397,6 +400,54 @@ export default function TrilhaSugeridaPage() {
               </ul>
             </div>
           )}
+          {marketSkillEvidence.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
+                Habilidades encontradas em vagas
+              </h3>
+              <ul className="space-y-2">
+                {marketSkillEvidence.map((item) => (
+                  <li
+                    key={`${item.skill}-${item.collectedAt}`}
+                    className="text-sm text-zinc-400 border border-zinc-800 rounded-xl p-3"
+                  >
+                    <span className="block font-semibold text-zinc-200">{item.skill}</span>
+                    <span className="block mt-1">
+                      Citada em {item.mentions} de {item.sampleSize} vagas únicas analisadas.
+                    </span>
+                    <span className="block mt-1 text-xs">
+                      {item.sampleSize < 10
+                        ? 'Amostra pequena: sinal indicativo, não representativo do mercado.'
+                        : 'Recorte observado; não representa todo o mercado.'}
+                    </span>
+                    <span className="block mt-1 text-xs">
+                      Fonte{item.sources.length === 1 ? '' : 's'}: {item.sources.join(', ') || 'não informada'}
+                      {' • Coletado em '}
+                      {formatTrackDateTime(item.collectedAt)}
+                    </span>
+                    {item.sourceUrls.length > 0 ? (
+                      <div className="mt-1 flex flex-wrap gap-x-3">
+                        {item.sourceUrls.map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#996DFF] hover:underline break-all"
+                          >
+                            Ver vaga original
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="block mt-1 text-xs">Links das vagas não disponíveis.</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <SkillEvidence key={JSON.stringify([investigation.completedAt, investigation.marketSkillEvidence])} />
           {investigation.basis === 'profile-only' && (
             <p className="text-xs text-zinc-500 mb-8">
               Sugestão baseada só no seu perfil — nenhuma fonte de mercado estava

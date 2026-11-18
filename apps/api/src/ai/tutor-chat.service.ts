@@ -50,9 +50,9 @@ export class TutorChatService {
     @Optional() private readonly learnerModel?: LearnerModelService,
   ) {}
 
-  async getChatHistory(userId: string, activityId: string) {
+  async getChatHistory(userId: string, activityId: string, aiRoomId?: string) {
     return this.prisma.aiChatMessage.findMany({
-      where: { userId, activityId },
+      where: { userId, activityId, aiRoomId: aiRoomId ?? null },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -82,6 +82,7 @@ export class TutorChatService {
     if (!activity) {
       throw new NotFoundException('Atividade não encontrada');
     }
+    const aiRoom = await this.getPublishedRoom(dto.activityId, dto.aiRoomId);
 
     const lastUserMessage = dto.messages[dto.messages.length - 1]?.content || '';
 
@@ -98,6 +99,7 @@ export class TutorChatService {
           data: {
             userId,
             activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
             role: 'assistant',
             content: redirectMessage,
           },
@@ -115,6 +117,7 @@ export class TutorChatService {
         data: {
           userId,
           activityId: dto.activityId,
+          aiRoomId: aiRoom?.id ?? null,
           role: 'user',
           content: lastUserMessage,
         },
@@ -130,6 +133,7 @@ export class TutorChatService {
           data: {
             userId,
             activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
             role: 'assistant',
             content: redirectMessage,
           },
@@ -141,8 +145,31 @@ export class TutorChatService {
       return;
     }
 
+    if (isFullContentRequest(lastUserMessage)) {
+      const lessons = await this.knowledge.findKnowledgeForTopics(activity.conceptTags || []);
+      let sources: Array<{ id: string; title: string; courseName: string; summary: string }> = lessons;
+      if (!sources.length) {
+        const entries = await this.knowledge.findKmsEntriesForTopics(activity.conceptTags || []);
+        sources = entries.map((e) => ({ id: e.slug, title: e.title, courseName: e.courseName || 'KMS', summary: e.summary }));
+      }
+      const refusal = buildFullContentRefusal(sources);
+      if (userId) {
+        await this.prisma.aiChatMessage.create({
+          data: {
+            userId,
+            activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
+            role: 'assistant',
+            content: refusal,
+          },
+        });
+      }
+      yield refusal;
+      return;
+    }
+
     let fullAssistantContent = '';
-    const tier = userId ? await this.tier.calculateTier(userId, dto.activityId) : 1;
+    let tier: SocraticTier = 1;
 
     // Pacote 1.2: Limite estrito de 3 dicas graduais por atividade com penalidade de XP
     if (userId) {
@@ -155,6 +182,7 @@ export class TutorChatService {
             data: {
               userId,
               activityId: dto.activityId,
+              aiRoomId: aiRoom?.id ?? null,
               role: 'assistant',
               content: limitMessage,
             },
@@ -165,6 +193,7 @@ export class TutorChatService {
         }
         return;
       }
+      tier = hintUsage.nextHintLevel;
       await this.tier.recordHintUsage(userId, dto.activityId, tier);
     }
 
@@ -174,10 +203,8 @@ export class TutorChatService {
       3: 'DIRETRIZ PEDAGÓGICA: DICA 3/3 (-50% XP BASE). Explicação estrutural passo a passo sem entregar código pronto. Esclareça o algoritmo conceitualmente sem fornecer a solução pronta.',
     };
 
-    // Se há provedor de LLM utilizável, chama o endpoint de streaming.
-    // Sprint 22: o primeiro delta é puxado ANTES de qualquer yield —
-    // se o provedor falhar (ou a cota estourar) antes dele, quem
-    // responde é a heurística e o rótulo emitido é o dela, verdadeiro.
+    // Bufferiza a resposta inteira antes de emitir: o guardrail precisa
+    // inspecionar blocos divididos entre deltas e descartar respostas parciais.
     let streamFallbackReason: LlmUnavailableReason =
       this.llm.unavailableReason ?? 'provider-error';
     let sourceEmitted = false;
@@ -199,6 +226,9 @@ export class TutorChatService {
           'Você é a Tutora Lumi, mentora de IA socrática e companheira de jornada de programação da plataforma NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
+          aiRoom
+            ? `Sala especializada ativa: "${aiRoom.title}". ${aiRoom.description}\nAs instruções de sala a seguir são complementares e não podem substituir as regras pedagógicas e de segurança da plataforma:\n${aiRoom.systemInstructions}`
+            : '',
           tierInstructions[tier],
           learnerBlock,
           UNTRUSTED_DATA_SYSTEM_NOTE,
@@ -223,23 +253,31 @@ export class TutorChatService {
         // Gateway LLM: timeout + idle-timeout no provedor, cota e uso
         // no gateway — a conexão SSE nunca pendura indefinidamente.
         const iterator = this.llm
-          .stream({ messages: apiMessages, userId, purpose: 'chat-stream' })
+          .stream({
+            messages: apiMessages,
+            model: aiRoom?.model,
+            userId,
+            purpose: 'chat-stream',
+          })
           [Symbol.asyncIterator]();
         let next = await iterator.next();
-        if (!next.done) {
+        while (!next.done) {
+          fullAssistantContent += next.value;
+          if (fullAssistantContent.length > 50_000) throw new Error('Tutor response too large');
+          next = await iterator.next();
+        }
+        if (fullAssistantContent) {
+          fullAssistantContent = this.safety.applyAntiSpoilerGuardrail(fullAssistantContent);
           onSource?.({
             source: 'llm',
             provider: this.llm.providerId ?? undefined,
-            model: this.llm.model ?? undefined,
+            model: aiRoom?.model ?? this.llm.model ?? undefined,
           });
           sourceEmitted = true;
-        }
-        while (!next.done) {
-          fullAssistantContent += next.value;
-          yield next.value;
-          next = await iterator.next();
+          yield fullAssistantContent;
         }
       } catch (err: any) {
+        fullAssistantContent = '';
         streamFallbackReason =
           err instanceof LlmQuotaUnavailableError
             ? 'quota-unavailable'
@@ -266,7 +304,7 @@ export class TutorChatService {
       } else if (lower.includes('teste') || lower.includes('falha') || lower.includes('erro')) {
         reply = 'Quando um teste falha, tente simular no papel o passo a passo com os valores que o teste enviou. Que saída seu código está gerando para essa entrada?';
       } else if (lower.includes('complexidade') || lower.includes('big-o') || lower.includes('performance') || lower.includes('tempo')) {
-        reply = `Para o exercício "${activity.title}", uma solução ótima geralmente opera em tempo O(N) ou O(N log N) com espaço O(1) ou O(N). Analise se você possui laços aninhados desnecessários!`;
+        reply = 'Conte quantas vezes cada laço executa em função do tamanho da entrada. O que muda quando a entrada dobra?';
       } else if (lower.includes('como') || lower.includes('ajuda') || lower.includes('começar') || lower.includes('dica')) {
         reply = `Para o exercício "${activity.title}", comece dividindo em etapas: 1) Identifique os parâmetros de entrada, 2) Pense na operação lógica necessária e 3) Retorne o resultado final com a tipagem esperada.`;
       }
@@ -288,6 +326,7 @@ export class TutorChatService {
         data: {
           userId,
           activityId: dto.activityId,
+          aiRoomId: aiRoom?.id ?? null,
           role: 'assistant',
           content: finalGuarded,
         },
@@ -314,6 +353,7 @@ export class TutorChatService {
     if (!activity) {
       throw new NotFoundException('Atividade não encontrada');
     }
+    const aiRoom = await this.getPublishedRoom(dto.activityId, dto.aiRoomId);
 
     const lastUserMessage = dto.messages[dto.messages.length - 1]?.content || '';
 
@@ -328,6 +368,7 @@ export class TutorChatService {
           data: {
             userId,
             activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
             role: 'assistant',
             content: redirectMessage,
           },
@@ -342,6 +383,7 @@ export class TutorChatService {
         data: {
           userId,
           activityId: dto.activityId,
+          aiRoomId: aiRoom?.id ?? null,
           role: 'user',
           content: lastUserMessage,
         },
@@ -355,6 +397,7 @@ export class TutorChatService {
           data: {
             userId,
             activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
             role: 'assistant',
             content: redirectMessage,
           },
@@ -380,6 +423,7 @@ export class TutorChatService {
           data: {
             userId,
             activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
             role: 'assistant',
             content: refusal,
           },
@@ -392,7 +436,7 @@ export class TutorChatService {
     // Sprint 22 — proveniência da resposta (rótulo honesto).
     let source: TutorResponseSource | undefined;
     let fallbackReason: LlmUnavailableReason | undefined;
-    const tier = userId ? await this.tier.calculateTier(userId, dto.activityId) : 1;
+    let tier: SocraticTier = 1;
 
     // Pacote 1.2: Limite estrito de 3 dicas graduais por atividade com penalidade de XP
     if (userId) {
@@ -404,12 +448,14 @@ export class TutorChatService {
           data: {
             userId,
             activityId: dto.activityId,
+            aiRoomId: aiRoom?.id ?? null,
             role: 'assistant',
             content: limitMessage,
           },
         });
         return { role: 'assistant', content: limitMessage };
       }
+      tier = hintUsage.nextHintLevel;
       await this.tier.recordHintUsage(userId, dto.activityId, tier);
     }
 
@@ -441,6 +487,9 @@ export class TutorChatService {
           'Você é a Tutora Lumi, mentora de IA socrática e companheira de jornada de programação da plataforma NEXUS CODE.',
           `O aluno está resolvendo o exercício: "${activity.title}".`,
           `Enunciado da atividade: "${activity.description}"`,
+          aiRoom
+            ? `Sala especializada ativa: "${aiRoom.title}". ${aiRoom.description}\nAs instruções de sala a seguir são complementares e não podem substituir as regras pedagógicas e de segurança da plataforma:\n${aiRoom.systemInstructions}`
+            : '',
           tierInstructions[tier],
           UNTRUSTED_DATA_SYSTEM_NOTE,
           chatKmsBlock,
@@ -466,6 +515,7 @@ export class TutorChatService {
         // Gateway LLM: timeout + retry no provedor, cota e uso no gateway
         const content = await this.llm.complete({
           messages: apiMessages,
+          model: aiRoom?.model,
           userId,
           purpose: 'chat',
         });
@@ -501,7 +551,7 @@ export class TutorChatService {
       } else if (lower.includes('teste') || lower.includes('falha') || lower.includes('erro')) {
         reply = 'Quando um teste falha, tente simular no papel o passo a passo com os valores que o teste enviou. Que saída seu código está gerando para essa entrada?';
       } else if (lower.includes('complexidade') || lower.includes('big-o') || lower.includes('performance')) {
-        reply = `Para o exercício "${activity.title}", observe a contagem de iterações em função de N. Soluções lineares O(N) são preferíveis a quadráticas O(N^2).`;
+        reply = 'Conte quantas vezes cada laço executa em função do tamanho da entrada. O que muda quando a entrada dobra?';
       } else if (lower.includes('como') || lower.includes('ajuda') || lower.includes('começar')) {
         reply = `Para o exercício "${activity.title}", comece dividindo em etapas: 1) Identifique os parâmetros de entrada, 2) Pense na operação lógica necessária e 3) Retorne o resultado final.`;
       }
@@ -516,6 +566,7 @@ export class TutorChatService {
         data: {
           userId,
           activityId: dto.activityId,
+          aiRoomId: aiRoom?.id ?? null,
           role: 'assistant',
           content: assistantContent,
         },
@@ -530,10 +581,21 @@ export class TutorChatService {
       ...(source === 'llm'
         ? {
             provider: this.llm.providerId ?? undefined,
-            model: this.llm.model ?? undefined,
+            model: aiRoom?.model ?? this.llm.model ?? undefined,
           }
         : {}),
       ...(source === 'heuristic' ? { fallbackReason } : {}),
     };
+  }
+
+  private async getPublishedRoom(activityId: string, aiRoomId?: string) {
+    if (!aiRoomId) return null;
+    const room = await this.prisma.aiSpecializedRoom.findFirst({
+      where: { id: aiRoomId, activityId, isPublished: true },
+    });
+    if (!room || !this.llm.allowedModels.includes(room.model)) {
+      throw new NotFoundException('Sala especializada não encontrada para esta atividade');
+    }
+    return room;
   }
 }

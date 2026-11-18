@@ -110,6 +110,23 @@ export class MailerService {
     this.logger.log(`Track-ready e-mail sent to ${email} via SMTP.`);
   }
 
+  assertPasswordResetAvailable(): void {
+    if (this.provider !== 'smtp') {
+      throw new ConfigError('A redefinição de senha exige MAILER_PROVIDER=smtp.');
+    }
+    this.getTransporter();
+  }
+
+  async sendPasswordReset(email: string, resetUrl: string): Promise<void> {
+    this.assertPasswordResetAvailable();
+    await this.getTransporter().sendMail({
+      from: this.config.get<string>('SMTP_FROM'),
+      to: email,
+      subject: 'Redefina sua senha — Nexus Code',
+      text: `Para criar uma nova senha na Nexus Code, abra este link:\n\n${resetUrl}\n\nO link vale por 30 minutos. Se você não fez esse pedido, ignore este e-mail.`,
+    });
+  }
+
   private getTransporter(): nodemailer.Transporter {
     if (this.transporter) return this.transporter;
     const host = this.config.get<string>('SMTP_HOST');

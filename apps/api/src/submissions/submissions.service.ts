@@ -13,8 +13,13 @@ import { CacheService } from '../cache/cache.service';
 import { RedisLockService } from '../cache/redis-lock.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
+import { recordXpLedgerEntry } from '../gamification/xp-ledger';
 import { BattleRunDto } from './dto/battle-run.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { PracticeRunDto } from './dto/practice-run.dto';
+import { PlaygroundRunDto } from './dto/playground-run.dto';
+import { normalizeProjectFiles } from './dto/project-files.dto';
+import { ProjectRunDto } from './dto/project-run.dto';
 import { EvaluatorService } from './evaluator/evaluator.service';
 import {
   HIDDEN_TEST_FAILED_MESSAGE,
@@ -90,6 +95,39 @@ export class SubmissionsService {
     private readonly redisLock: RedisLockService,
     private readonly cache: CacheService,
   ) {}
+
+  async practice(dto: PracticeRunDto) {
+    const activity = await this.prisma.activity.findUnique({
+      where: { id: dto.activityId },
+      select: { language: true, timeLimitMs: true, memoryLimitMb: true },
+    });
+    if (!activity) {
+      throw new NotFoundException(
+        withErrorCode('Activity not found', ErrorCodes.SUBMISSION_ACTIVITY_NOT_FOUND),
+      );
+    }
+
+    return this.runner.executePractice(activity.language, dto.code, {
+      stdin: dto.stdin,
+      timeLimitMs: activity.timeLimitMs,
+      memoryLimitMb: activity.memoryLimitMb,
+    });
+  }
+
+  async playground(dto: PlaygroundRunDto) {
+    return this.runner.executePractice(dto.language, dto.code, {
+      stdin: dto.stdin,
+      timeLimitMs: 5000,
+      memoryLimitMb: 256,
+    });
+  }
+
+  async runProject(dto: ProjectRunDto) {
+    const files = normalizeProjectFiles(dto);
+    return this.runner.executePractice(dto.language, files[0].content, {
+      files, stdin: dto.stdin, timeLimitMs: 5000, memoryLimitMb: 256,
+    });
+  }
 
   /**
    * Cria uma submissão com idempotência:
@@ -591,6 +629,19 @@ export class SubmissionsService {
 
         // {increment} atômico: sem lost update sob concorrência (read-modify-write
         // com valores lidos antes da tx perderia updates de outras réplicas).
+        if (xpGained > 0) {
+          const recorded = await recordXpLedgerEntry(tx, {
+            userId,
+            idempotencyKey: `battle-run:${data.submissionId}`,
+            source: 'battle_run',
+            amount: xpGained,
+            description: `Recompensa de combate contra ${bossName}`,
+          });
+          if (!recorded) {
+            throw new ConflictException('A recompensa deste combate já foi registrada.');
+          }
+        }
+
         const updatedUser = await tx.user.update({
           where: { id: userId },
           data: {

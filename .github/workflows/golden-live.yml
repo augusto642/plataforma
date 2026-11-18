@@ -1,0 +1,73 @@
+name: AI Golden Set (Live)
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: golden-live-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  golden-live:
+    name: Evaluate live tutor responses
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Skip unless explicitly enabled
+        if: ${{ vars.GOLDEN_LIVE_ENABLED != 'true' }}
+        run: echo "Live golden evaluation is disabled. Set repository variable GOLDEN_LIVE_ENABLED=true to enable it."
+
+      - name: Checkout
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: Restore pnpm cache
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        run: pnpm --filter @plataforma/api exec prisma generate
+        env:
+          DATABASE_URL: postgresql://plataforma:password@localhost:5432/plataforma?schema=public
+
+      - name: Run live golden set
+        if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
+        run: pnpm --filter @plataforma/api exec jest --runInBand src/ai/golden/golden-live.spec.ts
+        env:
+          GOLDEN_LIVE: '1'
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'gemini' }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_GEMINI_API_KEY: ${{ secrets.AI_GEMINI_API_KEY }}
+          AI_GEMINI_MODEL: ${{ vars.AI_GEMINI_MODEL }}
+          AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
+          AI_OPENAI_BASE_URL: ${{ vars.AI_OPENAI_BASE_URL }}
+          AI_OPENAI_MODEL: ${{ vars.AI_OPENAI_MODEL }}
+          AI_API_URL: ${{ vars.AI_API_URL }}

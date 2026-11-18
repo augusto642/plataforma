@@ -11,15 +11,9 @@ import {
 } from '../../../lib/billing';
 
 /**
- * Fase 1 premium (desenho §2.4) — retorno do checkout em modo teste.
- * O provedor simulado não aprova sozinho: a confirmação chega pelo
- * webhook simulado (harness de teste). Esta página mostra o estado
- * real da assinatura (polling de GET /billing/subscription/me) e, em
- * ambiente de testes, oferece o botão de simulação da confirmação do
- * provedor — que chama a rota autenticada `POST /billing/simulate-payment`
- * (o servidor monta e assina o evento a partir da sessão de checkout;
- * sem `BILLING_WEBHOOK_SECRET` no servidor, o boot nem acontece).
- * Sem confirmação, nada é liberado: a página diz isso, em vez de fingir sucesso.
+ * Retorno do checkout em modo teste. A confirmação da assinatura é
+ * consultada via GET /billing/subscription/me; somente o provedor
+ * simulado oferece o botão de confirmação manual.
  */
 /**
  * Correção Fase 2 (resíduo da Fase 1): `useSearchParams()` exige
@@ -37,23 +31,67 @@ export default function CheckoutSuccessPage() {
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const sessionId = searchParams?.get('session') ?? null;
+  const providerName = searchParams?.get('provider') ?? 'simulated';
+  const isSimulatedProvider = providerName === 'simulated';
   const [subscription, setSubscription] = useState<MySubscription | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-
-  async function refresh() {
-    const current = await fetchMySubscription();
-    setSubscription(current);
-  }
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
+  const [pollingFinished, setPollingFinished] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, 5000);
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    setSubscription(null);
+    setLookupError(null);
+    setPollingFinished(false);
+
+    if (!user || !sessionId) {
+      setIsChecking(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    const poll = async () => {
+      attempts += 1;
+      setIsChecking(true);
+      try {
+        const current = await fetchMySubscription();
+        if (!active) return;
+        setSubscription(current);
+        setLookupError(null);
+        if (current?.hasAccess) return;
+      } catch (error) {
+        if (!active) return;
+        setLookupError(
+          error instanceof Error ? error.message : 'Não foi possível consultar a assinatura.',
+        );
+      } finally {
+        if (active) setIsChecking(false);
+      }
+
+      if (!active) return;
+      if (attempts >= maxAttempts) {
+        setPollingFinished(true);
+        return;
+      }
+      timer = setTimeout(() => void poll(), 5000);
+    };
+
+    void poll();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [user, sessionId, retryToken]);
 
   async function simulateApproval() {
     if (!sessionId || !user) return;
@@ -66,7 +104,7 @@ function CheckoutSuccessContent() {
           ? 'Confirmação já processada antes — sem duplicar a liberação.'
           : 'Confirmação simulada recebida. Aguardando a liberação do plano…',
       );
-      setTimeout(refresh, 1500);
+      setRetryToken((current) => current + 1);
     } catch (err) {
       setNotice(
         err instanceof Error
@@ -95,8 +133,8 @@ function CheckoutSuccessContent() {
           </h1>
           <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
             {hasAccess
-              ? 'Sua assinatura Pro foi confirmada pelo provedor simulado e o plano está ativo na sua conta.'
-              : 'Você voltou do checkout simulado. O plano só é liberado quando o provedor confirma o pagamento via webhook — enquanto isso não acontece, nada muda na sua conta.'}
+              ? 'Sua conta tem uma assinatura ativa e o plano está liberado.'
+              : 'Você voltou do checkout. O plano só é liberado quando o provedor confirma a assinatura via webhook — enquanto isso não acontece, nada muda na sua conta.'}
           </p>
           {sessionId && (
             <p className="text-xs font-mono text-zinc-500 mt-3 break-all">
@@ -115,9 +153,48 @@ function CheckoutSuccessContent() {
           {notice && (
             <p className="text-xs text-zinc-300 mt-3" role="status">{notice}</p>
           )}
+          {lookupError && (
+            <p className="text-xs text-rose-300 mt-3" role="alert">
+              Não foi possível consultar a assinatura: {lookupError}
+            </p>
+          )}
+          {authLoading && (
+            <p className="text-xs text-zinc-400 mt-3">
+              Validando sua sessão…
+            </p>
+          )}
+          {!user && !authLoading && (
+            <p className="text-xs text-amber-300 mt-3">
+              Entre na sua conta para consultar o estado do checkout.
+            </p>
+          )}
+          {user && !sessionId && (
+            <p className="text-xs text-amber-300 mt-3">
+              Este retorno não contém a sessão do checkout; consulte a assinatura nas configurações.
+            </p>
+          )}
+          {isChecking && user && sessionId && (
+            <p className="text-xs text-zinc-400 mt-3" role="status">
+              Consultando a confirmação da assinatura…
+            </p>
+          )}
+          {pollingFinished && !hasAccess && (
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-amber-300" role="status">
+                A confirmação ainda não chegou após várias consultas. Você pode tentar novamente sem reiniciar o checkout.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRetryToken((current) => current + 1)}
+                className="rounded-lg border border-[#3F3F46] px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                Consultar novamente
+              </button>
+            </div>
+          )}
         </div>
 
-        {!hasAccess && sessionId && user && (
+        {!hasAccess && sessionId && user && isSimulatedProvider && (
           <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
             <p className="text-sm text-zinc-300">
               Simular a confirmação do provedor (somente em ambiente de testes):
@@ -132,21 +209,37 @@ function CheckoutSuccessContent() {
             </button>
           </div>
         )}
+        {!hasAccess && sessionId && user && !isSimulatedProvider && (
+          <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
+            <p className="text-sm text-zinc-300">
+              Aguardando a confirmação da assinatura pelo Mercado Pago. O plano será liberado automaticamente após o webhook validado.
+            </p>
+          </div>
+        )}
 
-        <div className="flex gap-3">
+        {user ? (
+          <div className="flex gap-3">
+            <Link
+              href="/settings"
+              className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs"
+            >
+              Ver minha assinatura
+            </Link>
+            <Link
+              href="/dashboard"
+              className="px-4 py-2 rounded-xl bg-[#181820] border border-[#27272A] text-zinc-200 font-bold text-xs"
+            >
+              Ir para o dashboard
+            </Link>
+          </div>
+        ) : !authLoading ? (
           <Link
-            href="/settings"
-            className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs"
+            href="/login"
+            className="inline-flex px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs"
           >
-            Ver minha assinatura
+            Entrar na conta
           </Link>
-          <Link
-            href="/dashboard"
-            className="px-4 py-2 rounded-xl bg-[#181820] border border-[#27272A] text-zinc-200 font-bold text-xs"
-          >
-            Ir para o dashboard
-          </Link>
-        </div>
+        ) : null}
       </div>
     </div>
   );

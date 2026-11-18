@@ -134,12 +134,12 @@ export class AiService {
     return this.safety.detectJailbreakOrBypass(text);
   }
 
-  async getChatHistory(userId: string, activityId: string) {
-    return this.chat.getChatHistory(userId, activityId);
+  async getChatHistory(userId: string, activityId: string, aiRoomId?: string) {
+    return this.chat.getChatHistory(userId, activityId, aiRoomId);
   }
 
   async *streamChatWithTutor(
-    dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
+    dto: { activityId: string; aiRoomId?: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
     userId?: string,
     onSource?: (info: TutorSourceInfo) => void,
   ): AsyncGenerator<string, void, unknown> {
@@ -147,7 +147,7 @@ export class AiService {
   }
 
   async chatWithTutor(
-    dto: { activityId: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
+    dto: { activityId: string; aiRoomId?: string; code?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
     userId?: string,
   ): Promise<{
     role: 'assistant';

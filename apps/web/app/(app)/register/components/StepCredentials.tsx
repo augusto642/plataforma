@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { oauthLoginUrl } from '../../../lib/oauth-errors';
 import {
   PasswordStrengthMeter,
   evaluatePasswordStrength,
@@ -23,8 +22,13 @@ interface StepCredentialsProps {
   setPassword: (pwd: string) => void;
   passwordConfirm: string;
   setPasswordConfirm: (pwd: string) => void;
+  adultConfirmed: boolean;
+  setAdultConfirmed: (confirmed: boolean) => void;
   termsAccepted: boolean;
   setTermsAccepted: (terms: boolean) => void;
+  privacyAcknowledged: boolean;
+  setPrivacyAcknowledged: (acknowledged: boolean) => void;
+  onOAuthStart: (provider: 'github' | 'google') => Promise<void>;
   onNext: () => void;
 }
 
@@ -40,12 +44,19 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
   setPassword,
   passwordConfirm,
   setPasswordConfirm,
+  adultConfirmed,
+  setAdultConfirmed,
   termsAccepted,
   setTermsAccepted,
+  privacyAcknowledged,
+  setPrivacyAcknowledged,
+  onOAuthStart,
   onNext,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [oauthStarting, setOauthStarting] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   // OAuth real (Google/GitHub): os botões criam a conta direto pelo provedor
   // (e-mail já verificado por ele); o cadastro por e-mail/senha exige os campos abaixo.
@@ -60,7 +71,9 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
     !isEmailBlocked &&
     isPasswordValid &&
     isPasswordMatch &&
-    termsAccepted;
+    adultConfirmed &&
+    termsAccepted &&
+    privacyAcknowledged;
 
   const strength = evaluatePasswordStrength(password);
 
@@ -95,19 +108,41 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
 
       {/* Social Logins Reais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-        <a
-          href={oauthLoginUrl('github')}
-          className="flex items-center justify-center gap-3 p-3.5 rounded-xl bg-[#181C2C] hover:bg-[#1E2338] border border-[#1C2133] hover:border-[#8257E5]/50 transition-all font-medium text-sm text-white no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+        <button
+          type="button"
+          disabled={!adultConfirmed || !termsAccepted || !privacyAcknowledged || oauthStarting}
+          onClick={async () => {
+            setOauthStarting(true);
+            setOauthError(null);
+            try {
+              await onOAuthStart('github');
+            } catch {
+              setOauthError('Não foi possível iniciar o cadastro com GitHub. Tente novamente.');
+              setOauthStarting(false);
+            }
+          }}
+          className="flex items-center justify-center gap-3 p-3.5 rounded-xl bg-[#181C2C] hover:bg-[#1E2338] disabled:opacity-50 disabled:cursor-not-allowed border border-[#1C2133] hover:border-[#8257E5]/50 transition-all font-medium text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
         >
           <svg className="w-5 h-5 fill-current text-white shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
           </svg>
           <span>Continuar com GitHub</span>
-        </a>
+        </button>
 
-        <a
-          href={oauthLoginUrl('google')}
-          className="flex items-center justify-center gap-3 p-3.5 rounded-xl bg-[#181C2C] hover:bg-[#1E2338] border border-[#1C2133] hover:border-[#00E5FF]/50 transition-all font-medium text-sm text-white no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
+        <button
+          type="button"
+          disabled={!adultConfirmed || !termsAccepted || !privacyAcknowledged || oauthStarting}
+          onClick={async () => {
+            setOauthStarting(true);
+            setOauthError(null);
+            try {
+              await onOAuthStart('google');
+            } catch {
+              setOauthError('Não foi possível iniciar o cadastro com Google. Tente novamente.');
+              setOauthStarting(false);
+            }
+          }}
+          className="flex items-center justify-center gap-3 p-3.5 rounded-xl bg-[#181C2C] hover:bg-[#1E2338] disabled:opacity-50 disabled:cursor-not-allowed border border-[#1C2133] hover:border-[#00E5FF]/50 transition-all font-medium text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5FF]"
         >
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -128,8 +163,13 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
             />
           </svg>
           <span>Continuar com Google</span>
-        </a>
+        </button>
       </div>
+      {oauthError && (
+        <p className="text-xs text-[#FCA5A5]" role="alert">
+          {oauthError}
+        </p>
+      )}
 
       {/* Divisor */}
       <div className="relative flex items-center justify-center my-4">
@@ -309,39 +349,57 @@ export const StepCredentials: React.FC<StepCredentialsProps> = ({
         <PasswordStrengthMeter password={password} />
       </div>
 
-      {/* Aceite dos Termos */}
-      <label
-        htmlFor="register-terms"
-        className="flex items-start gap-3 text-xs text-[#94A3B8] cursor-pointer select-none group"
-      >
-        <input
-          id="register-terms"
-          type="checkbox"
-          checked={termsAccepted}
-          onChange={(e) => setTermsAccepted(e.target.checked)}
-          className="sr-only"
-        />
-        <span
-          aria-hidden="true"
-          className={`w-[18px] h-[18px] mt-0.5 rounded-[5px] border flex items-center justify-center shrink-0 transition-all group-focus-within:ring-2 group-focus-within:ring-[#00E5FF] ${
-            termsAccepted
-              ? 'bg-[#8257E5] border-[#A379FF] shadow-[0_0_10px_rgba(130,87,229,0.4)]'
-              : 'bg-[#181C2C] border-[#1C2133] group-hover:border-[#8257E5]/50'
-          }`}
-        >
-          {termsAccepted && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-        </span>
-        <span className="leading-relaxed">
-          Concordo com os{' '}
-          <span className="text-[#A379FF] underline font-medium">Termos de Uso</span>,{' '}
-          <span className="text-[#A379FF] underline font-medium">Política de Privacidade</span> e
-          diretrizes de integridade da NEXUS CODE.
-        </span>
-      </label>
+      <div className="space-y-3 rounded-xl border border-[#1C2133] bg-[#181C2C]/60 p-4">
+        <p className="text-xs leading-relaxed text-[#94A3B8]">
+          Para criar a conta, usamos seus dados de cadastro e suas escolhas de aprendizagem para
+          manter a conta e o progresso, recomendar atividades e operar os recursos de código e IA.
+          A política explica as categorias de dados, os usos, os compartilhamentos e seus direitos.
+        </p>
+        <label className="flex items-start gap-2.5 text-xs text-[#CBD5E1]">
+          <input
+            type="checkbox"
+            checked={adultConfirmed}
+            onChange={(e) => setAdultConfirmed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#8257E5]"
+          />
+          <span className="leading-relaxed">
+            Confirmo que tenho 18 anos ou mais e entendo que o alfa externo não aceita menores de idade.{' '}
+            <Link href="/politica-de-idade" target="_blank" rel="noopener noreferrer" className="text-[#A379FF] underline font-medium">
+              Política de idade
+            </Link>
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 text-xs text-[#CBD5E1]">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#8257E5]"
+          />
+          <span className="leading-relaxed">
+            Li e aceito os{' '}
+            <Link href="/termos" target="_blank" rel="noopener noreferrer" className="text-[#A379FF] underline font-medium">
+              Termos de Uso
+            </Link>
+            .
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 text-xs text-[#CBD5E1]">
+          <input
+            type="checkbox"
+            checked={privacyAcknowledged}
+            onChange={(e) => setPrivacyAcknowledged(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#8257E5]"
+          />
+          <span className="leading-relaxed">
+            Li e estou ciente da{' '}
+            <Link href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-[#A379FF] underline font-medium">
+              Política de Privacidade
+            </Link>
+            .
+          </span>
+        </label>
+      </div>
 
       {/* Footer da Etapa 1 */}
       <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-[#1C2133]">

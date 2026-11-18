@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Logo from '../../../components/Logo';
 import { StudentSidebar } from '../../../components/StudentSidebar';
 import { StudentHeader } from '../../../components/StudentHeader';
+import { AdultEligibilityGate } from '../../../components/AdultEligibilityGate';
 import { useSidebar } from '../../../context/SidebarContext';
 import { apiFetch, API_BASE } from '../../../lib/apiClient';
 import { track } from '../../../lib/analytics';
@@ -130,9 +131,10 @@ function groupActivities(activities: ApiActivity[]): SegmentGroup[] {
   return groups;
 }
 
-export default function CourseDetailPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
   const { isCollapsed } = useSidebar();
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
   // Sprint 21 — caminho de adaptação do aluno neste curso (módulos,
@@ -192,8 +194,12 @@ export default function CourseDetailPage({ params }: { params: { slug: string } 
   }, [slug]);
 
   useEffect(() => {
-    void load();
-  }, [load, reloadKey]);
+    if (adultConfirmed) void load();
+  }, [adultConfirmed, load, reloadKey]);
+
+  if (!adultConfirmed) {
+    return <AdultEligibilityGate onConfirm={() => setAdultConfirmed(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#07090E] text-[#F1F5F9] font-sans antialiased flex selection:bg-[#8257E5] selection:text-white">

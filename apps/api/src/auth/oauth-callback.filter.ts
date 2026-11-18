@@ -38,6 +38,7 @@ export const OAUTH_ERROR_CODES = {
   github_emails_unavailable: ErrorCodes.AUTH_OAUTH_GITHUB_EMAILS_UNAVAILABLE,
   invalid_state: ErrorCodes.AUTH_OAUTH_INVALID_STATE,
   account_conflict: ErrorCodes.AUTH_OAUTH_ACCOUNT_CONFLICT,
+  legal_consent_required: ErrorCodes.AUTH_LEGAL_CONSENT_REQUIRED,
 } as const;
 
 export type OAuthErrorQueryCode =

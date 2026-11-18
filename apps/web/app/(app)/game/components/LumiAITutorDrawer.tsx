@@ -21,7 +21,14 @@ interface ChatMessage {
   sender: 'lumi' | 'player';
   text: string;
   timestamp: string;
+  source?: 'llm' | 'heuristic' | 'local';
 }
+
+const SOURCE_LABELS: Record<NonNullable<ChatMessage['source']>, string> = {
+  llm: 'Resposta gerada por modelo de IA',
+  heuristic: 'Orientação por regras, sem modelo generativo',
+  local: 'Resposta local de contingência — API indisponível',
+};
 
 export const LumiAITutorDrawer: React.FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -81,8 +88,9 @@ export const LumiAITutorDrawer: React.FC = () => {
 
     void (async () => {
       let socraticAnswer = '';
+      let responseSource: ChatMessage['source'] = 'local';
 
-      // Tenta obter orientação socrática do backend NestJS com cache Redis
+      // O endpoint atual usa regras determinísticas e retorna essa proveniência.
       try {
         const res = await apiFetch('/ai/socratic-hint', {
           method: 'POST',
@@ -95,9 +103,19 @@ export const LumiAITutorDrawer: React.FC = () => {
         });
 
         if (res.ok) {
-          const data = await res.json();
-          if (data && (data.hint || data.socraticQuestion)) {
+          const data: {
+            hint?: unknown;
+            socraticQuestion?: unknown;
+            source?: unknown;
+          } = await res.json();
+          if (
+            typeof data.hint === 'string' &&
+            data.hint.trim() &&
+            typeof data.socraticQuestion === 'string' &&
+            data.socraticQuestion.trim()
+          ) {
             socraticAnswer = `${data.hint} ${data.socraticQuestion}`;
+            responseSource = data.source === 'llm' ? 'llm' : 'heuristic';
           }
         }
       } catch {
@@ -124,6 +142,7 @@ export const LumiAITutorDrawer: React.FC = () => {
           sender: 'lumi',
           text: socraticAnswer,
           timestamp: 'Agora',
+          source: responseSource,
         },
       ]);
       setIsGenerating(false);
@@ -226,6 +245,15 @@ export const LumiAITutorDrawer: React.FC = () => {
                 <span className="text-[9px] text-dark-on-surface-variant mt-1 px-1">
                   {m.sender === 'player' ? player.name : 'Tutora'} &bull; {m.timestamp}
                 </span>
+                {m.sender === 'lumi' && m.source && (
+                  <span
+                    className={`mt-1 px-1 font-mono text-[9px] ${
+                      m.source === 'local' ? 'text-amber-300' : 'text-cyan-300'
+                    }`}
+                  >
+                    {SOURCE_LABELS[m.source]}
+                  </span>
+                )}
               </div>
             ))}
 

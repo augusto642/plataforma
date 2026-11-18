@@ -382,8 +382,13 @@ describe('CoursesService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       count: jest.fn(),
     },
+    adminAuditEvent: {
+      create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    },
+    $transaction: jest.fn(),
     enrollment: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -407,6 +412,9 @@ describe('CoursesService', () => {
       count: jest.fn(),
     },
   };
+  mockPrismaService.$transaction.mockImplementation(
+    (callback: (tx: any) => unknown) => callback(mockPrismaService),
+  );
 
   const mockCacheService = {
     get: jest.fn().mockResolvedValue(null),
@@ -463,6 +471,26 @@ describe('CoursesService', () => {
       expect(mockCacheService.del).toHaveBeenCalledWith('courses:list');
     });
 
+    it('audita criação de curso feita por administrador sem guardar conteúdo do curso', async () => {
+      mockPrismaService.course.findUnique.mockResolvedValue(null);
+      mockPrismaService.course.create.mockResolvedValue({
+        id: 'course-1',
+        instructor: { id: instructorId, name: 'Admin', email: 'admin@ex.com' },
+      });
+
+      await service.create(instructorId, dto, 'admin');
+
+      expect(mockPrismaService.adminAuditEvent.create).toHaveBeenCalledWith({
+        data: {
+          adminId: instructorId,
+          action: 'course.created',
+          targetType: 'course',
+          targetId: 'course-1',
+          changedFields: ['created', 'title', 'slug', 'description'],
+        },
+      });
+    });
+
     it('lança ConflictException quando o slug já está em uso', async () => {
       mockPrismaService.course.findUnique.mockResolvedValue({ id: 'other' });
 
@@ -470,6 +498,29 @@ describe('CoursesService', () => {
         ConflictException,
       );
       expect(mockPrismaService.course.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    it('audita campos alterados pelo administrador dentro da transação do curso', async () => {
+      mockPrismaService.course.findUnique.mockResolvedValue({
+        id: 'course-1',
+        instructorId,
+        title: 'Curso inicial',
+      });
+      mockPrismaService.course.update.mockResolvedValue({ id: 'course-1' });
+
+      await service.update('course-1', { title: 'Curso atualizado' }, 'admin-1', 'admin');
+
+      expect(mockPrismaService.adminAuditEvent.create).toHaveBeenCalledWith({
+        data: {
+          adminId: 'admin-1',
+          action: 'course.updated',
+          targetType: 'course',
+          targetId: 'course-1',
+          changedFields: ['title'],
+        },
+      });
     });
   });
 

@@ -21,6 +21,15 @@ export interface MarketEvidenceView {
   score: number;
 }
 
+export interface MarketSkillEvidenceView {
+  skill: string;
+  mentions: number;
+  sampleSize: number;
+  sources: string[];
+  sourceUrls: string[];
+  collectedAt: string;
+}
+
 export interface DynamicTrackView {
   id: string;
   status: 'investigating' | 'ready' | 'failed';
@@ -30,6 +39,7 @@ export interface DynamicTrackView {
   rationaleText: string | null;
   basis: string | null;
   marketEvidence: MarketEvidenceView[];
+  marketSkillEvidence?: MarketSkillEvidenceView[];
   slaDueAt: string;
   overdue: boolean;
   completedAt: string | null;
@@ -127,7 +137,10 @@ export function trackRouteFor(
 
 /** A6 — o rodapé "mercado real" só existe com evidência real de mercado. */
 export function hasMarketEvidence(investigation: DynamicTrackView | null | undefined): boolean {
-  return (investigation?.marketEvidence?.length ?? 0) > 0;
+  return (
+    (investigation?.marketEvidence?.length ?? 0) > 0 ||
+    (investigation?.marketSkillEvidence?.length ?? 0) > 0
+  );
 }
 
 export function formatTrackDate(iso: string | null): string {
@@ -136,5 +149,16 @@ export function formatTrackDate(iso: string | null): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+  });
+}
+
+export function formatTrackDateTime(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }

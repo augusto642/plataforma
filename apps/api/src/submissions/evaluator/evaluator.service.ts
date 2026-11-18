@@ -150,6 +150,7 @@ export class EvaluatorService {
             submission.activityId,
             evaluation.status === 'passed',
             evaluation.score,
+            `submission:${submissionId}`,
             tx as any,
           );
           return true;

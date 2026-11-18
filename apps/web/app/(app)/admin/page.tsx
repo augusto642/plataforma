@@ -24,6 +24,7 @@ import { AdminCoursesTab } from './components/AdminCoursesTab';
 import { AdminSystemHealthTab } from './components/AdminSystemHealthTab';
 import { AdminAuditLogsTab } from './components/AdminAuditLogsTab';
 import { AdminKnowledgeTab } from './components/AdminKnowledgeTab';
+import { AdminAiRoomsTab } from './components/AdminAiRoomsTab';
 
 // B40/A4 (Sprint 13) — painel admin ligado à API REAL.
 // Antes esta página era uma simulação completa no navegador: usuários,
@@ -301,6 +302,7 @@ export default function AdminDashboardPage() {
               metricsError={metricsError}
               health={health}
               onNavigateTab={setCurrentTab}
+              onRefreshMetrics={loadAll}
             />
           )}
 
@@ -328,8 +330,10 @@ export default function AdminDashboardPage() {
           )}
 
           {currentTab === 'courses' && (
-            <AdminCoursesTab courses={courses} coursesError={coursesError} />
+            <AdminCoursesTab courses={courses} coursesError={coursesError} onRefresh={loadAll} />
           )}
+
+          {currentTab === 'aiRooms' && <AdminAiRoomsTab />}
 
           {currentTab === 'system' && (
             <AdminSystemHealthTab

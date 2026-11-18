@@ -104,4 +104,30 @@ describe('ResearchService', () => {
     expect(recollected.approvedAt).not.toBeNull();
     expect(recollected.sourcesAvailable).toEqual(['github']);
   });
+
+  it('creates one durable reference draft without collecting or publishing content', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'research-reference-'));
+    const queue = { add: jest.fn() };
+    const reference = {
+      candidateId: '01234567-89ab-4cde-8fab-0123456789ab', kind: 'pdf', title: 'Referência',
+      url: 'https://example.org/book.pdf', author: null, license: 'Não verificada',
+    };
+    const svc = new ResearchService(queue as never, noKeyVideo as never, okRepos as never, noKeyJobs as never, { researchDir: dir });
+    const draft = await svc.createReferenceDraft(reference);
+    expect(draft.status).toBe('draft');
+    expect(draft.reference).toEqual(reference);
+    expect(queue.add).not.toHaveBeenCalled();
+    await svc.approve(draft.id, 'admin');
+    const restarted = new ResearchService(undefined, noKeyVideo as never, okRepos as never, noKeyJobs as never, { researchDir: dir });
+    expect((await restarted.createReferenceDraft(reference)).status).toBe('approved');
+    expect(restarted.findApprovedForGoal(reference.title)).toBeNull();
+  });
+
+  it('refuses reference drafts without durable storage or with invalid identifiers', async () => {
+    const reference = { candidateId: '../unsafe', kind: 'book', title: 'Title', url: 'https://example.org', author: null, license: null };
+    const svc = new ResearchService(undefined, noKeyVideo as never, okRepos as never, noKeyJobs as never, { researchDir: mkdtempSync(join(tmpdir(), 'research-reference-')) });
+    await expect(svc.createReferenceDraft(reference)).rejects.toThrow('Identificador de candidato inválido');
+    const noDir = new ResearchService(undefined, noKeyVideo as never, okRepos as never, noKeyJobs as never);
+    await expect(noDir.createReferenceDraft(reference)).rejects.toThrow('Diretório de pesquisa indisponível');
+  });
 });

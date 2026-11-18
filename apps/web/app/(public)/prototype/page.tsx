@@ -1302,9 +1302,9 @@ export default function PrototypePage() {
                 </a>
               </li>
               <li>
-                <a href="/verify/check" className="text-zinc-400 hover:text-white transition-colors">
+                <Link href="/verify/check" className="text-zinc-400 hover:text-white transition-colors">
                   Certificados
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { MaterialIcon } from '../../components/MaterialIcon';
@@ -16,6 +16,9 @@ import {
 } from '../../lib/challenges';
 import { apiFetch, API_BASE } from '../../lib/apiClient';
 import { IdeEditorPane } from '../ide/components/IdeEditorPane';
+import { DraftSyncNotice } from '../ide/components/DraftSyncNotice';
+import { executePractice, readActivityDraft, saveActivityDraft, type PracticeResult } from '../ide/practice';
+import { useActivityDraftSync } from '../ide/useActivityDraftSync';
 import { TestResultsGrid } from '../ide/components/TestResultsGrid';
 import { useSubmissionStream, type SubmissionEvent } from '../../hooks/useSubmissionStream';
 import { StudentSidebar } from '../../components/StudentSidebar';
@@ -36,8 +39,8 @@ import { useSidebar } from '../../context/SidebarContext';
  * Central 216 retrabalho (D4) — a tela vira o desafio em 3 colunas do
  * protótipo Stitch v2 (desafio-jogo.html): enunciado + casos de teste
  * | editor + terminal | tutora. O enunciado e o código inicial vêm da
- * atividade real (GET /activities/:id); a execução é a submissão real
- * (POST /submissions + stream, igual à IDE); os casos de teste são os
+ * atividade real (GET /activities/:id); a prática não cria submissão
+ * e a avaliação usa POST /submissions + stream. Os casos de teste são os
  * resultados reais da submissão — antes da primeira execução, a seção
  * diz isso em vez de listar casos inventados. Sem desafio ativo ou
  * sem atividade, estado vazio honesto (fail-closed), nunca o desafio
@@ -77,6 +80,15 @@ export default function DesafiosPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [aiHints, setAiHints] = useState<string | null>(null);
   const [loadingHints, setLoadingHints] = useState(false);
+  const [editorCollapsed, setEditorCollapsed] = useState(false);
+  const [practiceInput, setPracticeInput] = useState('');
+  const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
+  const [resultMode, setResultMode] = useState<'practice' | 'submission'>('practice');
+  const [isPracticing, setIsPracticing] = useState(false);
+  const [draftWarning, setDraftWarning] = useState(false);
+  const practiceAbort = useRef<AbortController | null>(null);
+  const draftsRef = useRef<Record<string, string>>({});
+  useEffect(() => () => practiceAbort.current?.abort(), []);
 
   useSubmissionStream(
     streamingId,
@@ -98,16 +110,28 @@ export default function DesafiosPage() {
     try {
       const current = await getCurrentChallenge();
       setChallenge(current);
+      setActivity(null);
+      setActivityError(null);
       if (current) {
         const board = await getChallengeLeaderboard(current.id);
         setRanking(board.ranking);
         if (current.activityId) {
           try {
             const res = await apiFetch(`${API_BASE}/activities/${current.activityId}`);
+            if (res.status === 403 && new Date(current.startsAt).getTime() > Date.now()) {
+              throw new Error('A atividade estará disponível quando o desafio começar.');
+            }
             if (!res.ok) throw new Error('Não foi possível carregar a atividade do desafio.');
             const act = (await res.json()) as ChallengeActivity;
             setActivity(act);
-            setCode(act.initialCode || '// Escreva sua solução aqui\n');
+            const draftKey = `${user?.id}:${act.id}`;
+            let draft: string | null = draftsRef.current[draftKey] ?? null;
+            try {
+              if (draft === null && user) draft = readActivityDraft(user.id, act.id);
+            } catch {
+              setDraftWarning(true);
+            }
+            setCode(draft ?? act.initialCode ?? '');
           } catch (err) {
             setActivityError(
               err instanceof Error ? err.message : 'Não foi possível carregar a atividade.',
@@ -150,7 +174,8 @@ export default function DesafiosPage() {
   }
 
   async function runTests() {
-    if (!activity) return;
+    if (!activity || isPracticing || isSubmitting) return;
+    setResultMode('submission');
     setRunError(null);
     setAiHints(null);
     setIsSubmitting(true);
@@ -167,6 +192,37 @@ export default function DesafiosPage() {
     } catch (err) {
       setRunError(err instanceof Error ? err.message : 'Não foi possível executar os testes.');
       setIsSubmitting(false);
+    }
+  }
+
+  function changeCode(value: string) {
+    setCode(value);
+    if (!activity || !user) return;
+    draftsRef.current[`${user.id}:${activity.id}`] = value;
+    try {
+      saveActivityDraft(user.id, activity.id, value);
+      setDraftWarning(false);
+    } catch {
+      setDraftWarning(true);
+    }
+  }
+
+  async function runPractice() {
+    if (!activity || isPracticing || isSubmitting) return;
+    practiceAbort.current?.abort();
+    const controller = new AbortController();
+    practiceAbort.current = controller;
+    setResultMode('practice');
+    setRunError(null);
+    setPracticeResult(null);
+    setIsPracticing(true);
+    try {
+      const result = await executePractice(activity.id, code, practiceInput, controller.signal);
+      if (!controller.signal.aborted) setPracticeResult(result);
+    } catch (err) {
+      if (!controller.signal.aborted) setRunError(err instanceof Error ? err.message : 'Não foi possível executar o código.');
+    } finally {
+      if (!controller.signal.aborted) setIsPracticing(false);
     }
   }
 
@@ -191,6 +247,8 @@ export default function DesafiosPage() {
       setLoadingHints(false);
     }
   }
+
+  const draftSync = useActivityDraftSync(user?.id, activity?.id, code, changeCode);
 
   if (isLoading || loading) {
     return (
@@ -255,7 +313,7 @@ export default function DesafiosPage() {
           {challenge ? challenge.title : 'Desafio de Código da Semana'}
         </h1>
         <p className="text-sm text-[#94A3B8] mt-2 max-w-2xl leading-relaxed">
-          Desafio algorítmico avaliado por runner isolado com bateria de testes unitários automatizados. Sua pontuação mensura correção lógica, complexidade assintótica Big-O e cobertura de casos de borda. Suba de divisão nas Ligas Técnicas e consolide seu portfólio.
+          Pratique com o editor e envie sua solução para avaliação. Os resultados dos testes aparecem junto ao desafio.
         </p>
         {error && <p className="text-sm text-red-400 mt-4">{error}</p>}
 
@@ -292,8 +350,13 @@ export default function DesafiosPage() {
                 {/* Coluna 1 — enunciado + casos de teste. */}
                 <section
                   aria-label="Enunciado do desafio"
-                  className="lg:col-span-3 rounded-2xl border border-[#1C2338] bg-[#0C0F17] p-5 min-w-0 shadow-sm"
+                  className={`${editorCollapsed ? 'lg:col-span-12' : 'lg:col-span-3'} rounded-2xl border border-[#2a3935] bg-[#121b1a] p-5 min-w-0 shadow-sm`}
                 >
+                  <button type="button" onClick={() => setEditorCollapsed((value) => !value)}
+                    aria-controls="challenge-editor" aria-expanded={!editorCollapsed}
+                    className="float-right rounded-lg border border-[#41534a] bg-[#1b2922] px-3 py-2 text-xs font-semibold text-[#dceae0] hover:bg-[#2a3c30]">
+                    {editorCollapsed ? 'Mostrar editor' : 'Recolher editor'}
+                  </button>
                   <p className="font-code text-[11px] text-secondary font-bold uppercase tracking-wider">
                     Missão de código
                   </p>
@@ -338,7 +401,7 @@ export default function DesafiosPage() {
                       </ul>
                     ) : (
                       <p className="text-sm text-zinc-500 mt-2">
-                        Os casos de teste aparecem aqui após a primeira execução.
+                        Os resultados dos testes aparecem aqui após o envio para avaliação.
                       </p>
                     )}
                   </div>
@@ -353,34 +416,28 @@ export default function DesafiosPage() {
 
                 {/* Coluna 2 — editor + terminal. */}
                 <section
+                  id="challenge-editor"
                   aria-label="Editor e terminal"
-                  className="lg:col-span-6 rounded-2xl border border-[#1C2338] bg-[#0C0F17] overflow-hidden min-w-0 shadow-sm"
+                  className={`${editorCollapsed ? 'hidden' : ''} lg:col-span-6 rounded-2xl border border-[#2a3935] bg-[#121b1a] overflow-hidden min-w-0 shadow-sm`}
                 >
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1C2338] bg-[#07090E]">
-                    <span className="font-code text-xs text-dark-on-surface-variant">
-                      {activity.language} · {activity.title.toLowerCase().replace(/\s+/g, '-')}.{' '}
-                      {activity.language === 'python' ? 'py' : 'js'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void runTests()}
-                      disabled={isSubmitting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary hover:bg-dark-primary disabled:opacity-50 text-white text-xs font-bold transition-colors"
-                    >
-                      <MaterialIcon name="play_arrow" className="text-[16px]" />
-                      {isSubmitting ? 'Executando…' : 'Executar testes (Ctrl + Enter)'}
-                    </button>
-                  </div>
                   <div className="h-[420px]">
                     <IdeEditorPane
                       language={activity.language}
                       code={code}
-                      onChange={setCode}
-                      onRun={() => void runTests()}
+                      onChange={changeCode}
+                      onRun={() => void runPractice()}
+                      onSubmit={() => void runTests()}
                       isSubmitting={isSubmitting}
+                      isRunning={isPracticing}
+                      appearance="learning"
                     />
                   </div>
-                  <div className="border-t border-[#1C2338] bg-[#07090E]/60">
+                  <div className="border-t border-[#2a3935] bg-[#121b18]">
+                    <label htmlFor="challenge-input" className="block px-4 pt-3 text-xs text-[#b1c2b7]">Entrada para executar o código</label>
+                    <textarea id="challenge-input" value={practiceInput} onChange={(event) => setPracticeInput(event.target.value)} maxLength={10000}
+                      className="mx-4 mt-2 w-[calc(100%-2rem)] h-16 rounded-lg border border-[#41534a] bg-[#0b1210] p-2 text-sm text-[#edf3ef]" />
+                    <DraftSyncNotice sync={draftSync} />
+                    {draftWarning && <p role="status" className="px-4 pt-2 text-xs text-amber-300">Não foi possível salvar o rascunho nesta aba.</p>}
                     <p className="px-4 pt-3 pb-1 font-code text-xs text-dark-on-surface-variant">
                       Console de execução
                     </p>
@@ -389,12 +446,20 @@ export default function DesafiosPage() {
                         {runError}
                       </p>
                     )}
-                    {isSubmitting && !submission && (
+                    {(isPracticing || isSubmitting) && !submission && (
                       <p role="status" className="px-4 pb-3 text-sm text-zinc-400">
-                        Executando testes no Sandbox isolado…
+                        {isPracticing ? 'Executando código sem avaliação…' : 'Avaliando submissão…'}
                       </p>
                     )}
-                    {submission && (
+                    {resultMode === 'practice' && practiceResult && (
+                      <div className="px-4 pb-3 text-sm text-[#d5e9da]">
+                        <p>{practiceResult.status === 'passed' ? 'Execução concluída. Envie para avaliar o desafio.' : 'A execução não foi concluída.'}</p>
+                        {(practiceResult.stdout || practiceResult.stderr || practiceResult.errorMessage) && (
+                          <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-[#0b1210] p-3">{[practiceResult.stdout, practiceResult.stderr, practiceResult.errorMessage].filter(Boolean).join('\n')}</pre>
+                        )}
+                      </div>
+                    )}
+                    {resultMode === 'submission' && submission && (
                       <>
                         <p className="px-4 pb-2 text-sm text-zinc-400">
                           {submission.status === 'passed'
@@ -412,7 +477,7 @@ export default function DesafiosPage() {
                         />
                       </>
                     )}
-                    {!submission && !isSubmitting && !runError && (
+                    {!practiceResult && !submission && !isSubmitting && !isPracticing && !runError && (
                       <p className="px-4 pb-3 text-sm text-zinc-500">
                         Execute os testes para ver o resultado aqui.
                       </p>
@@ -423,7 +488,7 @@ export default function DesafiosPage() {
                 {/* Coluna 3 — tutora. */}
                 <section
                   aria-label="Tutora de IA"
-                  className="lg:col-span-3 rounded-2xl border border-[#1C2338] bg-[#0C0F17] p-5 min-w-0 shadow-sm"
+                  className={`${editorCollapsed ? 'hidden' : ''} lg:col-span-3 rounded-2xl border border-[#2a3935] bg-[#121b1a] p-5 min-w-0 shadow-sm`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-purple/20 text-dark-primary font-bold text-xs">

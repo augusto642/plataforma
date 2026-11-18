@@ -1,9 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { IdeHeader } from './components/IdeHeader';
 import { IdeEditorPane } from './components/IdeEditorPane';
+import { Playground } from './components/Playground';
+import { DraftSyncNotice } from './components/DraftSyncNotice';
 import { InstructionsPanel } from './components/InstructionsPanel';
+import { CuratedReferences } from './components/CuratedReferences';
 import { TerminalConsole } from './components/TerminalConsole';
 import { FrontendPreviewPane } from './components/FrontendPreviewPane';
 import { TestResultsGrid } from './components/TestResultsGrid';
@@ -23,6 +27,9 @@ import { useAuth } from '../../context/AuthContext';
 import { apiFetch, API_BASE } from '../../lib/apiClient';
 // Central 219 lote 4 (D4) — lógica pura da tela de jogo em 3 colunas.
 import { nextActivity, passedTestSummary } from './game-layout';
+import styles from './learning-workspace.module.css';
+import { executePractice, readActivityDraft, saveActivityDraft, type PracticeResult } from './practice';
+import { useActivityDraftSync } from './useActivityDraftSync';
 // Sprint 5 — fundo do funil: primeira atividade concluída (B08 completo)
 import { track } from '../../lib/analytics';
 import {
@@ -104,6 +111,7 @@ export default function HomePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
 
   const [code, setCode] = useState('');
@@ -128,7 +136,18 @@ export default function HomePage() {
   const [submissionHistory, setSubmissionHistory] = useState<Submission[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [streamingSubmissionId, setStreamingSubmissionId] = useState<string | null>(null);
-  const [bottomPaneTab, setBottomPaneTab] = useState<'terminal' | 'preview'>('terminal');
+  const [bottomPaneTab, setBottomPaneTab] = useState<'terminal' | 'input' | 'tests' | 'preview'>('terminal');
+  const [editorCollapsed, setEditorCollapsed] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<'activity' | 'playground'>('activity');
+  const [practiceInput, setPracticeInput] = useState('');
+  const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null);
+  const [practiceError, setPracticeError] = useState<string | null>(null);
+  const [isPracticing, setIsPracticing] = useState(false);
+  const [resultMode, setResultMode] = useState<'practice' | 'submission'>('practice');
+  const [draftStorageUnavailable, setDraftStorageUnavailable] = useState(false);
+  const draftsRef = useRef<Record<string, string>>({});
+  const practiceAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => practiceAbortRef.current?.abort(), []);
 
   // Progress & Gamification State
   const [showProgressModal, setShowProgressModal] = useState(false);
@@ -192,7 +211,6 @@ export default function HomePage() {
   const [isFocusMode, setIsFocusMode] = useState<boolean>(
     DEFAULT_WORKSPACE_PREFERENCES.focusMode,
   );
-  const editorRef = useRef<any>(null);
 
   useEffect(() => {
     const saved = readWorkspacePreferences();
@@ -417,12 +435,19 @@ export default function HomePage() {
   }, [token, user]);
 
   const selectCourse = async (course: Course): Promise<Activity[] | null> => {
+    practiceAbortRef.current?.abort();
+    setIsPracticing(false);
+    submissionStreamAbortRef.current?.abort();
+    setStreamingSubmissionId(null);
+    setIsSubmitting(false);
     courseFetchAbortRef.current?.abort();
     const controller = new AbortController();
     courseFetchAbortRef.current = controller;
 
     setSelectedCourse(course);
     setSelectedActivity(null);
+    setActivities([]);
+    setActivitiesError(null);
     setSubmission(null);
     setCourseCode(null);
     setGitInfo(null);
@@ -442,25 +467,59 @@ export default function HomePage() {
         }
         return data as Activity[];
       }
+      setActivitiesError(res.status === 403
+        ? 'Matricule-se no curso para acessar as atividades.'
+        : 'Não foi possível carregar as atividades.');
       return null;
     } catch (e: any) {
       if (e.name === 'AbortError') return null;
       console.error('Failed to load activities', e);
+      setActivitiesError('Não foi possível carregar as atividades.');
       return null;
     }
   };
 
   const selectActivity = async (act: Activity) => {
     submissionStreamAbortRef.current?.abort();
+    setStreamingSubmissionId(null);
+    setIsSubmitting(false);
     courseFetchAbortRef.current?.abort();
+    practiceAbortRef.current?.abort();
 
     setSelectedActivity(act);
-    setCode(act.initialCode || '// Escreva sua solução aqui\n');
+    const draftKey = `nexus-ide-draft:${user?.id}:${act.id}`;
+    let draft: string | undefined = user?.id ? draftsRef.current[draftKey] : undefined;
+    if (draft === undefined && user?.id) {
+      try {
+        draft = readActivityDraft(user.id, act.id) ?? undefined;
+      } catch {
+        setDraftStorageUnavailable(true);
+      }
+    }
+    setCode(draft ?? act.initialCode ?? '');
+    setIsPracticing(false);
+    setPracticeResult(null);
+    setPracticeError(null);
+    setPracticeInput('');
+    setResultMode('practice');
     setSubmission(null);
     setAiHints(null);
     setLineFeedback(null);
     setShowReference(false);
     setReferenceCode(null);
+  };
+
+  const handleCodeChange = (value: string) => {
+    setCode(value);
+    if (!selectedActivity || !user?.id) return;
+    const draftKey = `nexus-ide-draft:${user.id}:${selectedActivity.id}`;
+    draftsRef.current[draftKey] = value;
+    try {
+      saveActivityDraft(user.id, selectedActivity.id, value);
+      setDraftStorageUnavailable(false);
+    } catch {
+      setDraftStorageUnavailable(true);
+    }
   };
 
   const handleOpenLeaderboard = async () => {
@@ -632,8 +691,34 @@ export default function HomePage() {
     setIsSubmitting(false);
   };
 
+  const handlePracticeCode = async () => {
+    if (!selectedActivity || isSubmitting || isPracticing) return;
+    practiceAbortRef.current?.abort();
+    const controller = new AbortController();
+    practiceAbortRef.current = controller;
+    setPracticeResult(null);
+    setPracticeError(null);
+    setIsPracticing(true);
+    setResultMode('practice');
+    setBottomPaneTab('terminal');
+    setMobileTab('terminal');
+    try {
+      const result = await executePractice(selectedActivity.id, code, practiceInput, controller.signal);
+      if (!controller.signal.aborted) setPracticeResult(result);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setPracticeError(error instanceof Error ? error.message : 'Não foi possível executar o código.');
+      }
+    } finally {
+      if (!controller.signal.aborted) setIsPracticing(false);
+    }
+  };
+
   const handleRunCode = async () => {
-    if (!selectedActivity) return;
+    if (!selectedActivity || isPracticing || isSubmitting) return;
+    setResultMode('submission');
+    setBottomPaneTab('terminal');
+    setMobileTab('terminal');
     submissionStreamAbortRef.current?.abort();
     const controller = new AbortController();
     submissionStreamAbortRef.current = controller;
@@ -661,7 +746,7 @@ export default function HomePage() {
       }
 
       const created = await res.json();
-      setStreamingSubmissionId(created.id);
+      if (!controller.signal.aborted) setStreamingSubmissionId(created.id);
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         alert(e.message);
@@ -770,12 +855,6 @@ export default function HomePage() {
     }
   };
 
-  const handleFormatCode = () => {
-    if (editorRef.current) {
-      editorRef.current.getAction('editor.action.formatDocument')?.run();
-    }
-  };
-
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -854,6 +933,8 @@ export default function HomePage() {
     return 'javascript';
   };
 
+  const draftSync = useActivityDraftSync(user?.id, selectedActivity?.id, code, handleCodeChange);
+
   if (!token && !user && !authLoading) {
     return <AuthView onAuth={(currentUser) => {
       setUser(currentUser);
@@ -880,9 +961,9 @@ export default function HomePage() {
   const testSummary = submission ? passedTestSummary(submission.testResults) : null;
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0D0E15', color: '#F4F4F5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div className={styles.page} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#0D0E15', color: '#F4F4F5', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header */}
-      <header style={{ height: 60, borderBottom: '1px solid #27272A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#12131D' }}>
+      <header className={styles.topbar} style={{ height: 60, borderBottom: '1px solid #27272A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', background: '#12131D' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {BRAND_LOGO_URL ? (
@@ -899,7 +980,15 @@ export default function HomePage() {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className={styles.topbarActions} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button type="button" onClick={() => setWorkspaceMode('activity')} aria-pressed={workspaceMode === 'activity'}
+            className="rounded-lg border border-[#41534a] bg-[#1b2922] px-3 py-2 text-xs font-semibold text-[#dceae0] aria-pressed:bg-[#385644]">
+            Aula e desafio
+          </button>
+          <button type="button" onClick={() => setWorkspaceMode('playground')} aria-pressed={workspaceMode === 'playground'}
+            className="rounded-lg border border-[#41534a] bg-[#1b2922] px-3 py-2 text-xs font-semibold text-[#dceae0] aria-pressed:bg-[#385644]">
+            Código livre
+          </button>
           <a
             href="/dashboard"
             style={{ padding: '6px 14px', background: 'linear-gradient(135deg, #8257e5, #00b37e)', border: 'none', borderRadius: 8, color: '#ffffff', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', boxShadow: '0 0 15px rgba(130, 87, 229, 0.35)' }}
@@ -1035,10 +1124,10 @@ export default function HomePage() {
       </header>
 
       {/* Main Grid */}
-      <div className="flex-1 flex relative overflow-y-auto lg:overflow-hidden">
+      <div className={`${styles.mainGrid} flex-1 flex relative overflow-y-auto lg:overflow-hidden`}>
         {/* Sidebar: Courses & Activities */}
-        {!isFocusMode && (
-        <aside style={{ width: 280, borderRight: '1px solid #27272A', background: '#0D0E15', display: 'flex', flexDirection: 'column' }}>
+        {!isFocusMode && workspaceMode === 'activity' && (
+        <aside className={styles.sidebar} style={{ width: 280, borderRight: '1px solid #27272A', background: '#0D0E15', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 16, borderBottom: '1px solid #27272A' }}>
             <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#71717A', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Cursos Disponíveis</h3>
             {courses.length === 0 ? (
@@ -1121,7 +1210,9 @@ export default function HomePage() {
 
           <div style={{ padding: 16, flex: 1, overflowY: 'auto' }}>
             <h3 style={{ fontSize: 11, textTransform: 'uppercase', color: '#71717A', letterSpacing: 1, margin: '0 0 10px 0', fontWeight: 700 }}>Exercícios do Módulo</h3>
-            {activities.length === 0 ? (
+            {activitiesError ? (
+              <p role="alert" className="text-xs text-amber-300">{activitiesError}</p>
+            ) : activities.length === 0 ? (
               <div style={{ fontSize: 12, color: '#71717A' }}>Selecione um curso para ver as atividades.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1178,7 +1269,9 @@ export default function HomePage() {
 
         {/* Workspace Center */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {selectedActivity ? (
+          {workspaceMode === 'playground' && user?.id ? (
+            <Playground userId={user.id} />
+          ) : selectedActivity ? (
             <div className="flex-1 flex flex-col lg:h-[calc(100vh-60px)] lg:overflow-hidden">
               {/* Contextual Activity Header */}
               <IdeHeader
@@ -1205,7 +1298,7 @@ export default function HomePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMobileTab('editor')}
+                  onClick={() => { setEditorCollapsed(false); setMobileTab('editor'); }}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
                     mobileTab === 'editor'
                       ? 'bg-[#121624] text-[#00E5FF] border border-[#1C2338]'
@@ -1216,7 +1309,7 @@ export default function HomePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMobileTab('terminal')}
+                  onClick={() => { setEditorCollapsed(false); setMobileTab('terminal'); }}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
                     mobileTab === 'terminal'
                       ? 'bg-[#121624] text-[#00E5FF] border border-[#1C2338]'
@@ -1240,22 +1333,28 @@ export default function HomePage() {
                 )}
               </div>
 
+              <DraftSyncNotice sync={draftSync} />
               {/* Central 219 lote 4 (D4) — tela de jogo em 3 colunas do
                   protótipo desafio-jogo.html: enunciado + casos de teste
                   | editor + terminal + barra de ações | tutora. No
                   mobile as colunas empilham (1 coluna). */}
-              <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0">
+              <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 bg-[#090e0e]">
                 {/* Coluna 1 — enunciado + casos de teste. */}
-                <div className={`${mobileTab === 'instructions' ? 'flex' : 'hidden'} lg:flex lg:col-span-3 lg:border-r border-[#27272A] flex-col lg:overflow-y-auto bg-[#12131D] min-w-0`}>
+                <div className={`${mobileTab === 'instructions' ? 'flex' : 'hidden'} lg:flex ${editorCollapsed ? 'lg:col-span-12' : isChatOpen ? 'lg:col-span-4' : 'lg:col-span-5'} lg:border-r border-[#2a3935] flex-col lg:overflow-y-auto bg-[#121b1a] min-w-0`}>
                   {/* Instructions & Socratic Prompting */}
                   <InstructionsPanel
                     title={selectedActivity.title}
                     description={selectedActivity.description}
-                    difficulty="Intermediário"
                     language={selectedActivity.language}
                     hints={selectedActivity.instructions ? [selectedActivity.instructions] : []}
                     courseTitle={selectedCourse?.title}
+                    editorCollapsed={editorCollapsed}
+                    onToggleEditor={() => {
+                      setEditorCollapsed((current) => !current);
+                      setMobileTab(editorCollapsed ? 'editor' : 'instructions');
+                    }}
                   />
+                  <CuratedReferences topics={selectedActivity.conceptTags ?? []} />
 
                   {/* AI Tutor Actions & Line Feedback Callouts */}
                   {submission && submission.status === 'failed' && (
@@ -1454,7 +1553,6 @@ export default function HomePage() {
                     }))}
                     score={submission?.score ?? undefined}
                     maxScore={submission?.maxScore ?? 100}
-                    xpEarned={submission?.status === 'passed' ? 120 : undefined}
                   />
 
                   {/* Fase 2 premium — revisão por IA, AO LADO do passa/falha, nunca no lugar dele */}
@@ -1464,15 +1562,18 @@ export default function HomePage() {
                 </div>
 
                 {/* Coluna 2 — editor + terminal + barra de ações. */}
-                <div className={`${mobileTab === 'editor' || mobileTab === 'terminal' ? 'flex' : 'hidden'} lg:flex ${isChatOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex-col min-h-0 min-w-0 bg-[#0A0B10]`}>
+                <div id="activity-editor" className={`${editorCollapsed ? '!hidden' : mobileTab === 'editor' || mobileTab === 'terminal' ? 'flex' : 'hidden'} ${editorCollapsed ? '' : 'lg:flex'} ${isChatOpen ? 'lg:col-span-5' : 'lg:col-span-7'} flex-col min-h-0 min-w-0 bg-[#0d1513]`}>
                   <div className={`${mobileTab === 'terminal' ? 'hidden' : 'block'} lg:block h-[420px] lg:h-auto lg:flex-1 lg:min-h-0`}>
                     <IdeEditorPane
                       language={selectedActivity.language}
                       code={code}
-                      onChange={(val) => setCode(val)}
-                      onRun={handleRunCode}
+                      onChange={handleCodeChange}
+                      onRun={handlePracticeCode}
+                      onSubmit={handleRunCode}
                       isSubmitting={isSubmitting}
-                      onFormat={handleFormatCode}
+                      isRunning={isPracticing}
+                      appearance="learning"
+                      showFormat
                       fontSize={editorFontSize}
                       onChangeFontSize={handleChangeFontSize}
                       isFocusMode={isFocusMode}
@@ -1485,18 +1586,40 @@ export default function HomePage() {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setBottomPaneTab('terminal')}
+                        onClick={() => { setBottomPaneTab('terminal'); setMobileTab('terminal'); }}
                         className={`px-3 py-1 rounded text-xs font-bold transition-all ${
                           bottomPaneTab === 'terminal'
                             ? 'bg-[#181926] text-white border border-[#27272A]'
                             : 'text-zinc-400 hover:text-white'
                         }`}
                       >
-                        Terminal & Testes
+                        Saída
                       </button>
                       <button
                         type="button"
-                        onClick={() => setBottomPaneTab('preview')}
+                        onClick={() => { setBottomPaneTab('input'); setMobileTab('terminal'); }}
+                        className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                          bottomPaneTab === 'input'
+                            ? 'bg-[#25372f] text-[#e7f2eb] border border-[#41534a]'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Entrada
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setBottomPaneTab('tests'); setMobileTab('terminal'); }}
+                        className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                          bottomPaneTab === 'tests'
+                            ? 'bg-[#25372f] text-[#e7f2eb] border border-[#41534a]'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Testes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setBottomPaneTab('preview'); setMobileTab('terminal'); }}
                         className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1.5 transition-all ${
                           bottomPaneTab === 'preview'
                             ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
@@ -1514,13 +1637,26 @@ export default function HomePage() {
                   <div className={`${mobileTab === 'editor' ? 'hidden' : 'block'} lg:block ${bottomPaneTab === 'preview' ? 'h-[360px]' : 'h-[320px] lg:h-[180px]'} shrink-0`}>
                     {bottomPaneTab === 'terminal' ? (
                       <TerminalConsole
-                        logs={isSubmitting ? ['Executando testes no Sandbox isolado...'] : []}
-                        stdout={submission ? (submission.status === 'passed' ? 'Todos os testes foram validados com sucesso no Sandbox Piston.' : undefined) : undefined}
-                        stderr={submission?.errorMessage || undefined}
-                        durationMs={submission?.durationMs ?? undefined}
-                        memoryRssKb={submission?.durationMs ? 48 * 1024 : undefined}
-                        status={submission?.status}
+                        logs={isPracticing ? ['Executando código...'] : isSubmitting ? ['Avaliando submissão...'] : []}
+                        stdout={resultMode === 'practice' ? practiceResult?.stdout : undefined}
+                        stderr={resultMode === 'practice' ? (practiceError || practiceResult?.errorMessage || practiceResult?.stderr) : submission?.errorMessage}
+                        durationMs={resultMode === 'practice' ? practiceResult?.durationMs : submission?.durationMs ?? undefined}
+                        status={resultMode === 'practice' ? practiceResult?.status : submission?.status}
                       />
+                    ) : bottomPaneTab === 'input' ? (
+                      <div className="h-full bg-[#121b18] p-4">
+                        <label htmlFor="practice-input" className="block mb-2 text-xs text-[#b1c2b7]">Entrada para executar o código</label>
+                        <textarea id="practice-input" value={practiceInput} onChange={(event) => setPracticeInput(event.target.value)} maxLength={10000}
+                          className="w-full h-32 rounded-lg border border-[#41534a] bg-[#0b1210] p-3 font-mono text-sm text-[#edf3ef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#a1e5b7]" />
+                      </div>
+                    ) : bottomPaneTab === 'tests' ? (
+                      <div className="h-full overflow-auto bg-[#121b18]">
+                        <TestResultsGrid
+                          results={submission?.testResults ?? []}
+                          score={submission?.score ?? undefined}
+                          maxScore={submission?.maxScore ?? 100}
+                        />
+                      </div>
                     ) : (
                       <FrontendPreviewPane
                         code={code}
@@ -1532,7 +1668,16 @@ export default function HomePage() {
                   {/* Barra de ações do protótipo: status real + próxima fase real. */}
                   <div className="shrink-0 border-t border-[#27272A] bg-[#12131D] px-4 py-3 flex items-center justify-between gap-3">
                     <span className="text-xs font-code text-zinc-400">
-                      {isSubmitting
+                      {draftStorageUnavailable && 'Não foi possível salvar o rascunho nesta aba. '}
+                      {resultMode === 'practice'
+                        ? isPracticing
+                          ? 'Executando código sem enviar para avaliação…'
+                          : practiceResult
+                            ? practiceResult.status === 'passed'
+                              ? 'Execução concluída. Envie para avaliar a atividade.'
+                              : 'A execução não foi concluída. Confira a saída.'
+                            : practiceError || 'Execute para experimentar ou envie para avaliação.'
+                        : isSubmitting
                         ? 'Executando testes no Sandbox isolado…'
                         : submission
                           ? submission.status === 'passed'
@@ -1548,7 +1693,7 @@ export default function HomePage() {
                                 : 'Acompanhamento interrompido — execute novamente para ver o resultado.'
                           : 'Nenhuma execução ainda — execute os testes para ver o resultado.'}
                     </span>
-                    {submission?.status === 'passed' && nextAct && (
+                    {resultMode === 'submission' && submission?.status === 'passed' && nextAct && (
                       <button
                         onClick={() => void selectActivity(nextAct)}
                         className="px-4 py-2 bg-[#00E676] hover:bg-emerald-400 text-black text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
@@ -1557,7 +1702,7 @@ export default function HomePage() {
                         <span>→</span>
                       </button>
                     )}
-                    {submission?.status === 'passed' && !nextAct && (
+                    {resultMode === 'submission' && submission?.status === 'passed' && !nextAct && (
                       <a
                         href="/dashboard"
                         className="px-4 py-2 bg-[#00E676] hover:bg-emerald-400 text-black text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
@@ -1570,7 +1715,7 @@ export default function HomePage() {
                 </div>
 
                 {/* Coluna 3 — tutora (protótipo: coluna da direita). */}
-                {isChatOpen && (
+                {isChatOpen && !editorCollapsed && (
                   <div className={`${mobileTab === 'tutor' ? 'block' : 'hidden'} lg:block lg:col-span-3 h-[560px] lg:h-auto border-t lg:border-t-0 lg:border-l border-[#27272A] min-h-0 min-w-0`}>
                     <AITutorPanel
                       variant="inline"
@@ -1628,12 +1773,12 @@ export default function HomePage() {
                   >
                     ⚡ Ver Desafios
                   </a>
-                  <a
+                  <Link
                     href="/courses"
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#121629] border border-[#232B47] text-[#E2E8F0] no-underline hover:border-[#8257E5]/60"
                   >
                     📚 Explorar Cursos
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>

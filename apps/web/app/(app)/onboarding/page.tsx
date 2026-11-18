@@ -46,6 +46,7 @@ import { FirstMissionStep } from './components/FirstMissionStep';
 import { SaveAccountStep } from './components/SaveAccountStep';
 import { useGameStore, StarterCreature } from '../game/stores/useGameStore';
 import { AudioSynthesizer } from '../game/engine/AudioSynthesizer';
+import { AdultEligibilityGate } from '../../components/AdultEligibilityGate';
 
 // Sprint 5 — o prólogo ganha a etapa 'account' (salvar a conta) antes da
 // transição para /game: a porta quente da landing agora termina em
@@ -59,6 +60,7 @@ type OnboardingStep = OnboardingStepName | 'complete';
 
 export default function OnboardingPage(): JSX.Element {
   const router = useRouter();
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
 
   // B11 — captura UTMs da URL de chegada (quem cai direto aqui de um anúncio
   // não perde a atribuição; o cadastro lê da sessionStorage via lib)
@@ -213,6 +215,10 @@ export default function OnboardingPage(): JSX.Element {
       router.push(target === 'ide' ? '/ide' : '/game');
     }, 1400);
   };
+
+  if (!adultConfirmed) {
+    return <AdultEligibilityGate onConfirm={() => setAdultConfirmed(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#050814] text-dark-on-surface flex flex-col justify-between selection:bg-[#00E5FF] selection:text-black">
@@ -376,6 +382,7 @@ export default function OnboardingPage(): JSX.Element {
 
         {currentStep === 'account' && (
           <SaveAccountStep
+            adultConfirmed={adultConfirmed}
             onSaved={() => handleFinalize('ide')}
             onSkip={() => handleFinalize('game')}
           />

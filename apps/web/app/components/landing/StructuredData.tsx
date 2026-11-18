@@ -1,4 +1,5 @@
 import React from 'react';
+import { isFreeAlphaMode } from '../../lib/runtime-mode';
 import { PLAN_PRICES, type PlanPrice } from './pricing-data';
 
 /* B44 (Sprint 15) — dados estruturados (JSON-LD) da home.
@@ -67,15 +68,17 @@ const proProductJsonLd = productJsonLd(
 // estruturado espelha só o que a página mostra (Organization +
 // Product do Pro).
 
-export const StructuredData: React.FC = () => (
+export const StructuredData: React.FC<{ includePlanOffer?: boolean }> = ({ includePlanOffer = true }) => (
   <>
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
     />
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(proProductJsonLd) }}
-    />
+    {includePlanOffer && !isFreeAlphaMode && (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(proProductJsonLd) }}
+      />
+    )}
   </>
 );

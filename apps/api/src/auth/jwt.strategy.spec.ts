@@ -1,3 +1,5 @@
+import { UnauthorizedException } from '@nestjs/common';
+import { AGE_ELIGIBILITY_POLICY_VERSION } from '@plataforma/contracts';
 import { ConfigError } from '../config/secrets.validation';
 import {
   JwtStrategy,
@@ -36,6 +38,7 @@ describe('JwtStrategy (fail-fast secret)', () => {
       sub: 'user-1',
       email: 'a@b.com',
       role: 'student',
+      ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
     });
     expect(result).toEqual({
       id: 'user-1',
@@ -44,6 +47,25 @@ describe('JwtStrategy (fail-fast secret)', () => {
       role: 'student',
     });
   });
+
+  it.each([undefined, 'outdated-policy'])(
+    'rejects access tokens without the current adult eligibility version (%s)',
+    async (ageEligibilityVersion) => {
+      configStub.get.mockImplementation((key: string, def?: any) =>
+        key === 'JWT_ACCESS_SECRET' ? 'configured-secret' : def,
+      );
+      const strategy = new JwtStrategy(configStub as any);
+
+      await expect(
+        strategy.validate({
+          sub: 'user-1',
+          email: 'a@b.com',
+          role: 'student',
+          ageEligibilityVersion,
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    },
+  );
 });
 
 describe('extractAccessTokenFromRequest (M15 — cookie-only)', () => {

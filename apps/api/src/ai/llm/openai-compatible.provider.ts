@@ -44,13 +44,24 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 
   constructor(private readonly cfg: OpenAiCompatibleConfig) {}
 
+  get publicPricingProvider(): 'openai' | undefined {
+    try {
+      const url = new URL(this.cfg.endpoint);
+      return url.protocol === 'https:' && url.hostname === 'api.openai.com'
+        ? 'openai'
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   get model(): string {
     return this.cfg.model;
   }
 
   private buildBody(req: LlmCompletionRequest, stream: boolean): string {
     const payload: Record<string, unknown> = {
-      model: this.cfg.model,
+      model: req.model ?? this.cfg.model,
       messages: req.messages,
     };
     if (req.jsonMode) {
@@ -76,6 +87,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResult> {
     const timeout = req.timeoutMs ?? this.cfg.timeoutMs;
+    const model = req.model ?? this.cfg.model;
     const body = this.buildBody(req, false);
 
     let lastError: LlmRequestError | null = null;
@@ -99,7 +111,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
           );
           lastError = new LlmRequestError(
             kind === 'model-unavailable'
-              ? `LLM model unavailable (404): '${this.cfg.model}' may not exist at this endpoint — change the configured model`
+              ? `LLM model unavailable (404): '${model}' may not exist at this endpoint — change the configured model`
               : `LLM request failed with status ${res.status}`,
             res.status,
             retryable,
@@ -124,7 +136,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
             'invalid-response',
           );
         }
-        return { content, model: this.cfg.model, usage: parseUsage(data?.usage) };
+        return { content, model, usage: parseUsage(data?.usage) };
       } catch (err) {
         if (err instanceof LlmRequestError) {
           if (err.retryable && attempt < MAX_ATTEMPTS - 1) {
@@ -155,6 +167,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     req: LlmCompletionRequest,
   ): AsyncGenerator<string, void, unknown> {
     const timeout = req.timeoutMs ?? this.cfg.timeoutMs;
+    const model = req.model ?? this.cfg.model;
     const body = this.buildBody(req, true);
 
     let res: Response | null = null;
@@ -193,7 +206,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
             );
             lastError = new LlmRequestError(
               kind === 'model-unavailable'
-                ? `LLM model unavailable (404): '${this.cfg.model}' may not exist at this endpoint — change the configured model`
+                ? `LLM model unavailable (404): '${model}' may not exist at this endpoint — change the configured model`
                 : `LLM stream failed with status ${candidate.status}`,
               candidate.status,
               retryable,

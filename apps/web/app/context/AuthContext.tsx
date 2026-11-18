@@ -18,13 +18,18 @@ export interface User {
   level?: number;
   streakDays?: number;
   talentVisible?: boolean;
+  learningProfilePending?: boolean;
 }
 
 export interface RegisterPayload {
   email: string;
-  name: string;
+  name?: string;
   password: string;
+  adultConfirmed: boolean;
+  termsAccepted: boolean;
+  privacyAcknowledged: boolean;
   role?: string;
+  deferLearningProfile?: boolean;
   // B07/B09 — atribuição e diagnóstico (ver implementação)
   utmSource?: string;
   utmMedium?: string;
@@ -49,7 +54,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  login: (email: string, password: string, adultConfirmed?: boolean) => Promise<{ success: boolean; error?: string; errorCode?: string; user?: User }>;
   register: (dto: RegisterPayload) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -71,6 +76,7 @@ function normalizeUser(raw: any): User | null {
     level: raw.level,
     streakDays: raw.streakDays,
     talentVisible: raw.talentVisible,
+    learningProfilePending: raw.learningProfilePending === true,
   };
 }
 
@@ -123,20 +129,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refreshSession();
   }, [refreshSession]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> => {
+  const login = async (
+    email: string,
+    password: string,
+    adultConfirmed?: boolean,
+  ): Promise<{ success: boolean; error?: string; errorCode?: string; user?: User }> => {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, adultConfirmed }),
         credentials: 'include',
       });
 
       const data = await res.json();
       if (!res.ok) {
         setIsLoading(false);
-        return { success: false, error: data.message || 'Credenciais inválidas.' };
+        return { success: false, error: data.message || 'Credenciais inválidas.', errorCode: data.errorCode };
       }
 
       // Corpo agora é { user } — cookies httpOnly já vieram no Set-Cookie.
@@ -184,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Corpo agora é { user }; sessão vive nos cookies httpOnly imediatamente após o cadastro.
       const registeredUser = normalizeUser(data.user) ?? {
         id: 'user-id',
-        name: dto.name,
+        name: dto.name ?? 'Estudante',
         email: dto.email,
         role: (dto.role || 'student') as User['role'],
       };

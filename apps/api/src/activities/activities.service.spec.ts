@@ -39,6 +39,12 @@ describe('ActivitiesService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
     },
+    activityReviewState: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
   const createDto = {
@@ -50,6 +56,9 @@ describe('ActivitiesService', () => {
   } as CreateActivityDto;
 
   beforeEach(async () => {
+    mockPrismaService.$transaction.mockImplementation((callback: any) =>
+      callback(mockPrismaService),
+    );
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ActivitiesService,
@@ -187,6 +196,45 @@ describe('ActivitiesService', () => {
       });
       expect(mockPrismaService.activity.findMany).not.toHaveBeenCalled();
     });
+
+    it('prioritizes an overdue spaced review over the next uncompleted activity', async () => {
+      const activities = [
+        {
+          id: 'activity-1',
+          title: 'Desafio seguinte',
+          language: 'javascript',
+          description: 'Próximo conteúdo',
+          order: 1,
+          conceptTags: ['arrays'],
+          courseId: 'course-1',
+          course: { id: 'course-1', title: 'Curso', slug: 'curso' },
+        },
+        {
+          id: 'activity-2',
+          title: 'Conceito para revisar',
+          language: 'javascript',
+          description: 'Revisão de loops',
+          order: 2,
+          conceptTags: ['loops'],
+          courseId: 'course-1',
+          course: { id: 'course-1', title: 'Curso', slug: 'curso' },
+        },
+      ];
+      mockPrismaService.enrollment.findMany.mockResolvedValue([{ courseId: 'course-1' }]);
+      mockPrismaService.activity.findMany.mockResolvedValue(activities);
+      mockPrismaService.submission.findMany.mockResolvedValue([]);
+      const dueAt = new Date(Date.now() - 60_000);
+      mockPrismaService.activityReviewState.findMany.mockResolvedValue([
+        { activityId: 'activity-2', dueAt, intervalDays: 3 },
+      ]);
+
+      await expect(service.getDaily('student-1')).resolves.toMatchObject({
+        activity: {
+          id: 'activity-2',
+          review: { dueAt, intervalDays: 3 },
+        },
+      });
+    });
   });
 
   describe('syncReview (Fase 5, §6.2 — D2, QA Fase 5)', () => {
@@ -204,6 +252,36 @@ describe('ActivitiesService', () => {
         synced: true, deduped: true, submissionId: 'sub-1',
       });
       expect(mockPrismaService.submission.create).not.toHaveBeenCalled();
+    });
+
+    it('persists the next spaced-review interval atomically with an offline review', async () => {
+      mockPrismaService.submission.findFirst.mockResolvedValue(null);
+      mockPrismaService.submission.create.mockResolvedValue({ id: 'sub-review-1' });
+      mockPrismaService.activityReviewState.findUnique.mockResolvedValue(null);
+      mockPrismaService.activityReviewState.upsert.mockResolvedValue({});
+
+      await expect(service.syncReview('student-1', 'activity-1', dto)).resolves.toEqual({
+        synced: true,
+        deduped: false,
+        submissionId: 'sub-review-1',
+      });
+      expect(mockPrismaService.activityReviewState.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_activityId: { userId: 'student-1', activityId: 'activity-1' } },
+          create: expect.objectContaining({
+            userId: 'student-1',
+            activityId: 'activity-1',
+            repetitions: 1,
+            intervalDays: 1,
+            lastPassed: true,
+          }),
+          update: expect.objectContaining({
+            repetitions: 1,
+            intervalDays: 1,
+            lastPassed: true,
+          }),
+        }),
+      );
     });
 
     it('dois syncs CONCORRENTES com o mesmo clientId: ambos com sucesso, um único registro', async () => {

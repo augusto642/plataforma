@@ -259,9 +259,8 @@ export class GiteaService {
     });
 
     // 2. Create or fork repo
-    let repo: any = null;
     if (params.templateRepo) {
-      repo = await this.generateRepoFromTemplate({
+      await this.generateRepoFromTemplate({
         templateOwner: this.orgName,
         templateRepo: params.templateRepo,
         newOwner: this.orgName,
@@ -269,7 +268,7 @@ export class GiteaService {
         isPrivate: true,
       });
     } else {
-      repo = await this.createOrgRepo({
+      await this.createOrgRepo({
         name: repoName,
         isPrivate: true,
         autoInit: true,
@@ -338,8 +337,8 @@ export class GiteaService {
           candidates.set(`${owner}/${name}`, { owner, repo: name });
         }
       }
-    } catch (err: any) {
-      this.logger.warn(`Failed to list Gitea repos owned by ${username}: ${err.message}`);
+    } catch {
+      this.logger.warn(`Failed to list Gitea repositories during account deletion.`);
     }
 
     const deleted: string[] = [];
@@ -351,16 +350,16 @@ export class GiteaService {
           deleted.push(`${owner}/${repo}`);
         } else {
           failed.push(`${owner}/${repo}`);
-          this.logger.warn(`Gitea repo deletion failed for ${owner}/${repo}, status ${res.status}`);
+          this.logger.warn(`Gitea repository deletion failed, status ${res.status}`);
         }
-      } catch (err: any) {
+      } catch {
         failed.push(`${owner}/${repo}`);
-        this.logger.warn(`Gitea repo deletion failed for ${owner}/${repo}: ${err.message}`);
+        this.logger.warn(`Gitea repository deletion failed.`);
       }
     }
 
     if (deleted.length > 0) {
-      this.logger.log(`Deleted Gitea repos of ${username}: ${deleted.join(', ')}`);
+      this.logger.log(`Deleted ${deleted.length} Gitea repositories during account cleanup.`);
     }
     return { deleted, failed };
   }
@@ -372,13 +371,13 @@ export class GiteaService {
         method: 'DELETE',
       });
       if (res.status === 200 || res.status === 204) {
-        this.logger.log(`Deleted Gitea user ${username}`);
+        this.logger.log(`Deleted Gitea user during account cleanup.`);
         return 'deleted';
       }
       if (res.status === 404) return 'not_found';
-      this.logger.warn(`Gitea admin user delete not supported/denied for ${username}, status ${res.status}`);
-    } catch (err: any) {
-      this.logger.warn(`Gitea user delete request failed for ${username}: ${err.message}`);
+      this.logger.warn(`Gitea admin user deletion not supported/denied, status ${res.status}`);
+    } catch {
+      this.logger.warn(`Gitea user deletion request failed.`);
     }
 
     // Fallback: deactivate the account (revokes access) when deletion is unsupported.
@@ -388,13 +387,13 @@ export class GiteaService {
         body: { active: false, prohibit_login: true },
       });
       if (res.status === 200 || res.status === 204) {
-        this.logger.log(`Deactivated Gitea user ${username} (delete unsupported)`);
+        this.logger.log(`Deactivated Gitea user after deletion was unsupported.`);
         return 'deactivated';
       }
       if (res.status === 404) return 'not_found';
-      this.logger.warn(`Could not deactivate Gitea user ${username}, status ${res.status}`);
-    } catch (err: any) {
-      this.logger.warn(`Gitea user deactivation failed for ${username}: ${err.message}`);
+      this.logger.warn(`Could not deactivate Gitea user, status ${res.status}`);
+    } catch {
+      this.logger.warn(`Gitea user deactivation failed.`);
     }
     return 'failed';
   }
@@ -412,8 +411,8 @@ export class GiteaService {
           body: { name: newName },
         });
         if (res.status === 200) renamed.push(full);
-      } catch (err: any) {
-        this.logger.warn(`Could not mark Gitea repo as deleted ${full}: ${err.message}`);
+      } catch {
+        this.logger.warn(`Could not mark a Gitea repository as deleted.`);
       }
     }
     return renamed;
@@ -441,15 +440,15 @@ export class GiteaService {
       result.reposDeleted = deleted;
       result.reposFailed = failed;
     } catch (err: any) {
-      this.logger.error(`deleteReposByOwner failed for ${username}: ${err.message}`);
+      this.logger.error(`Gitea repository cleanup failed during account deletion.`);
       result.reposFailed = [`unexpected: ${err.message}`];
     }
 
     // 2. Delete (or deactivate) the Gitea user.
     try {
       result.userStatus = await this.deleteUserByUsername(username);
-    } catch (err: any) {
-      this.logger.error(`deleteUserByUsername failed for ${username}: ${err.message}`);
+    } catch {
+      this.logger.error(`Gitea user cleanup failed during account deletion.`);
     }
 
     // 3. Mark repos that could not be deleted with a -deleted-<hash> suffix so
@@ -463,10 +462,13 @@ export class GiteaService {
     result.ok = !result.pending;
 
     if (result.pending) {
-      this.logger.warn(`deletionQueued: Gitea deletion incomplete for ${username}`, JSON.stringify(result));
+      this.logger.warn(
+        `Gitea deletion is incomplete: user status=${result.userStatus}, ` +
+          `${result.reposFailed.length} repositories remain.`,
+      );
     } else {
       this.logger.log(
-        `Gitea data removed for ${username}: user=${result.userStatus}, repos deleted=${result.reposDeleted.length}`,
+        `Gitea data removed: user=${result.userStatus}, repositories deleted=${result.reposDeleted.length}`,
       );
     }
     return result;

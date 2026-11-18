@@ -43,6 +43,10 @@ export class ChatWithTutorDto {
   @IsNotEmpty()
   activityId!: string;
 
+  @IsUUID()
+  @IsOptional()
+  aiRoomId?: string;
+
   @IsString()
   @IsOptional()
   @MaxLength(100000)

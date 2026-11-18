@@ -32,6 +32,7 @@ import {
 import { useGameStore } from '../../game/stores/useGameStore';
 
 interface SaveAccountStepProps {
+  adultConfirmed: boolean;
   /** Cadastro concluído (ou conta já existente): a conta salvou o
    *  progresso e a jornada continua na primeira missão da IDE. */
   onSaved: () => void;
@@ -46,7 +47,11 @@ const TIER_LABELS: Record<string, string> = {
   senior: 'Sênior',
 };
 
-export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSkip }) => {
+export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({
+  adultConfirmed,
+  onSaved,
+  onSkip,
+}) => {
   const { register: authRegister, user, isLoading } = useAuth();
 
   const player = useGameStore((s) => s.player);
@@ -62,6 +67,8 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
   const [goal, setGoal] = useState(readOnboardingChoices()?.goal ?? '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,6 +99,10 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
       setErrorMsg('A senha precisa ter pelo menos 6 caracteres.');
       return;
     }
+    if (!adultConfirmed || !termsAccepted || !privacyAcknowledged) {
+      setErrorMsg('Confirme que tem 18 anos ou mais, aceite os Termos de Uso e confirme a leitura da Política de Privacidade.');
+      return;
+    }
 
     setIsSubmitting(true);
     track('signup_submit', 'onboarding_save', funnelProps());
@@ -104,6 +115,9 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
         password,
         name: name.trim(),
         role: 'student',
+        adultConfirmed,
+        termsAccepted,
+        privacyAcknowledged,
         ...readStoredUtm(),
         ...readStoredDiagnosticToken(),
       });
@@ -263,9 +277,53 @@ export const SaveAccountStep: React.FC<SaveAccountStepProps> = ({ onSaved, onSki
             </span>
           </label>
 
+          <div className="space-y-3 rounded-xl border border-border-subtle bg-dark-surface-container-low/70 p-4">
+            <p className="font-mono text-xs leading-relaxed text-dark-on-surface-variant">
+              Usamos os dados necessários para manter sua conta e progresso, personalizar o aprendizado
+              e operar recursos de código e IA. Consulte a Política de Privacidade para detalhes sobre
+              dados, usos, compartilhamento e seus direitos.
+            </p>
+            <p className="font-mono text-xs text-dark-on-surface-variant">
+              Confirmação de maioridade registrada nesta sessão ·{' '}
+              <Link href="/politica-de-idade" target="_blank" rel="noopener noreferrer" className="font-bold text-[#A379FF] underline">
+                Política de idade
+              </Link>
+            </p>
+            <label className="flex items-start gap-2.5 font-mono text-xs text-dark-on-surface">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#8257E5]"
+              />
+              <span>
+                Li e aceito os{' '}
+                <Link href="/termos" target="_blank" rel="noopener noreferrer" className="font-bold text-[#A379FF] underline">
+                  Termos de Uso
+                </Link>
+                .
+              </span>
+            </label>
+            <label className="flex items-start gap-2.5 font-mono text-xs text-dark-on-surface">
+              <input
+                type="checkbox"
+                checked={privacyAcknowledged}
+                onChange={(e) => setPrivacyAcknowledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#8257E5]"
+              />
+              <span>
+                Li e estou ciente da{' '}
+                <Link href="/privacidade" target="_blank" rel="noopener noreferrer" className="font-bold text-[#A379FF] underline">
+                  Política de Privacidade
+                </Link>
+                .
+              </span>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={isSubmitting || isLoading}
+            disabled={isSubmitting || isLoading || !adultConfirmed || !termsAccepted || !privacyAcknowledged}
             className="w-full rounded-xl bg-[#8257E5] px-6 py-3.5 font-mono text-sm font-black text-white shadow-lg shadow-[#8257E5]/30 transition hover:bg-[#6D28D9] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Criando sua conta...' : 'Começar grátis agora'}

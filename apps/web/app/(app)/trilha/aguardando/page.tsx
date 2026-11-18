@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
@@ -12,7 +12,6 @@ import {
   type DynamicTrackView,
 } from '../../../lib/dynamic-track';
 import { TrackFooter, TrackTopbar } from '../components/track-chrome';
-import { ImmersionRadar3D } from './components/ImmersionRadar3D';
 
 // Central 216 (F1) — rota "Aguardando Trilha" (mobile + desktop num só
 // layout responsivo), enriquecida com o Módulo de Imersão Visual do Pacote 2.3.
@@ -20,10 +19,10 @@ import { API_BASE } from '../../../lib/apiClient';
 
 interface ImmersionData {
   goal: string;
-  hoursElapsed: number;
-  progressPercentage: number;
+  hoursElapsed: number | null;
   miningStage: string;
-  workersActive: number;
+  investigationStatus: 'investigating' | 'ready' | 'failed' | 'not_started';
+  marketDataAvailable: boolean;
   visualArchitecture: Array<{
     layer: string;
     title: string;
@@ -51,83 +50,44 @@ interface ImmersionData {
       microSkills: string[];
       graduationChallenge: string;
     }>;
-  };
+  } | null;
 }
 
-const INVESTIGATION_STEPS = [
-  {
-    code: 'ETAPA 01',
-    title: 'Motivo e objetivo',
-    description: 'Metas e disponibilidade registradas no cadastro.',
-    state: 'done' as const,
-  },
-  {
-    code: 'ETAPA 02',
-    title: 'Mercado e vagas',
-    description: 'Mapeando competências mais exigidas nas vagas tech.',
-    state: 'current' as const,
-  },
-  {
-    code: 'ETAPA 03',
-    title: 'Stack',
-    description: 'Definição das tecnologias e ferramentas ideais.',
-    state: 'pending' as const,
-  },
-  {
-    code: 'ETAPA 04',
-    title: 'Desafios',
-    description: 'Estruturação dos projetos práticos e chefões.',
-    state: 'pending' as const,
-  },
-];
+interface ImmediateMiniTrack {
+  available: boolean;
+  reason: 'investigation_not_active' | 'course_not_found' | 'no_pending_activities' | null;
+  track: string | null;
+  trackName: string | null;
+  course: { id: string; slug: string; title: string } | null;
+  activities: Array<{
+    id: string;
+    title: string;
+    description: string;
+    order: number;
+  }>;
+}
+
+const INVESTIGATION_STATUS_LABELS: Record<
+  ImmersionData['investigationStatus'],
+  string
+> = {
+  investigating: 'Em andamento',
+  ready: 'Concluída',
+  failed: 'Falhou',
+  not_started: 'Não iniciada',
+};
 
 function InvestigationSteps() {
   return (
     <div className="pt-6 border-t border-border-subtle">
-      <h2 className="font-headline font-bold text-xs text-white uppercase tracking-wider mb-5 flex items-center gap-2">
+      <h2 className="font-headline font-bold text-xs text-white uppercase tracking-wider mb-2 flex items-center gap-2">
         <MaterialIcon name="query_stats" className="text-secondary text-[18px]" />
-        <span>Andamento da Investigação</span>
+        <span>Detalhes do processamento</span>
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {INVESTIGATION_STEPS.map((step) => (
-          <div
-            key={step.code}
-            className={
-              step.state === 'done'
-                ? 'p-4 rounded-lg bg-dark-surface border border-secondary/40 relative'
-                : step.state === 'current'
-                  ? 'p-4 rounded-lg bg-dark-surface border border-primary/50 relative'
-                  : 'p-4 rounded-lg bg-dark-surface border border-border-subtle opacity-70 relative'
-            }
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span
-                className={
-                  step.state === 'done'
-                    ? 'font-code text-[11px] text-secondary font-bold'
-                    : step.state === 'current'
-                      ? 'font-code text-[11px] text-dark-primary font-bold'
-                      : 'font-code text-[11px] text-dark-on-surface-variant'
-                }
-              >
-                {step.code}
-              </span>
-              {step.state === 'done' ? (
-                <MaterialIcon name="check_circle" className="text-secondary text-[18px]" />
-              ) : step.state === 'current' ? (
-                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              ) : (
-                <MaterialIcon
-                  name="schedule"
-                  className="text-dark-on-surface-variant text-[18px]"
-                />
-              )}
-            </div>
-            <h3 className="font-headline font-semibold text-white text-sm mb-1">{step.title}</h3>
-            <p className="text-xs text-dark-on-surface-variant">{step.description}</p>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs text-dark-on-surface-variant m-0">
+        O processamento é assíncrono, mas ainda não há telemetria por etapa.
+        Esta tela mostra o estado real da solicitação, sem simular etapas concluídas.
+      </p>
     </div>
   );
 }
@@ -139,6 +99,8 @@ export default function AguardandoTrilhaPage() {
     undefined,
   );
   const [immersion, setImmersion] = useState<ImmersionData | null>(null);
+  const [miniTrack, setMiniTrack] = useState<ImmediateMiniTrack | null>(null);
+  const [miniTrackError, setMiniTrackError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -154,6 +116,21 @@ export default function AguardandoTrilhaPage() {
         if (!cancelled && data) setImmersion(data);
       })
       .catch(() => null);
+    setMiniTrack(null);
+    setMiniTrackError(null);
+    fetch(`${API_BASE}/dynamic-track/me/mini-track`, { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return (await res.json()) as ImmediateMiniTrack;
+      })
+      .then((data) => {
+        if (!cancelled) setMiniTrack(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMiniTrackError('Não foi possível carregar sua mini-trilha agora.');
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -163,6 +140,8 @@ export default function AguardandoTrilhaPage() {
   useEffect(() => {
     if (investigation?.status === 'ready') router.replace('/trilha/sugerida');
   }, [investigation, router]);
+
+  const miniTrackCourse = miniTrack?.course ?? null;
 
   async function handleStart() {
     setStarting(true);
@@ -239,9 +218,9 @@ export default function AguardandoTrilhaPage() {
               Receba uma trilha sugerida para você
             </h1>
             <p className="font-body text-body-md text-dark-on-surface-variant max-w-2xl leading-relaxed">
-              Analisamos seu perfil e suas metas — motivo, mercado, stack,
-              desafios e vagas — e sugerimos a melhor trilha em até 2 dias.
-              Enquanto isso, a trilha inicial e os desafios já estão liberados.
+              Registramos seu perfil e suas metas para preparar uma sugestão de
+              trilha em até 2 dias. Enquanto isso, a trilha inicial e os desafios
+              já estão liberados; dados reais de vagas ainda não estão conectados.
             </p>
             {startError && (
               <p role="alert" className="text-sm text-red-400 mt-4">
@@ -344,9 +323,9 @@ export default function AguardandoTrilhaPage() {
                 Sua trilha está sendo preparada
               </h1>
               <p className="font-body text-body-md md:text-body-lg text-dark-on-surface-variant max-w-2xl leading-relaxed">
-                A IA está analisando seu perfil, o mercado e as vagas para montar sua
-                trilha personalizada. Ela chega em até 2 dias — avisaremos você aqui na
-                plataforma.
+                Sua solicitação está registrada. O prazo de até 2 dias é um SLA,
+                não uma medição de progresso em tempo real; avisaremos você quando
+                houver uma sugestão pronta.
               </p>
               {investigation.slaDueAt && (
                 <p className="text-xs text-dark-on-surface-variant mt-3">
@@ -361,37 +340,94 @@ export default function AguardandoTrilhaPage() {
           <InvestigationSteps />
         </section>
 
-        {/* Pacote 2.3 — Módulo de Imersão: Status Vivo da Pesquisa (48h) com Three.js */}
+        <section className="rounded-xl bg-dark-surface-container-low border border-border-strong p-6 space-y-4">
+          <div>
+            <span className="font-code text-xs text-secondary font-bold uppercase tracking-wider block mb-1">
+              Primeiro valor agora
+            </span>
+            <h2 className="font-headline text-headline-sm font-bold text-white m-0">
+              Comece enquanto sua trilha é preparada
+            </h2>
+            <p className="text-sm text-dark-on-surface-variant mt-2 mb-0">
+              Esta sequência usa atividades existentes do curso indicado pelo seu diagnóstico;
+              atividades já aprovadas não aparecem novamente.
+            </p>
+          </div>
+
+          {miniTrackError && (
+            <p role="alert" className="text-sm text-red-400 m-0">
+              {miniTrackError}
+            </p>
+          )}
+          {!miniTrack && !miniTrackError && (
+            <p role="status" className="text-sm text-dark-on-surface-variant m-0">
+              Carregando atividades disponíveis…
+            </p>
+          )}
+          {miniTrack?.available && miniTrackCourse && (
+            <div className="space-y-3">
+              <p className="text-xs text-dark-on-surface-variant m-0">
+                {miniTrack.trackName} · {miniTrackCourse.title}
+              </p>
+              <ol className="space-y-2 p-0 m-0 list-none">
+                {miniTrack.activities.map((activity, index) => (
+                  <li
+                    key={activity.id}
+                    className="rounded-lg border border-border-subtle bg-dark-surface-container p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                  >
+                    <div>
+                      <p className="text-sm text-white font-semibold m-0">
+                        {index + 1}. {activity.title}
+                      </p>
+                      <p className="text-xs text-dark-on-surface-variant mt-1 mb-0">
+                        {activity.description}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/ide?course=${encodeURIComponent(miniTrackCourse.id)}&activity=${encodeURIComponent(activity.id)}`}
+                      className="shrink-0 text-sm font-bold text-secondary hover:text-white transition-colors"
+                    >
+                      Começar
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {miniTrack && !miniTrack.available && (
+            <p className="text-sm text-dark-on-surface-variant m-0">
+              {miniTrack.reason === 'course_not_found'
+                ? 'Ainda não há um curso publicado para a trilha do seu diagnóstico.'
+                : miniTrack.reason === 'no_pending_activities'
+                  ? 'Você já concluiu as atividades disponíveis deste curso.'
+                  : 'A mini-trilha fica disponível enquanto a investigação estiver em andamento.'}
+            </p>
+          )}
+        </section>
+
+        {/* Mostra apenas o estado e o tempo reais; não simula avanço nem workers. */}
         {immersion && (
           <section className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-6 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#00E5FF] animate-ping" />
-                <h2 className="font-headline font-bold text-sm text-white uppercase tracking-wider m-0">
-                  Status Vivo da Pesquisa de Mercado (Janela 48h)
-                </h2>
-              </div>
-              <span className="font-code text-xs text-[#00E5FF] bg-[#00E5FF]/10 px-2.5 py-1 rounded-full border border-[#00E5FF]/30">
-                {immersion.workersActive} Workers Minerando em Background
-              </span>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00E5FF]" />
+              <h2 className="font-headline font-bold text-sm text-white uppercase tracking-wider m-0">
+                Estado da investigação
+              </h2>
             </div>
-
-            {/* Radar Holográfico 3D de Pesquisa de Mercado */}
-            <div className="rounded-lg bg-[#07090E]/60 border border-[#1C2338]/60 overflow-hidden">
-              <ImmersionRadar3D workersActive={immersion.workersActive} />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-mono text-[#94A3B8]">
-                <span>Etapa Atual: <strong className="text-white">{immersion.miningStage}</strong></span>
-                <span>{immersion.progressPercentage}% ({immersion.hoursElapsed}h / 48h)</span>
-              </div>
-              <div className="w-full h-2.5 rounded-full bg-[#121624] overflow-hidden border border-[#1C2338]">
-                <div
-                  className="h-full bg-gradient-to-r from-[#8257E5] via-[#A379FF] to-[#00E5FF] transition-all duration-1000"
-                  style={{ width: `${immersion.progressPercentage}%` }}
-                />
-              </div>
+            <p className="text-sm text-[#F1F5F9] m-0">{immersion.miningStage}</p>
+            <div className="text-xs text-[#94A3B8] space-y-1">
+              <p className="m-0">
+                Status:{' '}
+                <span className="font-mono">
+                  {INVESTIGATION_STATUS_LABELS[immersion.investigationStatus]}
+                </span>
+                {immersion.hoursElapsed !== null
+                  ? ` • registrada há ${immersion.hoursElapsed}h`
+                  : ''}
+              </p>
+              <p className="m-0">
+                Ainda não há telemetria de etapas para informar percentual ou workers ativos.
+              </p>
             </div>
           </section>
         )}
@@ -447,7 +483,20 @@ export default function AguardandoTrilhaPage() {
           </section>
         )}
 
-        {/* Pacote 2.3 — Módulo de Imersão: Raio-X do Mercado (Brasil vs. Internacional USD) */}
+        {immersion && !immersion.marketDataAvailable && (
+          <section className="rounded-xl bg-[#0C0F17] border border-[#1C2338] p-6 space-y-2">
+            <span className="font-code text-xs text-[#00E5FF] font-bold uppercase tracking-wider">
+              Pesquisa de mercado indisponível
+            </span>
+            <p className="text-sm text-white m-0">
+              A plataforma ainda não está conectada a uma fonte autorizada de vagas.
+              Por isso, não exibimos salários ou competências como se fossem dados
+              coletados.
+            </p>
+          </section>
+        )}
+
+        {/* Exibido somente quando houver pesquisa real disponível. */}
         {immersion?.marketXRay && (
           <section className="space-y-4">
             <div>

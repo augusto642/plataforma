@@ -14,6 +14,7 @@ import {
   fetchMySubscription,
   type MySubscription,
 } from '../../../lib/billing';
+import { isFreeAlphaMode } from '../../../lib/runtime-mode';
 
 // B37 (Sprint 11) — aba de plano HONESTA.
 // Antes esta tela era um stub fictício: plano "PRO ativo" com renovação
@@ -52,6 +53,8 @@ export const BillingTab: React.FC = () => {
 
   // Fase 1 premium — assinatura real (GET /billing/subscription/me).
   const [subscription, setSubscription] = useState<MySubscription | null>(null);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
 
@@ -61,7 +64,18 @@ export const BillingTab: React.FC = () => {
       if (active) setInterest(view);
     });
     fetchMySubscription().then((view) => {
-      if (active) setSubscription(view);
+      if (active) {
+        setSubscription(view);
+        setSubscriptionError(null);
+      }
+    }).catch((err: unknown) => {
+      if (active) {
+        setSubscriptionError(
+          err instanceof Error ? err.message : 'Não foi possível consultar a assinatura.',
+        );
+      }
+    }).finally(() => {
+      if (active) setSubscriptionLoading(false);
     });
     return () => {
       active = false;
@@ -75,6 +89,7 @@ export const BillingTab: React.FC = () => {
       const result = await cancelMySubscription();
       setCancelMessage(result.message ?? 'Assinatura cancelada.');
       setSubscription(await fetchMySubscription());
+      setSubscriptionError(null);
     } catch (err) {
       setCancelMessage(err instanceof Error ? err.message : 'Não foi possível cancelar.');
     } finally {
@@ -137,7 +152,7 @@ export const BillingTab: React.FC = () => {
                 <span className="text-xs text-zinc-400 font-mono">/ para sempre</span>
               </div>
             )}
-            {!isPro && !isCareer && (
+            {!isFreeAlphaMode && !isPro && !isCareer && (
               <Link
                 href="/checkout/pro"
                 className="px-4 py-2 rounded-xl bg-[#8257E5] hover:bg-[#996DFF] text-white font-bold text-xs transition-all shadow-md shadow-[#8257E5]/25"
@@ -145,12 +160,14 @@ export const BillingTab: React.FC = () => {
                 Assinar o Pro (modo de testes)
               </Link>
             )}
-            <Link
-              href="/#precos"
-              className="px-4 py-2 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] text-zinc-200 font-bold text-xs transition-all"
-            >
-              Ver planos e preços
-            </Link>
+            {!isFreeAlphaMode && (
+              <Link
+                href="/#precos"
+                className="px-4 py-2 rounded-xl bg-[#121624] hover:bg-[#1C2338] border border-[#1C2338] text-zinc-200 font-bold text-xs transition-all"
+              >
+                Ver planos e preços
+              </Link>
+            )}
           </div>
         </div>
 
@@ -202,10 +219,17 @@ export const BillingTab: React.FC = () => {
           Assinatura e cobranças
         </h3>
         <p className="text-xs text-amber-300 mb-4">
-          Ambiente de testes — nenhuma cobrança real é feita. Nenhum dado de
-          cartão é exibido ou armazenado.
+          {isFreeAlphaMode
+            ? 'Alfa gratuito — checkout e cobranças estão desativados. Nenhum dado de cartão é coletado.'
+            : 'Ambiente de testes — nenhuma cobrança real é feita. Nenhum dado de cartão é exibido ou armazenado.'}
         </p>
-        {subscription?.subscription ? (
+        {subscriptionError ? (
+          <p role="alert" className="text-xs text-rose-300">
+            Não foi possível consultar sua assinatura: {subscriptionError}
+          </p>
+        ) : subscriptionLoading ? (
+          <p className="text-xs text-zinc-400">Consultando assinatura…</p>
+        ) : subscription?.subscription ? (
           <div className="text-xs text-zinc-300 space-y-2">
             <p>
               <span className="font-bold text-white">Plano:</span>{' '}

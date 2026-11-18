@@ -102,7 +102,7 @@ export class CoursesService {
     @Optional() private readonly certificates?: CertificateService,
   ) {}
 
-  async create(instructorId: string, dto: CreateCourseDto) {
+  async create(instructorId: string, dto: CreateCourseDto, actorRole?: string) {
     const existing = await this.prisma.course.findUnique({
       where: { slug: dto.slug },
     });
@@ -112,19 +112,35 @@ export class CoursesService {
 
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        const course = await this.prisma.course.create({
-          data: {
-            title: dto.title,
-            slug: dto.slug,
-            description: dto.description,
-            instructorId,
-            enrollmentCode: generateEnrollmentCode(),
-          },
-          include: {
-            instructor: {
-              select: { id: true, name: true, email: true },
+        const course = await this.prisma.$transaction(async (tx) => {
+          const createdCourse = await tx.course.create({
+            data: {
+              title: dto.title,
+              slug: dto.slug,
+              description: dto.description,
+              instructorId,
+              enrollmentCode: generateEnrollmentCode(),
             },
-          },
+            include: {
+              instructor: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          });
+
+          if (actorRole === 'admin') {
+            await tx.adminAuditEvent.create({
+              data: {
+                adminId: instructorId,
+                action: 'course.created',
+                targetType: 'course',
+                targetId: createdCourse.id,
+                changedFields: ['created', 'title', 'slug', 'description'],
+              },
+            });
+          }
+
+          return createdCourse;
         });
 
         await this.cache.del('courses:list');
@@ -301,9 +317,25 @@ export class CoursesService {
     if (userRole !== 'admin' && userId && course.instructorId !== userId) {
       throw new ForbiddenException('Apenas o instrutor responsável ou administradores podem editar este curso');
     }
-    await this.prisma.course.update({
-      where: { id },
-      data: dto,
+    await this.prisma.$transaction(async (tx) => {
+      await tx.course.update({
+        where: { id },
+        data: dto,
+      });
+
+      if (userRole === 'admin' && userId) {
+        await tx.adminAuditEvent.create({
+          data: {
+            adminId: userId,
+            action: 'course.updated',
+            targetType: 'course',
+            targetId: id,
+            changedFields: Object.entries(dto)
+              .filter(([, value]) => value !== undefined)
+              .map(([key]) => key),
+          },
+        });
+      }
     });
 
     await this.cache.del(`courses:${id}`);

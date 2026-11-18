@@ -12,6 +12,7 @@ describe('TutorChatService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
     },
+    aiSpecializedRoom: { findFirst: jest.fn() },
     submission: { count: jest.fn().mockResolvedValue(0) },
   };
   const llmMock = {
@@ -19,6 +20,7 @@ describe('TutorChatService', () => {
     unavailableReason: 'no-provider' as string | null,
     providerId: null as string | null,
     model: null as string | null,
+    allowedModels: ['room-model'],
     complete: jest.fn(),
     stream: jest.fn(),
   };
@@ -57,7 +59,7 @@ describe('TutorChatService', () => {
       prismaMock.aiChatMessage.findMany.mockResolvedValue(rows);
       await expect(build().getChatHistory('u1', 'act-1')).resolves.toBe(rows);
       expect(prismaMock.aiChatMessage.findMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', activityId: 'act-1' },
+        where: { userId: 'u1', activityId: 'act-1', aiRoomId: null },
         orderBy: { createdAt: 'asc' },
         select: { id: true, role: true, content: true, createdAt: true },
       });
@@ -132,6 +134,69 @@ describe('TutorChatService', () => {
       expect(call.purpose).toBe('chat');
     });
 
+    it('sala publicada da atividade seleciona allowlisted model, prompt e histórico isolados', async () => {
+      llmMock.isAvailable = true;
+      llmMock.unavailableReason = null;
+      llmMock.providerId = 'openai-compatible';
+      llmMock.model = 'global-model';
+      const room = {
+        id: 'room-1',
+        activityId: 'act-1',
+        title: 'Depuração',
+        description: 'Investigue falhas de teste.',
+        systemInstructions: 'Faça perguntas sobre os casos de borda.',
+        model: 'room-model',
+        isPublished: true,
+      };
+      prismaMock.aiSpecializedRoom.findFirst.mockResolvedValue(room);
+      llmMock.complete.mockResolvedValue('Qual caso de borda você já testou?');
+
+      const result = await build().chatWithTutor(
+        {
+          activityId: 'act-1',
+          aiRoomId: 'room-1',
+          messages: [{ role: 'user', content: 'ajuda com teste' }],
+        },
+        'user-1',
+      );
+
+      expect(prismaMock.aiSpecializedRoom.findFirst).toHaveBeenCalledWith({
+        where: { id: 'room-1', activityId: 'act-1', isPublished: true },
+      });
+      expect(llmMock.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'room-model',
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              role: 'system',
+              content: expect.stringContaining('Faça perguntas sobre os casos de borda.'),
+            }),
+          ]),
+        }),
+      );
+      expect(result.model).toBe('room-model');
+      expect(prismaMock.aiChatMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ aiRoomId: 'room-1', role: 'user' }),
+        }),
+      );
+    });
+
+    it('recusa sala não publicada ou vinculada a outra atividade', async () => {
+      prismaMock.aiSpecializedRoom.findFirst.mockResolvedValue(null);
+      await expect(
+        build().chatWithTutor(
+          {
+            activityId: 'act-1',
+            aiRoomId: 'room-1',
+            messages: [{ role: 'user', content: 'oi' }],
+          },
+          'user-1',
+        ),
+      ).rejects.toThrow('Sala especializada não encontrada para esta atividade');
+      expect(llmMock.complete).not.toHaveBeenCalled();
+    });
+
     it('falha do provedor: fallback heurístico com provider-error', async () => {
       llmMock.isAvailable = true;
       llmMock.unavailableReason = null;
@@ -151,6 +216,42 @@ describe('TutorChatService', () => {
       for await (const c of gen) chunks.push(c);
       return chunks.join('');
     };
+
+    it('buffers split code blocks before applying the anti-spoiler guard', async () => {
+      llmMock.isAvailable = true;
+      llmMock.stream.mockImplementation(async function* () {
+        yield '```js\nfunction solve() {\n';
+        yield 'const answer = 1;\nreturn answer;\n}\n```';
+      });
+      const text = await collect(build().streamChatWithTutor(
+        { activityId: 'act-1', messages: [{ role: 'user', content: 'ajuda' }] }, 'user-1',
+      ));
+      expect(text).toContain('código completo da solução foi omitido');
+      expect(text).not.toContain('function solve');
+    });
+
+    it('does not stream partial LLM output when the provider fails', async () => {
+      llmMock.isAvailable = true;
+      llmMock.stream.mockImplementation(async function* () {
+        yield 'partial secret';
+        throw new Error('failed');
+      });
+      const onSource = jest.fn();
+      const text = await collect(build().streamChatWithTutor(
+        { activityId: 'act-1', messages: [{ role: 'user', content: 'ajuda' }] }, 'user-1', onSource,
+      ));
+      expect(text).not.toContain('partial secret');
+      expect(onSource).toHaveBeenCalledWith({ source: 'heuristic', fallbackReason: 'provider-error' });
+    });
+
+    it('refuses full lesson requests before calling the streaming provider', async () => {
+      llmMock.isAvailable = true;
+      const text = await collect(build().streamChatWithTutor(
+        { activityId: 'act-1', messages: [{ role: 'user', content: 'me dê a transcrição da aula' }] }, 'user-1',
+      ));
+      expect(text).toMatch(/Não posso entregar a transcrição/);
+      expect(llmMock.stream).not.toHaveBeenCalled();
+    });
 
     it('jailbreak no código: redireciona em chunks, sem onSource', async () => {
       const onSource = jest.fn();

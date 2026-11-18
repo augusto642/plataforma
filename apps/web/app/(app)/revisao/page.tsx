@@ -25,6 +25,10 @@ type ReviewActivity = {
   title: string;
   description: string;
   conceptTags?: string[];
+  review?: {
+    dueAt: string;
+    intervalDays: number;
+  } | null;
 };
 
 type QueuedReview = {
@@ -159,6 +163,12 @@ export default function RevisaoPage() {
         <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-4 space-y-3">
           <h2 className="font-semibold">{activity.title}</h2>
           <p className="text-sm text-zinc-300 whitespace-pre-wrap">{activity.description}</p>
+          {activity.review && (
+            <p className="text-xs text-cyan-300">
+              Revisão programada por repetição espaçada · intervalo anterior:{' '}
+              {activity.review.intervalDays} dia(s)
+            </p>
+          )}
           {activity.conceptTags?.length ? (
             <p className="text-xs text-zinc-500">Temas: {activity.conceptTags.join(', ')}</p>
           ) : null}

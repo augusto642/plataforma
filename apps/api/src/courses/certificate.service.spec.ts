@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
+import { IS_PUBLIC_KEY } from '../auth/decorators/public.decorator';
+import { ROLES_KEY } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
+import { CertificatesController } from './certificates.controller';
 import { CertificateService } from './certificate.service';
 
 /**
@@ -18,12 +22,15 @@ describe('CertificateService', () => {
 
   const code = 'c'.repeat(64);
   const mockPrisma = {
+    $transaction: jest.fn(),
     certificate: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
+    adminAuditEvent: { create: jest.fn() },
     course: { findUnique: jest.fn() },
     enrollment: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
     activity: { count: jest.fn() },
@@ -32,6 +39,7 @@ describe('CertificateService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma));
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CertificateService,
@@ -39,6 +47,12 @@ describe('CertificateService', () => {
       ],
     }).compile();
     service = module.get<CertificateService>(CertificateService);
+  });
+
+  it('exposes status publicly but restricts revocation to administrators', () => {
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, CertificatesController.prototype.status)).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, CertificatesController.prototype.revoke)).not.toBe(true);
+    expect(Reflect.getMetadata(ROLES_KEY, CertificatesController.prototype.revoke)).toEqual([Role.admin]);
   });
 
   it('verify: Certificate válido vence, sem consultar a matrícula', async () => {
@@ -64,6 +78,7 @@ describe('CertificateService', () => {
       revokedAt: new Date(),
       user: { name: 'Maria Silva' },
     });
+
     mockPrisma.enrollment.findFirst.mockResolvedValue({
       certificateCode: code,
       user: { name: 'Maria Silva' },
@@ -71,6 +86,25 @@ describe('CertificateService', () => {
     });
 
     await expect(service.verifyByCode(code)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('status informa revogação sem revelar dados do aluno ou aceitar fallback', async () => {
+    const revokedAt = new Date();
+    mockPrisma.certificate.findUnique.mockResolvedValue({ revokedAt });
+    await expect(service.status(code)).resolves.toEqual({ valid: false, revokedAt });
+    expect(mockPrisma.enrollment.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('revoga e audita uma única vez na mesma transação', async () => {
+    const revoked = { id: 'cert-1', code, kind: 'module', refId: 'course-1', title: 'Python', issuedAt: new Date(), revokedAt: new Date() };
+    mockPrisma.certificate.findUnique.mockResolvedValue(revoked);
+    mockPrisma.certificate.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    await service.revoke('cert-1', 'admin-1');
+    await service.revoke('cert-1', 'admin-1');
+    expect(mockPrisma.adminAuditEvent.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.adminAuditEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ adminId: 'admin-1', targetId: 'cert-1', action: 'certificate.revoked' }) }),
+    );
   });
 
   it('verify: sem Certificate, usa o Enrollment legado', async () => {

@@ -6,6 +6,85 @@
 export type Role = 'student' | 'instructor' | 'admin';
 export type Language = 'java' | 'javascript' | 'typescript' | 'python' | 'portugol';
 export type SubmissionStatus = 'pending' | 'queued' | 'running' | 'passed' | 'failed' | 'error';
+
+export const LEGAL_DOCUMENT_VERSIONS = {
+  terms: '2026-11-15',
+  privacy: '2026-11-15',
+} as const;
+
+export const AGE_ELIGIBILITY_POLICY_VERSION = '2026-11-15';
+
+export const BILLING_PRICES_CENTS = {
+  pro: {
+    monthly: 3990,
+    annual: 35880,
+  },
+} as const;
+
+export const CAREER_GOALS = [
+  'frontend',
+  'backend',
+  'ai',
+  'fullstack',
+  'architect',
+  'devops',
+  'data_science',
+  'data_engineering',
+  'design',
+  'freelancer',
+  'mobile',
+  'security',
+  'qa',
+  'global',
+  'lead',
+  'startup',
+  'hackathons',
+  'mlops',
+  'platform_engineering',
+  'cloud_architect',
+  'gamedev',
+  'blockchain',
+  'embedded_iot',
+  'automation_rpa',
+  'product_manager',
+] as const;
+
+export type CareerGoal = (typeof CAREER_GOALS)[number];
+
+export const CAREER_GOAL_LABELS: Record<CareerGoal, string> = {
+  frontend: 'Front-end',
+  backend: 'Back-end',
+  ai: 'Inteligência Artificial',
+  fullstack: 'Full-stack',
+  architect: 'Arquitetura de Software',
+  devops: 'DevOps & Infraestrutura',
+  data_science: 'Ciência de Dados',
+  data_engineering: 'Engenharia de Dados',
+  design: 'Design & Tecnologia',
+  freelancer: 'Freelancer',
+  mobile: 'Desenvolvimento Mobile',
+  security: 'Segurança da Informação',
+  qa: 'Qualidade & QA',
+  global: 'Vaga Internacional',
+  lead: 'Liderança Técnica',
+  startup: 'Startup',
+  hackathons: 'Hackathons',
+  mlops: 'MLOps',
+  platform_engineering: 'Platform Engineering',
+  cloud_architect: 'Cloud Architect',
+  gamedev: 'Game Developer',
+  blockchain: 'Blockchain / Web3',
+  embedded_iot: 'Sistemas Embarcados & IoT',
+  automation_rpa: 'Automação, Bots & RPA',
+  product_manager: 'Product Manager',
+};
+
+export const EXPERIENCE_LEVELS = ['beginner', 'junior', 'mid', 'senior'] as const;
+export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number];
+
+export const WEEKLY_TIME_COMMITMENTS = ['5h', '10h', '20h'] as const;
+export type WeeklyTimeCommitment = (typeof WEEKLY_TIME_COMMITMENTS)[number];
+
 /**
  * B38b (Sprint 11) — faixa de EXIBIÇÃO derivada do XP total acumulado.
  * Não existe sistema de ligas no produto e a API de leaderboard NÃO

@@ -3,11 +3,8 @@ import type { Plan } from '@prisma/client';
 /**
  * Fase 1 premium (desenho §2.1) — interface do provedor de pagamento.
  * NENHUM código de negócio importa SDK de provedor diretamente: toda a
- * cobrança passa por aqui. Provedor v1 ATIVO: `simulated` (sandbox
- * simulado, sem credencial e sem rede externa de pagamento real).
- * Mercado Pago existe como segundo adapter atrás desta mesma interface,
- * DESATIVADO (decisão de provedor v1 + credenciais de teste pendentes
- * do Augusto; ver providers/mercadopago-test.provider.ts).
+ * cobrança passa por aqui. Provedores em modo teste: `simulated` e
+ * Mercado Pago sandbox; cobrança real permanece desativada.
  */
 
 export const BILLING_PROVIDER_TOKEN = 'BILLING_PROVIDER';
@@ -18,7 +15,7 @@ export interface CheckoutSessionInput {
   userId: string;
   plan: Plan;
   billingCycle: BillingCycle;
-  /** Valor em centavos, só para exibição no resumo — nunca cobrado de verdade em modo teste. */
+  /** Valor em centavos, também validado contra o evento confirmado pelo provedor. */
   amountCents: number;
   successUrl: string;
   failureUrl: string;
@@ -27,7 +24,7 @@ export interface CheckoutSessionInput {
 export interface CheckoutSession {
   sessionId: string;
   checkoutUrl: string;
-  /** Id da assinatura/sessão no provedor (no simulado, igual ao sessionId). */
+  /** Id da assinatura no provedor (no simulado, igual ao sessionId). */
   providerSubscriptionId: string;
 }
 
@@ -38,7 +35,8 @@ export type BillingWebhookType =
   | 'subscription_active'
   | 'subscription_canceled'
   | 'subscription_expired'
-  | 'payment_refunded';
+  | 'payment_refunded'
+  | 'payment_pending';
 
 export interface NormalizedBillingEvent {
   providerEventId: string;
@@ -50,6 +48,14 @@ export interface NormalizedBillingEvent {
   billingCycle?: BillingCycle;
   /** Fim do período vigente informado pelo provedor, quando houver. */
   currentPeriodEnd?: Date;
+  /** Valores retornados pela API do provedor; conferidos contra a sessão. */
+  amountCents?: number;
+  currencyId?: string;
+}
+
+export interface BillingWebhookContext {
+  requestId?: string;
+  dataId?: string;
 }
 
 export interface BillingProvider {
@@ -57,11 +63,15 @@ export interface BillingProvider {
   readonly name: string;
   createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSession>;
   /**
-   * Valida a assinatura do webhook (quando o provedor usa uma) e
+   * Valida a assinatura, consulta o provedor quando necessário e
    * normaliza o payload. Lança em assinatura inválida ou payload
-   * irreconhecível — o controller responde 400/401 sem gravar evento.
+   * irreconhecível — o controller responde 4xx sem gravar evento.
    */
-  parseWebhook(rawBody: Buffer, signature: string | undefined): NormalizedBillingEvent;
+  parseWebhook(
+    rawBody: Buffer,
+    signature: string | undefined,
+    context?: BillingWebhookContext,
+  ): Promise<NormalizedBillingEvent>;
   cancelSubscription(providerSubscriptionId: string): Promise<void>;
   refund(paymentId: string): Promise<void>;
 }

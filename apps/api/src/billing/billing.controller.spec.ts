@@ -79,6 +79,10 @@ describe('BillingController — simulate-payment', () => {
 
 describe('BillingController — checkout, cancel, subscription e admin', () => {
   let controller: BillingController;
+  const configValues: Record<string, string> = {};
+  const mockConfig = {
+    get: jest.fn((key: string, defaultValue?: unknown) => configValues[key] ?? defaultValue),
+  };
   const mockBilling = {
     createCheckout: jest.fn(),
     getMySubscription: jest.fn(),
@@ -105,7 +109,7 @@ describe('BillingController — checkout, cancel, subscription e admin', () => {
         { provide: BILLING_PROVIDER_TOKEN, useValue: mockProvider },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn((key: string, def?: unknown) => def) },
+          useValue: mockConfig,
         },
       ],
     }).compile();
@@ -177,6 +181,40 @@ describe('BillingController — checkout, cancel, subscription e admin', () => {
       userId: undefined,
     });
     expect(result).toHaveLength(1);
+  });
+
+  it('readiness informa bloqueios sem retornar valores de credenciais', () => {
+    configValues.MP_TEST_ACCESS_TOKEN = 'TEST-do-not-expose-this-token';
+    try {
+      const readiness = controller.getAdminReadiness();
+
+      expect(readiness).toMatchObject({
+        mode: 'test',
+        provider: 'simulated',
+        livePaymentsEnabled: false,
+        localConfigurationReady: false,
+      });
+      expect(readiness.checks.find(({ key }) => key === 'provider-webhook')?.status).toBe('manual');
+      expect(JSON.stringify(readiness)).not.toContain('TEST-do-not-expose-this-token');
+    } finally {
+      for (const key of Object.keys(configValues)) delete configValues[key];
+    }
+  });
+
+  it('marca configuração local pronta somente com credenciais de teste e URL HTTPS', () => {
+    configValues.BILLING_MODE = 'test';
+    configValues.MP_TEST_ACCESS_TOKEN = 'TEST-sandbox-token';
+    configValues.MP_TEST_PAYER_EMAIL = 'buyer@testuser.com';
+    configValues.BILLING_WEBHOOK_SECRET = 'configured-secret';
+    configValues.WEB_PUBLIC_URL = 'https://nexus.example.com';
+    mockProvider.name = 'mercadopago';
+
+    try {
+      expect(controller.getAdminReadiness().localConfigurationReady).toBe(true);
+    } finally {
+      for (const key of Object.keys(configValues)) delete configValues[key];
+      mockProvider.name = 'simulated';
+    }
   });
 });
 
@@ -261,6 +299,7 @@ describe('BillingController — webhook', () => {
     expect(mockProvider.parseWebhook).toHaveBeenCalledWith(
       rawBody,
       'sha256=abc',
+      { requestId: undefined, dataId: undefined },
     );
     expect(mockBilling.recordWebhook).toHaveBeenCalledWith(
       'simulated',
@@ -288,8 +327,45 @@ describe('BillingController — webhook', () => {
     expect(mockProvider.parseWebhook).toHaveBeenCalledWith(
       rawBody,
       'sha256=xyz',
+      { requestId: undefined, dataId: undefined },
     );
     expect(result).toEqual({ received: true, alreadyProcessed: false });
+  });
+
+  it('encaminha request-id e data.id do Mercado Pago ao adapter', async () => {
+    mockProvider.name = 'mercadopago';
+    const event = {
+      providerEventId: 'subscription:1:updated',
+      type: 'subscription_active',
+      providerSubscriptionId: 'preapproval-1',
+    };
+    mockProvider.parseWebhook.mockResolvedValue(event);
+    mockBilling.recordWebhook.mockResolvedValue({
+      alreadyProcessed: false,
+      paymentEventId: 'evt-1',
+    });
+
+    try {
+      await controller.webhook(
+        'mercadopago',
+        {
+          headers: {
+            'x-signature': 'ts=1,v1=abc',
+            'x-request-id': 'request-1',
+          },
+          query: { 'data.id': 'preapproval-1' },
+          rawBody,
+        } as never,
+      );
+
+      expect(mockProvider.parseWebhook).toHaveBeenCalledWith(
+        rawBody,
+        'ts=1,v1=abc',
+        { requestId: 'request-1', dataId: 'preapproval-1' },
+      );
+    } finally {
+      mockProvider.name = 'simulated';
+    }
   });
 
   it('assinatura inválida: o erro do parseWebhook propaga (nada é gravado)', async () => {

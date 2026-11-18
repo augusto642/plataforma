@@ -260,13 +260,12 @@ describe('RegistrationLevelService', () => {
       expect(err2.some((e) => e.property === 'language')).toBe(true);
     });
 
-    it('aceita campos do Pacote 1 (tabSwitchCount, followUpQuestion, followUpAnswer)', async () => {
+    it('aceita token assinado e resposta do follow-up', async () => {
       const dto = Object.assign(new EvaluateRegistrationLevelDto(), {
         hasProgrammedBefore: true,
         language: 'javascript',
         explanation: 'Filtra os elementos pares do array.',
-        tabSwitchCount: 2,
-        followUpQuestion: 'O que acontece com array vazio?',
+        followUpToken: 'eyJmb2xsb3dVcCI6dHJ1ZX0.signature',
         followUpAnswer: 'Retorna array vazio []',
       });
       const errors = await validate(dto);
@@ -274,7 +273,7 @@ describe('RegistrationLevelService', () => {
     });
   });
 
-  describe('Pacote 1.1 — Follow-up Relâmpago e Anti-Cheat', () => {
+  describe('Pacote 1.1 — Follow-up Relâmpago', () => {
     const service = new RegistrationLevelService();
 
     it('gera pergunta relâmpago de 60s com fallback inteligente', async () => {
@@ -287,17 +286,20 @@ describe('RegistrationLevelService', () => {
       expect(followUp.question.length).toBeGreaterThan(10);
     });
 
-    it('aplica escrutínio anti-cheat quando ocorrem muitas trocas de aba sem resposta no follow-up', async () => {
-      const res = await service.evaluateExplanation({
+    it('não reduz a avaliação por contadores de foco controlados pelo cliente', async () => {
+      const input = {
         hasProgrammedBefore: true,
         language: 'python',
         explanation:
           'Ela itera a lista de pedidos pagos em O(n), usa .get com valor padrão para evitar KeyError e agrupa a soma no dicionário, mas deveria validar valores None ou negativos.',
-        tabSwitchCount: 4,
-        followUpAnswer: '',
-      });
-      expect(res.confidence).toBe('low');
-      expect(res.detectedLevel).toBe('junior');
+      };
+      const baseline = await service.evaluateExplanation(input);
+      const forgedClientSignal = await service.evaluateExplanation({
+        ...input,
+        tabSwitchCount: 100,
+      } as typeof input);
+
+      expect(forgedClientSignal).toEqual(baseline);
     });
   });
 });

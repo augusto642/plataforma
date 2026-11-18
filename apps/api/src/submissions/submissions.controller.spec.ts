@@ -16,7 +16,7 @@ describe('SubmissionsController.streamEvents (A5)', () => {
   const user = { sub: 'user-1', role: 'student' } as any;
 
   function collect() {
-    const received: Array<{ data: unknown }> = [];
+    const received: Array<{ data?: unknown }> = [];
     let completed = false;
     let error: unknown = null;
     const subscription = controller
@@ -48,7 +48,7 @@ describe('SubmissionsController.streamEvents (A5)', () => {
       findProgress: jest.fn().mockResolvedValue({ status: 'queued' }),
     };
     events = new SubmissionEventsService();
-    controller = new SubmissionsController(submissions as any, events);
+    controller = new SubmissionsController(submissions as any, events, {} as any);
   });
 
   afterEach(() => {

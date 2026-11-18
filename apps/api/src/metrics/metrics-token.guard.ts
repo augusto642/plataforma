@@ -37,9 +37,17 @@ export class MetricsTokenGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest<Request>();
     const provided = req.headers['x-metrics-token'];
-    const token = Array.isArray(provided) ? provided[0] : provided;
+    const headerToken = Array.isArray(provided) ? provided[0] : provided;
+    const authorization = req.headers.authorization;
+    const bearerToken =
+      typeof authorization === 'string'
+        ? /^Bearer\s+(\S+)$/i.exec(authorization)?.[1]
+        : undefined;
 
-    if (!token || !safeEqual(token, expected)) {
+    if (
+      (!headerToken || !safeEqual(headerToken, expected)) &&
+      (!bearerToken || !safeEqual(bearerToken, expected))
+    ) {
       throw new UnauthorizedException('Invalid metrics token');
     }
     return true;

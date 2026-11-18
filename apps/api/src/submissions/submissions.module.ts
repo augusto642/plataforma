@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { CacheModule } from '../cache/cache.module';
+import { ActivityAccessModule } from '../activities/activity-access.module';
 import { GamificationModule } from '../gamification/gamification.module';
 import { EvaluatorService } from './evaluator/evaluator.service';
 import { PistonRunnerService } from './runner/runner.service';
@@ -11,6 +12,7 @@ import { SubmissionsService } from './submissions.service';
 
 @Module({
   imports: [
+    ActivityAccessModule,
     BullModule.registerQueue({
       name: 'submissions',
       defaultJobOptions: {

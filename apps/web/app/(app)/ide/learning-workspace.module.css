@@ -1,0 +1,51 @@
+.page {
+  background: radial-gradient(ellipse at 70% -30%, #223d30, transparent 52%), #090e0e !important;
+}
+
+.topbar {
+  background: #0b1210 !important;
+  border-color: #2a3935 !important;
+  gap: 20px;
+}
+
+.topbarActions {
+  min-width: 0;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.topbarActions > * {
+  flex-shrink: 0;
+}
+
+.sidebar {
+  background: #101916 !important;
+  border-color: #2a3935 !important;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1023px) {
+  .topbar {
+    height: auto !important;
+    min-height: 60px;
+    flex-wrap: wrap;
+    padding: 12px 16px !important;
+    gap: 8px;
+  }
+
+  .topbarActions {
+    width: 100%;
+  }
+
+  .mainGrid {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    max-height: 240px;
+    overflow-y: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid #2a3935;
+  }
+}

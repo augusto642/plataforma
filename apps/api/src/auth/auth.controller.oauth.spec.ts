@@ -2,6 +2,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import {
   ACCESS_TOKEN_COOKIE,
+  OAUTH_LEGAL_CONSENT_COOKIE,
   REFRESH_TOKEN_COOKIE,
 } from './cookies.util';
 import { OAuthProfile } from './oauth.config';
@@ -16,6 +17,7 @@ describe('AuthController — OAuth callbacks', () => {
   let auth: { loginWithOAuth: jest.Mock };
   let res: {
     cookie: jest.Mock;
+    clearCookie: jest.Mock;
     redirect: jest.Mock;
   };
 
@@ -39,12 +41,18 @@ describe('AuthController — OAuth callbacks', () => {
       auth as unknown as AuthService,
       { get: jest.fn() } as any,
     );
-    res = { cookie: jest.fn(), redirect: jest.fn() };
+    res = { cookie: jest.fn(), clearCookie: jest.fn(), redirect: jest.fn() };
   });
 
   it('callback Google: grava os cookies httpOnly e redireciona ao /dashboard', async () => {
-    await controller.googleCallback({ user: profile } as any, res as any);
-    expect(auth.loginWithOAuth).toHaveBeenCalledWith(profile);
+    await controller.googleCallback(
+      {
+        user: profile,
+        headers: { cookie: `${OAUTH_LEGAL_CONSENT_COOKIE}=consent-token` },
+      } as any,
+      res as any,
+    );
+    expect(auth.loginWithOAuth).toHaveBeenCalledWith(profile, 'consent-token');
     expect(res.cookie).toHaveBeenCalledWith(
       ACCESS_TOKEN_COOKIE,
       tokens.accessToken,
@@ -58,12 +66,21 @@ describe('AuthController — OAuth callbacks', () => {
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost:3001/dashboard',
     );
+    expect(res.clearCookie).toHaveBeenCalledWith(OAUTH_LEGAL_CONSENT_COOKIE, {
+      path: '/',
+    });
   });
 
   it('callback GitHub: mesmo contrato (cookies + redirect)', async () => {
     const ghProfile: OAuthProfile = { ...profile, provider: 'github', providerId: 'gh-9' };
-    await controller.githubCallback({ user: ghProfile } as any, res as any);
-    expect(auth.loginWithOAuth).toHaveBeenCalledWith(ghProfile);
+    await controller.githubCallback(
+      {
+        user: ghProfile,
+        headers: { cookie: `${OAUTH_LEGAL_CONSENT_COOKIE}=consent-token` },
+      } as any,
+      res as any,
+    );
+    expect(auth.loginWithOAuth).toHaveBeenCalledWith(ghProfile, 'consent-token');
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost:3001/dashboard',
     );

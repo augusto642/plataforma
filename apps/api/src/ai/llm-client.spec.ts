@@ -67,6 +67,32 @@ function openAiOk(text = 'Resposta OpenAI-compatível') {
 }
 
 describe('LlmClient — resolução de provedor por configuração', () => {
+  it('salas usam apenas modelos declarados na allowlist e o modelo escolhido chega ao provedor', async () => {
+    fetchMock.mockResolvedValue(geminiOk());
+    const client = new LlmClient(
+      makeConfig({
+        AI_API_KEY: 'AIza-x',
+        AI_ALLOWED_MODELS: 'gemini-room,gemini-advanced',
+      }),
+    );
+
+    expect(client.allowedModels).toEqual(['gemini-room', 'gemini-advanced']);
+    await client.complete({
+      messages: [{ role: 'user', content: 'oi' }],
+      model: 'gemini-room',
+    });
+    expect(fetchMock.mock.calls[0][0]).toContain('/models/gemini-room:generateContent');
+
+    fetchMock.mockClear();
+    await expect(
+      client.complete({
+        messages: [{ role: 'user', content: 'oi' }],
+        model: 'not-allowed',
+      }),
+    ).rejects.toMatchObject({ kind: 'unavailable' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('sem nada configurado: indisponível (no-provider) e complete lança unavailable sem chamar fetch', async () => {
     const client = new LlmClient(makeConfig());
     expect(client.isAvailable).toBe(false);

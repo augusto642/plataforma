@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Header, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -23,6 +23,13 @@ export class CertificatesController {
     return this.certificates.verifyByCode(code);
   }
 
+  @Public()
+  @Get('status/:code')
+  @Header('Cache-Control', 'no-store')
+  status(@Param('code') code: string) {
+    return this.certificates.status(code);
+  }
+
   @Get('me')
   listMine(@CurrentUser() user: JwtPayload) {
     return this.certificates.listMine(user.sub);
@@ -38,7 +45,7 @@ export class CertificatesController {
 
   @Post('admin/:id/revoke')
   @Roles(Role.admin)
-  revoke(@Param('id') id: string) {
-    return this.certificates.revoke(id);
+  revoke(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.certificates.revoke(id, user.sub);
   }
 }

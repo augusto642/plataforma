@@ -49,6 +49,20 @@ describe('dynamic-track — rotas e guarda de evidência', () => {
     expect(
       hasMarketEvidence(
         investigation({
+          marketSkillEvidence: [{
+            skill: 'Python',
+            mentions: 2,
+            sampleSize: 5,
+            sources: ['adzuna'],
+            sourceUrls: [],
+            collectedAt: '2026-11-14T12:30:00.000Z',
+          }],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      hasMarketEvidence(
+        investigation({
           marketEvidence: [
             {
               titulo: 'Vagas frontend em alta',

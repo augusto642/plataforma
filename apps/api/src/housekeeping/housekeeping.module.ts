@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CacheModule } from '../cache/cache.module';
 import { ChallengesModule } from '../challenges/challenges.module';
+import { GiteaModule } from '../gitea/gitea.module';
 import { HousekeepingService } from './housekeeping.service';
 
 @Module({
@@ -10,6 +11,7 @@ import { HousekeepingService } from './housekeeping.service';
     PrismaModule,
     CacheModule,
     ChallengesModule,
+    GiteaModule,
     // Necessário para o re-enqueue de submissões zumbis no watchdog.
     BullModule.registerQueue({ name: 'submissions' }),
   ],

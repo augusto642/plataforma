@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { AGE_ELIGIBILITY_POLICY_VERSION } from '@plataforma/contracts';
+import { ErrorCodes, withErrorCode } from '../../common/errors/error-codes';
 import { ConfigError } from '../../config/secrets.validation';
 import { ACCESS_TOKEN_COOKIE, parseCookies } from '../cookies.util';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
@@ -43,6 +45,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: JwtPayload) {
+    if (payload.ageEligibilityVersion !== AGE_ELIGIBILITY_POLICY_VERSION) {
+      throw new UnauthorizedException(
+        withErrorCode(
+          'Para continuar no alfa, confirme que você tem 18 anos ou mais.',
+          ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+        ),
+      );
+    }
     return { id: payload.sub, sub: payload.sub, email: payload.email, role: payload.role };
   }
 }

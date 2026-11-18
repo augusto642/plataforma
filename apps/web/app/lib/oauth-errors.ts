@@ -24,6 +24,8 @@ export const OAUTH_ERROR_MESSAGES: Record<string, string> = {
     'O provedor não informou um e-mail para esta conta. Use uma conta com e-mail ou entre com e-mail e senha.',
   email_unverified:
     'O e-mail desta conta ainda não foi verificado no provedor. Confirme o e-mail e tente novamente.',
+  legal_consent_required:
+    'Para entrar com Google/GitHub, confirme que tem 18 anos ou mais e aceite os documentos legais.',
   github_emails_unavailable:
     'Não foi possível ler seu e-mail do GitHub agora. Tente novamente em instantes.',
   oauth_failed:

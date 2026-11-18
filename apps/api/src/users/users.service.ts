@@ -10,6 +10,7 @@ import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { computeCoursePath } from '../adaptation/adaptation.rules';
 import { GiteaService } from '../gitea/gitea.service';
+import { GiteaDeletionService } from '../gitea/gitea-deletion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HIDDEN_TEST_FAILED_MESSAGE } from '../submissions/runner/runner.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,6 +24,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gitea: GiteaService,
+    private readonly giteaDeletion: GiteaDeletionService,
   ) {}
 
   async list() {
@@ -82,10 +84,26 @@ export class UsersService {
 
     // Derive the Gitea identity BEFORE removing the Postgres row.
     const giteaUsername = this.giteaUsernameFor(user);
+    const candidateRepoNames = giteaUsername
+      ? await this.giteaRepoCandidates(giteaUsername)
+      : [];
 
-    await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
+    let deletionJobId: string | null = null;
     try {
-      await this.prisma.user.delete({ where: { id } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.refreshToken.deleteMany({ where: { userId: id } });
+        await tx.user.delete({ where: { id } });
+        if (giteaUsername) {
+          const job = await tx.giteaDeletionJob.create({
+            data: {
+              username: giteaUsername,
+              candidateRepoNames,
+            },
+            select: { id: true },
+          });
+          deletionJobId = job.id;
+        }
+      });
     } catch (e) {
       // Instrutor com cursos (Course.instructor onDelete: Restrict): o titular
       // não pode receber 500 — orientamos a transferência de ownership.
@@ -101,32 +119,17 @@ export class UsersService {
     }
 
     if (!giteaUsername) {
-      this.logger.warn(`deletionQueued: no Gitea username derivable for user ${id}, skipping Gitea propagation`);
+      this.logger.warn('Gitea cleanup skipped for deleted account: no username could be derived.');
       return;
     }
 
-    // Exact candidate repo names ({slug}-{username} / {template}-{username})
-    // so Gitea propagation never touches another student's repo.
-    const candidateRepoNames = await this.giteaRepoCandidates(giteaUsername);
-
-    // Propagate deletion to Gitea, tolerating failures: the titular must never
-    // receive a 500 because Gitea is unavailable.
+    // The durable outbox is committed atomically with local deletion. A failed
+    // immediate attempt remains available to the housekeeping retry worker.
     try {
-      const result = await this.gitea.propagateDeletion(
-        giteaUsername,
-        candidateRepoNames,
-      );
-      if (result.pending) {
-        this.logger.warn(
-          `deletionQueued: Gitea data for user ${id} partially removed (username=${giteaUsername})`,
-          JSON.stringify(result),
-        );
-      } else {
-        this.logger.log(`Gitea data for user ${id} removed (username=${giteaUsername})`);
-      }
-    } catch (err: any) {
+      if (deletionJobId) await this.giteaDeletion.processJob(deletionJobId);
+    } catch (err) {
       this.logger.warn(
-        `deletionQueued: Gitea propagation failed for user ${id} (username=${giteaUsername}): ${err.message}`,
+        `Gitea deletion outbox job could not run immediately: ${(err as Error).message}`,
       );
     }
   }
@@ -142,19 +145,15 @@ export class UsersService {
   }
 
   private async giteaRepoCandidates(username: string): Promise<string[]> {
-    try {
-      const activities = await this.prisma.activity.findMany({
-        select: { slug: true, giteaTemplateRepo: true },
-      });
-      const bases = new Set<string>();
-      for (const a of activities) {
-        if (a.slug) bases.add(a.slug);
-        if (a.giteaTemplateRepo) bases.add(a.giteaTemplateRepo);
-      }
-      return [...bases].map((base) => `${base}-${username}`);
-    } catch {
-      return [];
+    const activities = await this.prisma.activity.findMany({
+      select: { slug: true, giteaTemplateRepo: true },
+    });
+    const bases = new Set<string>();
+    for (const a of activities) {
+      if (a.slug) bases.add(a.slug);
+      if (a.giteaTemplateRepo) bases.add(a.giteaTemplateRepo);
     }
+    return [...bases].map((base) => `${base}-${username}`);
   }
 
   async checkNickname(nickname?: string): Promise<{ available: boolean; reason?: string }> {
@@ -221,6 +220,7 @@ export class UsersService {
         bitsBalance: true,
         streakFreezes: true,
         talentVisible: true,
+        learningProfilePending: true,
         createdAt: true,
         companion: true,
       },
@@ -436,6 +436,15 @@ export class UsersService {
         createdAt: true,
         updatedAt: true,
         badges: true,
+        activityDrafts: {
+          select: { activityId: true, code: true, revision: true, updatedAt: true },
+        },
+        playgroundDrafts: {
+          select: { language: true, code: true, revision: true, updatedAt: true },
+        },
+        playgroundProjects: {
+          select: { id: true, title: true, language: true, files: true, revision: true, createdAt: true, updatedAt: true },
+        },
         chatMessages: {
           select: {
             id: true,
@@ -480,7 +489,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const { badges, chatMessages, enrollments, submissions, ...profile } = user;
+    const { badges, activityDrafts, playgroundDrafts, playgroundProjects, chatMessages, enrollments, submissions, ...profile } = user;
 
     // B01b: a exportação é do próprio aluno, mas o errorMessage de um teste
     // OCULTO é o stderr bruto do harness (entrada + valor esperado) e não
@@ -505,6 +514,9 @@ export class UsersService {
         profile,
         gamification: { badges },
         chat: { messages: chatMessages },
+        activityDrafts,
+        playgroundDrafts,
+        playgroundProjects,
         enrollments: enrollments.map((e) => ({ course: e.course, enrolledAt: e.createdAt })),
         submissions: maskedSubmissions,
       },

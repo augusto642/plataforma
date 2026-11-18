@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { Plan, SubscriptionStatus } from '@prisma/client';
+import { BILLING_PRICES_CENTS } from '@plataforma/contracts';
+import { Plan, SubscriptionStatus, type Prisma } from '@prisma/client';
 import { createHash, createHmac } from 'crypto';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,16 +23,16 @@ import {
 /**
  * Fase 1 premium (desenho §2.1–2.2) — checkout em MODO TESTE.
  *
- * Fluxo completo, sem pagamento real:
- * 1. `createCheckout` → sessão no provedor (simulado) → `checkoutUrl`,
+ * Fluxo completo, sem cobrança real:
+ * 1. `createCheckout` → sessão no provedor de testes → `checkoutUrl`,
  *    e a sessão é PERSISTIDA em `CheckoutSession` (C1, Lote 1 P0).
  * 2. Webhook do provedor → `parseWebhook` (HMAC obrigatório, segredo
  *    exigido no boot) → `recordWebhook` grava `PaymentEvent`
  *    (idempotente por (provider, providerEventId)) → fila `billing-events`.
  *    Antes de gravar, eventos que liberam plano (`payment_approved`,
- *    `subscription_active`) precisam de uma sessão de checkout daquele
- *    `userId` com aquele `providerSubscriptionId` — sem ela, 400 e nada
- *    é persistido nem enfileirado.
+ *    `subscription_active`) precisam de uma sessão de checkout para
+ *    aquele `providerSubscriptionId`; quando o provedor envia `userId`,
+ *    ele também precisa corresponder — sem sessão, nada é enfileirado.
  * 3. Worker (`billing-events.processor`) → `applyPaymentEvent`:
  *    revalida o vínculo com a sessão (defesa em profundidade) e usa o
  *    plano/ciclo DA SESSÃO como autoridade — nunca os do corpo do
@@ -57,10 +58,8 @@ export interface BillingJobData {
   event: NormalizedBillingEvent;
 }
 
-export const PRO_PRICE_CENTS: Record<BillingCycle, number> = {
-  monthly: 3990,
-  annual: 35880,
-};
+export const PRO_PRICE_CENTS: Record<BillingCycle, number> =
+  BILLING_PRICES_CENTS.pro;
 
 function periodEndFromNow(billingCycle: BillingCycle, from = new Date()): Date {
   const end = new Date(from);
@@ -97,49 +96,109 @@ export class BillingService {
     if (plan !== Plan.pro) {
       throw new ConflictException('Só o plano Pro pode ser comprado no checkout.');
     }
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (!user) {
-      throw new NotFoundException('Usuário não encontrado');
-    }
+    const reservation = await this.prisma.$transaction(async (tx) => {
+      const [lock] = await tx.$queryRaw<{ locked: boolean }[]>`
+        SELECT pg_try_advisory_xact_lock(hashtextextended(${`billing.checkout:${userId}`}, 0)) AS locked
+      `;
+      if (!lock?.locked) {
+        throw new ConflictException('Já existe um checkout em andamento para esta conta.');
+      }
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+      if (!user) {
+        throw new NotFoundException('Usuário não encontrado');
+      }
+
+      const now = new Date();
+      const subscriptionWithAccess = await tx.subscription.findFirst({
+        where: {
+          userId,
+          OR: [
+            { status: SubscriptionStatus.active },
+            { status: SubscriptionStatus.trialing, currentPeriodEnd: { gt: now } },
+            { status: SubscriptionStatus.canceled, currentPeriodEnd: { gt: now } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (subscriptionWithAccess) {
+        throw new ConflictException(
+          'Sua conta já tem uma assinatura com acesso vigente. Consulte a aba de cobrança antes de iniciar outro checkout.',
+        );
+      }
+
+      const current = await tx.checkoutReservation.findUnique({ where: { userId } });
+      if (current && current.status !== 'closed') {
+        if (current.status === 'open' && current.checkoutUrl && current.sessionId &&
+            current.provider === this.provider.name && current.plan === plan && current.billingCycle === billingCycle) {
+          return { existing: {
+            checkoutUrl: current.checkoutUrl, sessionId: current.sessionId, provider: current.provider,
+            plan: current.plan, billingCycle, amountCents: current.amountCents, testMode: true as const,
+          } };
+        }
+        throw new ConflictException(
+          current.status === 'open'
+            ? 'Cancele o checkout pendente antes de escolher outro plano ou ciclo.'
+            : 'Checkout anterior com resultado desconhecido; contate o suporte para reconciliação.',
+        );
+      }
+      await tx.checkoutReservation.upsert({
+        where: { userId },
+        create: {
+          userId, status: 'creating', provider: this.provider.name, plan, billingCycle,
+          amountCents: PRO_PRICE_CENTS[billingCycle],
+        },
+        update: {
+          status: 'creating', provider: this.provider.name, plan, billingCycle,
+          amountCents: PRO_PRICE_CENTS[billingCycle], sessionId: null,
+          providerSubscriptionId: null, checkoutUrl: null,
+        },
+      });
+      return { existing: null };
+    }, { timeout: 30_000 });
+    if (reservation.existing) return reservation.existing;
 
     const webUrl =
       this.config.get<string>('WEB_PUBLIC_URL') ||
       this.config.get<string>('WEB_URL') ||
       'http://localhost:3001';
     const session = await this.provider.createCheckoutSession({
-      userId,
-      plan,
-      billingCycle,
-      amountCents: PRO_PRICE_CENTS[billingCycle],
+      userId, plan, billingCycle, amountCents: PRO_PRICE_CENTS[billingCycle],
       successUrl: `${webUrl}/checkout/sucesso`,
       failureUrl: `${webUrl}/checkout/falha`,
     });
-    // C1 (Lote 1 P0) — a sessão é a prova do checkout: só um webhook
-    // cujo providerSubscriptionId + userId casem com esta linha pode
-    // liberar o plano (ver validateGrantEventSession).
-    await this.prisma.checkoutSession.create({
-      data: {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.checkoutSession.create({
+        data: {
+          sessionId: session.sessionId,
+          providerSubscriptionId: session.providerSubscriptionId,
+          userId,
+          plan,
+          billingCycle,
+          amountCents: PRO_PRICE_CENTS[billingCycle],
+          provider: this.provider.name,
+        },
+      });
+      const updated = await tx.checkoutReservation.updateMany({
+        where: { userId, status: 'creating' },
+        data: {
+          status: 'open', sessionId: session.sessionId,
+          providerSubscriptionId: session.providerSubscriptionId, checkoutUrl: session.checkoutUrl,
+        },
+      });
+      if (!updated.count) throw new ConflictException('Reserva de checkout alterada; reconciliação necessária.');
+      return {
+        checkoutUrl: session.checkoutUrl,
         sessionId: session.sessionId,
-        providerSubscriptionId: session.providerSubscriptionId,
-        userId,
+        provider: this.provider.name,
         plan,
         billingCycle,
         amountCents: PRO_PRICE_CENTS[billingCycle],
-        provider: this.provider.name,
-      },
+        testMode: true,
+      };
     });
-    return {
-      checkoutUrl: session.checkoutUrl,
-      sessionId: session.sessionId,
-      provider: this.provider.name,
-      plan,
-      billingCycle,
-      amountCents: PRO_PRICE_CENTS[billingCycle],
-      testMode: true,
-    };
   }
 
   /** Assinatura atual do aluno + se o acesso pago está vigente. */
@@ -176,10 +235,45 @@ export class BillingService {
     };
   }
 
+  async cancelPendingCheckout(userId: string) {
+    this.assertTestMode();
+    return this.prisma.$transaction(async (tx) => {
+      const [lock] = await tx.$queryRaw<{ locked: boolean }[]>`
+        SELECT pg_try_advisory_xact_lock(hashtextextended(${`billing.checkout:${userId}`}, 0)) AS locked
+      `;
+      if (!lock?.locked) throw new ConflictException('Já existe uma operação de checkout em andamento.');
+      const pending = await tx.checkoutReservation.findUnique({ where: { userId } });
+      if (!pending || pending.status === 'closed') throw new NotFoundException('Nenhum checkout pendente.');
+      if (pending.status !== 'open' || !pending.providerSubscriptionId || !pending.sessionId ||
+          pending.provider !== this.provider.name) {
+        throw new ConflictException('Checkout com resultado desconhecido; contate o suporte para reconciliação.');
+      }
+      const subscription = await tx.subscription.findFirst({
+        where: { userId, providerSubscriptionId: pending.providerSubscriptionId, status: { in: ['active', 'trialing', 'past_due'] } },
+        select: { id: true },
+      });
+      if (subscription) throw new ConflictException('Este checkout já possui assinatura; use o cancelamento de assinatura.');
+      await this.provider.cancelSubscription(pending.providerSubscriptionId);
+      await tx.checkoutSession.updateMany({
+        where: { userId, sessionId: pending.sessionId, canceledAt: null },
+        data: { canceledAt: new Date() },
+      });
+      await tx.checkoutReservation.update({
+        where: { userId }, data: { status: 'closed', checkoutUrl: null },
+      });
+      return { canceled: true };
+    }, { timeout: 30_000 });
+  }
+
   /** Cancela no provedor; mantém o acesso até `currentPeriodEnd`. */
   async cancelMySubscription(userId: string) {
     this.assertTestMode();
-    const current = await this.prisma.subscription.findFirst({
+    return this.prisma.$transaction(async (tx) => {
+    const [lock] = await tx.$queryRaw<{ locked: boolean }[]>`
+      SELECT pg_try_advisory_xact_lock(hashtextextended(${`billing.checkout:${userId}`}, 0)) AS locked
+    `;
+    if (!lock?.locked) throw new ConflictException('Já existe uma operação de checkout em andamento.');
+    const current = await tx.subscription.findFirst({
       where: {
         userId,
         status: { in: ['trialing', 'active', 'past_due'] },
@@ -192,10 +286,20 @@ export class BillingService {
     if (current.providerSubscriptionId) {
       await this.provider.cancelSubscription(current.providerSubscriptionId);
     }
-    const canceled = await this.prisma.subscription.update({
+    const canceled = await tx.subscription.update({
       where: { id: current.id },
       data: { status: 'canceled', canceledAt: new Date() },
     });
+    if (current.providerSubscriptionId) {
+      await tx.checkoutSession.updateMany({
+        where: { userId, providerSubscriptionId: current.providerSubscriptionId, canceledAt: null },
+        data: { canceledAt: new Date() },
+      });
+      await tx.checkoutReservation.updateMany({
+        where: { userId, providerSubscriptionId: current.providerSubscriptionId, status: 'open' },
+        data: { status: 'closed', checkoutUrl: null },
+      });
+    }
     return {
       id: canceled.id,
       plan: canceled.plan,
@@ -204,13 +308,15 @@ export class BillingService {
       message:
         'Assinatura cancelada. Seu acesso continua até o fim do período já vigente.',
     };
+    }, { timeout: 30_000 });
   }
 
   /**
    * C1 (Lote 1 P0) — vínculo checkout → webhook. Eventos que LIBERAM
    * plano (`payment_approved`, `subscription_active`) só valem quando
-   * existe uma sessão de checkout criada por aquele `userId` com aquele
-   * `providerSubscriptionId`. Sem sessão (ou com userId divergente), o
+   * existe uma sessão de checkout criada para aquele
+   * `providerSubscriptionId` e provedor. Quando informado, o userId
+   * também precisa corresponder. Sem sessão (ou com userId divergente), o
    * evento é rejeitado com 400 — sem tocar `User.plan`, sem criar
    * `Subscription` e, no caminho HTTP, sem nem persistir `PaymentEvent`.
    * Retorna a sessão: o plano/ciclo DELA são a autoridade na aplicação
@@ -218,9 +324,9 @@ export class BillingService {
    * Outros tipos de evento não passam por aqui: não liberam nada e já
    * são no-op quando não há assinatura correspondente.
    */
-  private async validateGrantEventSession(event: NormalizedBillingEvent) {
+  private async validateGrantEventSession(event: NormalizedBillingEvent, db: Prisma.TransactionClient | PrismaService = this.prisma) {
     const providerSubscriptionId = event.providerSubscriptionId;
-    if (!providerSubscriptionId || !event.userId) {
+    if (!providerSubscriptionId) {
       this.logger.warn(
         `Evento de liberação sem sessão vinculada rejeitado: type=${event.type} providerEventId=${event.providerEventId}`,
       );
@@ -228,20 +334,38 @@ export class BillingService {
         'Evento de liberação sem sessão de checkout vinculada',
       );
     }
-    const session = await this.prisma.checkoutSession.findUnique({
-      where: {
-        providerSubscriptionId_userId: {
-          providerSubscriptionId,
-          userId: event.userId,
-        },
-      },
-    });
-    if (!session) {
+    const session = event.userId
+      ? await db.checkoutSession.findUnique({
+          where: {
+            providerSubscriptionId_userId: {
+              providerSubscriptionId,
+              userId: event.userId,
+            },
+          },
+        })
+      : await db.checkoutSession.findFirst({
+          where: {
+            providerSubscriptionId,
+            provider: this.provider.name,
+          },
+        });
+    if (!session || session.provider !== this.provider.name || session.canceledAt) {
       this.logger.warn(
-        `Evento de liberação sem sessão de checkout correspondente rejeitado: type=${event.type} providerEventId=${event.providerEventId} userId=${event.userId} providerSubscriptionId=${providerSubscriptionId}`,
+        `Evento de liberação sem sessão de checkout correspondente rejeitado: type=${event.type} providerEventId=${event.providerEventId} userId=${event.userId ?? 'ausente'} providerSubscriptionId=${providerSubscriptionId}`,
       );
       throw new BadRequestException(
         'Evento de liberação sem sessão de checkout correspondente',
+      );
+    }
+    if (
+      this.provider.name === 'mercadopago' &&
+      (event.amountCents !== session.amountCents || event.currencyId !== 'BRL')
+    ) {
+      this.logger.warn(
+        `Evento do Mercado Pago com valor/moeda divergentes da sessão: providerEventId=${event.providerEventId}`,
+      );
+      throw new BadRequestException(
+        'Valor ou moeda do pagamento divergente da sessão de checkout',
       );
     }
     return session;
@@ -312,10 +436,15 @@ export class BillingService {
     sessionId: string,
   ): Promise<{ alreadyProcessed: boolean; paymentEventId: string }> {
     this.assertTestMode();
+    if (this.provider.name !== 'simulated') {
+      throw new ConflictException(
+        'A simulação manual só está disponível com BILLING_PROVIDER=simulated.',
+      );
+    }
     const session = await this.prisma.checkoutSession.findUnique({
       where: { sessionId },
     });
-    if (!session || session.userId !== userId) {
+    if (!session || session.userId !== userId || session.canceledAt) {
       throw new NotFoundException(
         'Sessão de checkout não encontrada para este usuário',
       );
@@ -337,8 +466,66 @@ export class BillingService {
     };
     const rawBody = Buffer.from(JSON.stringify(payload), 'utf8');
     const signature = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
-    const event = this.provider.parseWebhook(rawBody, signature);
+    const event = await this.provider.parseWebhook(rawBody, signature);
     return this.recordWebhook(this.provider.name, event, rawBody);
+  }
+
+  private async applyTerminalEvent(
+    providerSubscriptionId: string,
+    type: 'payment_refunded' | 'subscription_canceled' | 'subscription_expired',
+  ): Promise<void> {
+    const session = await this.prisma.checkoutSession.findFirst({
+      where: { providerSubscriptionId, provider: this.provider.name },
+    });
+    const subscription = session ? null : await this.prisma.subscription.findFirst({
+      where: { providerSubscriptionId, provider: this.provider.name },
+    });
+    const userId = session?.userId ?? subscription?.userId;
+    if (!userId) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT pg_advisory_xact_lock(hashtextextended(${`billing.checkout:${userId}`}, 0))::text AS locked
+      `;
+      await tx.checkoutSession.updateMany({
+        where: { userId, providerSubscriptionId, provider: this.provider.name, canceledAt: null },
+        data: { canceledAt: new Date() },
+      });
+      await tx.checkoutReservation.updateMany({
+        where: { userId, providerSubscriptionId, provider: this.provider.name, status: 'open' },
+        data: { status: 'closed', checkoutUrl: null },
+      });
+      const current = await tx.subscription.findFirst({
+        where: { userId, providerSubscriptionId, provider: this.provider.name },
+      });
+      if (!current) return;
+      const periodPassed = !!current.currentPeriodEnd && current.currentPeriodEnd <= new Date();
+      const expired = type !== 'subscription_canceled' || periodPassed;
+      await tx.subscription.update({
+        where: { id: current.id },
+        data: {
+          status: expired ? SubscriptionStatus.expired : SubscriptionStatus.canceled,
+          ...(type === 'subscription_canceled' ? { canceledAt: new Date() } : {}),
+        },
+      });
+      if (expired) {
+        const otherAccess = await tx.subscription.findFirst({
+          where: {
+            userId,
+            id: { not: current.id },
+            OR: [
+              { status: SubscriptionStatus.active },
+              { status: SubscriptionStatus.trialing, currentPeriodEnd: { gt: new Date() } },
+              { status: SubscriptionStatus.canceled, currentPeriodEnd: { gt: new Date() } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (!otherAccess) {
+          await tx.user.update({ where: { id: userId }, data: { plan: Plan.free } });
+        }
+      }
+    });
   }
 
   /**
@@ -358,7 +545,12 @@ export class BillingService {
         // Defesa em profundidade: o worker revalida o vínculo — um job
         // enfileirado antes desta trava (ou injetado direto na fila)
         // nunca libera plano sem sessão de checkout correspondente.
-        const session = await this.validateGrantEventSession(event);
+        const initialSession = await this.validateGrantEventSession(event);
+        await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT pg_advisory_xact_lock(hashtextextended(${`billing.checkout:${initialSession.userId}`}, 0))::text AS locked
+        `;
+        const session = await this.validateGrantEventSession(event, tx);
         if (session.plan === Plan.career) {
           // Tier sem preço: nunca liberar por webhook até decisão.
           this.logger.warn(
@@ -389,12 +581,12 @@ export class BillingService {
             ? event.currentPeriodEnd
             : periodEndFromNow(billingCycle);
         const existing = providerSubscriptionId
-          ? await this.prisma.subscription.findFirst({
+          ? await tx.subscription.findFirst({
               where: { providerSubscriptionId, userId },
             })
           : null;
         if (existing) {
-          await this.prisma.subscription.update({
+          await tx.subscription.update({
             where: { id: existing.id },
             data: {
               plan,
@@ -404,7 +596,7 @@ export class BillingService {
             },
           });
         } else {
-          await this.prisma.subscription.create({
+          await tx.subscription.create({
             data: {
               userId,
               plan,
@@ -417,74 +609,31 @@ export class BillingService {
             },
           });
         }
-        await this.prisma.user.update({
+        await tx.user.update({
           where: { id: userId },
           data: { plan },
         });
         this.logger.log(
           `Plano ${plan} liberado para o usuário ${userId} (evento ${event.providerEventId})`,
         );
+        });
         return;
       }
       case 'payment_rejected':
       case 'payment_refunded': {
-        // Sem liberação; reembolso de assinatura ativa volta ao free.
         if (event.type === 'payment_refunded' && providerSubscriptionId) {
-          const sub = await this.prisma.subscription.findFirst({
-            where: { providerSubscriptionId },
-          });
-          if (sub) {
-            await this.prisma.subscription.update({
-              where: { id: sub.id },
-              data: { status: 'expired' },
-            });
-            await this.prisma.user.update({
-              where: { id: sub.userId },
-              data: { plan: Plan.free },
-            });
-          }
+          await this.applyTerminalEvent(providerSubscriptionId, event.type);
         }
         return;
       }
-      case 'subscription_canceled': {
-        if (!providerSubscriptionId) return;
-        const sub = await this.prisma.subscription.findFirst({
-          where: { providerSubscriptionId },
-        });
-        if (!sub) return;
-        const periodPassed =
-          !!sub.currentPeriodEnd && sub.currentPeriodEnd <= new Date();
-        await this.prisma.subscription.update({
-          where: { id: sub.id },
-          data: {
-            status: periodPassed
-              ? SubscriptionStatus.expired
-              : SubscriptionStatus.canceled,
-            canceledAt: new Date(),
-          },
-        });
-        if (periodPassed) {
-          await this.prisma.user.update({
-            where: { id: sub.userId },
-            data: { plan: Plan.free },
-          });
-        }
+      case 'payment_pending': {
         return;
       }
+      case 'subscription_canceled':
       case 'subscription_expired': {
-        if (!providerSubscriptionId) return;
-        const sub = await this.prisma.subscription.findFirst({
-          where: { providerSubscriptionId },
-        });
-        if (!sub) return;
-        await this.prisma.subscription.update({
-          where: { id: sub.id },
-          data: { status: 'expired' },
-        });
-        await this.prisma.user.update({
-          where: { id: sub.userId },
-          data: { plan: Plan.free },
-        });
+        if (providerSubscriptionId) {
+          await this.applyTerminalEvent(providerSubscriptionId, event.type);
+        }
         return;
       }
     }

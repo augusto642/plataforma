@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { apiFetch, API_BASE } from '../../../lib/apiClient';
 import { AdminCourseRow } from '../types';
 import { formatDate, formatNumber, initialsOf } from '../utils';
 
@@ -20,9 +21,65 @@ import { formatDate, formatNumber, initialsOf } from '../utils';
 interface AdminCoursesTabProps {
   courses: AdminCourseRow[];
   coursesError: string | null;
+  onRefresh: () => Promise<void>;
 }
 
-export const AdminCoursesTab: React.FC<AdminCoursesTabProps> = ({ courses, coursesError }) => {
+export const AdminCoursesTab: React.FC<AdminCoursesTabProps> = ({ courses, coursesError, onRefresh }) => {
+  const [editing, setEditing] = useState<AdminCourseRow | null>(null);
+  const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
+  const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const reset = () => {
+    setEditing(null);
+    setTitle('');
+    setSlug('');
+    setDescription('');
+    setFormError(null);
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    setNotice(null);
+    try {
+      const response = await apiFetch(
+        `${API_BASE}/courses${editing ? `/${editing.id}` : ''}`,
+        {
+          method: editing ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            editing ? { title, description } : { title, slug, description },
+          ),
+        },
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message || `HTTP ${response.status}`);
+      }
+      setNotice(editing ? 'Curso atualizado.' : 'Curso criado.');
+      reset();
+      await onRefresh();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Falha ao salvar o curso.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const beginEdit = (course: AdminCourseRow) => {
+    setEditing(course);
+    setTitle(course.title);
+    setSlug(course.slug);
+    setDescription(course.description || '');
+    setFormError(null);
+    setNotice(null);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div>
@@ -31,6 +88,32 @@ export const AdminCoursesTab: React.FC<AdminCoursesTabProps> = ({ courses, cours
           {formatNumber(courses.length)} curso(s) reais retornados por GET /courses.
         </p>
       </div>
+
+      <form onSubmit={submit} className="grid gap-3 rounded-xl border border-[#27272A] bg-[#121217] p-4 md:grid-cols-2">
+        <div className="flex items-center justify-between gap-3 md:col-span-2">
+          <h3 className="text-sm font-semibold text-white">{editing ? `Editando: ${editing.title}` : 'Criar curso'}</h3>
+          {editing && <button type="button" onClick={reset} className="text-xs text-zinc-400 hover:text-white">Cancelar edição</button>}
+        </div>
+        <label className="text-xs text-zinc-300">
+          Título
+          <input required maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} className="mt-1.5 w-full rounded-lg border border-[#27272A] bg-[#09090A] px-3 py-2 text-sm text-white" />
+        </label>
+        {!editing && (
+          <label className="text-xs text-zinc-300">
+            Slug
+            <input required maxLength={100} pattern="[a-z0-9-]+" value={slug} onChange={(event) => setSlug(event.target.value)} className="mt-1.5 w-full rounded-lg border border-[#27272A] bg-[#09090A] px-3 py-2 font-mono text-sm text-white" />
+          </label>
+        )}
+        <label className="text-xs text-zinc-300 md:col-span-2">
+          Descrição
+          <textarea maxLength={20000} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1.5 w-full rounded-lg border border-[#27272A] bg-[#09090A] px-3 py-2 text-sm text-white" />
+        </label>
+        {formError && <p role="alert" className="text-xs text-rose-300 md:col-span-2">{formError}</p>}
+        {notice && <p role="status" className="text-xs text-emerald-300 md:col-span-2">{notice}</p>}
+        <button type="submit" disabled={busy} className="rounded-lg bg-[#8257E5] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#996DFF] disabled:opacity-50 md:col-span-2">
+          {busy ? 'Salvando...' : editing ? 'Salvar curso' : 'Criar curso'}
+        </button>
+      </form>
 
       {coursesError ? (
         <div className="p-6 rounded-2xl bg-[#121217] border border-[#27272A] text-xs text-[#A1A1AA]">
@@ -51,6 +134,7 @@ export const AdminCoursesTab: React.FC<AdminCoursesTabProps> = ({ courses, cours
                 <th className="py-3 px-4">Matrículas</th>
                 <th className="py-3 px-4">Biblioteca pública</th>
                 <th className="py-3 px-4">Criado em</th>
+                <th className="py-3 px-4">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -89,6 +173,11 @@ export const AdminCoursesTab: React.FC<AdminCoursesTabProps> = ({ courses, cours
                     {course.isPublicLibrary ? 'Sim' : 'Não'}
                   </td>
                   <td className="py-3 px-4 text-[#A1A1AA]">{formatDate(course.createdAt)}</td>
+                  <td className="py-3 px-4">
+                    <button type="button" onClick={() => beginEdit(course)} className="rounded-lg border border-[#3F3F46] px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:border-[#996DFF]">
+                      Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -97,11 +186,9 @@ export const AdminCoursesTab: React.FC<AdminCoursesTabProps> = ({ courses, cours
       )}
 
       <div className="bg-[#181820] border border-[#27272A] rounded-xl p-4 text-xs text-zinc-300">
-        <span className="font-bold text-white">Ações não oferecidas:</span> o modelo de curso da
-        API não tem campo de status (publicado/rascunho/arquivado) nem rating — os controles e
-        números fictícios foram removidos. A autoria de atividades usa o contrato completo de
-        POST /activities no fluxo do instrutor; o formulário simplificado de “novo desafio” deste
-        painel não correspondia a esse contrato e foi retirado.
+        <span className="font-bold text-white">Limites do contrato atual:</span> cursos podem ser
+        criados e ter título/descrição ajustados. O modelo não tem status ou rating, e a autoria de
+        atividades usa o contrato completo de POST /activities no fluxo de instrutor.
       </div>
     </div>
   );

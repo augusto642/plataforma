@@ -7,7 +7,8 @@ import { SubmissionsService } from '../submissions/submissions.service';
 
 /**
  * M5 (Lote 4) — ordem canônica de aquisição de locks:
- * submissions → test_case_results → users → user_companions → user_badges.
+ * submissions → test_case_results → xp_ledger_entries → users
+ * → user_companions → user_badges.
  *
  * O spec prova a ordem nos DOIS caminhos transacionais que tocam essas
  * tabelas, com um mock de transação que REGISTRA a sequência de
@@ -16,10 +17,11 @@ import { SubmissionsService } from '../submissions/submissions.service';
  * prova a invariante que o impede: a mesma ordem nos dois lados.
  */
 describe('TX_LOCK_ORDER (M5)', () => {
-  it('declares the canonical order submissions -> test_case_results -> users -> user_companions -> user_badges', () => {
+  it('declares the canonical order including the idempotent XP ledger write', () => {
     assert.deepEqual([...TX_LOCK_ORDER], [
       'submissions',
       'test_case_results',
+      'xp_ledger_entries',
       'users',
       'user_companions',
       'user_badges',
@@ -47,6 +49,12 @@ describe('TX_LOCK_ORDER (M5)', () => {
         },
         createMany: async () => {
           order.push('test_case_results.createMany');
+          return { count: 1 };
+        },
+      },
+      xpLedgerEntry: {
+        createMany: async () => {
+          order.push('xp_ledger_entries.createMany');
           return { count: 1 };
         },
       },
@@ -104,7 +112,8 @@ describe('TX_LOCK_ORDER (M5)', () => {
     assert.ok(idx('submissions.updateMany') >= 0, `expected submission claim in ${order}`);
     assert.ok(idx('test_case_results.deleteMany') > idx('submissions.updateMany'), `order was ${order}`);
     assert.ok(idx('test_case_results.createMany') > idx('test_case_results.deleteMany'), `order was ${order}`);
-    assert.ok(idx('users.update') > idx('test_case_results.createMany'), `order was ${order}`);
+    assert.ok(idx('xp_ledger_entries.createMany') > idx('test_case_results.createMany'), `order was ${order}`);
+    assert.ok(idx('users.update') > idx('xp_ledger_entries.createMany'), `order was ${order}`);
     assert.ok(idx('user_badges.createMany') > idx('users.update'), `order was ${order}`);
   });
 
@@ -125,6 +134,12 @@ describe('TX_LOCK_ORDER (M5)', () => {
         createMany: async () => {
           order.push('test_case_results.createMany');
           return { count: 2 };
+        },
+      },
+      xpLedgerEntry: {
+        createMany: async () => {
+          order.push('xp_ledger_entries.createMany');
+          return { count: 1 };
         },
       },
       user: {
@@ -206,7 +221,8 @@ describe('TX_LOCK_ORDER (M5)', () => {
     const idx = (name: string) => order.indexOf(name);
     assert.ok(idx('submissions.update') >= 0, `expected submission write in ${order}`);
     assert.ok(idx('test_case_results.createMany') > idx('submissions.update'), `order was ${order}`);
-    assert.ok(idx('users.update') > idx('test_case_results.createMany'), `order was ${order}`);
+    assert.ok(idx('xp_ledger_entries.createMany') > idx('test_case_results.createMany'), `order was ${order}`);
+    assert.ok(idx('users.update') > idx('xp_ledger_entries.createMany'), `order was ${order}`);
     assert.ok(idx('user_companions.update') > idx('users.update'), `order was ${order}`);
     // Estado final idêntico ao da escrita única anterior: vitória com
     // recompensa cheia + companion evoluído (40+80=120 >= 100 -> estágio 2).

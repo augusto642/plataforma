@@ -50,6 +50,7 @@ export interface RunnerExecuteOptions {
   timeLimitMs?: number;
   memoryLimitMb?: number;
   stdin?: string;
+  files?: Array<{ name: string; content: string }>;
 }
 
 export interface RunnerExecution {
@@ -123,7 +124,7 @@ export class PistonConcurrencyLimiter {
   private running = 0;
   private readonly waiters: Array<() => void> = [];
 
-  constructor(private readonly max: number) {}
+  constructor(private readonly max: number, private readonly maxWaiting = 16) {}
 
   get maxConcurrency(): number {
     return this.max;
@@ -133,20 +134,20 @@ export class PistonConcurrencyLimiter {
     return this.running;
   }
 
-  async acquire(): Promise<() => void> {
+  async acquire(): Promise<(() => void) | null> {
     if (this.running < this.max) {
       this.running++;
       return () => this.release();
     }
+    if (this.waiters.length >= this.maxWaiting) return null;
     await new Promise<void>((resolve) => this.waiters.push(resolve));
-    this.running++;
     return () => this.release();
   }
 
   private release(): void {
-    this.running--;
     const next = this.waiters.shift();
     if (next) next();
+    else this.running--;
   }
 }
 const RUN_TIMEOUT_MIN_MS = 100;
@@ -251,6 +252,8 @@ const UNSUPPORTED_LANGUAGE_MESSAGE =
   'Esta linguagem ainda não é suportada pelo sandbox de execução.';
 const SANDBOX_UNAVAILABLE_MESSAGE =
   'O sandbox de execução está temporariamente indisponível. Tente novamente mais tarde.';
+const RUNNER_DISABLED_MESSAGE =
+  'A execução de código está desabilitada nesta instância.';
 
 /**
  * Mensagem genérica exibida ao aluno quando quem falha é um teste OCULTO.
@@ -274,7 +277,9 @@ export class PistonRunnerService implements RunnerService {
 
   constructor(configService: ConfigService) {
     this.config = buildRunnerConfig({
+      PISTON_ENABLED: configService.get<string>('PISTON_ENABLED'),
       PISTON_URL: configService.get<string>('PISTON_URL'),
+      PISTON_AUTH_TOKEN: configService.get<string>('PISTON_AUTH_TOKEN'),
       PISTON_TIMEOUT_MS: configService.get<string>('PISTON_TIMEOUT_MS'),
       PISTON_MAX_OUTPUT_CHARS: configService.get<string>(
         'PISTON_MAX_OUTPUT_CHARS',
@@ -913,12 +918,43 @@ export class PistonRunnerService implements RunnerService {
     };
   }
 
+  async executePractice(
+    language: Language,
+    code: string,
+    options: RunnerExecuteOptions = {},
+  ): Promise<RunnerExecution> {
+    const result = await this.execute(language, code, language === 'portugol'
+      ? { ...options, timeLimitMs: Math.max(options.timeLimitMs ?? 0, PORTUGOL_DEFAULT_TIME_LIMIT_MS) }
+      : options);
+    if (language !== 'portugol') return result;
+
+    const stdout = this.stripPortugolConsoleSuffix(result.stdout);
+    if (this.isPortugolCompileError(result)) {
+      return { ...result, stdout, status: 'failed', kind: 'compile_error', errorMessage: result.stderr };
+    }
+    if (result.stderr.split('\n').some((line) => line.startsWith('Erro de execução:'))) {
+      return { ...result, stdout, status: 'failed', kind: 'runtime_error', errorMessage: this.portugolRuntimeErrorMessage(result) };
+    }
+    return { ...result, stdout };
+  }
+
   async execute(
     language: Language,
     code: string,
     options: RunnerExecuteOptions = {},
   ): Promise<RunnerExecution> {
     const start = Date.now();
+    if (!this.config.enabled) {
+      return {
+        kind: 'sandbox_unavailable',
+        status: 'error',
+        durationMs: Date.now() - start,
+        stdout: '',
+        stderr: '',
+        errorMessage: RUNNER_DISABLED_MESSAGE,
+      };
+    }
+
     const pistonLanguage = PISTON_LANGUAGE[language];
 
     if (!pistonLanguage) {
@@ -954,7 +990,7 @@ export class PistonRunnerService implements RunnerService {
     const payload = {
       language: pistonLanguage,
       version: '*',
-      files: [{ name: PISTON_FILE_NAME[language], content: code }],
+      files: options.files ?? [{ name: PISTON_FILE_NAME[language], content: code }],
       stdin: options.stdin ?? '',
       compile_timeout: this.config.timeoutMs,
       run_timeout: timeLimitMs,
@@ -973,6 +1009,7 @@ export class PistonRunnerService implements RunnerService {
     body: PistonExecuteResponse | null;
     errorDetail: string | null;
     breakerOpen?: boolean;
+    queueFull?: boolean;
   }> {
     // M7 — circuito aberto: falha rápido SEM chamar o Piston (e sem
     // ocupar um slot do semáforo A3). O erro explícito chega ao aluno
@@ -990,6 +1027,14 @@ export class PistonRunnerService implements RunnerService {
     // A3: o HTTP ao Piston só sai com um slot livre no semáforo — no
     // máximo PISTON_MAX_CONCURRENT execuções simultâneas por processo.
     const release = await this.pistonLimiter.acquire();
+    if (!release) {
+      return {
+        httpStatus: 0,
+        body: null,
+        errorDetail: 'A fila de execução está cheia. Tente novamente mais tarde.',
+        queueFull: true,
+      };
+    }
     // M7 — timeout HTTP = canônico + folga de transporte (ver
     // runner.config.ts): sem a folga, o abort poderia cortar a resposta
     // do Piston no instante em que ele mata a execução.
@@ -1003,12 +1048,20 @@ export class PistonRunnerService implements RunnerService {
         `${this.config.url}/api/v2/execute`,
         {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            'content-type': 'application/json',
+            ...(this.config.authToken
+              ? { authorization: `Bearer ${this.config.authToken}` }
+              : {}),
+          },
           body: JSON.stringify(payload),
           signal: controller.signal,
         },
       );
       if (!res.ok) {
+        if (res.status === 503 && res.headers.get('x-piston-gateway-overloaded') === '1') {
+          return { httpStatus: 503, body: null, errorDetail: null, queueFull: true };
+        }
         let detail: string | null = null;
         try {
           detail = (await res.text()).slice(0, ERROR_MESSAGE_MAX_CHARS) || null;
@@ -1058,9 +1111,19 @@ export class PistonRunnerService implements RunnerService {
   }
 
   private mapPistonResponse(
-    http: { httpStatus: number; body: PistonExecuteResponse | null; errorDetail: string | null; breakerOpen?: boolean },
+    http: { httpStatus: number; body: PistonExecuteResponse | null; errorDetail: string | null; breakerOpen?: boolean; queueFull?: boolean },
     durationMs: number,
   ): RunnerExecution {
+    if (http.queueFull) {
+      return {
+        kind: 'sandbox_unavailable',
+        status: 'error',
+        durationMs,
+        stdout: '',
+        stderr: '',
+        errorMessage: 'A fila de execução está cheia. Tente novamente mais tarde.',
+      };
+    }
     // M7 — circuito aberto: erro explícito (não a mensagem genérica de
     // indisponibilidade), para o aluno e os logs distinguirem "Piston
     // fora do ar há N falhas" de "falha isolada".

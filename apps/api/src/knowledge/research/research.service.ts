@@ -43,14 +43,16 @@
  * arquivo; em modo DB, o documento decidido fica visível no processo até
  * o sync (mesma limitação documentada do pending-sync do KMS).
  */
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProviderUnavailable, type MarketResearchProvider, type RepoResearchProvider, type VideoResearchProvider } from './providers';
 import { GitHubRestProvider } from './github.provider';
+import { JobsMarketProvider } from './jobs-market.provider';
 import { WebSearchJobsProvider } from './web-search.provider';
 import { YouTubeDataProvider } from './youtube.provider';
 
@@ -68,11 +70,30 @@ export interface ResearchDoc {
   rejectReason?: string | null;
   sourcesAvailable: string[];
   sourcesUnavailable: string[];
-  market: { sampleSize: number; skills: { skill: string; mentions: number; sampleSize: number; sources: string[] }[]; note?: string };
+  market: {
+    sampleSize: number;
+    skills: {
+      skill: string;
+      mentions: number;
+      sampleSize: number;
+      sources: string[];
+      sourceUrls: string[];
+      collectedAt: string;
+    }[];
+    note?: string;
+  };
   videos: unknown[];
   channels: unknown[];
   repos: unknown[];
   collectedAt: string;
+  reference?: {
+    candidateId: string;
+    kind: string;
+    title: string;
+    url: string;
+    author: string | null;
+    license: string | null;
+  };
 }
 
 export interface ResearchServiceOptions {
@@ -96,7 +117,7 @@ export class ResearchService {
     @InjectQueue('research') private readonly queue?: Queue,
     @Optional() video?: VideoResearchProvider,
     @Optional() repos?: RepoResearchProvider,
-    @Optional() jobs?: MarketResearchProvider,
+    @Optional() @Inject(JobsMarketProvider) jobs?: MarketResearchProvider,
     // @Optional(): sem ele, o Nest tenta resolver o tipo apagado (Object) e
     // o boot falha como no C1/KmsService — com ele, injeta undefined.
     @Optional() opts?: ResearchServiceOptions,
@@ -269,7 +290,13 @@ export class ResearchService {
       rejectReason: previous?.status === 'rejected' ? previous.rejectReason ?? null : null,
       sourcesAvailable: available,
       sourcesUnavailable: unavailable,
-      market: { sampleSize: 0, skills, note: unavailable.includes('jobs') ? 'fonte indisponível: sem chave de busca web (Q3 pendente)' : undefined },
+      market: {
+        sampleSize: skills.reduce((max, signal) => Math.max(max, signal.sampleSize), 0),
+        skills,
+        note: unavailable.includes('jobs')
+          ? 'fonte de vagas indisponível: configure as credenciais Adzuna/Tavily e o orçamento diário'
+          : undefined,
+      },
       videos,
       channels: [],
       repos,
@@ -307,6 +334,43 @@ export class ResearchService {
     return stored;
   }
 
+  async createReferenceDraft(reference: NonNullable<ResearchDoc['reference']>): Promise<ResearchDoc> {
+    if (!this.researchDir) {
+      throw new Error('Diretório de pesquisa indisponível: configure KNOWLEDGE_CONTENT_DIR para criar o rascunho.');
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reference.candidateId)) {
+      throw new Error('Identificador de candidato inválido.');
+    }
+    const id = `reference-${reference.candidateId}`;
+    const now = new Date().toISOString();
+    const doc: ResearchDoc = {
+      id, goal: reference.title, status: 'draft', createdAt: now,
+      approvedAt: null, approvedBy: null, sourcesAvailable: [],
+      sourcesUnavailable: ['youtube', 'github', 'jobs'],
+      market: { sampleSize: 0, skills: [], note: 'Referência em revisão; nenhuma fonte foi coletada.' },
+      videos: [], channels: [], repos: [], collectedAt: now, reference,
+    };
+    mkdirSync(this.researchDir, { recursive: true });
+    const dest = join(this.researchDir, `${id}.json`);
+    const temp = join(this.researchDir, `.${id}.${randomUUID()}.tmp`);
+    writeFileSync(temp, `${JSON.stringify(doc, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+    try {
+      try {
+        linkSync(temp, dest);
+      } catch (error: unknown) {
+        if (!(typeof error === 'object' && error !== null && 'code' in error && error.code === 'EEXIST')) throw error;
+      }
+    } finally {
+      unlinkSync(temp);
+    }
+    const stored = JSON.parse(readFileSync(dest, 'utf8')) as ResearchDoc;
+    if (stored.id !== id || stored.reference?.candidateId !== reference.candidateId) {
+      throw new Error('O arquivo de pesquisa existente não corresponde ao candidato.');
+    }
+    this.docs.set(id, stored);
+    return stored;
+  }
+
   list(): ResearchDoc[] { return [...this.docs.values()]; }
 
   get(id: string): ResearchDoc {
@@ -332,7 +396,7 @@ export class ResearchService {
   /** B3 — gatilho "modelo": só pesquisa APROVADA alimenta o gerador. */
   findApprovedForGoal(goal: string): ResearchDoc | null {
     const needle = slugify(goal);
-    return this.list().find((d) => d.status === 'approved' && (d.id.includes(needle) || needle.includes(slugify(d.goal)))) ?? null;
+    return this.list().find((d) => !d.reference && d.status === 'approved' && (d.id.includes(needle) || needle.includes(slugify(d.goal)))) ?? null;
   }
 
   /** B3 — sem pesquisa aprovada: pedido pendente + resposta honesta ao aluno. */

@@ -77,6 +77,47 @@ function buildService(deps: {
   return { service, prisma, queue, research, mailer };
 }
 
+describe('DynamicTrackService.saveLearningProfile', () => {
+  it('dispensa a etapa sem criar uma investigação', async () => {
+    const update = jest.fn();
+    const { service, queue } = buildService({ prisma: { user: { update } } });
+
+    await service.saveLearningProfile('user-1', { skipped: true });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { learningProfilePending: false },
+    });
+    expect(queue?.add).not.toHaveBeenCalled();
+  });
+
+  it('persiste preferências e enfileira a trilha no primeiro acesso', async () => {
+    const tx = {
+      user: { update: jest.fn() },
+      trackInvestigation: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn() },
+    };
+    const $transaction = jest.fn((callback: (client: typeof tx) => unknown) => callback(tx));
+    const { service, queue } = buildService({ prisma: { $transaction } });
+
+    await service.saveLearningProfile('user-1', {
+      experienceLevel: 'beginner', careerGoal: 'fullstack', weeklyTimeCommitment: '5h',
+    });
+
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' }, data: { learningProfilePending: false },
+    });
+    expect(tx.trackInvestigation.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'user-1' },
+      create: expect.objectContaining({
+        profileSnapshot: expect.objectContaining({
+          expLevel: 'beginner', careerGoal: 'fullstack', timeCommitment: '5h',
+        }),
+      }),
+    }));
+    expect(queue?.add).toHaveBeenCalledWith('investigate', { userId: 'user-1' }, expect.any(Object));
+  });
+});
+
 describe('DynamicTrackService.createForUser', () => {
   it('cria investigating com SLA +48h e enfileira 1 job idempotente', async () => {
     const { service, prisma, queue } = buildService();
@@ -92,6 +133,7 @@ describe('DynamicTrackService.createForUser', () => {
       expLevel: 'mid',
       careerGoal: 'lead',
     });
+
     expect(investigation.status).toBe('investigating');
     expect(queued).toBe(true);
     const sla = new Date(
@@ -458,6 +500,104 @@ describe('DynamicTrackService.runInvestigation', () => {
     );
   });
 
+  it('expõe evidência agregada de vagas com proveniência sem persistir texto bruto', async () => {
+    const collectedAt = '2026-11-14T12:30:00.000Z';
+    const { service, prisma } = buildService({
+      research: {
+        collect: jest.fn().mockResolvedValue({
+          id: 'research-backend',
+          sourcesAvailable: ['jobs'],
+          sourcesUnavailable: [],
+          market: {
+            skills: [{
+              skill: 'PostgreSQL',
+              mentions: 2,
+              sampleSize: 8,
+              sources: ['adzuna', 'tavily'],
+              sourceUrls: ['https://jobs.example/1', 'https://jobs.example/2'],
+              collectedAt,
+              title: 'Nunca expor o título original',
+              text: 'Nunca expor o texto da vaga',
+            }],
+          },
+        }),
+      },
+      mailer: null,
+    });
+    (prisma.trackInvestigation.findUnique as jest.Mock)
+      .mockResolvedValueOnce(investigationRow())
+      .mockResolvedValueOnce(investigationRow());
+    (prisma.diagnosticResult.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.trackInvestigation.update as jest.Mock).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...investigationRow(),
+        ...data,
+      }),
+    );
+
+    const result = await service.runInvestigation('user-1');
+    const updateData = (prisma.trackInvestigation.update as jest.Mock).mock
+      .calls[0][0].data;
+
+    expect(result.basis).toBe('profile+market');
+    expect(updateData.rationale.marketSkills).toEqual([{
+      skill: 'PostgreSQL',
+      mentions: 2,
+      sampleSize: 8,
+      sources: ['adzuna', 'tavily'],
+      sourceUrls: ['https://jobs.example/1', 'https://jobs.example/2'],
+      collectedAt,
+    }]);
+    expect(JSON.stringify(updateData.rationale)).not.toContain('Nunca expor');
+    expect(JSON.stringify(updateData.rationale)).not.toContain('texto da vaga');
+
+    (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(
+      investigationRow({
+        status: 'ready',
+        suggestedTrack: 'backend',
+        rationale: updateData.rationale,
+        marketEvidence: [],
+      }),
+    );
+    const view = await service.getMyInvestigation('user-1');
+    expect(view?.marketSkillEvidence).toEqual(updateData.rationale.marketSkills);
+  });
+
+  it('ignora dados de habilidades quando a fonte de vagas não está disponível', async () => {
+    const { service, prisma } = buildService({
+      research: {
+        collect: jest.fn().mockResolvedValue({
+          sourcesAvailable: ['github'],
+          market: {
+            skills: [{
+              skill: 'Python',
+              mentions: 4,
+              sampleSize: 10,
+              sources: ['adzuna'],
+              sourceUrls: ['https://jobs.example/python'],
+              collectedAt: '2026-11-14T12:30:00.000Z',
+            }],
+          },
+        }),
+      },
+      mailer: null,
+    });
+    (prisma.trackInvestigation.findUnique as jest.Mock).mockResolvedValue(investigationRow());
+    (prisma.diagnosticResult.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.trackInvestigation.update as jest.Mock).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...investigationRow(),
+        ...data,
+      }),
+    );
+
+    const result = await service.runInvestigation('user-1');
+
+    expect(result.basis).toBe('profile-only');
+    expect((prisma.trackInvestigation.update as jest.Mock).mock.calls[0][0].data.rationale)
+      .not.toHaveProperty('marketSkills');
+  });
+
   it('diagnóstico do aluno tem precedência sobre objetivo e hint', async () => {
     const { service, prisma } = buildService({ research: null, mailer: null });
     (prisma.trackInvestigation.findUnique as jest.Mock)
@@ -644,5 +784,77 @@ describe('DynamicTrackService.refreshForUser', () => {
     expect(view.suggestedTrack).toBe('ai');
     expect(view.trackName).toBe('Inteligência Artificial');
     expect(view.startCourse?.slug).toBe('introducao-python');
+  });
+});
+
+describe('DynamicTrackService.getImmediateMiniTrack', () => {
+  it('uses the diagnosed course and returns only real uncompleted starter activities', async () => {
+    const activities = [
+      { id: 'activity-1', title: 'Variáveis', description: 'Pratique variáveis.', order: 1 },
+      { id: 'activity-2', title: 'Condições', description: 'Pratique condições.', order: 2 },
+    ];
+    const { service, prisma } = buildService({
+      prisma: {
+        trackInvestigation: {
+          findUnique: jest.fn().mockResolvedValue(
+            investigationRow({
+              profileSnapshot: { diagnosticTrackId: 'frontend' },
+            }),
+          ),
+        },
+        course: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'course-1',
+            slug: 'algoritmos-javascript',
+            title: 'Algoritmos com JavaScript',
+            activities,
+          }),
+        },
+      },
+    });
+
+    const result = await service.getImmediateMiniTrack('user-1');
+
+    expect(result).toMatchObject({
+      available: true,
+      track: 'frontend',
+      trackName: expect.any(String),
+      course: { id: 'course-1', slug: 'algoritmos-javascript' },
+      activities,
+    });
+    expect(prisma.course.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { slug: 'algoritmos-javascript' },
+        select: expect.objectContaining({
+          activities: expect.objectContaining({
+            where: expect.objectContaining({
+              submissions: { none: { userId: 'user-1', status: 'passed' } },
+            }),
+            take: 3,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('does not expose a mini-track after the investigation is no longer active', async () => {
+    const { service, prisma } = buildService({
+      prisma: {
+        trackInvestigation: {
+          findUnique: jest.fn().mockResolvedValue(
+            investigationRow({ status: 'ready' }),
+          ),
+        },
+      },
+    });
+
+    const result = await service.getImmediateMiniTrack('user-1');
+
+    expect(result).toMatchObject({
+      available: false,
+      reason: 'investigation_not_active',
+      activities: [],
+    });
+    expect(prisma.course.findUnique).not.toHaveBeenCalled();
   });
 });

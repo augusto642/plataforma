@@ -5,6 +5,7 @@ import {
   redactEmail,
   WebhooksController,
 } from './webhooks.controller';
+import { SonarService } from '../sonar/sonar.service';
 
 const SECRET = 'whsec_test_secret';
 
@@ -384,6 +385,68 @@ describe('WebhooksController (fail-closed webhook)', () => {
   });
 
   describe('handleCiRunnerWebhook (pluggable CI/CD runners)', () => {
+    it('uses the runner, repository, and commit SHA as the XP idempotency key', async () => {
+      const mocks = makeMocks();
+      mocks.prisma.user.findFirst.mockResolvedValue({ id: 'user-ci-1' });
+      const gamification = {
+        awardGiteaProjectXp: jest.fn().mockResolvedValue({ awarded: true }),
+      };
+      const controller = new WebhooksController(
+        mocks.prisma as any,
+        mocks.submissions as any,
+        mocks.gitea as any,
+        mocks.config as any,
+        undefined,
+        gamification as any,
+      );
+
+      const result = await controller.handleCiRunnerWebhook({
+        runnerType: 'gitea_actions',
+        repoName: 'sistema-imobiliario-student1',
+        commitSha: 'commit123',
+        status: 'SUCCESS',
+        testsTotal: 12,
+        testsPassed: 12,
+        testsFailed: 0,
+      }, SECRET);
+
+      expect(result.xpAwarded).toBe(true);
+      expect(gamification.awardGiteaProjectXp).toHaveBeenCalledWith(
+        'user-ci-1',
+        expect.objectContaining({
+          idempotencyKey: 'ci:gitea_actions:sistema-imobiliario-student1:commit123',
+        }),
+      );
+    });
+
+    it('does not award XP for a successful run without a stable commit SHA', async () => {
+      const mocks = makeMocks();
+      mocks.prisma.user.findFirst.mockResolvedValue({ id: 'user-ci-1' });
+      const gamification = {
+        awardGiteaProjectXp: jest.fn().mockResolvedValue({ awarded: true }),
+      };
+      const controller = new WebhooksController(
+        mocks.prisma as any,
+        mocks.submissions as any,
+        mocks.gitea as any,
+        mocks.config as any,
+        undefined,
+        gamification as any,
+      );
+
+      const result = await controller.handleCiRunnerWebhook({
+        repoName: 'sistema-imobiliario-student1',
+        status: 'SUCCESS',
+        testsTotal: 12,
+        testsPassed: 12,
+        testsFailed: 0,
+      }, SECRET);
+
+      expect(result.status).toBe('processed');
+      expect(result.xpAwarded).toBe(false);
+      expect(gamification.awardGiteaProjectXp).not.toHaveBeenCalled();
+    });
+
     it('successfully processes successful test run from Gitea Actions / GitHub Actions and awards XP', async () => {
       const mocks = makeMocks();
       mocks.prisma.user.findFirst.mockResolvedValue({ id: 'user-ci-1' });
@@ -397,7 +460,7 @@ describe('WebhooksController (fail-closed webhook)', () => {
         testsTotal: 12,
         testsPassed: 12,
         testsFailed: 0,
-      });
+      }, SECRET);
 
       expect(result.status).toBe('processed');
       expect(result.isSuccess).toBe(true);
@@ -418,12 +481,163 @@ describe('WebhooksController (fail-closed webhook)', () => {
         testsTotal: 10,
         testsPassed: 8,
         testsFailed: 2,
-      });
+      }, undefined, SECRET);
 
       expect(result.status).toBe('processed');
       expect(result.isSuccess).toBe(false);
       expect(result.testsFailed).toBe(2);
       expect(result.xpAwarded).toBe(false);
+    });
+
+    it('rejects a request without a token or signature', async () => {
+      const { controller, mocks } = makeController();
+
+      await expect(
+        controller.handleCiRunnerWebhook({
+          repoName: 'sistema-imobiliario-student1',
+          status: 'SUCCESS',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects a request when no CI webhook secret is configured', async () => {
+      const config = {
+        get: jest.fn((_key: string, def?: any) => def),
+      };
+      const { controller, mocks } = makeController({ config });
+
+      await expect(
+        controller.handleCiRunnerWebhook({
+          repoName: 'sistema-imobiliario-student1',
+          status: 'SUCCESS',
+        }, SECRET),
+      ).rejects.toThrow(ConfigError);
+      expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleSonarWebhook (signed webhook)', () => {
+    const payload = {
+      project: { key: 'activity-student1' },
+      analysisId: 'analysis-001',
+      qualityGate: { status: 'OK', conditions: [] },
+    };
+
+    it('rejects a request when SONAR_WEBHOOK_SECRET is not configured', async () => {
+      const config = {
+        get: jest.fn((_key: string, def?: any) => def),
+      };
+      const { controller, mocks } = makeController({ config });
+      const rawBody = Buffer.from(JSON.stringify(payload));
+
+      await expect(
+        controller.handleSonarWebhook(
+          { rawBody } as any,
+          payload,
+          sign(rawBody),
+        ),
+      ).rejects.toThrow(ConfigError);
+      expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects a request without a signature', async () => {
+      const config = {
+        get: jest.fn((key: string, def?: any) =>
+          key === 'SONAR_WEBHOOK_SECRET' ? SECRET : def,
+        ),
+      };
+      const { controller, mocks } = makeController({ config });
+      const rawBody = Buffer.from(JSON.stringify(payload));
+
+      await expect(
+        controller.handleSonarWebhook({ rawBody } as any, payload),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects a request without the raw body needed to verify its signature', async () => {
+      const config = {
+        get: jest.fn((key: string, def?: any) =>
+          key === 'SONAR_WEBHOOK_SECRET' ? SECRET : def,
+        ),
+      };
+      const { controller, mocks } = makeController({ config });
+
+      await expect(
+        controller.handleSonarWebhook(
+          {} as any,
+          payload,
+          sign(Buffer.from(JSON.stringify(payload))),
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid HMAC signature', async () => {
+      const config = {
+        get: jest.fn((key: string, def?: any) =>
+          key === 'SONAR_WEBHOOK_SECRET' ? SECRET : def,
+        ),
+      };
+      const { controller, mocks } = makeController({ config });
+      const rawBody = Buffer.from(JSON.stringify(payload));
+
+      await expect(
+        controller.handleSonarWebhook(
+          { rawBody } as any,
+          payload,
+          '0'.repeat(64),
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mocks.prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('accepts a valid HMAC signature over the raw body', async () => {
+      const config = {
+        get: jest.fn((key: string, def?: any) =>
+          key === 'SONAR_WEBHOOK_SECRET' ? SECRET : def,
+        ),
+      };
+      const mocks = makeMocks();
+      const sonar = new SonarService({
+        get: jest.fn().mockReturnValue('http://localhost:9000'),
+      } as any);
+      const gamification = {
+        awardGiteaProjectXp: jest.fn().mockResolvedValue({ awarded: true }),
+      };
+      const controller = new WebhooksController(
+        mocks.prisma as any,
+        mocks.submissions as any,
+        mocks.gitea as any,
+        config as any,
+        sonar,
+        gamification as any,
+      );
+      const rawBody = Buffer.from(JSON.stringify(payload));
+
+      const result = await controller.handleSonarWebhook(
+        { rawBody } as any,
+        payload,
+        sign(rawBody),
+      );
+
+      expect(result.status).toBe('processed');
+      expect(mocks.prisma.user.findFirst).toHaveBeenCalled();
+      expect(result.evaluation).toMatchObject({
+        qualityGatePassed: true,
+        maintainabilityBonusPercent: 0,
+        securityBonusPercent: 0,
+        coverageBonusPercent: 0,
+        totalMultiplier: 1,
+      });
+      expect(gamification.awardGiteaProjectXp).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({
+          sonarBonusMultiplier: 1,
+          idempotencyKey: 'sonar:activity-student1:analysis-001',
+        }),
+      );
     });
   });
 });

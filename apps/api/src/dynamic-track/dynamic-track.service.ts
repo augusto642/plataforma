@@ -12,15 +12,17 @@
  * - "Começar minha trilha" resolve via TRACK_TO_COURSE_SLUG e só
  *   oferece o curso se o slug existir no banco (DESIGN D6).
  */
-import { ConflictException, HttpException, HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { Prisma } from '@prisma/client';
 import { TRACK_TO_COURSE_SLUG } from '../adaptation/adaptation.rules';
 import { ARCHETYPES, TRACK_NAMES, type TrackId } from '../diagnostic/data/quiz-v1';
 import { ResearchService } from '../knowledge/research/research.service';
+import type { JobMarketSignal } from '../knowledge/research/providers';
 import { MailerService } from '../mail/mailer.service';
 import { PrismaService } from '../prisma/prisma.service';
+import type { LearningProfileDto } from './learning-profile.dto';
 import {
   buildRationaleText,
   isCareerGoal,
@@ -76,6 +78,7 @@ export interface TrackInvestigationView {
   rationaleText: string | null;
   basis: SuggestionBasis | null;
   marketEvidence: MarketEvidenceItem[];
+  marketSkillEvidence: MarketSkillEvidenceItem[];
   slaDueAt: Date;
   overdue: boolean;
   completedAt: Date | null;
@@ -90,6 +93,15 @@ export interface TrackInvestigationView {
     primaryTechnology: string | null;
   };
   createdAt: Date;
+}
+
+export interface MarketSkillEvidenceItem {
+  skill: string;
+  mentions: number;
+  sampleSize: number;
+  sources: string[];
+  sourceUrls: string[];
+  collectedAt: string;
 }
 
 export interface InvestigationRow {
@@ -148,11 +160,14 @@ function parseSnapshot(raw: unknown): TrackProfileSnapshot {
 function parseRationale(raw: unknown): {
   reasons: SuggestionReason[];
   basis: SuggestionBasis | null;
+  marketSkills: MarketSkillEvidenceItem[];
   researchDocId?: string;
   researchSourcesAvailable?: string[];
   researchSourcesUnavailable?: string[];
 } {
-  if (!raw || typeof raw !== 'object') return { reasons: [], basis: null };
+  if (!raw || typeof raw !== 'object') {
+    return { reasons: [], basis: null, marketSkills: [] };
+  }
   const r = raw as Record<string, unknown>;
   return {
     reasons: Array.isArray(r.reasons)
@@ -162,6 +177,7 @@ function parseRationale(raw: unknown): {
       r.basis === 'profile-only' || r.basis === 'profile+market'
         ? (r.basis as SuggestionBasis)
         : null,
+    marketSkills: parseMarketSkillEvidence(r.marketSkills),
     researchDocId:
       typeof r.researchDocId === 'string' ? r.researchDocId : undefined,
     researchSourcesAvailable: Array.isArray(r.researchSourcesAvailable)
@@ -171,6 +187,49 @@ function parseRationale(raw: unknown): {
       ? (r.researchSourcesUnavailable.filter((x) => typeof x === 'string') as string[])
       : undefined,
   };
+}
+
+function parseMarketSkillEvidence(raw: unknown): MarketSkillEvidenceItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const signal = item as Partial<JobMarketSignal>;
+    if (
+      typeof signal.skill !== 'string' ||
+      !signal.skill.trim() ||
+      !Number.isInteger(signal.mentions) ||
+      !Number.isInteger(signal.sampleSize) ||
+      signal.mentions! < 1 ||
+      signal.sampleSize! < signal.mentions! ||
+      typeof signal.collectedAt !== 'string' ||
+      !Number.isFinite(Date.parse(signal.collectedAt))
+    ) {
+      return [];
+    }
+    const sources = Array.isArray(signal.sources)
+      ? signal.sources.filter((source): source is string => typeof source === 'string')
+      : [];
+    if (sources.length === 0) return [];
+    const sourceUrls = Array.isArray(signal.sourceUrls)
+      ? signal.sourceUrls.filter((sourceUrl): sourceUrl is string => {
+          if (typeof sourceUrl !== 'string') return false;
+          try {
+            const url = new URL(sourceUrl);
+            return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password;
+          } catch {
+            return false;
+          }
+        })
+      : [];
+    return [{
+      skill: signal.skill.trim(),
+      mentions: signal.mentions!,
+      sampleSize: signal.sampleSize!,
+      sources,
+      sourceUrls,
+      collectedAt: signal.collectedAt,
+    }];
+  });
 }
 
 function parseEvidence(raw: unknown): MarketEvidenceItem[] {
@@ -276,12 +335,139 @@ export class DynamicTrackService {
   // Leitura (aluno)
   // ------------------------------------------------------------------
 
+  async saveLearningProfile(userId: string, profile: LearningProfileDto): Promise<void> {
+    const { skipped, experienceLevel, careerGoal, weeklyTimeCommitment } = profile;
+    if (skipped) {
+      if (experienceLevel || careerGoal || weeklyTimeCommitment) {
+        throw new BadRequestException('Envie as preferências ou pule a etapa, não ambos.');
+      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { learningProfilePending: false },
+      });
+      return;
+    }
+    if (!experienceLevel || !careerGoal || !weeklyTimeCommitment) {
+      throw new BadRequestException('Informe experiência, objetivo e tempo disponível.');
+    }
+
+    const existing = await this.prisma.$transaction(async (tx) => {
+      // A atualização serializa envios simultâneos do mesmo aluno.
+      await tx.user.update({
+        where: { id: userId },
+        data: { learningProfilePending: false },
+      });
+      const prior = await tx.trackInvestigation.findUnique({ where: { userId } });
+      const snapshot = {
+        ...parseSnapshot(prior?.profileSnapshot),
+        expLevel: experienceLevel,
+        careerGoal,
+        careerGoals: [careerGoal],
+        timeCommitment: weeklyTimeCommitment,
+        assessmentSource: 'self-declared',
+      };
+      const profileSnapshot = snapshot as Prisma.InputJsonValue;
+      await tx.trackInvestigation.upsert({
+        where: { userId },
+        create: { userId, profileSnapshot, slaDueAt: slaDueAtFrom(new Date()) },
+        update: { profileSnapshot },
+      });
+      return prior;
+    });
+
+    if (existing?.status === 'ready') {
+      await this.refreshForUser(userId);
+    } else {
+      try {
+        await this.enqueue(userId);
+      } catch (error) {
+        this.logger.error(`Perfil salvo, mas não foi possível agendar a trilha de ${userId}.`, error);
+      }
+    }
+  }
+
   async getMyInvestigation(userId: string): Promise<TrackInvestigationView | null> {
     const row = await this.prisma.trackInvestigation.findUnique({
       where: { userId },
     });
     if (!row) return null;
     return this.toView(row as InvestigationRow);
+  }
+
+  /**
+   * Libera uma sequência curta do curso correspondente ao diagnóstico
+   * enquanto a investigação assíncrona ainda está em andamento. Só usa
+   * atividades existentes e ainda não aprovadas; não cria matrícula nem
+   * altera progresso.
+   */
+  async getImmediateMiniTrack(userId: string) {
+    const investigation = await this.prisma.trackInvestigation.findUnique({
+      where: { userId },
+      select: { status: true, profileSnapshot: true, suggestedTrack: true },
+    });
+    if (!investigation || investigation.status !== 'investigating') {
+      return {
+        available: false as const,
+        reason: 'investigation_not_active' as const,
+        track: null,
+        trackName: null,
+        course: null,
+        activities: [],
+      };
+    }
+
+    const snapshot = parseSnapshot(investigation.profileSnapshot);
+    let diagnosticTrackId = snapshot.diagnosticTrackId ?? null;
+    if (!diagnosticTrackId || !Object.hasOwn(TRACK_NAMES, diagnosticTrackId)) {
+      const latest = await this.prisma.diagnosticResult.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      const archetype = latest?.archetype as keyof typeof ARCHETYPES | undefined;
+      diagnosticTrackId =
+        (archetype && ARCHETYPES[archetype]?.recommendedTrack) ?? null;
+    }
+
+    const input: TrackSuggestionInput = { ...snapshot, diagnosticTrackId };
+    const storedTrack =
+      typeof investigation.suggestedTrack === 'string' &&
+      Object.hasOwn(TRACK_NAMES, investigation.suggestedTrack)
+        ? (investigation.suggestedTrack as TrackId)
+        : null;
+    const track = storedTrack ?? diagnosticTrackId ?? suggestTrack(input).track;
+    const courseSlug = TRACK_TO_COURSE_SLUG[track];
+    const course = await this.prisma.course.findUnique({
+      where: { slug: courseSlug },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        activities: {
+          where: {
+            isBossFight: false,
+            isCapstone: false,
+            submissions: { none: { userId, status: 'passed' } },
+          },
+          orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+          take: 3,
+          select: { id: true, title: true, description: true, order: true },
+        },
+      },
+    });
+
+    const activities = course?.activities ?? [];
+    return {
+      available: activities.length > 0,
+      reason: !course
+        ? ('course_not_found' as const)
+        : activities.length === 0
+          ? ('no_pending_activities' as const)
+          : null,
+      track,
+      trackName: TRACK_NAMES[track],
+      course: course ? { id: course.id, slug: course.slug, title: course.title } : null,
+      activities,
+    };
   }
 
   /** Entrada para a sugestão: snapshot + diagnóstico mais recente. */
@@ -586,6 +772,7 @@ export class DynamicTrackService {
     let researchDocId: string | undefined;
     let researchSourcesAvailable: string[] | undefined;
     let researchSourcesUnavailable: string[] | undefined;
+    let marketSkillEvidence: MarketSkillEvidenceItem[] = [];
     try {
       const winnerReason = suggestion.reasons.find((r) =>
         r.startsWith('career-goal:'),
@@ -599,8 +786,8 @@ export class DynamicTrackService {
         researchDocId = doc.id;
         researchSourcesAvailable = doc.sourcesAvailable ?? [];
         researchSourcesUnavailable = doc.sourcesUnavailable ?? [];
-        evidence = this.signalsFromResearchDoc(doc, primaryGoal);
-        if (evidence.length > 0) basis = 'profile+market';
+        marketSkillEvidence = this.signalsFromResearchDoc(doc);
+        if (evidence.length > 0 || marketSkillEvidence.length > 0) basis = 'profile+market';
       }
     } catch (err) {
       this.logger.warn(
@@ -614,6 +801,7 @@ export class DynamicTrackService {
       ...(researchDocId ? { researchDocId } : {}),
       ...(researchSourcesAvailable ? { researchSourcesAvailable } : {}),
       ...(researchSourcesUnavailable ? { researchSourcesUnavailable } : {}),
+      ...(marketSkillEvidence.length > 0 ? { marketSkills: marketSkillEvidence } : {}),
     };
 
     // Persiste os sinais de evidência (dedupe por URL na tabela).
@@ -755,25 +943,17 @@ export class DynamicTrackService {
   // ------------------------------------------------------------------
 
   /**
-   * Extrai sinais da pesquisa coletada. DIVERGÊNCIA REGISTRADA (ver
-   * relatório): `ResearchService.collect` devolve `market.skills` sem
-   * `publishedAt` por skill e sem URL de fonte primária por skill —
-   * só `sources: string[]` agregadas e `collectedAt`. A spec last30days
-   * §6 EXIGE publishedAt + fonte + URL por sinal e descarta o resto,
-   * então nenhum skill vira sinal em v1: a investigação registra o
-   * doc de pesquisa no rationale e segue `profile-only`. Quando um
-   * provedor de mercado devolver sinais datados e com URL, este método
-   * é o ponto de conversão (score via scoreMarketSignal + filtro
-   * toMarketEvidence) — sem mudar o contrato do worker.
+   * Mantém apenas contagens agregadas e proveniência; texto de vagas não
+   * é persistido nem exposto. Evidência sem amostra e data válidas é ignorada.
    */
   private signalsFromResearchDoc(
     doc: {
-      market?: { skills?: Array<{ skill?: string; sources?: string[] }> };
+      sourcesAvailable?: string[];
+      market?: { skills?: Array<Partial<JobMarketSignal>> };
     },
-    _goal: string | null,
-  ): MarketEvidenceItem[] {
-    void doc;
-    return [];
+  ): MarketSkillEvidenceItem[] {
+    if (!doc.sourcesAvailable?.includes('jobs')) return [];
+    return parseMarketSkillEvidence(doc.market?.skills);
   }
 
   /** E-mail de "trilha pronta" — fail-closed, nunca derruba a investigação. */
@@ -854,6 +1034,7 @@ export class DynamicTrackService {
           : null,
       basis: rationale.basis,
       marketEvidence: evidence,
+      marketSkillEvidence: rationale.marketSkills,
       slaDueAt: row.slaDueAt,
       overdue:
         row.status === 'investigating' &&

@@ -34,6 +34,8 @@ export interface LlmUsage {
 
 export interface LlmCompletionRequest {
   messages: LlmChatMessage[];
+  /** Per-room override, accepted only from the server-configured allowlist. */
+  model?: string;
   /** response_format json_object (ou equivalente do provedor). */
   jsonMode?: boolean;
   /** Sobrescreve o timeout (ms). */
@@ -49,6 +51,8 @@ export interface LlmCompletionResult {
 export interface LlmProvider {
   /** Identificador estável do provedor: 'gemini' | 'openai-compatible'. */
   readonly id: string;
+  /** Vendor tariff catalog, only when this endpoint is the vendor's official API. */
+  readonly publicPricingProvider?: 'google' | 'openai';
   /** Modelo efetivo que o adaptador vai chamar. */
   readonly model: string;
   complete(req: LlmCompletionRequest): Promise<LlmCompletionResult>;

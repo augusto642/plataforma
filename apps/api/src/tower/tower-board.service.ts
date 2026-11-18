@@ -38,8 +38,8 @@ export interface TowerFloorSeed {
  * - item:      10, 20, 27
  * - final:     30 (guardião — desafio de código mais difícil)
  *
- * Na Fase 1, quiz/mini-game/item não têm desafio implementado: o jogador
- * apenas passa pela casa. O conteúdo de código vive em Activities do curso
+ * Quizzes e mini-games são objetivos de múltipla escolha validados no servidor.
+ * Itens são atravessados; o conteúdo de código vive em Activities do curso
  * `torre-de-desafios` (criadas pelo seed `scripts/seed-tower.mjs`).
  */
 @Injectable()

@@ -3,39 +3,65 @@
 import React, { useEffect, useState } from 'react';
 
 interface PendingChallenge {
-  activityId: string;
+  activityId: string | null;
   floor: number;
   toSquare: number;
   squareType: string;
   timeLimitSeconds: number;
   deadlineAt: string;
+  objective?: {
+    kind: 'quiz' | 'bug_hunt' | 'gap_fill';
+    title: string;
+    prompt: string;
+    options: string[];
+    codeSnippet?: string;
+  };
 }
+
+export type TowerChallengeSubmission =
+  | { kind: 'code'; code: string }
+  | { kind: 'objective'; choiceIndex: number };
 
 interface TowerChallengeModalProps {
   challenge: PendingChallenge | null;
   hasShield: boolean;
+  extraTimeQuantity: number;
   onClose?: () => void;
-  onSubmit: (code: string) => Promise<void>;
+  onSubmit: (submission: TowerChallengeSubmission) => Promise<void>;
+  onUseExtraTime: () => Promise<void>;
   onAskOracle: () => Promise<string>;
 }
 
 export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
   challenge,
   hasShield,
+  extraTimeQuantity,
   onSubmit,
+  onUseExtraTime,
   onAskOracle,
 }) => {
   const [code, setCode] = useState('// Digite sua solução aqui\nfunction solucao() {\n  \n}');
+  const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(challenge?.timeLimitSeconds || 90);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oracleHint, setOracleHint] = useState<string | null>(null);
   const [askingOracle, setAskingOracle] = useState(false);
+  const [usingExtraTime, setUsingExtraTime] = useState(false);
+  const challengeKey = challenge
+    ? `${challenge.floor}:${challenge.toSquare}:${challenge.activityId}`
+    : null;
+  const deadlineAt = challenge?.deadlineAt;
 
   useEffect(() => {
-    if (!challenge) return;
+    setSelectedChoice(null);
+    setError(null);
+    setOracleHint(null);
+  }, [challengeKey]);
 
-    const deadline = new Date(challenge.deadlineAt).getTime();
+  useEffect(() => {
+    if (!deadlineAt) return;
+    const deadline = new Date(deadlineAt).getTime();
     const updateTimer = () => {
       const diff = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
       setSecondsLeft(diff);
@@ -44,7 +70,7 @@ export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [challenge]);
+  }, [deadlineAt]);
 
   if (!challenge) return null;
 
@@ -57,7 +83,12 @@ export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(code);
+      if (challenge.objective) {
+        if (selectedChoice === null && secondsLeft > 0) return;
+        await onSubmit({ kind: 'objective', choiceIndex: selectedChoice ?? 0 });
+      } else {
+        await onSubmit({ kind: 'code', code });
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -78,6 +109,18 @@ export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
     }
   };
 
+  const handleUseExtraTime = async () => {
+    setUsingExtraTime(true);
+    setError(null);
+    try {
+      await onUseExtraTime();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUsingExtraTime(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
       <div className="w-full max-w-3xl bg-[#0C0F17] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -93,7 +136,7 @@ export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
               </span>
             </div>
             <h2 className="text-lg font-bold text-white font-heading">
-              Desafio Cronometrado da Torre
+              {challenge.objective?.title ?? 'Desafio de Código'}
             </h2>
           </div>
 
@@ -146,29 +189,75 @@ export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
           </div>
         )}
 
-        {/* Editor e Submissão */}
+        {/* Desafio e submissão */}
         <form onSubmit={handleSubmit} className="p-5 flex-1 flex flex-col space-y-4 overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Escreva o código da solução:
-            </label>
+          {extraTimeQuantity > 0 && (
             <button
               type="button"
-              disabled={askingOracle}
-              onClick={handleAskOracle}
-              className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-lg font-bold disabled:opacity-50"
+              disabled={usingExtraTime || secondsLeft <= 0}
+              onClick={handleUseExtraTime}
+              className="self-start rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
             >
-              <span>📜</span>
-              <span>{askingOracle ? 'Consultando...' : 'Dica Socrática (1 Pergaminho)'}</span>
+              {usingExtraTime
+                ? 'Estendendo cronômetro...'
+                : `⏳ Usar Ampulheta (+60s) · ${extraTimeQuantity}x`}
             </button>
-          </div>
-
-          <textarea
-            rows={10}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full rounded-xl border border-slate-800 bg-[#07090E] p-4 text-xs font-mono text-slate-100 outline-none focus:border-indigo-500 resize-none shadow-inner"
-          />
+          )}
+          {challenge.objective ? (
+            <fieldset className="space-y-3">
+              <legend className="text-base font-semibold leading-relaxed text-white">
+                {challenge.objective.prompt}
+              </legend>
+              {challenge.objective.codeSnippet && (
+                <pre className="overflow-x-auto rounded-xl border border-slate-800 bg-[#07090E] p-4 text-xs text-slate-100">
+                  <code>{challenge.objective.codeSnippet}</code>
+                </pre>
+              )}
+              {challenge.objective.options.map((option, index) => (
+                <label
+                  key={`${index}-${option}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition-colors ${
+                    selectedChoice === index
+                      ? 'border-indigo-400 bg-indigo-500/10 text-white'
+                      : 'border-slate-800 bg-[#07090E] text-slate-300 hover:border-slate-600'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tower-objective-choice"
+                    value={index}
+                    checked={selectedChoice === index}
+                    onChange={() => setSelectedChoice(index)}
+                    className="mt-0.5 accent-indigo-500"
+                  />
+                  <span>{option}</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Escreva o código da solução:
+                </label>
+                <button
+                  type="button"
+                  disabled={askingOracle || secondsLeft <= 0}
+                  onClick={handleAskOracle}
+                  className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-lg font-bold disabled:opacity-50"
+                >
+                  <span>📜</span>
+                  <span>{askingOracle ? 'Consultando...' : 'Dica Socrática (1 Pergaminho)'}</span>
+                </button>
+              </div>
+              <textarea
+                rows={10}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="w-full rounded-xl border border-slate-800 bg-[#07090E] p-4 text-xs font-mono text-slate-100 outline-none focus:border-indigo-500 resize-none shadow-inner"
+              />
+            </>
+          )}
 
           {error && (
             <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
@@ -179,10 +268,21 @@ export const TowerChallengeModal: React.FC<TowerChallengeModalProps> = ({
           <div className="flex items-center gap-3 pt-2">
             <button
               type="submit"
-              disabled={submitting || secondsLeft <= 0}
+              disabled={
+                submitting ||
+                (Boolean(challenge.objective) && selectedChoice === null && secondsLeft > 0)
+              }
               className="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
             >
-              {submitting ? 'Avaliando código no sandbox...' : 'Enviar Solução & Confirmar Avanço'}
+              {submitting
+                ? challenge.objective
+                  ? 'Verificando resposta...'
+                  : 'Avaliando código no sandbox...'
+                : secondsLeft <= 0
+                  ? 'Confirmar tempo esgotado'
+                  : challenge.objective
+                    ? 'Enviar resposta'
+                    : 'Enviar solução'}
             </button>
           </div>
         </form>

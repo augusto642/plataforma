@@ -10,13 +10,14 @@ export interface SocraticGuidanceResult {
   tier: SocraticTier;
   timestamp: string;
   cached: boolean;
+  source: 'heuristic';
 }
 
 /**
  * M12 — Orientação socrática por palavra-chave (extraída do AiService god
  * service): dica + pergunta socrática por tema da pergunta do aluno, com
- * cache de 1h por (challengeId, pergunta) quando há CacheService. Sem
- * cache, calcula sempre (fail-open). Não chama LLM.
+ * cache de 1h para chamadas não personalizadas. Chamadas de aluno
+ * recalculam o tier para não compartilhar progresso entre usuários.
  */
 @Injectable()
 export class SocraticGuidanceService {
@@ -29,12 +30,12 @@ export class SocraticGuidanceService {
     dto: SocraticGuidanceDto,
     userId?: string,
   ): Promise<SocraticGuidanceResult> {
-    const cacheKey = `ai:socratic:${dto.challengeId || 'general'}:${dto.question.trim().toLowerCase()}`;
-    if (this.cache) {
+    const cacheKey = `ai:socratic:${dto.challengeId || 'general'}:${dto.question.trim().toLowerCase()}:${dto.starterName || 'Companion'}`;
+    if (this.cache && !userId) {
       try {
         const cached = await this.cache.get<SocraticGuidanceResult>(cacheKey);
         if (cached) {
-          return { ...cached, cached: true };
+          return { ...cached, cached: true, source: 'heuristic' };
         }
       } catch {
         // Cache miss or Redis connection not established; proceed with computation
@@ -75,9 +76,10 @@ export class SocraticGuidanceService {
       tier,
       timestamp: new Date().toISOString(),
       cached: false,
+      source: 'heuristic',
     };
 
-    if (this.cache) {
+    if (this.cache && !userId) {
       try {
         await this.cache.set(cacheKey, result, 3600);
       } catch {

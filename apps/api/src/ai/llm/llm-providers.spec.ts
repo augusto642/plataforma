@@ -53,6 +53,14 @@ describe('OpenAiCompatibleProvider', () => {
       ...overrides,
     });
 
+  it('associa tarifas públicas apenas ao endpoint oficial da OpenAI', () => {
+    expect(
+      makeProvider({ endpoint: 'https://api.openai.com/v1/chat/completions' })
+        .publicPricingProvider,
+    ).toBe('openai');
+    expect(makeProvider().publicPricingProvider).toBeUndefined();
+  });
+
   it('complete devolve conteúdo + usage e chama o endpoint configurado', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
@@ -66,6 +74,18 @@ describe('OpenAiCompatibleProvider', () => {
     expect(result.usage).toEqual({ promptTokens: 10, completionTokens: 5, totalTokens: 15 });
     const [url] = fetchMock.mock.calls[0];
     expect(url).toBe('http://localhost:11434/v1/chat/completions');
+  });
+
+  it('usa o modelo recebido na chamada em vez do modelo global', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { choices: [{ message: { content: 'ok' } }] }),
+    );
+    const result = await makeProvider().complete({
+      messages: [{ role: 'user', content: 'oi' }],
+      model: 'room-model',
+    });
+    expect(result.model).toBe('room-model');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('room-model');
   });
 
   it('SEM chave (modelo local): nenhum header Authorization é enviado', async () => {
@@ -153,6 +173,13 @@ describe('GeminiProvider', () => {
       ...overrides,
     });
 
+  it('associa tarifas públicas apenas ao endpoint oficial do Google', () => {
+    expect(makeProvider().publicPricingProvider).toBe('google');
+    expect(
+      makeProvider({ baseUrl: 'http://localhost:8080/v1beta' }).publicPricingProvider,
+    ).toBeUndefined();
+  });
+
   it('complete usa a API nativa: URL :generateContent, header x-goog-api-key, system→systemInstruction', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
@@ -200,6 +227,18 @@ describe('GeminiProvider', () => {
     await makeProvider().complete({ messages: [{ role: 'user', content: 'oi' }], jsonMode: true });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.generationConfig.responseMimeType).toBe('application/json');
+  });
+
+  it('usa o modelo recebido na chamada na URL específica do Gemini', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+    );
+    const result = await makeProvider().complete({
+      messages: [{ role: 'user', content: 'oi' }],
+      model: 'gemini-room',
+    });
+    expect(result.model).toBe('gemini-room');
+    expect(fetchMock.mock.calls[0][0]).toContain('/models/gemini-room:generateContent');
   });
 
   it('thinkingBudget undefined (dynamic) → thinkingConfig ausente', async () => {

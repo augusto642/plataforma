@@ -52,9 +52,50 @@ export interface CacheHealthSummary {
   pingLatencyMs?: number;
 }
 
+export interface AiOperationsSummary {
+  calls: number;
+  failedCalls: number;
+  blockedCalls: number;
+  fallbackCalls: number;
+  fallbackRate: number | null;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  pricedCalls: number;
+  unpricedCalls: number;
+  estimatedCostUsd: number | null;
+  pricingCheckedAt: string;
+}
+
+export interface AdminQueueMetrics {
+  name: string;
+  available: boolean;
+  waiting?: number;
+  active?: number;
+  completed?: number;
+  failed?: number;
+  delayed?: number;
+  headWaitingAgeSeconds?: number;
+}
+
+export interface AiQualitySummary {
+  windowDays: number;
+  total: number;
+  helpful: number;
+  notHelpful: number;
+  concerns: {
+    tooMuchAnswer: number;
+    incorrect: number;
+    unclear: number;
+  };
+}
+
 export interface AdminMetricsResponseDto {
   timestamp: string;
   system: SystemTelemetryMetrics;
   platform: PlatformCountsSummary;
+  ai: AiOperationsSummary;
+  aiQuality: AiQualitySummary;
+  queues: AdminQueueMetrics[];
   cache: CacheHealthSummary;
 }

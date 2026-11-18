@@ -1,19 +1,23 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
+  Headers,
   Optional,
   Post,
   Query,
   Req,
   Res,
   SetMetadata,
+  ServiceUnavailableException,
   UnauthorizedException,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -27,17 +31,23 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { IS_PUBLIC_KEY, Public } from './decorators/public.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
+import { RequestPasswordResetDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { GuestAgeEligibilityDto } from './dto/guest-age-eligibility.dto';
 import { CheckEmailDto } from './dto/check-email.dto';
 import { RegisterDto } from './dto/register.dto';
+import { LegalConsentDto } from './dto/legal-consent.dto';
 import { ResendCodeDto } from './dto/resend-code.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { GitHubAuthGuard, GoogleAuthGuard } from './guards/oauth.guard';
 import { OAuthCallbackExceptionFilter } from './oauth-callback.filter';
 import { OAuthProfile, webAppBaseUrl } from './oauth.config';
 import { ConfigService } from '@nestjs/config';
+import { MetricsService } from '../metrics/metrics.service';
 import {
   ACCESS_TOKEN_COOKIE,
   ACCESS_TOKEN_TTL_MS,
+  OAUTH_LEGAL_CONSENT_COOKIE,
+  OAUTH_LEGAL_CONSENT_TTL_MS,
   REFRESH_TOKEN_COOKIE,
   REFRESH_TOKEN_TTL_MS,
   cookieOptions,
@@ -54,11 +64,13 @@ import {
 @Public()
 export class AuthController {
   private fallbackRegistrationLevel?: RegistrationLevelService;
+  private readonly followUpTokenTtlMs = 15 * 60 * 1000;
 
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
     @Optional() private readonly registrationLevel?: RegistrationLevelService,
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
 
   private getRegistrationLevelService(): RegistrationLevelService {
@@ -68,13 +80,29 @@ export class AuthController {
     );
   }
 
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async forgotPassword(@Body() dto: RequestPasswordResetDto) {
+    await this.auth.requestPasswordReset(dto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.auth.resetPassword(dto.token, dto.password);
+  }
+
   @Get('registration-challenge')
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  getRegistrationChallenge(
+  async getRegistrationChallenge(
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
     @Query('programmed') programmed?: string,
     @Query('language') language?: string,
   ) {
+    await this.assertGuestAgeEligibility(eligibilityToken);
     const hasProgrammed =
       programmed === 'true' || programmed === '1'
         ? true
@@ -87,20 +115,130 @@ export class AuthController {
     });
   }
 
+  @Post('guest-age-eligibility')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async createGuestAgeEligibility(@Body() dto: GuestAgeEligibilityDto) {
+    return {
+      token: await this.auth.createGuestAgeEligibilityToken(dto.adultConfirmed),
+    };
+  }
+
   @Post('evaluate-level')
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  evaluateLevel(@Body() dto: EvaluateRegistrationLevelDto) {
-    return this.getRegistrationLevelService().evaluateExplanation(dto);
+  async evaluateLevel(
+    @Body() dto: EvaluateRegistrationLevelDto,
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
+  ) {
+    await this.assertGuestAgeEligibility(eligibilityToken);
+    const followUpQuestion = dto.followUpToken
+      ? this.verifyRegistrationFollowUpToken(dto.followUpToken, dto.challengeId)
+      : undefined;
+    if (dto.followUpAnswer?.trim() && !followUpQuestion) {
+      throw new BadRequestException('Resposta de follow-up sem token válido.');
+    }
+    const result = await this.getRegistrationLevelService().evaluateExplanation({
+      hasProgrammedBefore: dto.hasProgrammedBefore,
+      language: dto.language,
+      challengeId: dto.challengeId,
+      explanation: dto.explanation,
+      followUpQuestion,
+      followUpAnswer: dto.followUpAnswer,
+    });
+    this.metrics?.recordRegistrationEvaluation(
+      result.source,
+      result.confidence,
+      Boolean(followUpQuestion),
+    );
+    return result;
   }
 
   @Post('registration-follow-up')
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  generateRegistrationFollowUp(@Body() dto: GenerateRegistrationFollowUpDto) {
-    return this.getRegistrationLevelService().generateFollowUpQuestion(dto);
+  async generateRegistrationFollowUp(
+    @Body() dto: GenerateRegistrationFollowUpDto,
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
+  ) {
+    await this.assertGuestAgeEligibility(eligibilityToken);
+    const followUp = await this.getRegistrationLevelService().generateFollowUpQuestion(dto);
+    const response = {
+      ...followUp,
+      followUpToken: this.createRegistrationFollowUpToken(followUp.question, dto.challengeId),
+    };
+    this.metrics?.recordRegistrationFollowUpGenerated();
+    return response;
+  }
+
+  private createRegistrationFollowUpToken(question: string, challengeId?: string): string {
+    const secret = this.config.get<string>('JWT_ACCESS_SECRET');
+    if (!secret) {
+      throw new ServiceUnavailableException('A avaliação está indisponível.');
+    }
+
+    const payload = Buffer.from(
+      JSON.stringify({
+        question,
+        challengeId: challengeId ?? null,
+        expiresAt: Date.now() + this.followUpTokenTtlMs,
+      }),
+    ).toString('base64url');
+    const signature = createHmac('sha256', secret).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+  }
+
+  private async assertGuestAgeEligibility(token?: string): Promise<void> {
+    if (await this.auth.verifyGuestAgeEligibilityToken(token)) return;
+    throw new UnauthorizedException(
+      withErrorCode(
+        'Confirme que você tem 18 anos ou mais para acessar esta etapa.',
+        ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+      ),
+    );
+  }
+
+  private verifyRegistrationFollowUpToken(token: string, challengeId?: string): string {
+    const secret = this.config.get<string>('JWT_ACCESS_SECRET');
+    const [payload, signature, extra] = token.split('.');
+    if (!secret || !payload || !signature || extra !== undefined) {
+      throw new BadRequestException('Token de follow-up inválido.');
+    }
+
+    const expected = createHmac('sha256', secret).update(payload).digest();
+    let received: Buffer;
+    try {
+      received = Buffer.from(signature, 'base64url');
+    } catch {
+      throw new BadRequestException('Token de follow-up inválido.');
+    }
+    if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+      throw new BadRequestException('Token de follow-up inválido.');
+    }
+
+    let claims: unknown;
+    try {
+      claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    } catch {
+      throw new BadRequestException('Token de follow-up inválido.');
+    }
+    if (
+      !claims ||
+      typeof claims !== 'object' ||
+      !('question' in claims) ||
+      typeof claims.question !== 'string' ||
+      !('expiresAt' in claims) ||
+      typeof claims.expiresAt !== 'number' ||
+      claims.expiresAt <= Date.now() ||
+      !('challengeId' in claims) ||
+      claims.challengeId !== (challengeId ?? null)
+    ) {
+      throw new BadRequestException('Token de follow-up expirado ou incompatível.');
+    }
+    return claims.question;
   }
 
   /**
@@ -166,9 +304,34 @@ export class AuthController {
         `${webAppBaseUrl(this.config)}/login?oauth_error=oauth_failed`,
       );
     }
-    const tokens = await this.auth.loginWithOAuth(profile);
-    this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-    return res.redirect(`${webAppBaseUrl(this.config)}/dashboard`);
+    const legalConsentToken =
+      parseCookies(req.headers.cookie)[OAUTH_LEGAL_CONSENT_COOKIE];
+    try {
+      const tokens = await this.auth.loginWithOAuth(profile, legalConsentToken);
+      this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+      return res.redirect(`${webAppBaseUrl(this.config)}/dashboard`);
+    } finally {
+      res.clearCookie(OAUTH_LEGAL_CONSENT_COOKIE, { path: '/' });
+    }
+  }
+
+  @Post('oauth-legal-consent')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async setOAuthLegalConsent(
+    @Body() dto: LegalConsentDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = await this.auth.createOAuthLegalConsentToken(
+      dto.termsAccepted === true,
+      dto.privacyAcknowledged === true,
+      dto.adultConfirmed === true,
+    );
+    res.cookie(
+      OAUTH_LEGAL_CONSENT_COOKIE,
+      token,
+      cookieOptions(OAUTH_LEGAL_CONSENT_TTL_MS),
+    );
   }
 
   @Post('check-email')
@@ -211,7 +374,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.auth.login(dto.email, dto.password);
+    const tokens = await this.auth.login(
+      dto.email,
+      dto.password,
+      dto.adultConfirmed,
+    );
     this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { user: tokens.user };
   }

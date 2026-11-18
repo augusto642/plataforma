@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { AGE_ELIGIBILITY_POLICY_VERSION } from '@plataforma/contracts';
 
 jest.mock('bcrypt', () => ({ compare: jest.fn(), hash: jest.fn() }));
 
@@ -138,7 +139,14 @@ describe('AuthService - email verification (C5)', () => {
   });
 
   const register = () =>
-    auth.register({ email: 'novo@exemplo.com', name: 'Novo', password: 'senha123' } as any);
+    auth.register({
+      email: 'novo@exemplo.com',
+      name: 'Novo',
+      password: 'senha123',
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      adultConfirmed: true,
+    } as any);
 
   const seedUnverifiedUser = () => {
     const user = {
@@ -147,6 +155,7 @@ describe('AuthService - email verification (C5)', () => {
       name: 'Novo',
       role: 'student',
       passwordHash: 'hashed-password',
+      adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
       emailVerifiedAt: null,
     };
     db.users.push(user);

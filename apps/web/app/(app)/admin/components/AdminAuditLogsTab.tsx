@@ -1,42 +1,54 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { apiFetch, API_BASE } from '../../../lib/apiClient';
 
-// B40/A4 (Sprint 13) — Auditoria & Certificados em estado HONESTO.
-// Antes: logs de auditoria inventados (atores, IPs e ações fabricados,
-// persistidos em localStorage) e uma lista de certificados fictícia com
-// ação simulada de revogar/revalidar. A API atual:
-//  - NÃO expõe listagem de logs de auditoria administrativa;
-//  - NÃO expõe listagem nem revogação de certificados — só a
-//    verificação pública por código (GET /courses/certificates/
-//    verify/:code, página /verify), que consulta o registro real.
-// Sem endpoint, nada é listado nem simulado aqui (padrão B39).
+interface AiOperatorAuditEvent {
+  id: string;
+  adminId: string;
+  action: string;
+  queue: string;
+  reason: string;
+  status: string;
+  errorCode: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+interface AdminAuditEvent {
+  id: string;
+  adminId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  previousValue: string | null;
+  newValue: string | null;
+  changedFields: string[];
+  createdAt: string;
+}
 
 function UnavailableCard({
   icon,
   title,
   badge,
   description,
-  children,
 }: {
   icon: string;
   title: string;
   badge: string;
   description: string;
-  children?: React.ReactNode;
 }) {
   return (
-    <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+    <div className="rounded-2xl border border-[#27272A] bg-[#121217] p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <h3 className="text-base font-bold text-white font-heading flex items-center gap-2">
+          <h3 className="flex items-center gap-2 font-bold text-white">
             <span aria-hidden="true">{icon}</span>
             <span>{title}</span>
           </h3>
-          <p className="text-xs text-zinc-400 mt-2 leading-relaxed max-w-2xl">{description}</p>
-          {children}
+          <p className="mt-2 max-w-2xl text-xs leading-relaxed text-zinc-400">{description}</p>
         </div>
-        <span className="shrink-0 bg-zinc-500/15 text-zinc-300 border border-zinc-500/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">
+        <span className="shrink-0 rounded-full border border-zinc-500/30 bg-zinc-500/15 px-2 py-0.5 text-[10px] font-mono font-bold uppercase text-zinc-300">
           {badge}
         </span>
       </div>
@@ -44,28 +56,204 @@ function UnavailableCard({
   );
 }
 
+async function readEvents<T>(response: Response): Promise<T[]> {
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || `HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+function formatTime(value: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(new Date(value));
+}
+
 export const AdminAuditLogsTab: React.FC = () => {
+  const [events, setEvents] = useState<AiOperatorAuditEvent[]>([]);
+  const [adminEvents, setAdminEvents] = useState<AdminAuditEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [queueResponse, adminResponse] = await Promise.all([
+        apiFetch(`${API_BASE}/admin/ai/operator-audit`),
+        apiFetch(`${API_BASE}/admin/audit`),
+      ]);
+      const [queueEvents, auditedChanges] = await Promise.all([
+        readEvents<AiOperatorAuditEvent>(queueResponse),
+        readEvents<AdminAuditEvent>(adminResponse),
+      ]);
+      setEvents(queueEvents);
+      setAdminEvents(auditedChanges);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao carregar auditoria de IA.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div>
-        <h2 className="text-xl font-bold text-white font-heading">Auditoria &amp; Certificados</h2>
-        <p className="text-xs text-[#A1A1AA] mt-0.5">
-          Nenhum registro de exemplo é exibido nesta área: só dados de endpoints reais.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-white font-heading">Auditoria &amp; Certificados</h2>
+          <p className="mt-0.5 text-xs text-[#A1A1AA]">
+            Ações de operação de filas são registros reais; lacunas de auditoria permanecem explícitas.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="rounded-lg border border-[#3F3F46] px-3 py-2 text-xs font-semibold text-zinc-200 hover:border-[#996DFF] disabled:opacity-50"
+        >
+          Atualizar
+        </button>
       </div>
+
+      <section className="rounded-2xl border border-[#27272A] bg-[#121217] p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-white">Auditoria de controles de IA</h3>
+            <p className="mt-1 text-xs text-zinc-400">Últimas 25 ações sobre filas, com motivo, resultado e horário.</p>
+          </div>
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-300">
+            API real
+          </span>
+        </div>
+
+        {error ? (
+          <p role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+            Não foi possível consultar a auditoria: {error}
+          </p>
+        ) : loading ? (
+          <p role="status" className="text-sm text-zinc-500">Carregando registros...</p>
+        ) : events.length === 0 ? (
+          <p className="rounded-lg border border-[#27272A] bg-[#09090A] p-3 text-sm text-zinc-400">
+            Nenhuma ação de fila foi registrada até o momento.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#27272A] font-mono uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-3">Quando</th>
+                  <th className="px-3 py-3">Fila / ação</th>
+                  <th className="px-3 py-3">Motivo</th>
+                  <th className="px-3 py-3">Resultado</th>
+                  <th className="px-3 py-3">Administrador</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) => (
+                  <tr key={event.id} className="border-b border-[#27272A]/60 align-top">
+                    <td className="whitespace-nowrap px-3 py-3 text-zinc-300">
+                      <div>{formatTime(event.createdAt)}</div>
+                      {event.completedAt && (
+                        <div className="mt-1 text-[10px] text-zinc-500">
+                          Concluído {formatTime(event.completedAt)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="font-semibold text-white">{event.queue}</div>
+                      <div className="mt-1 font-mono text-zinc-400">{event.action}</div>
+                    </td>
+                    <td className="max-w-sm px-3 py-3 text-zinc-300">{event.reason}</td>
+                    <td className="px-3 py-3">
+                      <span className={event.status === 'succeeded' ? 'text-emerald-300' : event.status === 'failed' ? 'text-rose-300' : 'text-amber-300'}>
+                        {event.status}
+                      </span>
+                      {event.errorCode && <div className="mt-1 font-mono text-[10px] text-rose-300">{event.errorCode}</div>}
+                    </td>
+                    <td className="px-3 py-3 font-mono text-zinc-400" title={event.adminId}>
+                      {event.adminId.slice(0, 8)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-[#27272A] bg-[#121217] p-5">
+        <div className="mb-4">
+          <h3 className="font-bold text-white">Alterações sensíveis de usuários</h3>
+          <p className="mt-1 text-xs text-zinc-400">
+            Últimas 50 mudanças administrativas auditadas na mesma transação, sem copiar conteúdo alterado.
+          </p>
+        </div>
+        {error ? (
+          <p className="text-sm text-zinc-500">A auditoria não pôde ser carregada.</p>
+        ) : loading ? (
+          <p role="status" className="text-sm text-zinc-500">Carregando registros...</p>
+        ) : adminEvents.length === 0 ? (
+          <p className="rounded-lg border border-[#27272A] bg-[#09090A] p-3 text-sm text-zinc-400">
+            Nenhuma mudança de papel ou plano foi registrada até o momento.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#27272A] font-mono uppercase tracking-wider text-[#71717A]">
+                  <th className="px-3 py-3">Quando</th>
+                  <th className="px-3 py-3">Ação</th>
+                  <th className="px-3 py-3">Usuário</th>
+                  <th className="px-3 py-3">Alteração</th>
+                  <th className="px-3 py-3">Administrador</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adminEvents.map((event) => (
+                  <tr key={event.id} className="border-b border-[#27272A]/60 align-top">
+                    <td className="whitespace-nowrap px-3 py-3 text-zinc-300">{formatTime(event.createdAt)}</td>
+                    <td className="px-3 py-3 font-mono text-zinc-300">{event.action}</td>
+                    <td className="px-3 py-3 font-mono text-zinc-400" title={event.targetId}>
+                      {event.targetId.slice(0, 8)}
+                    </td>
+                    <td className="px-3 py-3 text-zinc-300">
+                      {event.previousValue && event.newValue ? (
+                        <>
+                          {event.previousValue} <span aria-label="para">→</span> {event.newValue}
+                        </>
+                      ) : (
+                        event.changedFields.join(', ') || 'Sem campos detalhados'
+                      )}
+                    </td>
+                    <td className="px-3 py-3 font-mono text-zinc-400" title={event.adminId}>
+                      {event.adminId.slice(0, 8)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <UnavailableCard
         icon="🧾"
-        title="Logs de auditoria administrativa"
-        badge="Ainda não disponível"
-        description="A API atual não expõe a lista de ações administrativas (quem fez o quê, quando). Os logs fabricados que esta tela mostrava — com atores, endereços IP e ações inventados — foram removidos, e nenhuma ação é registrada localmente como se fosse auditoria de verdade."
+        title="Outras alterações administrativas"
+        badge="Não disponível"
+        description="Papéis, planos, cursos, salas especializadas e controles de filas são auditados. Alterações em KMS, instrutores e outras ações administrativas ainda não entram nessa trilha."
       />
 
       <UnavailableCard
         icon="📜"
         title="Certificados emitidos"
         badge="Listagem não disponível"
-        description="Não há endpoint de listagem ou revogação de certificados para o painel. A verificação de autenticidade existe e é pública: qualquer pessoa pode conferir um código real de certificado na página de verificação — ela responde a partir do registro persistido na emissão (e código desconhecido retorna “não encontrado”, nunca “válido”)."
+        description="Não há endpoint de listagem ou revogação de certificados para o painel. A verificação pública consulta o registro persistido na emissão; código desconhecido retorna não encontrado."
       />
     </div>
   );

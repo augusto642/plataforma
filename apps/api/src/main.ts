@@ -5,14 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-
-function parseCorsOrigins(value: string | undefined): string[] {
-  const raw = value ?? 'http://localhost:3001';
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+import { parseCorsOrigins } from './common/origin.util';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -58,7 +51,11 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // M15 (Lote 4) — sem 'Authorization': a API é cookie-only e não aceita
     // Bearer (ver JwtStrategy); o front nunca envia o header.
-    allowedHeaders: ['Content-Type', 'x-metrics-token'],
+    allowedHeaders: [
+      'Content-Type',
+      'x-metrics-token',
+      'x-age-eligibility-token',
+    ],
   });
 
   app.useGlobalPipes(

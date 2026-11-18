@@ -28,11 +28,25 @@ const isDev = process.env.NODE_ENV === 'development';
 // - /ide e /game mantêm o unsafe-eval + worker-src de blob, que é
 //   o que o Monaco precisa (idem /entrevista e /desafios, que usam
 //   o mesmo IdeEditorPane);
-// - localhost/127.0.0.1 no connect-src SÓ em dev (em produção o
-//   connect-src é 'self': a API é acessada pelo rewrite /api).
+// - em produção, connect-src permite apenas a própria origem e a origem
+//   da API configurada no build; nenhuma origem genérica é liberada.
+function configuredApiOrigin(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.username || url.password || !/^https?:$/.test(url.protocol)) return null;
+    return /^https?:\/\/(?:\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d+)?$/i.test(url.origin)
+      ? url.origin
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+const apiOrigin = configuredApiOrigin(process.env.NEXT_PUBLIC_API_URL);
 const connectSrc = isDev
   ? "connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*"
-  : "connect-src 'self'";
+  : `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`;
 
 function contentSecurityPolicy({ monaco }) {
   const scriptSrc = monaco
@@ -65,6 +79,7 @@ const commonHeaders = [
 ];
 
 const nextConfig = {
+  transpilePackages: ['@plataforma/contracts'],
   // Standalone ativado em Linux / Docker / CI; no Windows local desativa para prevenir EPERM symlink
   output: !isWindows || process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
   async rewrites() {

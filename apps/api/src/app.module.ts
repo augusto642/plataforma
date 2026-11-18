@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ActivitiesModule } from './activities/activities.module';
+import { PlaygroundProjectsModule } from './playground-projects/playground-projects.module';
 import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 import { validateRequiredSecrets } from './config/secrets.validation';
@@ -42,12 +43,14 @@ import { PlansModule } from './plans/plans.module';
 import { SonarModule } from './sonar/sonar.module';
 import { DynamicTrackModule } from './dynamic-track/dynamic-track.module';
 import { HousekeepingModule } from './housekeeping/housekeeping.module';
+import { CredentialsModule } from './credentials/credentials.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { CsrfOriginMiddleware } from './common/middleware/csrf-origin.middleware';
 import { UserThrottlerGuard } from './common/throttler/user-throttler.guard';
 import { buildThrottlerOptions } from './common/throttler/throttle.config';
+import { parseRedisConnectionUrl } from './config/redis-connection';
 
 @Module({
   imports: [
@@ -70,16 +73,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
       useFactory: (config: ConfigService) => {
         const redisUrl = config.get<string>('REDIS_URL');
         if (redisUrl) {
-          try {
-            const parsed = new URL(redisUrl);
-            return {
-              connection: {
-                host: parsed.hostname || 'localhost',
-                port: Number(parsed.port || 6379),
-                password: parsed.password || undefined,
-              },
-            };
-          } catch {}
+          return { connection: parseRedisConnectionUrl(redisUrl) };
         }
         return {
           connection: {
@@ -103,6 +97,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     PlanInterestModule,
     GamificationModule,
     ActivitiesModule,
+    PlaygroundProjectsModule,
     SubmissionsModule,
     TowerModule,
     WebhooksModule,
@@ -127,6 +122,7 @@ import { buildThrottlerOptions } from './common/throttler/throttle.config';
     CommonModule,
     HousekeepingModule,
     DynamicTrackModule,
+    CredentialsModule,
   ],
   controllers: [AppController],
   providers: [

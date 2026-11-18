@@ -1,6 +1,11 @@
-import { Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
+import { AGE_ELIGIBILITY_POLICY_VERSION } from '@plataforma/contracts';
 import { hashToken } from './tokens.util';
 
 jest.mock('bcrypt', () => ({ compare: jest.fn() }));
@@ -41,6 +46,7 @@ describe('AuthService — A2 refresh reuse detection', () => {
     email: 'student@example.com',
     name: 'Student',
     passwordHash: 'hash',
+    adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
     role: 'student',
     emailVerifiedAt: new Date(),
   };
@@ -113,6 +119,21 @@ describe('AuthService — A2 refresh reuse detection', () => {
     });
     // Nada da família é revogado num refresh normal.
     expect(prisma.refreshToken.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('requires current adult eligibility before rotating a refresh token', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue(
+      validRecord({
+        user: { ...user, adultEligibilityVersion: 'outdated-policy' },
+      }),
+    );
+
+    await expect(auth.refresh(OLD_RAW)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
   });
 
   it('two concurrent refreshes with the same token: only one wins; the loser is treated as reuse (family revoked + 401)', async () => {

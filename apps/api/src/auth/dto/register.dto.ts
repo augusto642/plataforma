@@ -11,21 +11,27 @@ import {
   MinLength,
 } from 'class-validator';
 import { Role } from '@prisma/client';
-import { CAREER_GOALS } from '../../dynamic-track/dynamic-track.rules';
+import { LegalConsentDto } from './legal-consent.dto';
+import {
+  CAREER_GOALS,
+  EXPERIENCE_LEVELS,
+  WEEKLY_TIME_COMMITMENTS,
+} from '@plataforma/contracts';
 
 // Auto-registro só permite o papel de estudante. 'instructor' e 'admin' NUNCA
 // podem ser escolhidos publicamente (prevenção de escalada de privilégio).
 export const SELF_SERVICE_ROLES: Role[] = [Role.student];
 
-export class RegisterDto {
+export class RegisterDto extends LegalConsentDto {
   @IsEmail()
   @MaxLength(254)
   email!: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  name!: string;
+  name?: string;
 
   @IsString()
   @MinLength(8)
@@ -35,6 +41,10 @@ export class RegisterDto {
   @IsOptional()
   @IsIn(SELF_SERVICE_ROLES)
   role?: Role;
+
+  @IsOptional()
+  @IsBoolean()
+  deferLearningProfile?: boolean;
 
   // Origem de aquisição (B07): o front captura os UTMs da URL/sessão e os
   // envia no cadastro para sabermos de qual canal cada aluno veio. São
@@ -93,11 +103,12 @@ export class RegisterDto {
   sourceTrack?: string;
 
   @IsOptional()
-  @IsIn(['beginner', 'junior', 'mid', 'senior'])
+  @IsIn(EXPERIENCE_LEVELS)
+  // Autodeclaração, usada apenas como fallback se o servidor não conseguir avaliar.
   experienceLevel?: string;
 
   @IsOptional()
-  @IsIn(['5h', '10h', '20h'])
+  @IsIn(WEEKLY_TIME_COMMITMENTS)
   weeklyTimeCommitment?: string;
 
   @IsOptional()
@@ -131,7 +142,8 @@ export class RegisterDto {
   challengeExplanation?: string;
 
   @IsOptional()
-  @IsIn(['beginner', 'junior', 'mid', 'senior'])
+  @IsIn(EXPERIENCE_LEVELS)
+  // Resultado legado do navegador: aceito por compatibilidade, mas não é autoridade.
   detectedLevel?: 'beginner' | 'junior' | 'mid' | 'senior';
 
   @IsOptional()

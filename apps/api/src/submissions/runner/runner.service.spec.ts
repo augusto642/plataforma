@@ -1,8 +1,7 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
-import { Language } from '@prisma/client';
 import type { ConfigService } from '@nestjs/config';
-import { PistonRunnerService } from './runner.service';
+import { PistonConcurrencyLimiter, PistonRunnerService } from './runner.service';
 import { HIDDEN_TEST_FAILED_MESSAGE } from './runner.service';
 import type { SandboxExecutionResult } from './runner.service';
 
@@ -70,7 +69,9 @@ afterEach(() => {
 });
 
 function newRunner(env: Record<string, string | undefined> = {}) {
-  return new PistonRunnerService(makeConfigService(env));
+  return new PistonRunnerService(
+    makeConfigService({ PISTON_ENABLED: 'true', ...env }),
+  );
 }
 
 function assertExecutePayload(call: FetchCall) {
@@ -80,6 +81,44 @@ function assertExecutePayload(call: FetchCall) {
 }
 
 describe('PistonRunnerService.execute', () => {
+  it('does not contact Piston when execution is disabled', async () => {
+    const runner = newRunner({ PISTON_ENABLED: 'false' });
+
+    const result = await runner.executeInSandbox({
+      language: 'javascript',
+      code: 'console.log(1)',
+      testScript: '',
+    });
+
+    assert.equal(result.kind, 'sandbox_unavailable');
+    assert.equal(result.status, 'error');
+    assert.ok(result.errorMessage);
+    assert.equal(calls.length, 0);
+  });
+
+  it('authenticates requests to a remote Piston runner', async () => {
+    fetchStub = async () => okResponse({ run: runStage() });
+    const token = 'a'.repeat(64);
+    const runner = newRunner({
+      PISTON_URL: 'http://10.8.0.2:2000',
+      PISTON_AUTH_TOKEN: token,
+    });
+
+    await runner.execute('python', 'print(1)', {
+      timeLimitMs: 3000,
+      memoryLimitMb: 128,
+    });
+
+    assert.equal(calls[0].init.headers.authorization, `Bearer ${token}`);
+  });
+
+  it('rejects a remote runner without an authentication token', () => {
+    assert.throws(
+      () => newRunner({ PISTON_URL: 'http://10.8.0.2:2000' }),
+      /PISTON_AUTH_TOKEN is required/,
+    );
+  });
+
   it('maps run status null + code 0 to passed', async () => {
     fetchStub = async () => okResponse({ run: runStage({ stdout: '2\n' }) });
     const runner = newRunner();
@@ -524,6 +563,34 @@ describe('PistonRunnerService.executeInSandbox', () => {
   });
 });
 describe('PistonRunnerService piston concurrency (A3)', () => {
+  it('bounds the waiting queue and reserves a released slot for the next waiter', async () => {
+    const limiter = new PistonConcurrencyLimiter(1, 1);
+    const first = await limiter.acquire();
+    assert.ok(first);
+    const waiting = limiter.acquire();
+    assert.equal(await limiter.acquire(), null);
+    first();
+    const third = limiter.acquire();
+    assert.equal(await limiter.acquire(), null);
+    const second = await waiting;
+    assert.ok(second);
+    second();
+    const last = await third;
+    assert.ok(last);
+    last();
+    assert.equal(limiter.currentConcurrency, 0);
+  });
+
+  it('reports gateway overload without opening the circuit breaker', async () => {
+    fetchStub = async () => new Response('runner busy', {
+      status: 503,
+      headers: { 'x-piston-gateway-overloaded': '1' },
+    });
+    const runner = newRunner();
+    const result = await runner.execute('javascript', 'console.log(1)');
+    assert.match(result.errorMessage || '', /fila de execução está cheia/);
+    assert.equal(runner.circuitBreakerFailureCount, 0);
+  });
   it('caps simultaneous Piston executions at 4 while still running in parallel', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
@@ -766,6 +833,22 @@ describe('PistonRunnerService Portugol mode (Sprint 23)', () => {
       });
     };
   }
+
+  it('normalizes Portugol practice output and uses the JVM startup time floor', async () => {
+    consoleStub(() => ({ stdout: `Soma: 7${CONSOLE_SUFFIX}` }));
+    const runner = newRunner();
+    const result = await runner.executePractice('portugol', SOMA_CODE, { stdin: '3\n4\n', timeLimitMs: 5000 });
+    assert.equal(result.stdout, 'Soma: 7');
+    assert.equal(assertExecutePayload(calls[0]).run_timeout, 12000);
+  });
+
+  it('reports Portugol compilation errors in practice', async () => {
+    consoleStub(() => ({ stderr: 'ERRO: sintaxe inválida', code: 1 }));
+    const runner = newRunner();
+    const result = await runner.executePractice('portugol', SOMA_CODE);
+    assert.equal(result.kind, 'compile_error');
+    assert.equal(result.status, 'failed');
+  });
 
   it('passes a case comparing stdout without the console suffix', async () => {
     consoleStub(() => ({ stdout: `Soma: 7${CONSOLE_SUFFIX}` }));

@@ -41,6 +41,7 @@ COPY --from=dependencies /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=dependencies /app/packages/contracts ./packages/contracts
 
 COPY .npmrc pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/web/package.json ./apps/web/package.json
 COPY packages/contracts ./packages/contracts
 COPY apps/api ./apps/api
 
@@ -58,19 +59,22 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-RUN mkdir -p /app && chown -R node:node /app
+RUN mkdir -p /app/data && chown -R node:node /app
 
 COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --from=dependencies --chown=node:node /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=builder --chown=node:node /app/apps/api/dist ./dist
-COPY --from=builder --chown=node:node /app/apps/api/prisma ./prisma
-COPY --from=builder --chown=node:node /app/apps/api/package.json ./package.json
+COPY --from=builder --chown=node:node /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=node:node /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder --chown=node:node /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+COPY --from=builder --chown=node:node /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder --chown=node:node /app/packages/contracts ./packages/contracts
+COPY --chown=node:node content ./content
 COPY --chown=node:node apps/api/docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 USER node
 
 EXPOSE 3000
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--", "/app/docker-entrypoint.sh"]
-CMD ["node", "dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]

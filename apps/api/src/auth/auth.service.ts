@@ -12,8 +12,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { CareerTier, Prisma, Role } from '@prisma/client';
+import {
+  AGE_ELIGIBILITY_POLICY_VERSION,
+  LEGAL_DOCUMENT_VERSIONS,
+} from '@plataforma/contracts';
 import * as bcrypt from 'bcrypt';
-import { randomInt, createHash, timingSafeEqual } from 'crypto';
+import { randomInt, createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { ConfigError } from '../config/secrets.validation';
 import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { MailerService } from '../mail/mailer.service';
@@ -26,10 +30,12 @@ import {
 } from '../ai/registration-level.service';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { OAuthProfile } from './oauth.config';
+import { OAuthProfile, webAppBaseUrl } from './oauth.config';
 import { generateRefreshToken, hashToken } from './tokens.util';
 
 const BCRYPT_ROUNDS = 12;
+const PASSWORD_RESET_TTL_MS = 30 * 60_000;
+const PASSWORD_RESET_COOLDOWN_MS = 60_000;
 
 /**
  * C5 (Lote 1) — Verificação de e-mail por código de confirmação.
@@ -67,6 +73,20 @@ export interface RegisterResult {
   emailVerificationRequired: boolean;
 }
 
+interface OAuthLegalConsentClaims {
+  purpose: 'signup-legal-consent';
+  termsVersion: string;
+  privacyVersion: string;
+  ageEligibilityVersion: string;
+  acceptedAt: string;
+}
+
+interface GuestAgeEligibilityClaims {
+  purpose: 'guest-age-eligibility';
+  ageEligibilityVersion: string;
+  acceptedAt: string;
+}
+
 function generateVerificationCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
@@ -100,25 +120,108 @@ export class AuthService {
     return { available: !existing };
   }
 
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      this.mailer.assertPasswordResetAvailable();
+    } catch (error) {
+      if (!(error instanceof ConfigError)) throw error;
+      this.logger.warn('SMTP indisponível para recuperação de senha.');
+      throw new ServiceUnavailableException('Não foi possível solicitar um link agora. Tente novamente mais tarde.');
+    }
+    const url = new URL('/redefinir-senha', webAppBaseUrl(this.config));
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: { id: true, email: true, passwordHash: true },
+    });
+    if (!user?.passwordHash) return;
+
+    const token = generateRefreshToken();
+    const tokenHash = hashToken(token);
+    const now = Date.now();
+    const { count } = await this.prisma.user.updateMany({
+      where: {
+        id: user.id,
+        passwordHash: user.passwordHash,
+        OR: [
+          { passwordResetUntil: null },
+          { passwordResetUntil: { lte: new Date(now + PASSWORD_RESET_TTL_MS - PASSWORD_RESET_COOLDOWN_MS) } },
+        ],
+      },
+      data: { passwordResetHash: tokenHash, passwordResetUntil: new Date(now + PASSWORD_RESET_TTL_MS) },
+    });
+    if (!count) return;
+
+    url.hash = new URLSearchParams({ token }).toString();
+    // O tempo de entrega SMTP não deve alterar a resposta do pedido.
+    void this.mailer.sendPasswordReset(user.email, url.toString()).catch(() => {
+      this.logger.error('Falha no envio do e-mail de redefinição de senha.');
+    });
+  }
+
+  async resetPassword(token: string, password: string): Promise<void> {
+    if (Buffer.byteLength(password, 'utf8') > 72) {
+      throw new BadRequestException('A senha excede o limite de 72 bytes. Use uma senha mais curta.');
+    }
+    const tokenHash = hashToken(token);
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetHash: tokenHash },
+      select: { id: true, passwordResetUntil: true },
+    });
+    const invalidLink = () => new BadRequestException(withErrorCode(
+      'Este link é inválido ou expirou. Solicite um novo.',
+      ErrorCodes.AUTH_INVALID_PASSWORD_RESET_LINK,
+    ));
+    if (!user?.passwordResetUntil || user.passwordResetUntil <= new Date()) throw invalidLink();
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id: user.id, passwordResetHash: tokenHash, passwordResetUntil: { gt: new Date() } },
+        data: { passwordHash, passwordResetHash: null, passwordResetUntil: null },
+      });
+      if (!count) throw invalidLink();
+      await tx.refreshToken.deleteMany({ where: { userId: user.id } });
+    });
+  }
+
   async register(dto: RegisterDto): Promise<AuthTokens> {
+    if (
+      dto.adultConfirmed !== true ||
+      dto.termsAccepted !== true ||
+      dto.privacyAcknowledged !== true
+    ) {
+      throw new BadRequestException(
+        withErrorCode(
+          'É necessário confirmar que você tem 18 anos ou mais, aceitar os Termos de Uso e confirmar a leitura da Política de Privacidade.',
+          ErrorCodes.AUTH_LEGAL_CONSENT_REQUIRED,
+        ),
+      );
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const { resolvedLevel, assessmentSource } =
       await this.resolveRegistrationLevel(dto);
     try {
       const email = dto.email.toLowerCase().trim();
+      const legalAcceptedAt = new Date();
       const user = await this.prisma.user.create({
         data: {
           email,
-          name: dto.name.trim(),
+          name: dto.name?.trim() || 'Estudante',
           passwordHash,
           role: Role.student,
+          ...(dto.deferLearningProfile ? { learningProfilePending: true } : {}),
           emailVerifiedAt: new Date(),
+          termsAcceptedAt: legalAcceptedAt,
+          termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+          privacyAcknowledgedAt: legalAcceptedAt,
+          privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+          ...this.adultEligibilityData(legalAcceptedAt),
           utmSource: dto.utmSource?.trim() || null,
           utmMedium: dto.utmMedium?.trim() || null,
           utmCampaign: dto.utmCampaign?.trim() || null,
-          // Sprint 8 + Diagnóstico aberto no cadastro: o nível avaliado no
-          // servidor (ou declarado) vira o careerTier da conta; sem
-          // sinalização, o default do modelo (beginner) se aplica.
+          // Nível calculado no servidor ou autodeclarado explicitamente;
+          // campos de avaliação calculados pelo navegador não são autoridade.
           ...(resolvedLevel ? { careerTier: resolvedLevel as CareerTier } : {}),
         },
       });
@@ -145,7 +248,7 @@ export class AuthService {
         ]),
       );
 
-      await this.dynamicTrack
+      if (!dto.deferLearningProfile) await this.dynamicTrack
         ?.createForUser(user.id, {
           expLevel: resolvedLevel,
           timeCommitment:
@@ -376,8 +479,7 @@ export class AuthService {
     const explanation = dto.challengeExplanation?.trim();
     const hasExplanation = Boolean(explanation && explanation.length > 0);
     const hasProgrammedFlag = typeof dto.hasProgrammedBefore === 'boolean';
-    const fallbackLevel =
-      this.parseLevel(dto.detectedLevel) ?? this.parseLevel(dto.experienceLevel);
+    const fallbackLevel = this.parseLevel(dto.experienceLevel);
 
     if (hasExplanation || (hasProgrammedFlag && dto.hasProgrammedBefore === false)) {
       if (this.registrationLevel) {
@@ -406,7 +508,7 @@ export class AuthService {
       if (fallbackLevel) {
         return {
           resolvedLevel: fallbackLevel,
-          assessmentSource: dto.detectedLevel ? 'client-detected' : 'self-declared',
+          assessmentSource: 'self-declared',
         };
       }
       if (dto.hasProgrammedBefore === false) {
@@ -418,7 +520,7 @@ export class AuthService {
     if (fallbackLevel) {
       return {
         resolvedLevel: fallbackLevel,
-        assessmentSource: dto.detectedLevel ? 'client-detected' : 'self-declared',
+        assessmentSource: 'self-declared',
       };
     }
 
@@ -455,7 +557,11 @@ export class AuthService {
     }
   }
 
-  async login(email: string, password: string): Promise<AuthTokens> {
+  async login(
+    email: string,
+    password: string,
+    adultConfirmed?: boolean,
+  ): Promise<AuthTokens> {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
@@ -475,6 +581,20 @@ export class AuthService {
       throw new UnauthorizedException(
         withErrorCode('Invalid credentials', ErrorCodes.AUTH_INVALID_CREDENTIALS),
       );
+    }
+    if (user.adultEligibilityVersion !== AGE_ELIGIBILITY_POLICY_VERSION) {
+      if (adultConfirmed !== true) {
+        throw new BadRequestException(
+          withErrorCode(
+            'Para continuar no alfa, confirme que você tem 18 anos ou mais.',
+            ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+          ),
+        );
+      }
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: this.adultEligibilityData(new Date()),
+      });
     }
     return this.issueTokensForUser(user);
   }
@@ -504,7 +624,10 @@ export class AuthService {
    * (`issueTokensForUser`: access JWT 15 min + refresh com detecção de
    * reuso A2) — o controller grava os mesmos cookies httpOnly.
    */
-  async loginWithOAuth(profile: OAuthProfile): Promise<AuthTokens> {
+  async loginWithOAuth(
+    profile: OAuthProfile,
+    legalConsentToken?: string,
+  ): Promise<AuthTokens> {
     if (!profile.email) {
       throw new BadRequestException(
         withErrorCode(
@@ -521,6 +644,7 @@ export class AuthService {
         ),
       );
     }
+    const legalConsent = await this.verifyOAuthLegalConsent(legalConsentToken);
     const email = profile.email.toLowerCase().trim();
     const name = profile.name?.trim() || email.split('@')[0];
     let user: {
@@ -540,10 +664,24 @@ export class AuthService {
           },
           include: { user: true },
         });
-        if (linked) return linked.user;
+        if (linked) {
+          if (!this.hasCurrentLegalAcceptance(linked.user)) {
+            if (!legalConsent) {
+              throw this.legalConsentRequiredException();
+            }
+            await tx.user.update({
+              where: { id: linked.user.id },
+              data: this.legalAcceptanceData(legalConsent.acceptedAt),
+            });
+          }
+          return linked.user;
+        }
 
         const byEmail = await tx.user.findUnique({ where: { email } });
         if (byEmail) {
+          if (!this.hasCurrentLegalAcceptance(byEmail) && !legalConsent) {
+            throw this.legalConsentRequiredException();
+          }
           await tx.oAuthAccount.create({
             data: {
               provider: profile.provider,
@@ -554,19 +692,34 @@ export class AuthService {
           if (!byEmail.emailVerifiedAt) {
             await tx.user.update({
               where: { id: byEmail.id },
-              data: { emailVerifiedAt: new Date() },
+              data: {
+                emailVerifiedAt: new Date(),
+                ...(this.hasCurrentLegalAcceptance(byEmail)
+                  ? {}
+                  : this.legalAcceptanceData(legalConsent!.acceptedAt)),
+              },
+            });
+          } else if (!this.hasCurrentLegalAcceptance(byEmail)) {
+            await tx.user.update({
+              where: { id: byEmail.id },
+              data: this.legalAcceptanceData(legalConsent!.acceptedAt),
             });
           }
           return byEmail;
         }
 
+        if (!legalConsent) {
+          throw this.legalConsentRequiredException();
+        }
         return tx.user.create({
           data: {
             email,
             name,
             passwordHash: null,
             role: Role.student,
+            learningProfilePending: true,
             emailVerifiedAt: new Date(),
+            ...this.legalAcceptanceData(legalConsent.acceptedAt),
             oAuthAccounts: {
               create: {
                 provider: profile.provider,
@@ -598,6 +751,139 @@ export class AuthService {
       throw e;
     }
     return this.issueTokensForUser(user);
+  }
+
+  async createOAuthLegalConsentToken(
+    termsAccepted: boolean,
+    privacyAcknowledged: boolean,
+    adultConfirmed: boolean,
+  ): Promise<string> {
+    if (!termsAccepted || !privacyAcknowledged || !adultConfirmed) {
+      throw this.legalConsentRequiredException();
+    }
+    return this.jwt.signAsync(
+      {
+        purpose: 'signup-legal-consent',
+        termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+        privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+        ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+        acceptedAt: new Date().toISOString(),
+        jti: randomUUID(),
+      },
+      {
+        expiresIn: '10m',
+        audience: 'nexus-legal-consent',
+        issuer: 'nexus-api',
+      },
+    );
+  }
+
+  async createGuestAgeEligibilityToken(adultConfirmed: boolean): Promise<string> {
+    if (adultConfirmed !== true) {
+      throw new BadRequestException(
+        withErrorCode(
+          'Para continuar no alfa, confirme que você tem 18 anos ou mais.',
+          ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+        ),
+      );
+    }
+
+    return this.jwt.signAsync(
+      {
+        purpose: 'guest-age-eligibility',
+        ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+        acceptedAt: new Date().toISOString(),
+        jti: randomUUID(),
+      },
+      {
+        expiresIn: '12h',
+        audience: 'nexus-guest-age-eligibility',
+        issuer: 'nexus-api',
+      },
+    );
+  }
+
+  async verifyGuestAgeEligibilityToken(token?: string): Promise<boolean> {
+    if (!token) return false;
+    try {
+      const claims = await this.jwt.verifyAsync<GuestAgeEligibilityClaims>(token, {
+        audience: 'nexus-guest-age-eligibility',
+        issuer: 'nexus-api',
+      });
+      const acceptedAt = new Date(claims.acceptedAt);
+      return (
+        claims.purpose === 'guest-age-eligibility' &&
+        claims.ageEligibilityVersion === AGE_ELIGIBILITY_POLICY_VERSION &&
+        Number.isFinite(acceptedAt.getTime()) &&
+        acceptedAt.getTime() <= Date.now() + 60_000
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private async verifyOAuthLegalConsent(
+    token?: string,
+  ): Promise<{ acceptedAt: Date } | null> {
+    if (!token) return null;
+    try {
+      const claims = await this.jwt.verifyAsync<OAuthLegalConsentClaims>(token, {
+        audience: 'nexus-legal-consent',
+        issuer: 'nexus-api',
+      });
+      const acceptedAt = new Date(claims.acceptedAt);
+      if (
+        claims.purpose !== 'signup-legal-consent' ||
+        claims.termsVersion !== LEGAL_DOCUMENT_VERSIONS.terms ||
+        claims.privacyVersion !== LEGAL_DOCUMENT_VERSIONS.privacy ||
+        claims.ageEligibilityVersion !== AGE_ELIGIBILITY_POLICY_VERSION ||
+        !Number.isFinite(acceptedAt.getTime()) ||
+        acceptedAt.getTime() > Date.now() + 60_000
+      ) {
+        return null;
+      }
+      return { acceptedAt };
+    } catch {
+      return null;
+    }
+  }
+
+  private hasCurrentLegalAcceptance(user: {
+    termsVersion?: string | null;
+    privacyVersion?: string | null;
+    adultEligibilityVersion?: string | null;
+  }): boolean {
+    return (
+      user.termsVersion === LEGAL_DOCUMENT_VERSIONS.terms &&
+      user.privacyVersion === LEGAL_DOCUMENT_VERSIONS.privacy &&
+      user.adultEligibilityVersion === AGE_ELIGIBILITY_POLICY_VERSION
+    );
+  }
+
+  private legalAcceptanceData(acceptedAt: Date) {
+    return {
+      termsAcceptedAt: acceptedAt,
+      termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+      privacyAcknowledgedAt: acceptedAt,
+      privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+      ...this.adultEligibilityData(acceptedAt),
+    };
+  }
+
+  private adultEligibilityData(acceptedAt: Date) {
+    return {
+      adultEligibilityAcceptedAt: acceptedAt,
+      adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+    };
+  }
+
+  private legalConsentRequiredException() {
+    return new BadRequestException(
+      withErrorCode(
+        'É necessário confirmar que você tem 18 anos ou mais, aceitar os Termos de Uso e confirmar a leitura da Política de Privacidade.',
+        ErrorCodes.AUTH_LEGAL_CONSENT_REQUIRED,
+      ),
+    );
   }
 
   /**
@@ -653,6 +939,14 @@ export class AuthService {
     }
 
     const user = record.user;
+    if (user.adultEligibilityVersion !== AGE_ELIGIBILITY_POLICY_VERSION) {
+      throw new BadRequestException(
+        withErrorCode(
+          'Para continuar no alfa, confirme que você tem 18 anos ou mais.',
+          ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+        ),
+      );
+    }
     // Reclamar o token antigo (CAS) + criar o novo NA MESMA transação: ou
     // os dois acontecem juntos, ou nenhum. Antes, `issueTokens` criava o
     // token novo ANTES de revogar o antigo, então dois `refresh`
@@ -763,7 +1057,12 @@ export class AuthService {
     email: string,
     role: Role,
   ): Promise<string> {
-    const payload: JwtPayload = { sub: userId, email, role: role as string };
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      role: role as string,
+      ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+    };
 
     const accessSecret = this.config.get<string>('JWT_ACCESS_SECRET');
     if (!accessSecret) {

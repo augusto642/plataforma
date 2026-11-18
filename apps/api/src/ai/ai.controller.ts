@@ -3,9 +3,11 @@ import {
   Controller,
   Get,
   Logger,
+  Optional,
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -14,8 +16,12 @@ import type { Response } from 'express';
 import { randomUUID } from 'crypto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AiTutorPlanGuard } from '../plans/guards/ai-tutor-plan.guard';
 import { AiService } from './ai.service';
+import { AiTutorFeedbackService } from './ai-tutor-feedback.service';
+import { AiSpecializedRoomsService } from './ai-specialized-rooms.service';
+import { AiTutorFeedbackDto } from './dto/ai-tutor-feedback.dto';
 import { ChatWithTutorDto } from './dto/chat-with-tutor.dto';
 import { RequestResearchDto } from './dto/request-research.dto';
 import { ComplexityAnalysisDto } from './dto/complexity-analysis.dto';
@@ -24,6 +30,7 @@ import { SocraticCatHintDto } from './dto/socratic-cat-hint.dto';
 import { SocraticGuidanceDto } from './dto/socratic-guidance.dto';
 import { LineFeedbackService } from './line-feedback.service';
 import { SocraticCatService } from './socratic-cat.service';
+import { ActivityAccessService } from '../activities/activity-access.service';
 
 @Controller('ai')
 @Throttle({ default: { limit: 30, ttl: 60_000 } })
@@ -34,7 +41,17 @@ export class AiController {
     private readonly ai: AiService,
     private readonly lineFeedback: LineFeedbackService,
     private readonly socraticCat: SocraticCatService,
+    private readonly tutorFeedback: AiTutorFeedbackService,
+    private readonly activityAccess: ActivityAccessService,
+    @Optional() private readonly specializedRooms?: AiSpecializedRoomsService,
   ) {}
+
+  @Post('tutor-feedback')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  submitTutorFeedback(@Body() dto: AiTutorFeedbackDto) {
+    return this.tutorFeedback.submit(dto);
+  }
 
   // B32 (Sprint 10) — os endpoints da tutora passam pelo entitlement
   // plano × nível de carreira (AiTutorPlanGuard): free usa a tutora no
@@ -62,17 +79,29 @@ export class AiController {
   @Get('history/:activityId')
   getHistory(
     @Param('activityId', ParseUUIDPipe) activityId: string,
+    @Query('aiRoomId') aiRoomId: string | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.ai.getChatHistory(user.sub, activityId);
+    return this.ai.getChatHistory(user.sub, activityId, aiRoomId);
+  }
+
+  @Get('rooms')
+  @UseGuards(JwtAuthGuard)
+  async listPublishedRooms(
+    @Query('activityId', ParseUUIDPipe) activityId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.activityAccess.requireActivity(activityId, user.sub, user.role);
+    return this.specializedRooms!.listPublishedForActivity(activityId);
   }
 
   @Post('chat')
   @UseGuards(AiTutorPlanGuard)
-  chat(
+  async chat(
     @Body() dto: ChatWithTutorDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    await this.activityAccess.requireActivity(dto.activityId, user.sub, user.role);
     return this.ai.chatWithTutor(dto, user.sub);
   }
 
@@ -95,6 +124,7 @@ export class AiController {
     @CurrentUser() user: JwtPayload,
     @Res() res: Response,
   ) {
+    await this.activityAccess.requireActivity(dto.activityId, user.sub, user.role);
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');

@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
+import { LEGAL_DOCUMENT_VERSIONS } from '@plataforma/contracts';
 
 // Página legal pública: Termos de Uso da Nexus Code.
 // Texto padrão do produto — revisar com assessoria jurídica antes de
@@ -21,7 +22,9 @@ export default function TermosPage() {
         <h1 className="font-heading text-3xl sm:text-4xl font-black text-ink-heading tracking-tight mb-3">
           Termos de Uso
         </h1>
-        <p className="text-sm text-ink-span font-mono mb-10">Última atualização: 20 de outubro de 2026</p>
+        <p className="text-sm text-ink-span font-mono mb-10">
+          Versão {LEGAL_DOCUMENT_VERSIONS.terms} · Última atualização: 15 de novembro de 2026
+        </p>
 
         <div className="space-y-8 text-base leading-relaxed">
           <section>
@@ -31,6 +34,10 @@ export default function TermosPage() {
               código em um ambiente executável no navegador, com correção automática por testes e uma
               tutora de inteligência artificial que orienta por meio de perguntas e dicas. Ao criar uma
               conta ou usar a plataforma, você concorda com estes Termos.
+            </p>
+            <p className="mt-3">
+              No alfa externo, o cadastro e a participação são restritos a maiores de 18 anos, conforme
+              a <Link href="/politica-de-idade" className="underline">Política de idade</Link>.
             </p>
           </section>
 
@@ -70,9 +77,11 @@ export default function TermosPage() {
             <h2 className="font-heading text-xl font-bold text-ink-heading mb-2">5. O código que você escreve</h2>
             <p>
               O código que você cria na plataforma é seu. Ao submetê-lo, você nos autoriza a executá-lo,
-              corrigi-lo e registrá-lo no seu histórico e no seu portfólio — inclusive nos repositórios
-              gerados pela plataforma — apenas para operar e melhorar o serviço. Certificados e
-              registros de evidência exibem apenas o que você tornar público no seu perfil.
+              analisá-lo com recursos automatizados e, quando aplicável, processá-lo por provedores de
+              execução de código ou de inteligência artificial, para operar os recursos que você utiliza.
+              O código e as interações podem ser armazenados no seu histórico conforme a Política de
+              Privacidade. Não inclua senhas, chaves de API, dados pessoais de terceiros ou informações
+              confidenciais em códigos, prompts ou arquivos enviados à plataforma.
             </p>
           </section>
 
@@ -107,6 +116,7 @@ export default function TermosPage() {
 
         <div className="mt-14 pt-8 border-t border-border-1 flex items-center gap-6 text-sm font-mono text-ink-span">
           <Link href="/privacidade" className="hover:text-ink-heading transition-colors">Política de Privacidade</Link>
+          <Link href="/politica-de-idade" className="hover:text-ink-heading transition-colors">Política de idade</Link>
           <Link href="/#precos" className="hover:text-ink-heading transition-colors">Planos</Link>
           <Link href="/" className="hover:text-ink-heading transition-colors">Página inicial</Link>
         </div>

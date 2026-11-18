@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { apiClient } from '../lib/apiClient';
 import { Tower3DScene } from './components/Tower3DScene';
 import { TowerMerchantModal, type TowerItemView, type InventoryItemView, type ActiveEffectView } from './components/TowerMerchantModal';
-import { TowerChallengeModal } from './components/TowerChallengeModal';
+import {
+  TowerChallengeModal,
+  type TowerChallengeSubmission,
+} from './components/TowerChallengeModal';
+import {
+  TowerPartyPanel,
+  type TowerPartyView,
+} from './components/TowerPartyPanel';
 
 interface TowerProgress {
   floor: number;
@@ -15,12 +22,19 @@ interface TowerProgress {
   plan: string;
   maxFloor: number;
   pendingChallenge: {
-    activityId: string;
+    activityId: string | null;
     floor: number;
     toSquare: number;
     squareType: string;
     timeLimitSeconds: number;
     deadlineAt: string;
+    objective?: {
+      kind: 'quiz' | 'bug_hunt' | 'gap_fill';
+      title: string;
+      prompt: string;
+      options: string[];
+      codeSnippet?: string;
+    };
   } | null;
 }
 
@@ -30,6 +44,7 @@ export default function TorrePage() {
   const [rolling, setRolling] = useState(false);
   const [lastRoll, setLastRoll] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ message: string; successful: boolean } | null>(null);
 
   // Modais
   const [isMerchantOpen, setIsMerchantOpen] = useState(false);
@@ -37,13 +52,15 @@ export default function TorrePage() {
   const [shopItems, setShopItems] = useState<TowerItemView[]>([]);
   const [inventory, setInventory] = useState<InventoryItemView[]>([]);
   const [activeEffects, setActiveEffects] = useState<ActiveEffectView[]>([]);
+  const [party, setParty] = useState<TowerPartyView | null>(null);
 
   const loadData = async () => {
     try {
-      const [progRes, invRes, shopRes] = await Promise.all([
+      const [progRes, invRes, shopRes, partyRes] = await Promise.all([
         apiClient.get('/tower/progress'),
         apiClient.get('/tower/inventory'),
         apiClient.get('/tower/merchant'),
+        apiClient.get('/tower/party'),
       ]);
 
       if (progRes.ok) {
@@ -62,6 +79,10 @@ export default function TorrePage() {
         const shopData = await shopRes.json();
         setShopItems(shopData);
       }
+
+      if (partyRes.ok) {
+        setParty(await partyRes.json());
+      }
     } catch (err) {
       setError('Falha ao sincronizar com a Torre.');
     } finally {
@@ -77,6 +98,7 @@ export default function TorrePage() {
     if (!progress || progress.movesLeftToday <= 0 || rolling) return;
     setRolling(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await apiClient.post('/tower/roll');
       if (!res.ok) {
@@ -85,6 +107,12 @@ export default function TorrePage() {
       }
       const data = await res.json();
       setLastRoll(data.roll);
+      if (data.sabotageApplied) {
+        setNotice({
+          message: 'A Armadilha Competitiva reduziu seu movimento em uma casa.',
+          successful: false,
+        });
+      }
       await loadData();
     } catch (err) {
       setError((err as Error).message);
@@ -102,11 +130,41 @@ export default function TorrePage() {
     await loadData();
   };
 
-  const handleUseItem = async (itemCode: string) => {
-    const res = await apiClient.post('/tower/inventory/use', { itemCode });
+  const handleUseItem = async (itemCode: string, targetUserId?: string) => {
+    const res = await apiClient.post('/tower/inventory/use', {
+      itemCode,
+      ...(targetUserId ? { targetUserId } : {}),
+    });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Falha ao ativar item');
+    }
+    await loadData();
+  };
+
+  const handleCreateParty = async (name: string) => {
+    const res = await apiClient.post('/tower/party', { name: name || undefined });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Falha ao criar party');
+    }
+    await loadData();
+  };
+
+  const handleJoinParty = async (partyId: string) => {
+    const res = await apiClient.post('/tower/party/join', { partyId });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Falha ao entrar na party');
+    }
+    await loadData();
+  };
+
+  const handleLeaveParty = async () => {
+    const res = await apiClient.post('/tower/party/leave');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Falha ao sair da party');
     }
     await loadData();
   };
@@ -122,16 +180,39 @@ export default function TorrePage() {
     return data.hint;
   };
 
-  const handleSubmitChallenge = async (code: string) => {
-    const res = await apiClient.post('/tower/submit', { code });
+  const handleSubmitChallenge = async (submission: TowerChallengeSubmission) => {
+    const isObjective = submission.kind === 'objective';
+    const res = await apiClient.post(
+      isObjective ? '/tower/objective-submit' : '/tower/submit',
+      isObjective
+        ? { choiceIndex: submission.choiceIndex }
+        : { code: submission.code },
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Erro ao submeter resposta');
     }
+    const result = await res.json();
+    setNotice({
+      message:
+        [
+          result.result === 'passed'
+            ? 'Desafio concluído! Você avançou na Torre e recebeu as recompensas.'
+            : result.result === 'timeout'
+              ? 'O tempo acabou. A penalidade da Torre foi aplicada.'
+              : 'Resposta incorreta. A penalidade da Torre foi aplicada.',
+          result.feedback,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      successful: result.result === 'passed',
+    });
     await loadData();
   };
 
   const hasShield = activeEffects.some((eff) => eff.effectType === 'SHIELD' && eff.charges > 0);
+  const extraTimeQuantity =
+    inventory.find((item) => item.itemCode === 'EXTRA_TIME')?.quantity ?? 0;
 
   return (
     <div className="min-h-screen bg-[#07090E] text-slate-100 p-4 md:p-8 font-sans">
@@ -191,6 +272,18 @@ export default function TorrePage() {
             <button onClick={() => setError(null)} className="text-rose-400 hover:text-white">✕</button>
           </div>
         )}
+        {notice && (
+          <div
+            role="status"
+            className={`rounded-xl border p-4 text-xs ${
+              notice.successful
+                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
+                : 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+            }`}
+          >
+            {notice.message}
+          </div>
+        )}
 
         {/* Tabuleiro 3D com Three.js */}
         <div className="relative">
@@ -234,12 +327,22 @@ export default function TorrePage() {
           </div>
         </div>
 
+        <TowerPartyPanel
+          party={party}
+          onCreate={handleCreateParty}
+          onJoin={handleJoinParty}
+          onLeave={handleLeaveParty}
+          onRefresh={loadData}
+        />
+
         {/* Modal de Desafio Cronometrado */}
         {progress?.pendingChallenge && (
           <TowerChallengeModal
             challenge={progress.pendingChallenge}
             hasShield={hasShield}
+            extraTimeQuantity={extraTimeQuantity}
             onSubmit={handleSubmitChallenge}
+            onUseExtraTime={() => handleUseItem('EXTRA_TIME')}
             onAskOracle={handleAskOracle}
           />
         )}
@@ -254,6 +357,7 @@ export default function TorrePage() {
           activeEffects={activeEffects}
           onBuyItem={handleBuyItem}
           onUseItem={handleUseItem}
+          partyMembers={party?.members ?? []}
         />
       </div>
     </div>

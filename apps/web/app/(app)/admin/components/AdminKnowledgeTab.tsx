@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../../../lib/apiClient';
+import { AdminKnowledgeReferences } from './AdminKnowledgeReferences';
+import { AdminJobResearchPreflight } from './AdminJobResearchPreflight';
 
 // Rodada 3 (Fase H / R9) — aba Conhecimento no MESMO padrão das abas admin
 // existentes: só mostra o que a API sustenta, sem dado inventado.
@@ -199,6 +201,8 @@ export const AdminKnowledgeTab: React.FC = () => {
           {error} — sem checkout, as rotas KMS falham explicitamente (não é um KMS vazio).
         </div>
       )}
+      <AdminKnowledgeReferences />
+      <AdminJobResearchPreflight />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="p-6 rounded-2xl bg-[#121217] border border-[#27272A] space-y-2">

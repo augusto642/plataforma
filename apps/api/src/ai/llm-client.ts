@@ -49,6 +49,7 @@ export type {
 
 export interface LlmRequestOptions {
   messages: LlmChatMessage[];
+  model?: string;
   jsonMode?: boolean;
   timeoutMs?: number;
   /** Aluno dono da chamada — habilita cota e registro de uso. */
@@ -210,6 +211,22 @@ export class LlmClient {
     return this.provider?.model ?? null;
   }
 
+  get allowedModels(): string[] {
+    return [...new Set((this.config.get<string>('AI_ALLOWED_MODELS') || '')
+      .split(',')
+      .map((model) => model.trim())
+      .filter(Boolean))];
+  }
+
+  modelConfiguration() {
+    return {
+      provider: this.providerId,
+      activeModel: this.model,
+      enabled: this.isAvailable,
+      allowedModels: this.allowedModels,
+    };
+  }
+
   /**
    * @deprecated Alias histórico (pré-Sprint 22 a pergunta era "tem
    * chave?"). A pergunta certa hoje é `isAvailable` — um modelo local
@@ -328,7 +345,8 @@ export class LlmClient {
     void this.usage.recordUsage({
       userId: opts.userId,
       provider: this.provider.id,
-      model: this.provider.model,
+      pricingProvider: this.provider.publicPricingProvider,
+      model: opts.model ?? this.provider.model,
       purpose: opts.purpose || 'unknown',
       usage,
       latencyMs: Date.now() - startedAt,
@@ -349,11 +367,13 @@ export class LlmClient {
         'unavailable',
       );
     }
+    this.assertAllowedModel(opts.model);
     const startedAt = Date.now();
     const reserved = await this.reserveQuota(opts);
     try {
       const result = await this.provider.complete({
         messages: opts.messages,
+        model: opts.model,
         jsonMode: opts.jsonMode,
         timeoutMs: opts.timeoutMs,
       });
@@ -384,12 +404,14 @@ export class LlmClient {
         'unavailable',
       );
     }
+    this.assertAllowedModel(opts.model);
     const startedAt = Date.now();
     const reserved = await this.reserveQuota(opts);
     let yielded = 0;
     try {
       for await (const delta of this.provider.stream({
         messages: opts.messages,
+        model: opts.model,
         jsonMode: opts.jsonMode,
         timeoutMs: opts.timeoutMs,
       })) {
@@ -414,6 +436,17 @@ export class LlmClient {
       }
       this.recordUsage(opts, startedAt, 'error', undefined, kind);
       throw err;
+    }
+  }
+
+  private assertAllowedModel(model: string | undefined): void {
+    if (model && !this.allowedModels.includes(model)) {
+      throw new LlmRequestError(
+        'Requested AI model is not in the server allowlist',
+        undefined,
+        false,
+        'unavailable',
+      );
     }
   }
 }

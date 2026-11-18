@@ -87,6 +87,7 @@ describe('SubmissionsService - Battle Run (async, C7)', () => {
         updateMany: jest.fn(),
       },
       testCaseResult: { createMany: jest.fn() },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
 
@@ -333,6 +334,17 @@ describe('SubmissionsService - Battle Run (async, C7)', () => {
       expect(dbUser.xp).toBe(50 + 80);
       expect(dbUser.bitsBalance).toBe(100 + 60);
       expect(dbCompanion.xp).toBe(120);
+      expect(prisma.xpLedgerEntry.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [
+            expect.objectContaining({
+              idempotencyKey: 'battle-run:sub-1',
+              amount: 80,
+            }),
+          ],
+          skipDuplicates: true,
+        }),
+      );
       // Resultado persistido na submissão para GET /:id/battle
       expect(dbSubmission.status).toBe('passed');
       expect(dbSubmission.xpAwarded).toBe(true);

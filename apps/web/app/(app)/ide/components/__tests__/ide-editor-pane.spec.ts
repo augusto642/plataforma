@@ -54,4 +54,13 @@ describe('IdeEditorPane — hideChromeBar (D14)', () => {
     // O editor em si segue renderizado (skeleton no SSR).
     expect(html).toContain('Inicializando Monaco Editor Engine...');
   });
+
+  it('distingue execução livre da avaliação quando o fluxo oferece as duas ações', async () => {
+    const html = await renderHtml(
+      React.createElement(IdeEditorPane, { ...baseProps, appearance: 'learning', onSubmit: () => {} }),
+    );
+    expect(html).toContain('Executar Código');
+    expect(html).toContain('Enviar para avaliação');
+    expect(html).not.toContain('<select');
+  });
 });

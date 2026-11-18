@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 export interface SonarMetrics {
@@ -116,12 +116,22 @@ export class SonarService {
       const res = await fetch(url, { headers });
       if (!res.ok) {
         this.logger.warn(`SonarQube API returned status ${res.status} for ${projectKey}`);
-        return { qualityGateStatus: 'OK', maintainabilityRating: 'A', coveragePercent: 85 };
+        throw new ServiceUnavailableException('SonarQube metrics are unavailable');
       }
 
       const data = await res.json();
       const measures: Array<{ metric: string; value: string }> = data?.component?.measures || [];
       const map = new Map(measures.map((m) => [m.metric, m.value]));
+      const qualityGateStatus = map.get('alert_status');
+      if (
+        qualityGateStatus !== 'OK' &&
+        qualityGateStatus !== 'ERROR' &&
+        qualityGateStatus !== 'WARN'
+      ) {
+        throw new ServiceUnavailableException(
+          'SonarQube response did not include a valid Quality Gate status',
+        );
+      }
 
       const parseRating = (val?: string): 'A' | 'B' | 'C' | 'D' | 'E' => {
         const num = Number(val);
@@ -133,7 +143,7 @@ export class SonarService {
       };
 
       return {
-        qualityGateStatus: (map.get('alert_status') as any) || 'OK',
+        qualityGateStatus,
         maintainabilityRating: parseRating(map.get('sqale_rating')),
         reliabilityRating: parseRating(map.get('reliability_rating')),
         securityRating: parseRating(map.get('security_rating')),
@@ -144,7 +154,7 @@ export class SonarService {
       };
     } catch (err) {
       this.logger.warn(`Failed to fetch SonarQube metrics: ${(err as Error).message}`);
-      return { qualityGateStatus: 'OK', maintainabilityRating: 'A', coveragePercent: 80 };
+      throw new ServiceUnavailableException('SonarQube metrics are unavailable');
     }
   }
 }

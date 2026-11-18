@@ -19,14 +19,19 @@ cp .env.example .env
 #    Linux/macOS:
 openssl rand -hex 48   # -> JWT_ACCESS_SECRET
 openssl rand -hex 48   # -> JWT_REFRESH_SECRET
+openssl rand -hex 32   # -> CERTIFICATE_HMAC_SECRET
 openssl rand -hex 32   # -> GITEA_WEBHOOK_SECRET
+openssl rand -hex 32   # -> BILLING_WEBHOOK_SECRET
 #    Cole os valores no .env
 
-# 3. Subir tudo (postgres, redis, gitea, piston, api, web)
-docker compose up -d --build
+# 3. Subir a aplicação local e o Piston local.
+#    Em produção, não use --profile local-piston: consulte a seção
+#    "Runner Piston dedicado" em docs/OPERATIONS-SECURITY.md.
+docker compose --profile local-piston up -d --build
 
-# 4. Instalar runtimes no Piston (uma vez, após o primeiro boot)
-docker exec plataforma-piston-1 sh -c "cd /piston && ./cli/index.js ppman install node python java typescript"
+# 4. O piston-init instala Node, Python e Java; o init Portugol provisiona
+#    o pacote customizado. Confira os logs antes de usar:
+docker compose --profile local-piston logs piston-init piston-portugol-init
 
 # 5. Aplicar migrations (o container da API já faz no boot; localmente:)
 pnpm db:migrate
@@ -39,7 +44,7 @@ pnpm seed:gitea
 pnpm seed:data
 
 # 8. Reiniciar a API para carregar o GITEA_TOKEN
-docker compose up -d api
+docker compose --profile local-piston up -d api
 ```
 
 Após isso:
@@ -63,9 +68,39 @@ pnpm dev:api   # http://localhost:3000
 pnpm dev:web   # http://localhost:3001
 ```
 
+A página inicial (`/`) oferece três desafios sem cadastro. O editor avalia
+expressões simples no navegador, sem chamar a IA ou o executor da plataforma
+e sem salvar o progresso na conta. Depois do desafio, o cadastro segue em `/register`.
+A seção da Torre na página inicial usa WebGL quando disponível e uma animação 2D
+quando não há suporte. Com movimento reduzido, os dados podem ser sorteados sem
+animação. O botão **Abrir a Torre** leva ao guia ilustrado em `/conheca-a-torre`;
+a partida continua em `/torre`.
+O cadastro por e-mail pede e-mail, senha e uma única caixa para aceitar os Termos
+de Uso, declarar ciência da Política de Privacidade e confirmar idade de 18 anos
+ou mais. Já o perfil de aprendizagem (`/perfil-inicial`)
+é opcional e fica para o primeiro acesso. Quem pular pode preenchê-lo em
+Configurações → Perfil. A API requer a migração `20261117193500_learning_profile_pending`.
+Em `/login`, **Esqueci minha senha** solicita um link de uso único, válido por
+30 minutos, para contas com senha. Para habilitar o envio, aplique a migração
+`20261117205600_password_reset` e configure o SMTP da API (`MAILER_PROVIDER=smtp`)
+e `WEB_PUBLIC_URL` com a URL pública da plataforma.
+O e-mail digitado no login é reaproveitado ao navegar para a recuperação, sem
+entrar na URL. A confirmação do pedido permite corrigir o endereço sem revelar
+se ele está cadastrado. Links inválidos ou expirados levam a um novo pedido.
+As prévias de [login](http://localhost:3001/prototype/acesso/login) e
+[cadastro](http://localhost:3001/prototype/acesso/cadastro) simulam apenas a interface,
+sem autenticar, criar contas ou substituir as rotas reais.
+O [protótipo do painel do aluno](http://localhost:3001/prototype/dashboard) usa dados
+fictícios para simular o primeiro acesso, praticar com dicas preparadas e acompanhar
+a missão do dia e o extrato de XP de exemplo. Os atalhos para páginas reais ficam
+em **Recursos da plataforma**, com as restrições de plano indicadas junto aos links.
+Ao recarregar, a prévia volta ao estado inicial; ela não altera
+`/dashboard` nem salva dados na conta.
+
 > Os dois modos (docker vs. local) disputam as mesmas portas. Use um de cada vez.
-> Rodando fora do compose, a API usa `PISTON_URL` (default `http://localhost:2000`)
-> — suba o Piston standalone ou aponte para outra instância.
+> Rodando fora do compose, a API usa `PISTON_URL` (default `http://localhost:2000`).
+> Para runner remoto, configure também `PISTON_AUTH_TOKEN` e use o worker dedicado
+> descrito em `docs/OPERATIONS-SECURITY.md`.
 
 ### Portas ocupadas
 

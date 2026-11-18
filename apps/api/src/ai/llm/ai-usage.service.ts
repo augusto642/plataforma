@@ -58,6 +58,19 @@ export const DEFAULT_DAILY_QUOTA_PRO = 200;
  */
 export const DEFAULT_DAILY_QUOTA_CAREER = 200;
 
+export const AI_PUBLIC_PRICING_CHECKED_AT = '2026-11-14';
+
+// Standard paid-tier list prices, USD per 1M tokens; verified 2026-11-14.
+// Sources: https://ai.google.dev/gemini-api/docs/pricing and
+// https://developers.openai.com/api/docs/pricing. Unknown models stay unpriced.
+const PUBLIC_TOKEN_PRICES_USD_PER_MILLION: Record<
+  string,
+  { input: number; output: number }
+> = {
+  'google:gemini-3.5-flash-lite': { input: 0.3, output: 2.5 },
+  'openai:gpt-4o-mini': { input: 0.15, output: 0.6 },
+};
+
 export interface QuotaReservation {
   ok: boolean;
   /** Chamadas já feitas hoje (inclui esta, quando ok). */
@@ -88,6 +101,7 @@ export interface LlmBlockedRecord {
 export interface LlmUsageRecord {
   userId?: string;
   provider: string;
+  pricingProvider?: 'google' | 'openai';
   model: string;
   /** Superfície que chamou: 'hint' | 'chat' | 'chat-stream' | 'line-feedback' | 'socratic-cat' | ... */
   purpose: string;
@@ -95,6 +109,24 @@ export interface LlmUsageRecord {
   latencyMs: number;
   outcome: 'success' | 'error';
   errorKind?: string;
+}
+
+export interface DailyAiOperations {
+  calls: number;
+  failedCalls: number;
+  blockedCalls: number;
+  fallbackCalls: number;
+  fallbackRate: number | null;
+  latencySamples: number;
+  averageLatencyMs: number | null;
+  p95LatencyMs: number | null;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  pricedCalls: number;
+  unpricedCalls: number;
+  estimatedCostUsd: number | null;
+  pricingCheckedAt: string;
 }
 
 @Injectable()
@@ -188,6 +220,7 @@ export class AiUsageService {
     this.logger.log(
       `ai_llm_usage ${JSON.stringify({
         provider: record.provider,
+        pricingProvider: record.pricingProvider ?? null,
         model: record.model,
         purpose: record.purpose,
         userId: record.userId ?? null,
@@ -210,6 +243,7 @@ export class AiUsageService {
             schemaVersion: 1,
             userId: record.userId ?? null,
             provider: record.provider,
+            pricingProvider: record.pricingProvider ?? null,
             model: record.model,
             purpose: record.purpose,
             promptTokens: record.usage?.promptTokens ?? null,
@@ -269,12 +303,7 @@ export class AiUsageService {
     }
   }
 
-  /**
-   * Consulta administrativa do gasto de um dia UTC (yyyy-mm-dd):
-   * soma dos tokens e contagem de chamadas gravadas em
-   * analytics_events. É a "consulta de gasto diário" do plano — sem
-   * painel novo.
-   */
+  /** Consulta tokens e chamadas de um dia UTC (yyyy-mm-dd). */
   async getDailyUsageTotals(dayUtc: string): Promise<{
     calls: number;
     promptTokens: number;
@@ -312,5 +341,148 @@ export class AiUsageService {
       totalTokens: row?.total_tokens ?? 0,
       thoughtsTokens: row?.thoughts_tokens ?? 0,
     };
+  }
+
+  async getDailyOperations(dayUtc: string): Promise<DailyAiOperations> {
+    const empty: DailyAiOperations = {
+      calls: 0,
+      failedCalls: 0,
+      blockedCalls: 0,
+      fallbackCalls: 0,
+      fallbackRate: null,
+      latencySamples: 0,
+      averageLatencyMs: null,
+      p95LatencyMs: null,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      pricedCalls: 0,
+      unpricedCalls: 0,
+      estimatedCostUsd: null,
+      pricingCheckedAt: AI_PUBLIC_PRICING_CHECKED_AT,
+    };
+    if (!this.prisma) return empty;
+
+    const usageRows = await this.prisma.$queryRaw<
+      Array<{
+        model: string;
+        pricing_provider: 'google' | 'openai' | null;
+        calls: number;
+        failed_calls: number;
+        missing_usage: number;
+        prompt_tokens: number | null;
+        completion_tokens: number | null;
+        total_tokens: number | null;
+        thoughts_tokens: number | null;
+      }>
+    >`
+      SELECT props ->> 'model' AS model,
+             props ->> 'pricingProvider' AS pricing_provider,
+             COUNT(*)::int AS calls,
+             COUNT(*) FILTER (WHERE props ->> 'outcome' = 'error')::int AS failed_calls,
+             COUNT(*) FILTER (
+               WHERE props ->> 'promptTokens' IS NULL
+                  OR props ->> 'completionTokens' IS NULL
+                  OR (
+                    props ->> 'pricingProvider' = 'google'
+                    AND props ->> 'totalTokens' IS NULL
+                    AND props ->> 'thoughtsTokens' IS NULL
+                  )
+             )::int AS missing_usage,
+             COALESCE(SUM((props ->> 'promptTokens')::int), 0)::int AS prompt_tokens,
+             COALESCE(SUM((props ->> 'completionTokens')::int), 0)::int AS completion_tokens,
+             COALESCE(SUM((props ->> 'totalTokens')::int), 0)::int AS total_tokens,
+             COALESCE(SUM((props ->> 'thoughtsTokens')::int), 0)::int AS thoughts_tokens
+      FROM analytics_events
+      WHERE event = ${AI_USAGE_EVENT}
+        AND created_at >= (${dayUtc}::date)
+        AND created_at < (${dayUtc}::date + INTERVAL '1 day')
+      GROUP BY props ->> 'model', props ->> 'pricingProvider'
+    `;
+    const blockedRows = await this.prisma.$queryRaw<
+      Array<{
+        blocked_calls: number;
+        latency_samples: number;
+        average_latency_ms: number | null;
+        p95_latency_ms: number | null;
+      }>
+    >`
+      SELECT COUNT(*) FILTER (
+               WHERE event = ${AI_BLOCKED_EVENT}
+             )::int AS blocked_calls,
+             COUNT(*) FILTER (
+               WHERE event = ${AI_USAGE_EVENT}
+                 AND props ->> 'latencyMs' ~ '^[0-9]+([.][0-9]+)?$'
+             )::int AS latency_samples,
+             AVG(CASE
+               WHEN event = ${AI_USAGE_EVENT}
+                 AND props ->> 'latencyMs' ~ '^[0-9]+([.][0-9]+)?$'
+               THEN (props ->> 'latencyMs')::double precision
+             END)::double precision AS average_latency_ms,
+             (percentile_cont(0.95) WITHIN GROUP (
+               ORDER BY CASE
+                 WHEN event = ${AI_USAGE_EVENT}
+                   AND props ->> 'latencyMs' ~ '^[0-9]+([.][0-9]+)?$'
+                 THEN (props ->> 'latencyMs')::double precision
+               END
+             ))::double precision AS p95_latency_ms
+      FROM analytics_events
+      WHERE event IN (${AI_BLOCKED_EVENT}, ${AI_USAGE_EVENT})
+        AND created_at >= (${dayUtc}::date)
+        AND created_at < (${dayUtc}::date + INTERVAL '1 day')
+    `;
+
+    let estimatedCostUsd = 0;
+    for (const row of usageRows) {
+      const calls = row.calls ?? 0;
+      const missingUsage = row.missing_usage ?? 0;
+      const price = row.pricing_provider
+        ? PUBLIC_TOKEN_PRICES_USD_PER_MILLION[
+            `${row.pricing_provider}:${row.model}`
+          ]
+        : undefined;
+
+      empty.calls += calls;
+      empty.failedCalls += row.failed_calls ?? 0;
+      empty.promptTokens += row.prompt_tokens ?? 0;
+      empty.completionTokens += row.completion_tokens ?? 0;
+      empty.totalTokens += row.total_tokens ?? 0;
+
+      if (!price) {
+        empty.unpricedCalls += calls;
+        continue;
+      }
+
+      empty.unpricedCalls += missingUsage;
+      const pricedCalls = Math.max(0, calls - missingUsage);
+      empty.pricedCalls += pricedCalls;
+      if (pricedCalls > 0) {
+        const outputTokens =
+          row.total_tokens !== null &&
+          row.total_tokens !== undefined &&
+          row.prompt_tokens !== null
+            ? Math.max(0, row.total_tokens - row.prompt_tokens)
+            : (row.completion_tokens ?? 0) +
+              (row.pricing_provider === 'google' ? row.thoughts_tokens ?? 0 : 0);
+        estimatedCostUsd +=
+          ((row.prompt_tokens ?? 0) * price.input +
+            outputTokens * price.output) /
+          1_000_000;
+      }
+    }
+
+    empty.blockedCalls = blockedRows[0]?.blocked_calls ?? 0;
+    empty.latencySamples = blockedRows[0]?.latency_samples ?? 0;
+    empty.averageLatencyMs = blockedRows[0]?.average_latency_ms ?? null;
+    empty.p95LatencyMs = blockedRows[0]?.p95_latency_ms ?? null;
+    empty.fallbackCalls = empty.failedCalls + empty.blockedCalls;
+    const attempts = empty.calls + empty.blockedCalls;
+    empty.fallbackRate =
+      attempts > 0 ? empty.fallbackCalls / attempts : null;
+    empty.estimatedCostUsd =
+      empty.pricedCalls > 0
+        ? Math.round(estimatedCostUsd * 1_000_000) / 1_000_000
+        : null;
+    return empty;
   }
 }

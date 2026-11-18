@@ -47,7 +47,11 @@ describe('UsersService.getUserProgress (Sprint 21)', () => {
         ),
       },
     };
-    return new UsersService(prisma, {} as any);
+    return new UsersService(
+      prisma,
+      {} as any,
+      { processJob: jest.fn() } as any,
+    );
   }
 
   it('sem test-out: progresso é a conta clássica de aprovadas', async () => {

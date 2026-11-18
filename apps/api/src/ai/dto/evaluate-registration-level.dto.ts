@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class EvaluateRegistrationLevelDto {
   @IsBoolean()
@@ -19,15 +19,9 @@ export class EvaluateRegistrationLevelDto {
   explanation!: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  tabSwitchCount?: number;
-
-  @IsOptional()
   @IsString()
-  @MaxLength(500)
-  followUpQuestion?: string;
+  @MaxLength(2048)
+  followUpToken?: string;
 
   @IsOptional()
   @IsString()

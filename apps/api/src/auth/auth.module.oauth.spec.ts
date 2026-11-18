@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../cache/cache.service';
 import { ConfigError } from '../config/secrets.validation';
 import { TRACK_INVESTIGATION_QUEUE } from '../dynamic-track/dynamic-track.service';
+import { MONITORED_QUEUE_NAMES } from '../metrics/metrics.service';
 import { AuthModule } from './auth.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { GitHubStrategy } from './strategies/github.strategy';
@@ -56,18 +57,19 @@ describe('AuthModule — OAuth condicional no boot', () => {
     const noopQueue = { add: jest.fn(), close: jest.fn() };
     const noopCache = { get: jest.fn(), set: jest.fn(), del: jest.fn(), increment: jest.fn() };
 
-    return Test.createTestingModule({
+    const builder = Test.createTestingModule({
       imports: [TestConfigModule, TestPrismaModule, AuthModule],
-    })
-      .overrideProvider(CacheService)
-      .useValue(noopCache)
+    });
+
+    builder.overrideProvider(CacheService).useValue(noopCache);
+    for (const queueName of MONITORED_QUEUE_NAMES) {
+      builder.overrideProvider(getQueueToken(queueName)).useValue(noopQueue);
+    }
+    builder
       .overrideProvider(getQueueToken(TRACK_INVESTIGATION_QUEUE))
-      .useValue(noopQueue)
-      .overrideProvider(getQueueToken('research'))
-      .useValue(noopQueue)
-      .overrideProvider(getQueueToken('track-generation'))
-      .useValue(noopQueue)
-      .compile();
+      .useValue(noopQueue);
+
+    return builder.compile();
   }
 
   it('sem vars OAuth: sobe e as strategies resolvem null (desabilitadas)', async () => {
