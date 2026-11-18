@@ -41,7 +41,7 @@ jobs:
 
       - name: Restore pnpm cache
         if: ${{ vars.GOLDEN_LIVE_ENABLED == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
