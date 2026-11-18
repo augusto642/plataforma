@@ -301,6 +301,11 @@ jobs:
       - name: Scan Docker Image for Critical Vulnerabilities
         uses: aquasecurity/trivy-action@v0.31.0
         with:
+          # Trivy fixado: o default do trivy-action@v0.31.0 (v0.63.0) teve
+          # a release APAGADA no GitHub (tag existe, releases/tags 404) e
+          # o setup-trivy falhava com 404 no asset. v0.76.2 verificado
+          # vivo (release + asset Linux-64bit 200) em 18/11/2026.
+          version: v0.76.2
           image-ref: plataforma-${{ matrix.name }}:latest
           format: table
           vuln-type: os,library
