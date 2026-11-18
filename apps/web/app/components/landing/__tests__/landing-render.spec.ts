@@ -1,13 +1,19 @@
 import React from 'react';
 import { renderToPipeableStream } from 'react-dom/server';
 import { PassThrough } from 'node:stream';
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('../PlatformStatsSection', () => ({
-  PlatformStatsSection: () => React.createElement('div', { id: 'platform-stats-mock' }),
-}));
+import { describe, expect, it } from 'vitest';
 
 import HomePage from '../../../(public)/page';
+
+/* Reescrita (fix/ci-pipeline, 18/11/2026): a home do Stitch (7 blocos,
+   hero "Aprenda a programar de verdade, jogando.") foi substituída
+   pela home nova no merge do PR #2 (b10d3a9) — hero "Aprenda
+   programação. Escreva. Teste. Entenda." com o desafio interativo
+   "Devolva o dobro." embutido na página, mais Tutoria, Trilha,
+   Torre, Entrevistas, Planos e FAQ. As 11 asserções antigas do
+   Stitch passaram a falhar (não era defeito da home nova, e sim
+   spec desatualizado). Este spec agora afirma a home nova; nada
+   aqui foi apenas pulado. */
 
 async function renderHtml(element: React.ReactElement): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -36,141 +42,153 @@ function stripReactComments(html: string): string {
   return html.replace(/<!--[\s\S]*?-->/g, '');
 }
 
-describe('landing — renderização fiel ao design Stitch', () => {
-  it('aviso de cobrança aparece 1× no card Pro, junto ao CTA', async () => {
+describe('landing — renderização da home nova (desafio interativo)', () => {
+  it('aviso de plano pago aparece 1× no card Pro, sem checkout', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(
-      countOccurrences(html, 'Checkout em modo de testes — nenhuma cobrança real é feita.'),
-    ).toBe(1);
+    expect(countOccurrences(html, 'Plano pago indisponível nesta fase')).toBe(1);
+    expect(html).toContain('Esta página não inicia checkout.');
+    expect(html).toContain('Preço a definir');
+    expect(html).not.toContain('href="/checkout/pro"');
   });
 
   it('skip link é o PRIMEIRO link da página e o <main> tem o id dele', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     const firstAnchor = html.indexOf('<a ');
-    expect(html.slice(firstAnchor, firstAnchor + 60)).toContain('href="#main-content"');
-    expect(html).toContain('<main id="main-content"');
+    expect(html.slice(firstAnchor, firstAnchor + 60)).toContain('href="#conteudo"');
+    expect(html).toContain('Pular para o conteúdo');
+    expect(html).toContain('<main id="conteudo"');
   });
 
-  it('JSON-LD: 2 blocos (Organization e Product do Pro); Offer com PreOrder e sem AggregateRating', async () => {
+  it('JSON-LD: 1 bloco (Organization); sem Product, FAQPage, founder ou AggregateRating', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     const blocks = html.match(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g) ?? [];
-    expect(blocks.length).toBe(2);
+    expect(blocks.length).toBe(1);
     const all = blocks.join('\n');
     expect(all).toContain('"Organization"');
+    expect(all).not.toContain('"Product"');
     expect(all).not.toContain('"FAQPage"');
     expect(all).not.toContain('"founder"');
-    expect(all.split('"Product"').length - 1).toBe(1);
-    expect(all).toContain('https://schema.org/PreOrder');
+    expect(all).not.toContain('PreOrder');
     expect(all).not.toContain('AggregateRating');
   });
 
   it('seção de planos com cards Iniciante, Pro e Carreira e links reais', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Escolha seu plano e comece hoje');
-    expect(html).toContain('Criar conta grátis');
-    expect(html).toContain('Assinar Pro por R$ 39,90');
-    expect(html).toContain('Garantir Plano Carreira');
+    expect(html).toContain('Um caminho para cada etapa.');
+    expect(html).toContain('Iniciante');
+    expect(html).toContain('Pro');
+    expect(html).toContain('Carreira');
+    expect(html).toContain('R$ 0');
+    expect(html).toContain('39,90');
+    expect(html).toContain('/ mês');
     expect(html).toContain('Preço a definir');
     expect(html).toContain('href="/register"');
-    expect(html).toContain('href="/checkout/pro"');
+    expect(html).toContain('href="/login"');
     expect(html).toContain('href="/contato"');
   });
 
-  it('hero Stitch: H1, prova social e card do editor em 2 colunas com Tutora de IA', async () => {
+  it('hero: H1, desafio sem conta e passos Escreva/Teste/Ajuste', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Aprenda a programar de verdade,');
-    expect(html).toContain('jogando.');
-    expect(html).toContain('Do zero absoluto até o nível pleno');
-    expect(html).toContain('Ver prévia do jogo');
-    expect(html).toContain('Linguagens no sandbox');
-    expect(html).toContain('Prática no browser');
-    expect(html).toContain('Instalação local');
-    expect(html).toContain('fase-03_desafio-arrays.js');
-    expect(html).toContain('+150 XP em jogo');
-    expect(html).toContain('Nível 03');
-    expect(html).toContain('execução: 38ms');
-    expect(html).toContain('Testes unitários: 3/3 aprovados');
-    expect(html).toContain('DESAFIO VENCIDO!');
-    expect(html).toContain('Tutora de IA');
-    expect(html).toContain('ao vivo');
-    expect(html).toContain('780 / 1.000 XP');
-    expect(html).toContain('Avançar no Mapa');
+    expect(html).toContain('Aprenda programação.');
+    expect(html).toContain('Escreva. Teste. Entenda.');
+    expect(html).toContain('Resolva um exercício de JavaScript, confira os testes e use as pistas se travar.');
+    expect(html).toContain('Resolver meu primeiro desafio');
+    expect(html).toContain('O primeiro desafio não precisa de conta.');
+    expect(html).toContain('href="#sandbox-code"');
+    expect(html).toContain('Escreva');
+    expect(html).toContain('Teste');
+    expect(html).toContain('Ajuste');
   });
 
-  it('seção "Como funciona" com os 3 passos exatos do Stitch', async () => {
+  it('seção "Seu primeiro desafio": editor, 3 testes, pistas e jornada 01/02/03', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('id="como-funciona"');
-    expect(html).toContain('Sua trilha, sugerida pela IA');
-    expect(html).toContain(
-      'Escolha entre as trilhas Iniciante, Júnior e Pleno, cada uma com conteúdo progressivo, projetos práticos e desafios em formato de jogo.',
-    );
-    expect(html).toContain('Aprenda jogando');
-    expect(html).toContain('XP, streaks e ranking semanal');
-    expect(html).toContain('Conquiste a vaga');
-    expect(html).toContain(
-      'Com projetos concretos no portfólio, treino no simulador de entrevista e seu certificado verificado, você se conecta a empresas no Talent Match.',
-    );
+    expect(html).toContain('id="sandbox"');
+    expect(html).toContain('Seu primeiro desafio');
+    expect(html).toContain('Devolva o dobro.');
+    expect(html).toContain('solution.js');
+    expect(html).toContain('4 → 8');
+    expect(html).toContain('Esperado: 8');
+    expect(html).toContain('Esperado: 0');
+    expect(html).toContain('Esperado: -6');
+    expect(html).toContain('3 testes');
+    expect(html).toContain('Executar solução');
+    expect(html).toContain('Pedir pista');
+    expect(html).toContain('O seu cálculo também funciona quando a entrada é zero?');
+    expect(html).toContain('Edite o trecho marcado.');
+    expect(html).toContain('Teste a sua ideia.');
+    expect(html).toContain('Abra uma pista.');
   });
 
-  it('estrutura dos 7 blocos Stitch em ordem com 6 H2s', async () => {
+  it('estrutura das seções da home nova em ordem com 9 H2s', async () => {
     const html = await renderHtml(React.createElement(HomePage));
     const ids = [
-      'id="hero"',
-      'id="como-funciona"',
-      'id="trilhas"',
-      'id="o-jogo"',
-      'id="recursos"',
+      'id="inicio"',
+      'id="sandbox"',
+      'id="tutoria"',
+      'id="trilha"',
+      'id="torre"',
+      'id="entrevistas"',
       'id="planos"',
+      'id="duvidas"',
     ];
     const positions = ids.map((id) => html.indexOf(id));
     positions.forEach((pos) => expect(pos).toBeGreaterThan(-1));
     for (let i = 1; i < positions.length; i++) {
       expect(positions[i]).toBeGreaterThan(positions[i - 1]);
     }
-    expect(html).toContain('Pronto para escrever seu primeiro código hoje?');
-    expect((html.match(/<h2/g) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect(html).toContain('Continue na');
+    expect((html.match(/<h2/g) ?? []).length).toBe(9);
   });
 
-  it('nav Stitch: Como funciona, Cursos avulsos, O jogo (XP), Tutora de IA, Planos', async () => {
+  it('nav: Tutoria, Trilha de estudos, Planos, Torre, Dúvidas + Entrar', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('href="#como-funciona"');
-    expect(html).toContain('href="/courses"');
-    expect(html).toContain('Cursos avulsos');
-    expect(html).toContain('href="#o-jogo"');
-    expect(html).toContain('O jogo');
-    expect(html).toContain('>XP<');
-    expect(html).toContain('href="#recursos"');
-    expect(html).toContain('Tutora de IA');
+    expect(html).toContain('href="#tutoria"');
+    expect(html).toContain('href="#trilha"');
     expect(html).toContain('href="#planos"');
+    expect(html).toContain('href="#torre"');
+    expect(html).toContain('href="#duvidas"');
+    expect(html).toContain('Tutoria');
+    expect(html).toContain('Trilha de estudos');
+    expect(html).toContain('href="/login"');
+    expect(html).toContain('Entrar');
+    expect(html).toContain('Testar desafio');
   });
 
-  it('RPG Stitch: mapa da trilha com fases 01-04, ranking Liga Prata, Streak e Badges', async () => {
+  it('Torre de Desafios: guardião na casa 30 e 3 passos', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Mapa da Trilha: Reino dos Algoritmos');
-    expect(html).toContain('2/4 Concluídos');
-    expect(html).toContain('01. O Desafio das Variáveis Mágicas');
-    expect(html).toContain('03. O Guardião dos Loops e Arrays');
-    expect(html).toContain('04. Recursão e Árvores de Decisão');
-    expect(html).toContain('Liga Prata #2');
-    expect(html).toContain('Lucas F.');
-    expect(html).toContain('4.820 XP');
-    expect(html).toContain('14 Dias');
-    expect(html).toContain('12 Conquistas');
+    expect(html).toContain('Torre de Desafios');
+    expect(html).toContain('Enfrente o guardião na casa 30');
+    expect(html).toContain('Lance os dados');
+    expect(html).toContain('Resolva dentro do tempo.');
+    expect(html).toContain('Vença o guardião');
+    expect(html).toContain('Abrir a Torre');
+    expect(html).toContain('href="/conheca-a-torre"');
   });
 
-  it('recursos Stitch: Tutora, Revisão Clean Code Score, Simulador e Certificado', async () => {
+  it('tutoria e treino de explicação: ajuda local por regras, sem IA', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Exemplo de mentoria:');
-    expect(html).toContain('✓ Clean Code Score: 96/100');
-    expect(html).toContain('Simulações de Live Coding &amp; Perguntas Comportamentais');
-    expect(html).toContain('Perfil com portfólio de desafios validados');
+    expect(html).toContain('Entenda o resultado dos testes');
+    expect(html).toContain('Na plataforma, a tutora de IA usa o contexto do seu código');
+    expect(html).toContain('Ajuda local por regras, sem IA.');
+    expect(html).toContain('Explique a regra.');
+    expect(html).toContain('Mostre os testes.');
+    expect(html).toContain('Como você calcula o dobro? Explique sua escolha, os testes e uma alternativa.');
   });
 
-  it('rodapé Stitch: marca, 5 links e copyright', async () => {
+  it('roteiro de prática, FAQ e rodapé', async () => {
     const html = await renderHtml(React.createElement(HomePage));
-    expect(html).toContain('Gamificação');
-    expect(html).toContain('Tutora de IA');
-    expect(html).toContain('Planos &amp; Preços');
-    expect(html).toContain('© 2026 Nexus Code. Aprenda a programar de verdade, jogando.');
+    expect(html).toContain('Qual desafio vem a seguir?');
+    expect(html).toContain('De minutos a segundos.');
+    expect(html).toContain('Já tem 18 anos?');
+    expect(html).toContain('0 de 3 desafios com os testes corretos.');
+    expect(html).toContain('Perguntas frequentes');
+    expect(html).toContain('Preciso de conta para praticar?');
+    expect(html).toContain('Não para os três exercícios desta página.');
+    expect(html).toContain('Criar minha conta grátis');
+    expect(html).toContain('Nexus Code · Aprenda programação na prática.');
+    expect(html).toContain('href="/privacidade"');
+    expect(html).toContain('href="/termos"');
+    expect(html).toContain('href="/contato"');
+    expect(html).toContain('Voltar ao início');
   });
 });
