@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { AuthModule } from '../auth/auth.module';
 import { DynamicTrackModule } from '../dynamic-track/dynamic-track.module';
 import { PlansModule } from '../plans/plans.module';
 import { DiagnosticController } from './diagnostic.controller';
@@ -11,6 +12,7 @@ import { SkillDiagnosticService } from './skill-diagnostic.service';
   imports: [
     PlansModule,
     DynamicTrackModule,
+    AuthModule,
     // Só para a verificação OPCIONAL do Bearer no submit anônimo
     // (mesmo padrão de registro do AuthModule).
     JwtModule.registerAsync({

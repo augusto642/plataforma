@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SonarService, SonarMetrics } from './sonar.service';
 
@@ -59,5 +60,62 @@ describe('SonarService', () => {
     expect(evaluation.coverageBonusPercent).toBe(0);
     expect(evaluation.finalXp).toBe(80); // 200 * 0.4
     expect(evaluation.socraticSuggestions.length).toBeGreaterThan(0);
+  });
+
+  describe('fetchProjectMetrics', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('returns metrics only when the response contains an explicit Quality Gate status', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          component: {
+            measures: [
+              { metric: 'alert_status', value: 'OK' },
+              { metric: 'sqale_rating', value: '1.0' },
+              { metric: 'coverage', value: '85.0' },
+            ],
+          },
+        }),
+      } as Response);
+
+      await expect(service.fetchProjectMetrics('project-1')).resolves.toMatchObject({
+        qualityGateStatus: 'OK',
+        maintainabilityRating: 'A',
+        coveragePercent: 85,
+      });
+    });
+
+    it('fails closed when the SonarQube API returns an error', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 500,
+      } as Response);
+
+      await expect(service.fetchProjectMetrics('project-1')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('fails closed when the response has no Quality Gate status', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({ component: { measures: [] } }),
+      } as Response);
+
+      await expect(service.fetchProjectMetrics('project-1')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('fails closed when the SonarQube request throws', async () => {
+      jest.spyOn(global, 'fetch').mockRejectedValue(new Error('network error'));
+
+      await expect(service.fetchProjectMetrics('project-1')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
   });
 });

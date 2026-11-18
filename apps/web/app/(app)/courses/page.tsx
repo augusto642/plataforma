@@ -18,8 +18,32 @@ import { useAuth } from '../../context/AuthContext';
 import { useSidebar } from '../../context/SidebarContext';
 import { StudentSidebar } from '../../components/StudentSidebar';
 import { StudentHeader } from '../../components/StudentHeader';
+import { AdultEligibilityGate } from '../../components/AdultEligibilityGate';
 
 export default function CoursesPage() {
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
+
+  if (!adultConfirmed) {
+    return (
+      <AdultEligibilityGate
+        onConfirm={() => setAdultConfirmed(true)}
+        requireServerToken
+      />
+    );
+  }
+
+  return (
+    <CoursesCatalogPage
+      onReconfirmEligibility={() => setAdultConfirmed(false)}
+    />
+  );
+}
+
+function CoursesCatalogPage({
+  onReconfirmEligibility,
+}: {
+  onReconfirmEligibility: () => void;
+}) {
   const { user } = useAuth();
   const { isCollapsed } = useSidebar();
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,6 +53,7 @@ export default function CoursesPage() {
     data: catalogRaw,
     isLoading: catalogLoading,
     isError: catalogError,
+    error: catalogQueryError,
     refetch: refetchCatalog,
   } = usePublicCatalogQuery();
   const { data: progressRaw } = useMyProgressQuery(Boolean(user));
@@ -76,6 +101,9 @@ export default function CoursesPage() {
   }, [allCourses, searchQuery, selectedChip]);
 
   const isLoading = catalogLoading;
+  const eligibilityExpired =
+    catalogQueryError instanceof Error &&
+    catalogQueryError.message === 'AGE_ELIGIBILITY_REQUIRED';
 
   return (
     <div className="min-h-screen bg-[#07090E] text-[#F1F5F9] font-sans antialiased flex selection:bg-[#8257E5] selection:text-white">
@@ -149,17 +177,25 @@ export default function CoursesPage() {
                 <MaterialIcon name="error_outline" className="text-2xl" />
               </div>
               <h3 className="text-lg font-bold text-white font-brand mb-1">
-                Não foi possível carregar os cursos
+                {eligibilityExpired
+                  ? 'Confirme novamente sua elegibilidade'
+                  : 'Não foi possível carregar os cursos'}
               </h3>
               <p className="text-sm text-[#94A3B8] max-w-md mx-auto mb-5 leading-relaxed">
-                A plataforma não respondeu com o catálogo agora. Verifique a conexão com a API e tente novamente.
+                {eligibilityExpired
+                  ? 'A confirmação expirou. Confirme novamente que tem 18 anos ou mais para acessar o catálogo.'
+                  : 'A plataforma não respondeu com o catálogo agora. Verifique a conexão com a API e tente novamente.'}
               </p>
               <button
                 type="button"
-                onClick={() => void refetchCatalog()}
+                onClick={() =>
+                  eligibilityExpired
+                    ? onReconfirmEligibility()
+                    : void refetchCatalog()
+                }
                 className="bg-[#8257E5] hover:bg-[#996DFF] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all cursor-pointer"
               >
-                Tentar novamente
+                {eligibilityExpired ? 'Confirmar novamente' : 'Tentar novamente'}
               </button>
             </div>
           ) : filteredCourses.length > 0 ? (

@@ -36,12 +36,14 @@ export interface InteriorSceneData {
 export class SceneTransitionManager {
   public state: SceneTransitionState = 'IDLE';
   public alpha: number = 0;
-  private durationMs: number = 250;
+  private readonly defaultDurationMs: number;
+  private durationMs: number;
   private currentRequest: SceneTransitionRequest | null = null;
   private onSwapCallback?: (request: SceneTransitionRequest) => void;
   private onCompleteCallback?: () => void;
 
   constructor(defaultDurationMs: number = 250) {
+    this.defaultDurationMs = defaultDurationMs;
     this.durationMs = defaultDurationMs;
   }
 
@@ -58,11 +60,7 @@ export class SceneTransitionManager {
     this.currentRequest = request;
     this.onSwapCallback = onSwap;
     this.onCompleteCallback = onComplete;
-    // A8 (Lote 3): a duração default vem do construtor (default 250 ms).
-    // Antes: `request.durationMs || 250` sobrescrevia o default do construtor
-    // sempre que a requisição não trazia duração — `new SceneTransitionManager(200)`
-    // transicionava em 250 ms e `update(100)` rendia alpha 0.4, não 0.5.
-    this.durationMs = request.durationMs ?? this.durationMs;
+    this.durationMs = request.durationMs ?? this.defaultDurationMs;
     this.alpha = 0;
     this.state = 'FADING_OUT';
   }

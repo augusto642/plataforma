@@ -28,6 +28,7 @@ describe('SocraticGuidanceService', () => {
     expect(res.socraticQuestion).toContain('tipo esperado e o tipo que você calculou');
     expect(res.cached).toBe(false);
     expect(res.tier).toBe(1);
+    expect(res.source).toBe('heuristic');
     expect(cacheMock.set).toHaveBeenCalledWith(
       expect.stringContaining('ai:socratic:general:'),
       expect.objectContaining({ cached: false }),
@@ -46,7 +47,7 @@ describe('SocraticGuidanceService', () => {
     cacheMock.get.mockResolvedValue(cached);
     const service = new SocraticGuidanceService(tier, cacheMock as any);
     const res = await service.generateSocraticGuidance({ question: 'bug', starterName: 'Pyra' });
-    expect(res).toEqual({ ...cached, cached: true });
+    expect(res).toEqual({ ...cached, cached: true, source: 'heuristic' });
     expect(prismaMock.submission.count).not.toHaveBeenCalled();
     expect(cacheMock.set).not.toHaveBeenCalled();
   });
@@ -75,6 +76,8 @@ describe('SocraticGuidanceService', () => {
     );
     expect(res.tier).toBe(3);
     expect(res.hint).toContain('tempo e memória');
+    expect(cacheMock.get).not.toHaveBeenCalled();
+    expect(cacheMock.set).not.toHaveBeenCalled();
   });
 
   it('ramo imposto/preço: pergunta sobre o tipo do resultado', async () => {

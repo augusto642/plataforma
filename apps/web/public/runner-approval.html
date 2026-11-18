@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b0f14">
+    <title>Nexus Code — protótipo do editor</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0b0f14;
+        color: #e7edf3;
+        font-synthesis: none;
+        --panel: #111820;
+        --panel-raised: #151e28;
+        --border: #263341;
+        --muted: #91a0af;
+        --green: #63d69a;
+        --cyan: #66d9e8;
+      }
+
+      * { box-sizing: border-box; }
+
+      body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+      }
+
+      button, select, textarea { font: inherit; }
+
+      button, select {
+        color: inherit;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel-raised);
+      }
+
+      button { cursor: pointer; }
+      button:focus-visible, select:focus-visible, textarea:focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 2px;
+      }
+
+      .topbar {
+        height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: #0e141b;
+      }
+
+      .brand, .top-actions, .toolbar, .editor-meta, .output-heading, .output-tabs, .status {
+        display: flex;
+        align-items: center;
+      }
+
+      .brand { gap: 10px; font-size: 13px; font-weight: 750; letter-spacing: .04em; }
+      .brand-mark {
+        width: 27px; height: 27px; display: grid; place-items: center;
+        border-radius: 8px; color: #07120c; background: var(--green); font-size: 14px;
+      }
+      .crumb { color: var(--muted); font-size: 12px; }
+      .top-actions { gap: 10px; }
+      .soft-button { padding: 8px 11px; color: #c6d0da; font-size: 12px; }
+
+      main { max-width: 1500px; margin: 0 auto; padding: 28px 24px 40px; }
+      .intro { margin-bottom: 20px; }
+      .eyebrow {
+        color: var(--cyan); font-size: 10px; font-weight: 750; letter-spacing: .13em;
+        text-transform: uppercase;
+      }
+      h1 { margin: 8px 0 6px; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.035em; }
+      .description { max-width: 720px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+
+      .workspace {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: 0 18px 50px #0005;
+      }
+
+      .toolbar {
+        min-height: 54px;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 10px; }
+      .language-select { min-width: 140px; padding: 8px 30px 8px 10px; font-size: 12px; }
+      .file-name { color: #c3ced8; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+      .saved { color: var(--muted); font-size: 11px; }
+      .saved::before {
+        display: inline-block; width: 6px; height: 6px; margin-right: 6px;
+        border-radius: 50%; background: var(--green); content: "";
+      }
+      .run-button {
+        display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px;
+        border: 0; background: var(--green); color: #07130d; font-size: 12px; font-weight: 750;
+      }
+      .run-button:hover { background: #7be3ad; }
+      .run-button:disabled { cursor: wait; opacity: .7; }
+      .run-icon { font-size: 10px; }
+      kbd { color: #365646; font-size: 10px; font-weight: 600; }
+
+      .panes { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); min-height: 430px; }
+      .editor-pane { min-width: 0; border-right: 1px solid var(--border); }
+      .pane-header {
+        height: 42px; display: flex; align-items: center; justify-content: space-between;
+        padding: 0 14px; border-bottom: 1px solid #202c38; color: var(--muted); font-size: 11px;
+      }
+      .editor-area { display: flex; min-height: 340px; padding: 16px 0; background: #0d1319; }
+      .line-numbers {
+        flex: 0 0 48px; padding: 0 12px 0 0; color: #526170; text-align: right;
+        font: 13px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace; user-select: none;
+      }
+      textarea {
+        flex: 1; width: 100%; min-height: 340px; padding: 0 18px 0 0;
+        resize: vertical; border: 0; outline: 0; background: transparent; color: #dce7ef;
+        font: 13px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace;
+        tab-size: 2; white-space: pre; overflow: auto;
+      }
+      textarea:focus-visible { outline: 0; }
+      .editor-meta { min-height: 34px; justify-content: space-between; padding: 0 14px; border-top: 1px solid #202c38; color: #778796; font-size: 10px; }
+
+      .output-pane { min-width: 0; background: #10171e; }
+      .output-heading { height: 42px; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid #202c38; }
+      .output-tabs { height: 100%; gap: 16px; }
+      .tab {
+        height: 100%; padding: 0 2px; border: 0; border-radius: 0;
+        background: transparent; color: var(--muted); font-size: 11px;
+      }
+      .tab[aria-selected="true"] { border-bottom: 2px solid var(--green); color: #e7edf3; }
+      .clear-button { padding: 5px 8px; border: 0; background: transparent; color: var(--muted); font-size: 11px; }
+      .output-content { min-height: 340px; padding: 16px; }
+      .status { gap: 7px; color: var(--green); font-size: 11px; font-weight: 650; }
+      .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      .status.running { color: #f0bf6b; }
+      .output-label { margin: 20px 0 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+      .console {
+        min-height: 150px; margin: 0; padding: 14px; overflow: auto; border: 1px solid #23313d;
+        border-radius: 8px; background: #0b1117; color: #d7e3eb;
+        font: 13px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap;
+      }
+      .console .prompt { color: var(--green); }
+      .placeholder { color: #71808e; }
+      .test-summary { display: grid; gap: 8px; }
+      .test-row {
+        display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px;
+        border: 1px solid #263b32; border-radius: 8px; background: #102019; color: #c6d9ce; font-size: 12px;
+      }
+      .test-row strong { color: var(--green); font-size: 11px; }
+      .workspace-footer {
+        min-height: 38px; display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 0 14px; border-top: 1px solid var(--border); color: #7d8b98; font-size: 10px;
+      }
+      .prototype-note { margin: 13px 2px 0; color: #70808e; font-size: 11px; }
+
+      @media (max-width: 760px) {
+        .topbar { height: 52px; padding: 0 14px; }
+        .crumb, .saved, .shortcut { display: none; }
+        main { padding: 22px 12px 28px; }
+        .panes { grid-template-columns: 1fr; }
+        .editor-pane { border-right: 0; border-bottom: 1px solid var(--border); }
+        .editor-area, textarea { min-height: 280px; }
+        .output-content { min-height: 230px; }
+        .toolbar { padding: 9px; }
+        .language-select { min-width: 116px; }
+      }
+
+      @media (max-width: 430px) {
+        .file-name { display: none; }
+        .toolbar-left, .toolbar-right { gap: 6px; }
+        .run-button { padding: 9px 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>NEXUS CODE</span>
+        <span class="crumb">/ Playground</span>
+      </div>
+      <div class="top-actions">
+        <span class="saved">Salvo neste navegador</span>
+        <button class="soft-button" type="button" aria-label="Abrir opções do editor">Opções</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow">Desafio de lógica · 5 min</div>
+        <h1 id="page-title">Some dois valores</h1>
+        <p class="description">
+          Complete a função <code>soma</code> para retornar a soma de <code>a</code> e <code>b</code>.
+          Execute seu código e confira o resultado ao lado.
+        </p>
+      </section>
+
+      <section class="workspace" aria-label="Editor e saída do código">
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <label class="sr-only" for="language">Linguagem</label>
+            <select class="language-select" id="language">
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="portugol">Portugol</option>
+            </select>
+            <span class="file-name" id="file-name">main.js</span>
+          </div>
+          <div class="toolbar-right">
+            <span class="shortcut">Ctrl + Enter</span>
+            <button class="run-button" id="run" type="button">
+              <span class="run-icon" aria-hidden="true">▶</span>
+              <span>Executar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panes">
+          <section class="editor-pane" aria-label="Editor de código">
+            <div class="pane-header">
+              <span>Editor</span>
+              <span id="language-label">JavaScript</span>
+            </div>
+            <div class="editor-area">
+              <div class="line-numbers" id="line-numbers" aria-hidden="true"></div>
+              <textarea id="code" aria-label="Código-fonte" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+            </div>
+            <div class="editor-meta">
+              <span id="editor-status">JavaScript · pronto</span>
+              <span id="line-count">1 linha</span>
+            </div>
+          </section>
+
+          <section class="output-pane" aria-label="Resultado da execução">
+            <div class="output-heading">
+              <div class="output-tabs" role="tablist" aria-label="Painel de resultados">
+                <button class="tab" id="output-tab" type="button" role="tab" aria-selected="true">Saída</button>
+                <button class="tab" id="tests-tab" type="button" role="tab" aria-selected="false">Testes</button>
+              </div>
+              <button class="clear-button" id="clear" type="button">Limpar</button>
+            </div>
+            <div class="output-content" id="output-content" role="tabpanel" aria-labelledby="output-tab">
+              <div class="status" id="run-status"><span class="status-dot"></span><span>Aguardando execução</span></div>
+              <p class="output-label">Console</p>
+              <pre class="console"><span class="placeholder">A saída do seu programa aparece aqui.</span></pre>
+            </div>
+          </section>
+        </div>
+
+        <footer class="workspace-footer">
+          <span>Ambiente de aprendizado</span>
+          <span>Execução isolada · limite de tempo aplicado</span>
+        </footer>
+      </section>
+      <p class="prototype-note">Protótipo visual para aprovação. O botão simula a saída; ainda não executa código no servidor.</p>
+    </main>
+
+    <script>
+      (() => {
+        const samples = {
+          javascript: {
+            filename: 'main.js',
+            label: 'JavaScript',
+            code: 'function soma(a, b) {\n  return a + b;\n}\n\nconsole.log(soma(7, 5));',
+            output: '12',
+          },
+          python: {
+            filename: 'main.py',
+            label: 'Python',
+            code: 'def soma(a, b):\n    return a + b\n\nprint(soma(7, 5))',
+            output: '12',
+          },
+          portugol: {
+            filename: 'programa.por',
+            label: 'Portugol',
+            code: 'programa {\n  funcao inicio() {\n    escreva(7 + 5)\n  }\n}',
+            output: '12',
+          },
+        };
+        const code = document.querySelector('#code');
+        const language = document.querySelector('#language');
+        const lineNumbers = document.querySelector('#line-numbers');
+        const lineCount = document.querySelector('#line-count');
+        const outputContent = document.querySelector('#output-content');
+        const outputTab = document.querySelector('#output-tab');
+        const testsTab = document.querySelector('#tests-tab');
+        const runButton = document.querySelector('#run');
+        let lastOutput = null;
+        let activeTab = 'output';
+
+        function updateLines() {
+          const count = code.value.split('\n').length;
+          lineNumbers.textContent = Array.from({ length: count }, (_, index) => index + 1).join('\n');
+          lineCount.textContent = count === 1 ? '1 linha' : `${count} linhas`;
+        }
+
+        function selectTab(tab) {
+          activeTab = tab;
+          outputTab.setAttribute('aria-selected', String(tab === 'output'));
+          testsTab.setAttribute('aria-selected', String(tab === 'tests'));
+          renderOutput();
+        }
+
+        function renderOutput() {
+          if (activeTab === 'tests') {
+            outputContent.setAttribute('aria-labelledby', 'tests-tab');
+            outputContent.innerHTML = lastOutput
+              ? '<div class="status"><span class="status-dot"></span><span>3 de 3 testes passaram</span></div><p class="output-label">Casos de teste</p><div class="test-summary"><div class="test-row"><span>Soma de valores positivos</span><strong>Passou</strong></div><div class="test-row"><span>Entrada com zero</span><strong>Passou</strong></div><div class="test-row"><span>Valores negativos</span><strong>Passou</strong></div></div>'
+              : '<div class="status"><span class="status-dot"></span><span>Aguardando execução</span></div><p class="output-label">Casos de teste</p><pre class="console"><span class="placeholder">Execute o código para validar os testes.</span></pre>';
+            return;
+          }
+
+          outputContent.setAttribute('aria-labelledby', 'output-tab');
+          outputContent.innerHTML = lastOutput
+            ? `<div class="status"><span class="status-dot"></span><span>Concluído · 42 ms</span></div><p class="output-label">Console</p><pre class="console"><span class="prompt">›</span> ${escapeHtml(lastOutput)}</pre>`
+            : '<div class="status"><span class="status-dot"></span><span>Aguardando execução</span></div><p class="output-label">Console</p><pre class="console"><span class="placeholder">A saída do seu programa aparece aqui.</span></pre>';
+        }
+
+        function escapeHtml(value) {
+          return value.replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+          })[char]);
+        }
+
+        function changeLanguage() {
+          const sample = samples[language.value];
+          document.querySelector('#file-name').textContent = sample.filename;
+          document.querySelector('#language-label').textContent = sample.label;
+          document.querySelector('#editor-status').textContent = `${sample.label} · pronto`;
+          code.value = sample.code;
+          lastOutput = null;
+          updateLines();
+          renderOutput();
+        }
+
+        function run() {
+          if (runButton.disabled) return;
+          runButton.disabled = true;
+          runButton.querySelector('span:last-child').textContent = 'Executando…';
+          document.querySelector('#run-status').classList.add('running');
+          document.querySelector('#run-status span:last-child').textContent = 'Executando';
+          window.setTimeout(() => {
+            lastOutput = samples[language.value].output;
+            runButton.disabled = false;
+            runButton.querySelector('span:last-child').textContent = 'Executar';
+            renderOutput();
+          }, 420);
+        }
+
+        language.addEventListener('change', changeLanguage);
+        code.addEventListener('input', updateLines);
+        code.addEventListener('scroll', () => { lineNumbers.scrollTop = code.scrollTop; });
+        runButton.addEventListener('click', run);
+        document.querySelector('#clear').addEventListener('click', () => {
+          lastOutput = null;
+          renderOutput();
+        });
+        outputTab.addEventListener('click', () => selectTab('output'));
+        testsTab.addEventListener('click', () => selectTab('tests'));
+        code.addEventListener('keydown', (event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            run();
+          }
+        });
+        changeLanguage();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "gates": {
+    "stagingMigrations": { "status": "pending", "evidence": "" },
+    "pistonIsolation": { "status": "pending", "evidence": "" },
+    "publicEdge": { "status": "pending", "evidence": "" },
+    "monitoringAlertRouting": { "status": "pending", "evidence": "" },
+    "backupRestore": { "status": "pending", "evidence": "" },
+    "dependencyTriage": { "status": "pending", "evidence": "" },
+    "pilotConsent": { "status": "pending", "evidence": "" },
+    "agePolicyReview": { "status": "pending", "evidence": "" },
+    "publicSmokeTests": { "status": "pending", "evidence": "" }
+  }
+}

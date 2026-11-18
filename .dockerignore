@@ -7,7 +7,10 @@ node_modules
 .git
 .gitignore
 .env
-.env.local
+.env.*
+**/.env
+**/.env.*
+.alpha-evidence.json
 *.log
 Dockerfile
 **/Dockerfile

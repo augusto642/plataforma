@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Nexus backup at 04:00
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=false
+Unit=nexus-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -3,6 +3,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import {
   ACCESS_TOKEN_COOKIE,
+  OAUTH_LEGAL_CONSENT_COOKIE,
+  OAUTH_LEGAL_CONSENT_TTL_MS,
   REFRESH_TOKEN_COOKIE,
 } from './cookies.util';
 
@@ -22,6 +24,8 @@ describe('AuthController (cookie-only auth)', () => {
     logout: jest.Mock;
     verifyEmail: jest.Mock;
     resendCode: jest.Mock;
+    createOAuthLegalConsentToken: jest.Mock;
+    verifyGuestAgeEligibilityToken: jest.Mock;
   };
   let res: { cookie: jest.Mock; clearCookie: jest.Mock };
   let req: { headers: Record<string, string | undefined> };
@@ -41,6 +45,8 @@ describe('AuthController (cookie-only auth)', () => {
       logout: jest.fn().mockResolvedValue(undefined),
       verifyEmail: jest.fn().mockResolvedValue(tokens),
       resendCode: jest.fn().mockResolvedValue({ message: 'ok' }),
+      createOAuthLegalConsentToken: jest.fn().mockResolvedValue('signed-consent-token'),
+      verifyGuestAgeEligibilityToken: jest.fn().mockResolvedValue(true),
     };
     controller = new AuthController(
       auth as unknown as AuthService,
@@ -118,6 +124,28 @@ describe('AuthController (cookie-only auth)', () => {
     expect(res.cookie).not.toHaveBeenCalled();
   });
 
+  it('records legal acceptance in a short-lived HttpOnly cookie before OAuth', async () => {
+    await controller.setOAuthLegalConsent(
+      {
+        adultConfirmed: true,
+        termsAccepted: true,
+        privacyAcknowledged: true,
+      } as any,
+      res as any,
+    );
+
+    expect(auth.createOAuthLegalConsentToken).toHaveBeenCalledWith(true, true, true);
+    const cookie = cookiesSet()[OAUTH_LEGAL_CONSENT_COOKIE];
+    expect(cookie.value).toBe('signed-consent-token');
+    expect(cookie.options).toEqual(
+      expect.objectContaining({
+        httpOnly: true,
+        maxAge: OAUTH_LEGAL_CONSENT_TTL_MS,
+        path: '/',
+      }),
+    );
+  });
+
   it('refresh reads the token from the cookie, not from the body', async () => {
     req.headers.cookie = `${REFRESH_TOKEN_COOKIE}=${REFRESH_VALUE}; other=1`;
     const body = await controller.refresh(req as any, res as any);
@@ -151,7 +179,7 @@ describe('AuthController (cookie-only auth)', () => {
     expect(res.clearCookie).toHaveBeenCalledTimes(2);
   });
 
-  it('getRegistrationChallenge delegates to RegistrationLevelService with parsed query params', () => {
+  it('getRegistrationChallenge requires eligibility and delegates parsed query params', async () => {
     const registrationLevel = {
       getChallenge: jest.fn().mockReturnValue({ id: 'reg-python-v1', language: 'python' }),
       evaluateExplanation: jest.fn(),
@@ -162,18 +190,19 @@ describe('AuthController (cookie-only auth)', () => {
       registrationLevel as any,
     );
 
-    const out = ctrl.getRegistrationChallenge('true', 'python');
+    const out = await ctrl.getRegistrationChallenge('eligible-token', 'true', 'python');
     expect(registrationLevel.getChallenge).toHaveBeenCalledWith({
       programmed: true,
       language: 'python',
     });
     expect(out).toEqual({ id: 'reg-python-v1', language: 'python' });
 
-    ctrl.getRegistrationChallenge('false', 'python');
+    await ctrl.getRegistrationChallenge('eligible-token', 'false', 'python');
     expect(registrationLevel.getChallenge).toHaveBeenCalledWith({
       programmed: false,
       language: 'python',
     });
+    expect(auth.verifyGuestAgeEligibilityToken).toHaveBeenCalledWith('eligible-token');
   });
 
   it('evaluateLevel delegates to RegistrationLevelService.evaluateExplanation', async () => {
@@ -200,9 +229,136 @@ describe('AuthController (cookie-only auth)', () => {
       language: 'python',
       explanation: 'Percorre uma lista e soma os itens.',
     };
-    const out = await ctrl.evaluateLevel(payload as any);
-    expect(registrationLevel.evaluateExplanation).toHaveBeenCalledWith(payload);
+    const out = await ctrl.evaluateLevel(payload as any, 'eligible-token');
+    expect(registrationLevel.evaluateExplanation).toHaveBeenCalledWith(
+      expect.objectContaining(payload),
+    );
     expect(out).toEqual(evalResult);
+  });
+
+  it('signs generated follow-ups and evaluates only the server-signed question', async () => {
+    const registrationLevel = {
+      getChallenge: jest.fn(),
+      generateFollowUpQuestion: jest.fn().mockResolvedValue({
+        question: 'O que acontece quando a entrada está vazia?',
+        timeLimitSeconds: 60,
+      }),
+      evaluateExplanation: jest.fn().mockResolvedValue({
+        detectedLevel: 'junior',
+        levelLabel: 'Júnior',
+        confidence: 'medium',
+        feedback: 'Bom raciocínio!',
+        detectedConcepts: [],
+        source: 'heuristic',
+      }),
+    };
+    const metrics = {
+      recordRegistrationFollowUpGenerated: jest.fn(),
+      recordRegistrationEvaluation: jest.fn(),
+    };
+    const ctrl = new AuthController(
+      auth as unknown as AuthService,
+      { get: jest.fn().mockReturnValue('test-secret') } as any,
+      registrationLevel as any,
+      metrics as any,
+    );
+
+    const followUp = await ctrl.generateRegistrationFollowUp(
+      {
+        challengeId: 'reg-python-v1',
+        explanation: 'Percorre e soma os pedidos.',
+      } as any,
+      'eligible-token',
+    );
+    expect(followUp.followUpToken).toBeTruthy();
+    expect(metrics.recordRegistrationFollowUpGenerated).toHaveBeenCalledTimes(1);
+
+    const result = await ctrl.evaluateLevel(
+      {
+        hasProgrammedBefore: true,
+        challengeId: 'reg-python-v1',
+        explanation: 'Percorre e soma os pedidos.',
+        followUpToken: followUp.followUpToken,
+        followUpAnswer: 'Retorna um objeto vazio.',
+      } as any,
+      'eligible-token',
+    );
+
+    expect(registrationLevel.evaluateExplanation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        followUpQuestion: 'O que acontece quando a entrada está vazia?',
+        followUpAnswer: 'Retorna um objeto vazio.',
+      }),
+    );
+    expect(metrics.recordRegistrationEvaluation).toHaveBeenCalledWith(
+      'heuristic',
+      'medium',
+      true,
+    );
+    expect(result.detectedLevel).toBe('junior');
+  });
+
+  it('rejects forged or mismatched follow-up tokens without invoking evaluation', async () => {
+    const registrationLevel = {
+      getChallenge: jest.fn(),
+      generateFollowUpQuestion: jest.fn().mockResolvedValue({
+        question: 'O que acontece quando a entrada está vazia?',
+        timeLimitSeconds: 60,
+      }),
+      evaluateExplanation: jest.fn(),
+    };
+    const ctrl = new AuthController(
+      auth as unknown as AuthService,
+      { get: jest.fn().mockReturnValue('test-secret') } as any,
+      registrationLevel as any,
+    );
+
+    await expect(
+      ctrl.evaluateLevel(
+        {
+          hasProgrammedBefore: true,
+          challengeId: 'reg-python-v1',
+          explanation: 'Uma explicação válida.',
+          followUpToken: 'forged.token',
+          followUpAnswer: 'Resposta',
+        } as any,
+        'eligible-token',
+      ),
+    ).rejects.toThrow('Token de follow-up inválido.');
+    const generated = await ctrl.generateRegistrationFollowUp(
+      {
+        challengeId: 'reg-python-v1',
+        explanation: 'Percorre e soma os pedidos.',
+      } as any,
+      'eligible-token',
+    );
+    await expect(
+      ctrl.evaluateLevel(
+        {
+          hasProgrammedBefore: true,
+          challengeId: 'reg-javascript-v1',
+          explanation: 'Uma explicação.',
+          followUpToken: generated.followUpToken,
+          followUpAnswer: 'Resposta',
+        } as any,
+        'eligible-token',
+      ),
+    ).rejects.toThrow('Token de follow-up expirado ou incompatível.');
+    expect(registrationLevel.evaluateExplanation).not.toHaveBeenCalled();
+  });
+
+  it('rejects registration assessment requests without valid age eligibility', async () => {
+    auth.verifyGuestAgeEligibilityToken.mockResolvedValue(false);
+
+    await expect(
+      controller.getRegistrationChallenge(undefined, 'false', 'none'),
+    ).rejects.toThrow(UnauthorizedException);
+    await expect(controller.evaluateLevel({} as any)).rejects.toThrow(UnauthorizedException);
+    await expect(controller.generateRegistrationFollowUp({} as any)).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(auth.verifyGuestAgeEligibilityToken).toHaveBeenCalledTimes(3);
+    expect(auth.verifyGuestAgeEligibilityToken).toHaveBeenCalledWith(undefined);
   });
 
   it('checkEmail delegates to AuthService.checkEmailAvailability', async () => {

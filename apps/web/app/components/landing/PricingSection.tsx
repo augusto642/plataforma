@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MaterialIcon } from '../MaterialIcon';
 import { track } from '../../lib/analytics';
 import { savePlanIntent } from '../../lib/attribution';
+import { isFreeAlphaMode } from '../../lib/runtime-mode';
 import { PLAN_PRICES, formatBRL } from './pricing-data';
 
 export const PAID_PLAN_BILLING_NOTE =
@@ -16,38 +17,46 @@ export const PricingSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="font-code text-code-sm text-primary uppercase tracking-widest font-semibold block mb-2">
-            Transparência total
+            {isFreeAlphaMode ? 'Alfa aberto e gratuito' : 'Transparência total'}
           </span>
           <h2 className="font-headline text-headline-lg-mobile md:text-headline-lg font-bold text-white tracking-tight mb-4">
-            Escolha seu plano e comece hoje
+            {isFreeAlphaMode ? 'Comece a aprender sem cobrança' : 'Escolha seu plano e comece hoje'}
           </h2>
           <p className="font-body text-body-lg text-dark-on-surface-variant">
-            Comece de graça e evolua no seu ritmo. Cancele quando quiser, sem letras miúdas.
+            {isFreeAlphaMode
+              ? 'O alfa está aberto gratuitamente. Os planos pagos e cobranças estão desativados durante esta fase.'
+              : 'Comece de graça e evolua no seu ritmo. Cancele quando quiser, sem letras miúdas.'}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+        <div className={isFreeAlphaMode
+          ? 'max-w-2xl mx-auto'
+          : 'grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch'}>
           {/* Plano Iniciante (Grátis) */}
           <div className="bg-dark-surface-container-low border border-border-subtle rounded-lg p-8 flex flex-col justify-between hover:border-border-strong transition-all">
             <div>
               <div className="mb-6">
                 <h3 className="font-headline text-headline-sm text-white font-bold mb-1">
-                  Iniciante
+                  {isFreeAlphaMode ? 'Alfa gratuito' : 'Iniciante'}
                 </h3>
                 <p className="text-body-sm text-dark-on-surface-variant">
-                  Para dar os primeiros passos e descobrir o gosto por programar.
+                  {isFreeAlphaMode
+                    ? 'Acesso gratuito enquanto avaliamos e aprimoramos a plataforma.'
+                    : 'Para dar os primeiros passos e descobrir o gosto por programar.'}
                 </p>
               </div>
 
               <div className="mb-8">
                 <div className="flex items-baseline gap-1">
                   <span className="text-display-md font-headline font-extrabold text-white">
-                    R$ 0
+                    {isFreeAlphaMode ? 'Grátis' : 'R$ 0'}
                   </span>
-                  <span className="text-body-sm text-dark-on-surface-variant">/para sempre</span>
+                  <span className="text-body-sm text-dark-on-surface-variant">
+                    {isFreeAlphaMode ? 'durante o alfa' : '/para sempre'}
+                  </span>
                 </div>
                 <span className="font-code text-code-sm text-secondary">
-                  Sem cartão de crédito necessário
+                  {isFreeAlphaMode ? 'Sem cobrança ou cartão de crédito' : 'Sem cartão de crédito necessário'}
                 </span>
               </div>
 
@@ -80,11 +89,12 @@ export const PricingSection: React.FC = () => {
               }}
               className="block w-full py-3.5 px-4 bg-dark-surface-container hover:bg-dark-surface-container-high border border-border-strong text-white font-label text-label-md text-center rounded transition-colors"
             >
-              Criar conta grátis
+              {isFreeAlphaMode ? 'Criar conta no alfa gratuito' : 'Criar conta grátis'}
             </Link>
           </div>
 
           {/* Plano Pro (R$ 39,90/mês) */}
+          {!isFreeAlphaMode && (
           <div className="bg-dark-surface-container-low border-2 border-primary rounded-lg p-8 flex flex-col justify-between relative shadow-2xl shadow-primary/20">
             <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-white font-code text-xs font-bold rounded-full uppercase tracking-wider whitespace-nowrap">
               Mais Recomendado
@@ -154,8 +164,10 @@ export const PricingSection: React.FC = () => {
               </p>
             </div>
           </div>
+          )}
 
           {/* Plano Carreira */}
+          {!isFreeAlphaMode && (
           <div className="bg-dark-surface-container-low border border-border-subtle rounded-lg p-8 flex flex-col justify-between hover:border-border-strong transition-all">
             <div>
               <div className="mb-6">
@@ -217,6 +229,7 @@ export const PricingSection: React.FC = () => {
               Garantir Plano Carreira
             </Link>
           </div>
+          )}
         </div>
       </div>
     </section>

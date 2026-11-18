@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { EntitlementsService } from '../plans/entitlements.service';
+import { AuthService } from '../auth/auth.service';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { DiagnosticController } from './diagnostic.controller';
 import { DiagnosticService } from './diagnostic.service';
@@ -9,8 +11,9 @@ import { SkillDiagnosticService } from './skill-diagnostic.service';
  * A10 (Lote 3 · portões do merge) — DiagnosticController estava em 0%.
  * Delegação fina aos dois services (o gate 'diagnostic-full-map' das
  * rotas de skills é do FeatureGuard, coberto no seu próprio spec):
- * as rotas B09 são públicas e repassam o header de autorização opcional;
- * o mapa de skills repassa o targetJobId quando informado.
+ * as rotas B09 exigem o token temporário de elegibilidade e repassam o
+ * header de autorização opcional; o mapa de skills repassa o targetJobId
+ * quando informado.
  */
 describe('DiagnosticController', () => {
   let controller: DiagnosticController;
@@ -23,12 +26,17 @@ describe('DiagnosticController', () => {
     getSkillMap: jest.fn(),
     refreshSkillMap: jest.fn(),
   };
+  const mockAuth = {
+    verifyGuestAgeEligibilityToken: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockAuth.verifyGuestAgeEligibilityToken.mockResolvedValue(true);
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DiagnosticController],
       providers: [
+        { provide: AuthService, useValue: mockAuth },
         {
           provide: EntitlementsService,
           useValue: { assertFeature: jest.fn(), assertAiTutorAccess: jest.fn() },
@@ -44,31 +52,49 @@ describe('DiagnosticController', () => {
 
   it('getQuiz devolve o quiz público do service', async () => {
     mockDiagnostic.getPublicQuiz.mockResolvedValue({ questions: [] });
-    await expect(controller.getQuiz()).resolves.toEqual({ questions: [] });
+    await expect(controller.getQuiz('age-token')).resolves.toEqual({
+      questions: [],
+    });
+    expect(mockAuth.verifyGuestAgeEligibilityToken).toHaveBeenCalledWith(
+      'age-token',
+    );
   });
 
   it('submit repassa o DTO e o header de autorização (opcional)', async () => {
     mockDiagnostic.submit.mockResolvedValue({ sessionToken: 'tok-1' });
     const dto = { answers: [] } as never;
     await expect(
-      controller.submit(dto, 'Bearer jwt-1'),
+      controller.submit(dto, 'Bearer jwt-1', 'age-token'),
     ).resolves.toEqual({ sessionToken: 'tok-1' });
+    expect(mockAuth.verifyGuestAgeEligibilityToken).toHaveBeenCalledWith(
+      'age-token',
+    );
     expect(mockDiagnostic.submit).toHaveBeenCalledWith(dto, 'Bearer jwt-1');
   });
 
   it('submit sem header repassa undefined (resultado anônimo)', async () => {
     mockDiagnostic.submit.mockResolvedValue({ sessionToken: 'tok-2' });
     const dto = { answers: [] } as never;
-    await controller.submit(dto, undefined);
+    await controller.submit(dto, undefined, 'age-token');
     expect(mockDiagnostic.submit).toHaveBeenCalledWith(dto, undefined);
   });
 
   it('getResult repassa o sessionToken', async () => {
     mockDiagnostic.getResult.mockResolvedValue({ level: 'junior' });
-    await expect(controller.getResult('tok-1')).resolves.toEqual({
+    await expect(controller.getResult('tok-1', 'age-token')).resolves.toEqual({
       level: 'junior',
     });
     expect(mockDiagnostic.getResult).toHaveBeenCalledWith('tok-1');
+  });
+
+  it('does not expose the public quiz when age eligibility is missing', async () => {
+    mockAuth.verifyGuestAgeEligibilityToken.mockResolvedValue(false);
+
+    await expect(controller.getQuiz()).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+
+    expect(mockDiagnostic.getPublicQuiz).not.toHaveBeenCalled();
   });
 
   it('getSkillMap repassa userId e targetJobId quando informado', async () => {

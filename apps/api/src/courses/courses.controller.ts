@@ -2,7 +2,9 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -11,14 +13,18 @@ import {
   Post,
   Query,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { ActivitiesService } from '../activities/activities.service';
+import { ActivityAccessService } from '../activities/activity-access.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthService } from '../auth/auth.service';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { buildCertificateHtml } from './certificate-html';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -31,17 +37,20 @@ export class CoursesController {
   constructor(
     private readonly courses: CoursesService,
     private readonly activities: ActivitiesService,
+    private readonly auth: AuthService,
+    private readonly access: ActivityAccessService,
   ) {}
 
   @Post()
   @Roles(Role.instructor, Role.admin)
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateCourseDto) {
-    return this.courses.create(user.sub, dto);
+    return this.courses.create(user.sub, dto, user.role);
   }
 
   @Get()
-  findAll() {
-    return this.courses.findAll();
+  async findAll() {
+    const courses = await this.courses.findAll();
+    return courses.map(({ enrollmentCode: _enrollmentCode, ...course }) => course);
   }
 
   /**
@@ -55,7 +64,20 @@ export class CoursesController {
    */
   @Public()
   @Get('public-catalog')
-  findPublicCatalog() {
+  async findPublicCatalog(
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
+  ) {
+    const eligible = await this.auth.verifyGuestAgeEligibilityToken(
+      eligibilityToken,
+    );
+    if (!eligible) {
+      throw new UnauthorizedException(
+        withErrorCode(
+          'Confirme que você tem 18 anos ou mais para acessar o catálogo.',
+          ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+        ),
+      );
+    }
     return this.courses.findPublicCatalog();
   }
 
@@ -107,8 +129,24 @@ export class CoursesController {
   }
 
   @Get(':id')
-  findById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.courses.findById(id);
+  async findById(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    const course = await this.courses.findById(id);
+    const { enrollmentCode: _enrollmentCode, ...result } = course;
+    try {
+      await this.access.requireCourse(id, user.sub, user.role);
+      return result;
+    } catch (error) {
+      if (!(error instanceof ForbiddenException)) throw error;
+      return {
+        ...result,
+        activities: course.activities.map((activity: {
+          id: string; title: string; slug: string; language: string; order: number; createdAt: Date;
+        }) => ({
+          id: activity.id, title: activity.title, slug: activity.slug,
+          language: activity.language, order: activity.order, createdAt: activity.createdAt,
+        })),
+      };
+    }
   }
 
   @Patch(':id')

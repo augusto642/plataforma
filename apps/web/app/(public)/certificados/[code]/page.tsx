@@ -1,6 +1,11 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import Logo from '../../../components/Logo';
 import { CertificateHoloBadge3D } from './components/CertificateHoloBadge3D';
+import {
+  certificateVerificationUrl,
+  createCertificateQrDataUrl,
+} from '../../../lib/certificates';
 
 /**
  * Fase 1 premium (desenho §2.5) — página pública de verificação de
@@ -40,6 +45,7 @@ interface VerifiedCertificate {
 
 type VerifyResult =
   | { kind: 'found'; record: VerifiedCertificate }
+  | { kind: 'revoked' }
   | { kind: 'not-found' }
   | { kind: 'unavailable' };
 
@@ -49,7 +55,16 @@ async function fetchCertificate(code: string): Promise<VerifyResult> {
       `${API_BASE}/certificates/verify/${encodeURIComponent(code)}`,
       { cache: 'no-store' },
     );
-    if (res.status === 404) return { kind: 'not-found' };
+    if (res.status === 404) {
+      const status = await fetch(
+        `${API_BASE}/certificates/status/${encodeURIComponent(code)}`,
+        { cache: 'no-store' },
+      );
+      if (status.status === 404) return { kind: 'not-found' };
+      if (!status.ok) return { kind: 'unavailable' };
+      const body: { valid: boolean } = await status.json();
+      return body.valid === false ? { kind: 'revoked' } : { kind: 'unavailable' };
+    }
     if (!res.ok) return { kind: 'unavailable' };
     const record = (await res.json()) as VerifiedCertificate;
     return { kind: 'found', record };
@@ -61,9 +76,9 @@ async function fetchCertificate(code: string): Promise<VerifyResult> {
 export const dynamic = 'force-dynamic';
 
 interface CertificadosPageProps {
-  params: {
+  params: Promise<{
     code: string;
-  };
+  }>;
 }
 
 function linkedInUrl(record: VerifiedCertificate): string {
@@ -72,7 +87,7 @@ function linkedInUrl(record: VerifiedCertificate): string {
     startTask: 'CERTIFICATION_NAME',
     name: record.title,
     organizationName: 'Nexus Code',
-    certificationUrl: `${WEB_BASE}/certificados/${record.verificationCode}`,
+    certificationUrl: certificateVerificationUrl(WEB_BASE, record.verificationCode),
   });
   if (issued) {
     params.set('issueYear', String(issued.getUTCFullYear()));
@@ -82,7 +97,8 @@ function linkedInUrl(record: VerifiedCertificate): string {
 }
 
 export default async function CertificadoVerifyPage({ params }: CertificadosPageProps) {
-  const result = await fetchCertificate(params.code);
+  const { code } = await params;
+  const result = await fetchCertificate(code);
 
   return (
     <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans pb-24">
@@ -124,6 +140,12 @@ export default async function CertificadoVerifyPage({ params }: CertificadosPage
             </p>
           </div>
         )}
+        {result.kind === 'revoked' && (
+          <div className="bg-[#121217] border border-[#F43F5E]/40 rounded-2xl p-6">
+            <h1 className="text-base font-bold text-white font-heading">Certificado revogado</h1>
+            <p className="text-xs text-zinc-400 mt-2">Este certificado não é mais válido.</p>
+          </div>
+        )}
         {result.kind === 'unavailable' && (
           <div className="bg-[#121217] border border-[#27272A] rounded-2xl p-6">
             <h1 className="text-base font-bold text-white font-heading">
@@ -141,7 +163,9 @@ export default async function CertificadoVerifyPage({ params }: CertificadosPage
   );
 }
 
-function FoundCertificate({ record }: { record: VerifiedCertificate }) {
+async function FoundCertificate({ record }: { record: VerifiedCertificate }) {
+  const certificateUrl = certificateVerificationUrl(WEB_BASE, record.verificationCode);
+  const qrDataUrl = await createCertificateQrDataUrl(certificateUrl);
   const completedAt = record.completedAt
     ? new Date(record.completedAt).toLocaleDateString('pt-BR', {
         day: '2-digit',
@@ -225,6 +249,18 @@ function FoundCertificate({ record }: { record: VerifiedCertificate }) {
           </span>
           <span className="text-[9px] font-mono text-zinc-500 mt-0.5">
             Quality Gate SonarQube Pass
+          </span>
+          <div className="mt-4 rounded-xl bg-white p-2">
+            <Image
+              src={qrDataUrl}
+              alt="QR code para verificar este certificado"
+              width={192}
+              height={192}
+              unoptimized
+            />
+          </div>
+          <span className="text-[9px] font-mono text-zinc-400 mt-1 text-center">
+            Escaneie para validar
           </span>
         </div>
       </div>

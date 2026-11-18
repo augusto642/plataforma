@@ -7,6 +7,8 @@ import {
   Body,
   Controller,
   Get,
+  Header,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
@@ -19,15 +21,28 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { DynamicTrackService } from './dynamic-track.service';
-import { JobsMarketProvider } from '../knowledge/research/jobs-market.provider';
+import { SkillEvidenceService } from './skill-evidence.service';
+import { LearningProfileDto } from './learning-profile.dto';
 
 @Controller('dynamic-track')
 @UseGuards(JwtAuthGuard)
 export class DynamicTrackController {
   constructor(
     private readonly dynamicTrack: DynamicTrackService,
-    private readonly jobsMarketProvider: JobsMarketProvider = new JobsMarketProvider(),
+    private readonly skillEvidence: SkillEvidenceService,
   ) {}
+
+  @Get('me/skill-goals')
+  @Header('Cache-Control', 'no-store')
+  getSkillGoals(@CurrentUser() user: JwtPayload) {
+    return this.skillEvidence.goals(user.sub);
+  }
+
+  @Get('me/evidence')
+  @Header('Cache-Control', 'no-store')
+  getEvidence(@CurrentUser() user: JwtPayload) {
+    return this.skillEvidence.portfolio(user.sub);
+  }
 
   /** Estado da investigação do aluno logado (null = nunca investigado). */
   @Get('me')
@@ -38,11 +53,25 @@ export class DynamicTrackController {
     return { investigation };
   }
 
+  /** Três atividades reais e ainda não aprovadas durante a investigação. */
+  @Get('me/mini-track')
+  async getMiniTrack(@CurrentUser() user: JwtPayload) {
+    return this.dynamicTrack.getImmediateMiniTrack(user.sub);
+  }
+
   /** Inicia a investigação para contas já existentes (1 por usuário). */
   @Post('me/start')
   async startMine(@CurrentUser() user: JwtPayload) {
     const { view, created } = await this.dynamicTrack.startForUser(user.sub);
     return { investigation: view, created };
+  }
+
+  @Post('me/learning-profile')
+  @HttpCode(204)
+  @UseGuards(RolesGuard)
+  @Roles(Role.student)
+  async saveLearningProfile(@CurrentUser() user: JwtPayload, @Body() body: LearningProfileDto) {
+    await this.dynamicTrack.saveLearningProfile(user.sub, body);
   }
 
   /** Recalcula a sugestão do aluno com objetivos/stack atualizados ou diagnóstico. */
@@ -67,8 +96,9 @@ export class DynamicTrackController {
   }
 
   /**
-   * Pacote 2.3 — Módulo de Imersão Visual na Espera (/trilha/aguardando)
-   * Carrega instantaneamente dados do KMS/RAG com Arquitetura Visual, Raio-X de Mercado e Status da Mineração.
+   * Dados complementares da espera: estado conhecido da investigação e mapa
+   * educacional. Mercado e progresso granular só são exibidos quando houver
+   * fontes reais e telemetria disponível.
    */
   @Get('me/immersion')
   async getImmersionModule(@CurrentUser() user: JwtPayload) {
@@ -77,7 +107,6 @@ export class DynamicTrackController {
       investigation?.careerGoals?.[0] ||
       investigation?.primaryTechnology ||
       'Full Stack';
-    const marketXRay = (this.jobsMarketProvider || new JobsMarketProvider()).getComprehensiveOverview(goal);
 
     const visualArchitecture = [
       {
@@ -132,38 +161,28 @@ export class DynamicTrackController {
       },
     ];
 
-    const hoursElapsed = investigation?.createdAt
-      ? Math.min(
-          48,
-          Math.max(
-            1,
-            Math.round(
-              (Date.now() - new Date(investigation.createdAt).getTime()) /
-                3600000,
-            ),
-          ),
-        )
-      : 2;
-    const progressPercentage =
-      investigation?.status === 'ready'
-        ? 100
-        : Math.min(95, Math.round((hoursElapsed / 48) * 100) + 12);
+    const createdAt = investigation?.createdAt
+      ? new Date(investigation.createdAt).getTime()
+      : Number.NaN;
+    const hoursElapsed = Number.isFinite(createdAt)
+      ? Math.max(0, Math.floor((Date.now() - createdAt) / 3600000))
+      : null;
 
     return {
       goal,
       hoursElapsed,
-      progressPercentage,
       miningStage:
         investigation?.status === 'ready'
           ? 'Mineração e Síntese Concluídas'
-          : hoursElapsed < 8
-            ? 'Minerando vagas ativas (Brasil & Internacional remoto)'
-            : hoursElapsed < 24
-              ? 'Mapeando roadmaps, livros técnicos e repositórios públicos'
-              : 'Sintetizando Macro-Trilha e calibrando Desafios de Graduação',
-      workersActive: 4,
+          : investigation?.status === 'failed'
+            ? 'A investigação falhou; nenhum progresso adicional está ocorrendo'
+            : investigation
+              ? 'Solicitação registrada; não há telemetria de progresso detalhado'
+              : 'Nenhuma investigação iniciada',
+      investigationStatus: investigation?.status ?? 'not_started',
+      marketDataAvailable: false,
       visualArchitecture,
-      marketXRay,
+      marketXRay: null,
     };
   }
 

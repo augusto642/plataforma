@@ -5,7 +5,8 @@
  *
  * Ordem (sempre nesta sequência dentro de uma transação):
  *
- *   submissions → test_case_results → users → user_companions → user_badges
+ *   submissions → test_case_results → xp_ledger_entries → users
+ *   → user_companions → user_badges
  *
  * Por que `submissions` primeiro (e não `users`, como seria o intuitivo)?
  * O claim de XP do evaluator é um CAS na linha da submissão
@@ -31,9 +32,13 @@
  *
  * Caminhos cobertos (verificados no spec `tx-lock-order.spec.ts`):
  * - `EvaluatorService.processSubmission` — submissions → testCaseResults
- *   → users (+ userBadges, via `GamificationService.awardSubmissionXp`).
+ *   → xpLedgerEntries → users (+ userBadges, via `GamificationService.awardSubmissionXp`).
  * - `SubmissionsService.executeBattleRunInner` — submissions →
- *   testCaseResults → users → userCompanions.
+ *   testCaseResults → xpLedgerEntries → users → userCompanions.
+ * - `TowerService.submit` — tower progress is locked first to serialize
+ *   attempts for the same pending move, then submissions → testCaseResults
+ *   → users (+ userBadges). The pending move is re-read after acquiring
+ *   the progress lock, so a concurrent retry cannot award XP twice.
  *
  * Fora do escopo da ordem (não tocam submission/companion e não formam
  * ciclo com os caminhos acima): `AuthService` (user → emailVerificationCode
@@ -43,6 +48,7 @@
 export const TX_LOCK_ORDER = [
   'submissions',
   'test_case_results',
+  'xp_ledger_entries',
   'users',
   'user_companions',
   'user_badges',

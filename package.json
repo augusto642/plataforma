@@ -20,6 +20,11 @@
     "seed:gitea": "node scripts/seed-gitea.mjs",
     "seed:data": "node scripts/seed-data.mjs",
     "validate:tracks": "node scripts/validate-tracks.mjs",
+    "alpha:preflight": "node -- scripts/alpha-preflight.mjs",
+    "test-deploy:preflight": "node -- scripts/test-deploy-preflight.mjs",
+    "alerts:test-delivery": "node scripts/test-alert-delivery.mjs",
+    "backup:maintenance": "node scripts/backup-maintenance.mjs",
+    "backup:restore-drill": "node scripts/restore-drill.mjs",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
   },

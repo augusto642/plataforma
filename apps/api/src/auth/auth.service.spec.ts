@@ -1,7 +1,14 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ConfigError } from '../config/secrets.validation';
 import { AuthService } from './auth.service';
+import { AGE_ELIGIBILITY_POLICY_VERSION } from '@plataforma/contracts';
+
+const LEGAL_ACCEPTANCE = {
+  adultConfirmed: true,
+  termsAccepted: true,
+  privacyAcknowledged: true,
+};
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -11,11 +18,11 @@ jest.mock('bcrypt', () => ({
 describe('AuthService (no secret defaults)', () => {
   let auth: AuthService;
   let prisma: {
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock };
     refreshToken: { create: jest.Mock; deleteMany: jest.Mock };
     refreshTokenDelete: jest.Mock;
   };
-  let jwt: { signAsync: jest.Mock };
+  let jwt: { signAsync: jest.Mock; verifyAsync: jest.Mock };
   let config: { get: jest.Mock };
   let mailer: { sendVerificationCode: jest.Mock };
   let bcryptCompare: jest.SpyInstance;
@@ -27,18 +34,25 @@ describe('AuthService (no secret defaults)', () => {
     passwordHash: 'hash',
     role: 'student',
     emailVerifiedAt: new Date(),
+    adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
   };
 
   beforeEach(() => {
     prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue(user) },
+      user: {
+        findUnique: jest.fn().mockResolvedValue(user),
+        update: jest.fn().mockResolvedValue(user),
+      },
       refreshToken: {
         create: jest.fn().mockResolvedValue({ id: 'rt-1' }),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       refreshTokenDelete: jest.fn(),
     };
-    jwt = { signAsync: jest.fn().mockResolvedValue('signed-token') };
+    jwt = {
+      signAsync: jest.fn().mockResolvedValue('signed-token'),
+      verifyAsync: jest.fn(),
+    };
     config = {
       get: jest.fn((key: string, def?: any) => {
         if (key === 'JWT_ACCESS_SECRET') return undefined;
@@ -77,7 +91,11 @@ describe('AuthService (no secret defaults)', () => {
     expect(tokens.accessToken).toBe('signed-token');
     expect(tokens.refreshToken).toBeDefined();
     expect(jwt.signAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ sub: 'user-1', email: 'student@example.com' }),
+      expect.objectContaining({
+        sub: 'user-1',
+        email: 'student@example.com',
+        ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+      }),
       expect.objectContaining({ secret: 'configured-secret' }),
     );
   });
@@ -97,15 +115,95 @@ describe('AuthService (no secret defaults)', () => {
     expect(signArgs.secret).toBe('configured-secret');
   });
 
+  it('issues and verifies a guest age token only for a current affirmative confirmation', async () => {
+    const token = await auth.createGuestAgeEligibilityToken(true);
+
+    expect(token).toBe('signed-token');
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purpose: 'guest-age-eligibility',
+        ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+        acceptedAt: expect.any(String),
+      }),
+      expect.objectContaining({
+        expiresIn: '12h',
+        audience: 'nexus-guest-age-eligibility',
+        issuer: 'nexus-api',
+      }),
+    );
+    await expect(auth.createGuestAgeEligibilityToken(false)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    jwt.verifyAsync.mockResolvedValue({
+      purpose: 'guest-age-eligibility',
+      ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+      acceptedAt: new Date().toISOString(),
+    });
+    await expect(auth.verifyGuestAgeEligibilityToken(token)).resolves.toBe(true);
+    expect(jwt.verifyAsync).toHaveBeenCalledWith(token, {
+      audience: 'nexus-guest-age-eligibility',
+      issuer: 'nexus-api',
+    });
+  });
+
+  it('rejects missing and invalid guest age tokens', async () => {
+    await expect(auth.verifyGuestAgeEligibilityToken()).resolves.toBe(false);
+    jwt.verifyAsync.mockRejectedValue(new Error('invalid token'));
+    await expect(auth.verifyGuestAgeEligibilityToken('invalid')).resolves.toBe(false);
+  });
+
   it('still rejects invalid credentials', async () => {
     bcryptCompare.mockResolvedValue(false);
     await expect(auth.login('student@example.com', 'wrong')).rejects.toThrow(
       UnauthorizedException,
     );
   });
+
+  it('requires and records adult eligibility for accounts without a current confirmation', async () => {
+    const outdatedUser = { ...user, adultEligibilityVersion: null };
+    prisma.user.findUnique.mockResolvedValue(outdatedUser);
+    config.get.mockImplementation((key: string, def?: any) => {
+      if (key === 'JWT_ACCESS_SECRET') return 'configured-secret';
+      return def;
+    });
+
+    await expect(auth.login('student@example.com', 'pass')).rejects.toThrow(
+      'confirme que você tem 18 anos ou mais',
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    await auth.login('student@example.com', 'pass', true);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        adultEligibilityAcceptedAt: expect.any(Date),
+        adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+      },
+    });
+  });
 });
 
 describe('AuthService register — UTMs (B07)', () => {
+  it('rejects registration without legal acceptance before creating a user', async () => {
+    const create = jest.fn();
+    const svc = new AuthService(
+      { user: { create } } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    await expect(
+      svc.register({
+        email: 'novo@example.com',
+        name: 'Novo',
+        password: '12345678',
+      } as any),
+    ).rejects.toThrow('aceitar os Termos de Uso');
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('persists trimmed UTMs on signup and never returns them in the response', async () => {
     const create = jest.fn().mockImplementation(({ data }: any) =>
       Promise.resolve({ id: 'user-9', ...data }),
@@ -132,6 +230,7 @@ describe('AuthService register — UTMs (B07)', () => {
     );
     const svc = new AuthService(prismaReg, jwtReg, configReg, mailerReg);
     const res = await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'Novo@Example.com',
       name: ' Novo Aluno ',
       password: '12345678',
@@ -147,6 +246,12 @@ describe('AuthService register — UTMs (B07)', () => {
         utmSource: 'google',
         utmMedium: 'cpc',
         utmCampaign: null,
+        termsAcceptedAt: expect.any(Date),
+        termsVersion: expect.any(String),
+        privacyAcknowledgedAt: expect.any(Date),
+        privacyVersion: expect.any(String),
+        adultEligibilityAcceptedAt: expect.any(Date),
+        adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
       }),
     });
     // Resposta pública do cadastro: só id/email/name/role — nada de UTM.
@@ -191,6 +296,7 @@ describe('AuthService register — vínculo do quiz diagnóstico (B09)', () => {
   }
 
   const dto = {
+    ...LEGAL_ACCEPTANCE,
     email: 'quiz@example.com',
     name: 'Aluna Quiz',
     password: '12345678',
@@ -241,6 +347,7 @@ describe('AuthService register — vínculo do quiz diagnóstico (B09)', () => {
     const { svc } = makeService({ findUnique, update: jest.fn() });
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'semquiz@example.com',
       name: 'Sem Quiz',
       password: '12345678',
@@ -281,6 +388,7 @@ describe('AuthService register — escolhas da porta fria (Sprint 8)', () => {
     const { svc, create } = makeRegisterService();
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'fria@example.com',
       name: 'Porta Fria',
       password: '12345678',
@@ -299,6 +407,7 @@ describe('AuthService register — escolhas da porta fria (Sprint 8)', () => {
     const { svc, create } = makeRegisterService();
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'fria2@example.com',
       name: 'Sem Nivel',
       password: '12345678',
@@ -366,6 +475,7 @@ describe('AuthService register — diagnóstico aberto e trilha dinâmica', () =
     const { svc, create, dynamicTrack, registrationLevel } = makeExtendedService();
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'diag@example.com',
       name: 'Aluna Diagnostico',
       password: '12345678',
@@ -407,6 +517,7 @@ describe('AuthService register — diagnóstico aberto e trilha dinâmica', () =
     const { svc, dynamicTrack } = makeExtendedService();
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'multigoals@example.com',
       name: 'Multi Objetivos',
       password: '12345678',
@@ -426,6 +537,7 @@ describe('AuthService register — diagnóstico aberto e trilha dinâmica', () =
     const { svc, dynamicTrack } = makeExtendedService();
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'bothgoals@example.com',
       name: 'Ambos Objetivos',
       password: '12345678',
@@ -442,12 +554,13 @@ describe('AuthService register — diagnóstico aberto e trilha dinâmica', () =
     );
   });
 
-  it('faz fallback seguro quando registrationLevel lança erro', async () => {
+  it('ignora nível calculado pelo cliente quando registrationLevel falha', async () => {
     const { svc, create, dynamicTrack } = makeExtendedService({
       evaluateExplanation: jest.fn().mockRejectedValue(new Error('erro inesperado')),
     });
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'fallback@example.com',
       name: 'Fallback',
       password: '12345678',
@@ -457,13 +570,11 @@ describe('AuthService register — diagnóstico aberto e trilha dinâmica', () =
       careerGoal: 'qa',
     } as any);
 
-    expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ careerTier: 'junior' }),
-    });
+    expect(create.mock.calls[0][0].data.careerTier).toBeUndefined();
     expect(dynamicTrack.createForUser).toHaveBeenCalledWith(
       'user-22',
       expect.objectContaining({
-        expLevel: 'junior',
+        expLevel: null,
         careerGoal: 'qa',
         assessmentSource: 'fallback',
       }),
@@ -483,6 +594,7 @@ describe('AuthService register — diagnóstico aberto e trilha dinâmica', () =
     });
 
     await svc.register({
+      ...LEGAL_ACCEPTANCE,
       email: 'zero@example.com',
       name: 'Iniciante',
       password: '12345678',

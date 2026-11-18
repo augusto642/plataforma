@@ -2,6 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { reconcileXp as reconcileXpInDb } from './xp-reconciliation';
+import { recordXpLedgerEntry } from './xp-ledger';
+import { calculateStreakState } from './streak-policy';
+
+interface XpAwardContext {
+  source: string;
+  description: string;
+  activityId?: string;
+  awardSubmissionBadges: boolean;
+}
 
 @Injectable()
 export class GamificationService {
@@ -22,14 +31,67 @@ export class GamificationService {
     activityId: string,
     passed: boolean,
     score: number,
+    idempotencyKey: string,
     tx?: Prisma.TransactionClient,
   ) {
+    return this.awardXpWithContext(
+      userId,
+      passed,
+      score,
+      idempotencyKey,
+      tx,
+      {
+        source: 'submission',
+        description: `Recompensa pela atividade ${activityId}`,
+        activityId,
+        awardSubmissionBadges: true,
+      },
+    );
+  }
+
+  async awardTowerObjectiveXp(
+    userId: string,
+    quizId: string,
+    passed: boolean,
+    score: number,
+    idempotencyKey: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.awardXpWithContext(
+      userId,
+      passed,
+      score,
+      idempotencyKey,
+      tx,
+      {
+        source: 'tower_objective',
+        description: `Recompensa pelo desafio da Torre ${quizId}`,
+        awardSubmissionBadges: false,
+      },
+    );
+  }
+
+  private async awardXpWithContext(
+    userId: string,
+    passed: boolean,
+    score: number,
+    idempotencyKey: string,
+    tx: Prisma.TransactionClient | undefined,
+    context: XpAwardContext,
+  ) {
     if (tx) {
-      return this.awardSubmissionXpInner(tx, userId, activityId, passed, score);
+      return this.awardXpInner(
+        tx,
+        userId,
+        passed,
+        score,
+        idempotencyKey,
+        context,
+      );
     }
     try {
       return await this.prisma.$transaction(async (t) =>
-        this.awardSubmissionXpInner(t, userId, activityId, passed, score),
+        this.awardXpInner(t, userId, passed, score, idempotencyKey, context),
       );
     } catch (err: any) {
       this.logger.error(`Failed to award gamification XP: ${err.message}`);
@@ -37,19 +99,20 @@ export class GamificationService {
     }
   }
 
-  private async awardSubmissionXpInner(
+  private async awardXpInner(
     tx: Prisma.TransactionClient,
     userId: string,
-    activityId: string,
     passed: boolean,
     score: number,
+    idempotencyKey: string,
+    context: XpAwardContext,
   ) {
     // Pacote 1.2: Penalidade de XP por dicas graduais consumidas na atividade (-10%, -25%, -50%)
-    let hintPenaltyMultiplier = 1.0;
-    if (activityId) {
+    let hintPenaltyMultiplier = 1;
+    if (context.activityId) {
       try {
         const hintUsages = await tx.activityHintUsage.findMany({
-          where: { userId, activityId },
+          where: { userId, activityId: context.activityId },
         });
         if (hintUsages.length > 0) {
           const maxPenalty = hintUsages.reduce((max, u) => Math.max(max, u.xpPenaltyPercent), 0);
@@ -83,12 +146,26 @@ export class GamificationService {
     // battleRun — `executeBattleRunInner` — que calcula o nível a partir
     // do `updatedUser.xp` retornado pelo increment).
     //
-    // Streak (B15, Sprint 10): deriva de `lastActiveAt` lido ANTES do
-    // update, via computeStreakDays (dias de calendário UTC, 1 dia de
-    // descanso perdoado). Sob concorrência as duas corridas leem o mesmo
-    // lastActiveAt e computam o mesmo streak — o que é correto por
-    // desenho: duas submissões no mesmo dia contam 1 dia de streak, não 2.
+    // O streak usa dias de calendário UTC e registra a semana ISO em que
+    // a folga foi consumida, limitando o descanso a uma vez por semana.
     const now = new Date();
+    const recorded = await recordXpLedgerEntry(tx, {
+      userId,
+      idempotencyKey,
+      source: context.source,
+      amount: totalXpDelta,
+      description: context.description,
+    });
+    if (!recorded) {
+      return {
+        xpGained: 0,
+        totalXp: user.xp,
+        level: user.level,
+        streak: user.streakDays,
+        duplicate: true,
+      };
+    }
+
     const updated = await tx.user.update({
       where: { id: userId },
       data: {
@@ -100,56 +177,40 @@ export class GamificationService {
     const newXp = updated.xp;
     const newLevel = Math.floor(newXp / 200) + 1;
 
-    const newStreak = this.computeStreakDays(user.streakDays || 0, user.lastActiveAt, now);
+    const newStreakState = calculateStreakState(
+      user.streakDays || 0,
+      user.lastActiveAt,
+      user.streakRestWeekStart,
+      now,
+    );
+    const newStreak = newStreakState.streakDays;
+    const previousRestWeek = updated.streakRestWeekStart?.getTime() ?? null;
+    const nextRestWeek = newStreakState.streakRestWeekStart?.getTime() ?? null;
 
     // Segunda escrita só se o nível e/ou o streak mudaram (o XP e o
     // lastActiveAt já foram gravados no update acima): evita um UPDATE
     // vazio quando nada muda.
     let finalUser = updated;
-    if (newLevel !== updated.level || newStreak !== updated.streakDays) {
+    if (
+      newLevel !== updated.level ||
+      newStreak !== updated.streakDays ||
+      nextRestWeek !== previousRestWeek
+    ) {
       finalUser = await tx.user.update({
         where: { id: userId },
         data: {
           level: newLevel,
           streakDays: newStreak,
+          streakRestWeekStart: newStreakState.streakRestWeekStart,
         },
       });
     }
 
-    await this.evaluateBadges(tx, finalUser, user.badges, passed, score, newStreak);
+    if (context.awardSubmissionBadges) {
+      await this.evaluateBadges(tx, finalUser, user.badges, passed, score, newStreak);
+    }
 
     return { xpGained: totalXpDelta, totalXp: newXp, level: newLevel, streak: newStreak };
-  }
-
-  /**
-   * Regra de streak com dia de descanso (padrão Rocketseat — B15):
-   * meta semanal de 6 dias de atividade com 1 dia de descanso perdoado.
-   *
-   * A conta é por DIAS DE CALENDÁRIO (UTC), não por janela de horas — a
-   * regra antiga (20–48h) quebrava a sequência de quem estuda em horários
-   * diferentes a cada dia e perdoava folgas diferentes conforme o relógio.
-   *
-   * - sem atividade anterior: hoje é o dia 1;
-   * - mesmo dia (ou relógio adiantado): sequência intacta;
-   * - dia seguinte: +1;
-   * - 1 dia sem atividade entre a última e hoje (o dia de descanso da
-   *   semana): sequência PRESERVADA e hoje soma +1;
-   * - 2 ou mais dias sem atividade: quebra — hoje recomeça em 1.
-   *
-   * Como só olhamos os dias corridos entre as duas atividades, a virada
-   * de semana não quebra nada por si só: pular o domingo e voltar na
-   * segunda (ou pular a segunda e voltar na terça) mantém a sequência.
-   */
-  private computeStreakDays(currentStreak: number, lastActiveAt: Date | null, now: Date): number {
-    if (!lastActiveAt) return 1;
-
-    const dayIndex = (d: Date) =>
-      Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86_400_000);
-    const gap = dayIndex(now) - dayIndex(new Date(lastActiveAt));
-
-    if (gap <= 0) return Math.max(currentStreak, 1);
-    if (gap <= 2) return currentStreak + 1;
-    return 1;
   }
 
   private async evaluateBadges(tx: any, user: any, existingBadges: any[], passed: boolean, score: number, streak: number) {
@@ -213,6 +274,21 @@ export class GamificationService {
     });
   }
 
+  async getXpHistory(userId: string) {
+    return this.prisma.xpLedgerEntry.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+      select: {
+        id: true,
+        source: true,
+        amount: true,
+        description: true,
+        createdAt: true,
+      },
+    });
+  }
+
   /**
    * P2 / PLG: Resgate de bônus diário por completar as missões do dia.
    * Concede 50 XP e 25 bits atomicamente, com trava única diária em UserBadge.
@@ -232,6 +308,17 @@ export class GamificationService {
       });
 
       if (existing) {
+        return { claimed: false, message: 'Bônus diário já resgatado hoje.', xpAwarded: 0 };
+      }
+
+      const recorded = await recordXpLedgerEntry(tx, {
+        userId,
+        idempotencyKey: `daily-bonus:${today}`,
+        source: 'daily_bonus',
+        amount: 50,
+        description: 'Bônus por concluir as missões diárias',
+      });
+      if (!recorded) {
         return { claimed: false, message: 'Bônus diário já resgatado hoje.', xpAwarded: 0 };
       }
 
@@ -298,6 +385,7 @@ export class GamificationService {
     opts: {
       projectSlug: string;
       basePassed: boolean;
+      idempotencyKey: string;
       baseXp?: number;
       sonarBonusMultiplier?: number;
       qualityGatePassed?: boolean;
@@ -308,6 +396,22 @@ export class GamificationService {
     const xpDelta = opts.basePassed ? Math.round(baseXp * multiplier) : 50;
 
     return this.prisma.$transaction(async (tx) => {
+      const recorded = await recordXpLedgerEntry(tx, {
+        userId,
+        idempotencyKey: opts.idempotencyKey,
+        source: 'gitea_project',
+        amount: xpDelta,
+        description: `Entrega de projeto ${opts.projectSlug}`,
+      });
+      if (!recorded) {
+        return {
+          awarded: false,
+          awardedXp: 0,
+          duplicate: true,
+          qualityGatePassed: opts.qualityGatePassed,
+        };
+      }
+
       const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
@@ -340,6 +444,7 @@ export class GamificationService {
       }
 
       return {
+        awarded: true,
         awardedXp: xpDelta,
         newXp: updatedUser.xp,
         newLevel,

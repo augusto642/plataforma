@@ -184,16 +184,38 @@ export class CertificateService {
     return certificates.map((c) => this.toView(c));
   }
 
-  async revoke(id: string) {
-    const certificate = await this.prisma.certificate.findUnique({ where: { id } });
-    if (!certificate) {
-      throw new NotFoundException('Certificado não encontrado');
-    }
-    const revoked = await this.prisma.certificate.update({
-      where: { id },
-      data: { revokedAt: new Date() },
+  async status(rawCode: string) {
+    const code = (rawCode ?? '').trim().toLowerCase().replace(/^sha256:/, '');
+    if (!/^[a-f0-9]{64}$/.test(code)) throw new NotFoundException('Certificado não encontrado');
+    const certificate = await this.prisma.certificate.findUnique({
+      where: { code }, select: { revokedAt: true },
     });
-    return this.toView(revoked);
+    if (certificate) return { valid: !certificate.revokedAt, revokedAt: certificate.revokedAt };
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { certificateCode: code }, select: { id: true },
+    });
+    if (!enrollment) throw new NotFoundException('Certificado não encontrado');
+    return { valid: true, revokedAt: null };
+  }
+
+  async revoke(id: string, adminId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.certificate.updateMany({
+        where: { id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      const certificate = await tx.certificate.findUnique({ where: { id } });
+      if (!certificate) throw new NotFoundException('Certificado não encontrado');
+      if (updated.count) {
+        await tx.adminAuditEvent.create({
+          data: {
+            adminId, action: 'certificate.revoked', targetType: 'certificate',
+            targetId: id, previousValue: 'valid', newValue: 'revoked',
+          },
+        });
+      }
+      return this.toView(certificate);
+    });
   }
 
   private toView(c: {

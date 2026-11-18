@@ -89,9 +89,6 @@ export const TOWER_DEFAULT_ITEMS = [
 ];
 
 
-/** XP da torre na Fase 1: reusa a regra do GamificationService
- *  (70 passou / 20 errou / +50 nota 100). A tabela por dificuldade
- *  (fácil 30 / médio 50 / difícil 80 / chefe 150) é proposta do conceito
- *  e fica para a Fase 3. */
+/** Objetivos da torre usam fonte de XP própria e não concedem badges de submissão. */
 export const TOWER_XP_NOTE =
-  'Fase 1 reusa GamificationService.awardSubmissionXp (70/20/+50).';
+  'Código e objetivos da torre usam fontes de XP idempotentes e separadas.';

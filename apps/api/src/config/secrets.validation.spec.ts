@@ -65,6 +65,96 @@ describe('validateRequiredSecrets', () => {
     expect(validateRequiredSecrets(env)).toBe(env);
   });
 
+  describe('Mercado Pago sandbox configuration', () => {
+    const base = {
+      BILLING_WEBHOOK_SECRET: BILLING_SECRET,
+      JWT_ACCESS_SECRET: STRONG('access'),
+      JWT_REFRESH_SECRET: STRONG('refresh'),
+      CERTIFICATE_HMAC_SECRET: STRONG('cert'),
+      GITEA_ENABLED: 'false',
+      BILLING_PROVIDER: 'mercadopago',
+    };
+
+    it('requires an explicit sandbox token and test buyer email', () => {
+      expect(() => validateRequiredSecrets(base)).toThrow(
+        /MP_TEST_ACCESS_TOKEN, MP_TEST_PAYER_EMAIL/,
+      );
+    });
+
+    describe('free alpha billing lock', () => {
+      const base = {
+        BILLING_WEBHOOK_SECRET: BILLING_SECRET,
+        JWT_ACCESS_SECRET: STRONG('access'),
+        JWT_REFRESH_SECRET: STRONG('refresh'),
+        CERTIFICATE_HMAC_SECRET: STRONG('cert'),
+        GITEA_ENABLED: 'false',
+        ALPHA_FREE_MODE: 'true',
+        BILLING_MODE: 'test',
+        BILLING_PROVIDER: 'simulated',
+      };
+
+      it('accepts free alpha only with simulated billing', () => {
+        expect(validateRequiredSecrets(base)).toBe(base);
+      });
+
+      it('requires explicit test billing configuration in free alpha mode', () => {
+        expect(() => validateRequiredSecrets({
+          ...base,
+          BILLING_MODE: undefined,
+        })).toThrow(/ALPHA_FREE_MODE=true requires/);
+        expect(() => validateRequiredSecrets({
+          ...base,
+          BILLING_PROVIDER: undefined,
+        })).toThrow(/ALPHA_FREE_MODE=true requires/);
+      });
+
+      it('rejects a provider checkout in free alpha mode', () => {
+        expect(() => validateRequiredSecrets({
+          ...base,
+          BILLING_PROVIDER: 'mercadopago',
+          MP_TEST_ACCESS_TOKEN: 'TEST-1234567890',
+          MP_TEST_PAYER_EMAIL: 'test_user_123@testuser.com',
+        })).toThrow(/ALPHA_FREE_MODE=true requires/);
+      });
+
+      it('rejects invalid alpha mode values', () => {
+        expect(() => validateRequiredSecrets({
+          ...base,
+          ALPHA_FREE_MODE: 'yes',
+        })).toThrow(/ALPHA_FREE_MODE must be either true or false/);
+      });
+    });
+
+    it('accepts test-only Mercado Pago credentials', () => {
+      const env = {
+        ...base,
+        MP_TEST_ACCESS_TOKEN: 'TEST-1234567890',
+        MP_TEST_PAYER_EMAIL: 'test_user_123@testuser.com',
+      };
+      expect(validateRequiredSecrets(env)).toBe(env);
+    });
+
+    it('rejects a live or incorrectly prefixed access token', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          ...base,
+          MP_TEST_ACCESS_TOKEN: 'APP_USR-live-token',
+          MP_TEST_PAYER_EMAIL: 'test_user_123@testuser.com',
+        }),
+      ).toThrow(/prefixo TEST-/);
+    });
+
+    it('rejects a real user email as the sandbox payer', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          ...base,
+          MP_TEST_ACCESS_TOKEN: 'TEST-1234567890',
+          MP_TEST_PAYER_EMAIL: 'user@example.com',
+        }),
+      ).toThrow(/@testuser\.com/);
+    });
+  });
+
   it('passes with NODE_ENV=test when only the billing webhook secret is set', () => {
     // O bypass de test segue valendo para os demais segredos, mas NÃO
     // para BILLING_WEBHOOK_SECRET (C1): sem ele, o boot falha.
@@ -134,6 +224,19 @@ describe('validateRequiredSecrets', () => {
           GITEA_WEBHOOK_SECRET: 'shortwebhook',
         }),
       ).toThrow(/Weak secret value.*GITEA_WEBHOOK_SECRET/s);
+    });
+
+    it('rejects a weak optional metrics scrape token', () => {
+      expect(() =>
+        validateRequiredSecrets({
+          BILLING_WEBHOOK_SECRET: BILLING_SECRET,
+          JWT_ACCESS_SECRET: STRONG('access'),
+          JWT_REFRESH_SECRET: STRONG('refresh'),
+          CERTIFICATE_HMAC_SECRET: STRONG('cert'),
+          GITEA_ENABLED: 'false',
+          METRICS_TOKEN: 'short',
+        }),
+      ).toThrow(/Weak secret value.*METRICS_TOKEN/s);
     });
 
     it('rejects weak CERTIFICATE_HMAC_SECRET even when JWT secrets are strong (A11)', () => {

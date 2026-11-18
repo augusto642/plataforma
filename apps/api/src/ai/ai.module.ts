@@ -3,8 +3,12 @@ import { CacheModule } from '../cache/cache.module';
 import { PlansModule } from '../plans/plans.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { AdaptationModule } from '../adaptation/adaptation.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { ActivityAccessModule } from '../activities/activity-access.module';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
+import { AiTutorFeedbackService } from './ai-tutor-feedback.service';
+import { AiSpecializedRoomsService } from './ai-specialized-rooms.service';
 import { LineFeedbackService } from './line-feedback.service';
 import { LlmClient } from './llm-client';
 import { AiUsageService } from './llm/ai-usage.service';
@@ -21,10 +25,12 @@ import { SocraticGuidanceService } from './socratic-guidance.service';
 import { RegistrationLevelService } from './registration-level.service';
 
 @Module({
-  imports: [CacheModule, PlansModule, forwardRef(() => KnowledgeModule), AdaptationModule],
+  imports: [CacheModule, PlansModule, PrismaModule, ActivityAccessModule, forwardRef(() => KnowledgeModule), AdaptationModule],
   controllers: [AiController],
   providers: [
     AiService,
+    AiTutorFeedbackService,
+    AiSpecializedRoomsService,
     LineFeedbackService,
     SocraticCatService,
     LlmClient,
@@ -43,6 +49,8 @@ import { RegistrationLevelService } from './registration-level.service';
   ],
   exports: [
     AiService,
+    AiTutorFeedbackService,
+    AiSpecializedRoomsService,
     LineFeedbackService,
     SocraticCatService,
     LlmClient,

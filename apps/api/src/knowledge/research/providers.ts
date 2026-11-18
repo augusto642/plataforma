@@ -26,11 +26,25 @@ export interface JobMarketSignal {
   mentions: number;
   sampleSize: number;
   sources: string[];
+  sourceUrls: string[];
   collectedAt: string;
 }
 export interface MarketResearchProvider {
   readonly id: string;
   searchJobs(query: MarketQuery): Promise<JobMarketSignal[]>;
+}
+
+export interface JobMarketDocument {
+  id: string;
+  title: string;
+  text: string;
+  url?: string;
+}
+
+export interface JobMarketSourceProvider {
+  readonly id: string;
+  isConfigured(): boolean;
+  searchDocuments(query: MarketQuery): Promise<JobMarketDocument[]>;
 }
 
 export interface VideoSignal {

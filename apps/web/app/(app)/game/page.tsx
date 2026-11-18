@@ -27,8 +27,10 @@ import { BlackCatHudWidget } from './components/BlackCatHudWidget';
 import { VisualLessonModal } from './components/VisualLessonModal';
 import { useGameStore, StarterCreature, GameItem, Skill } from './stores/useGameStore';
 import { AudioSynthesizer } from './engine/AudioSynthesizer';
+import { AdultEligibilityGate } from '../../components/AdultEligibilityGate';
 
 export default function GamePage(): JSX.Element {
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
   // Estado local da UI
   const [showInventoryModal, setShowInventoryModal] = useState<boolean>(false);
   const [showStartersModal, setShowStartersModal] = useState<boolean>(false);
@@ -108,6 +110,10 @@ export default function GamePage(): JSX.Element {
     0,
     Math.min(100, Math.round((player.xp / player.maxXp) * 100))
   );
+
+  if (!adultConfirmed) {
+    return <AdultEligibilityGate onConfirm={() => setAdultConfirmed(true)} />;
+  }
 
   return (
     <main className="min-h-screen bg-[#050814] text-zinc-100 flex flex-col justify-between selection:bg-[#8257E5] selection:text-white font-sans">

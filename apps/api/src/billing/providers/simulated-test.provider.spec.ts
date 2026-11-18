@@ -36,43 +36,43 @@ describe('SimulatedTestProvider — C1 (webhook fail-closed)', () => {
     billingCycle: 'monthly',
   };
 
-  it('rejeita qualquer webhook sem segredo configurado (fail-closed)', () => {
+  it('rejeita qualquer webhook sem segredo configurado (fail-closed)', async () => {
     const provider = providerWithSecret(undefined);
     const { rawBody, sig } = signedBody(payload, SECRET);
-    expect(() => provider.parseWebhook(rawBody, sig)).toThrow(
+    await expect(provider.parseWebhook(rawBody, sig)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-    expect(() => provider.parseWebhook(rawBody, undefined)).toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      provider.parseWebhook(rawBody, undefined),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('rejeita webhook sem assinatura quando há segredo', () => {
+  it('rejeita webhook sem assinatura quando há segredo', async () => {
     const provider = providerWithSecret(SECRET);
     const { rawBody } = signedBody(payload, SECRET);
-    expect(() => provider.parseWebhook(rawBody, undefined)).toThrow(
-      UnauthorizedException,
-    );
-    expect(() => provider.parseWebhook(rawBody, '')).toThrow(
+    await expect(
+      provider.parseWebhook(rawBody, undefined),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(provider.parseWebhook(rawBody, '')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });
 
-  it('rejeita assinatura HMAC errada', () => {
+  it('rejeita assinatura HMAC errada', async () => {
     const provider = providerWithSecret(SECRET);
     const { rawBody } = signedBody(payload, SECRET);
     const wrong = `sha256=${createHmac('sha256', 'outro-segredo-0123456789abcdef')
       .update(rawBody)
       .digest('hex')}`;
-    expect(() => provider.parseWebhook(rawBody, wrong)).toThrow(
+    await expect(provider.parseWebhook(rawBody, wrong)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });
 
-  it('aceita assinatura HMAC válida e normaliza o evento', () => {
+  it('aceita assinatura HMAC válida e normaliza o evento', async () => {
     const provider = providerWithSecret(SECRET);
     const { rawBody, sig } = signedBody(payload, SECRET);
-    const event = provider.parseWebhook(rawBody, sig);
+    const event = await provider.parseWebhook(rawBody, sig);
     expect(event).toEqual(
       expect.objectContaining({
         providerEventId: 'evt-1',
@@ -85,18 +85,18 @@ describe('SimulatedTestProvider — C1 (webhook fail-closed)', () => {
     );
   });
 
-  it('aceita hex puro sem o prefixo sha256=', () => {
+  it('aceita hex puro sem o prefixo sha256=', async () => {
     const provider = providerWithSecret(SECRET);
     const { rawBody, sig } = signedBody(payload, SECRET);
-    const event = provider.parseWebhook(rawBody, sig.replace('sha256=', ''));
+    const event = await provider.parseWebhook(rawBody, sig.replace('sha256=', ''));
     expect(event.type).toBe('payment_approved');
   });
 
-  it('rejeita payload inválido mesmo com assinatura válida', () => {
+  it('rejeita payload inválido mesmo com assinatura válida', async () => {
     const provider = providerWithSecret(SECRET);
     const rawBody = Buffer.from('não-json', 'utf8');
     const sig = `sha256=${createHmac('sha256', SECRET).update(rawBody).digest('hex')}`;
-    expect(() => provider.parseWebhook(rawBody, sig)).toThrow(
+    await expect(provider.parseWebhook(rawBody, sig)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });

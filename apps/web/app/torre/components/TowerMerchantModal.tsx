@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import type { TowerPartyMemberView } from './TowerPartyPanel';
 
 export interface TowerItemView {
   code: string;
@@ -32,7 +33,8 @@ interface TowerMerchantModalProps {
   inventory: InventoryItemView[];
   activeEffects: ActiveEffectView[];
   onBuyItem: (itemCode: string) => Promise<void>;
-  onUseItem: (itemCode: string) => Promise<void>;
+  onUseItem: (itemCode: string, targetUserId?: string) => Promise<void>;
+  partyMembers: TowerPartyMemberView[];
 }
 
 export const TowerMerchantModal: React.FC<TowerMerchantModalProps> = ({
@@ -44,10 +46,16 @@ export const TowerMerchantModal: React.FC<TowerMerchantModalProps> = ({
   activeEffects,
   onBuyItem,
   onUseItem,
+  partyMembers,
 }) => {
   const [activeTab, setActiveTab] = useState<'shop' | 'inventory'>('shop');
   const [busyCode, setBusyCode] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedTargetUserId, setSelectedTargetUserId] = useState('');
+  const bananaTargets = partyMembers.filter((member) => !member.isCurrentUser);
+  const targetUserId = bananaTargets.some((member) => member.id === selectedTargetUserId)
+    ? selectedTargetUserId
+    : bananaTargets[0]?.id ?? '';
 
   if (!isOpen) return null;
 
@@ -64,12 +72,16 @@ export const TowerMerchantModal: React.FC<TowerMerchantModalProps> = ({
     }
   };
 
-  const handleUse = async (code: string) => {
+  const handleUse = async (code: string, targetId?: string) => {
     setBusyCode(code);
     setMessage(null);
     try {
-      await onUseItem(code);
-      setMessage(`Efeito ativado com sucesso!`);
+      await onUseItem(code, targetId);
+      setMessage(
+        code === 'CHAOS_BANANA'
+          ? 'Armadilha ativada; o próximo movimento do rival será reduzido.'
+          : 'Efeito ativado com sucesso!',
+      );
     } catch (err) {
       setMessage((err as Error).message);
     } finally {
@@ -218,12 +230,38 @@ export const TowerMerchantModal: React.FC<TowerMerchantModalProps> = ({
                           </div>
                           <h3 className="font-bold text-white text-sm">{inv.name}</h3>
                           <p className="text-xs text-slate-400 mt-1">{inv.description}</p>
+                          {inv.itemCode === 'CHAOS_BANANA' && (
+                            <label className="mt-3 block text-xs text-slate-300">
+                              Alvo da party
+                              <select
+                                value={targetUserId}
+                                onChange={(event) => setSelectedTargetUserId(event.target.value)}
+                                disabled={bananaTargets.length === 0}
+                                className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0C0F17] px-3 py-2 text-sm text-white disabled:opacity-50"
+                              >
+                                {bananaTargets.length === 0 ? (
+                                  <option value="">Entre em uma party com outro integrante</option>
+                                ) : (
+                                  bananaTargets.map((member) => (
+                                    <option key={member.id} value={member.id}>
+                                      {member.nickname}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </label>
+                          )}
                         </div>
 
                         <button
                           type="button"
-                          disabled={isUsing}
-                          onClick={() => handleUse(inv.itemCode)}
+                          disabled={isUsing || (inv.itemCode === 'CHAOS_BANANA' && !targetUserId)}
+                          onClick={() =>
+                            handleUse(
+                              inv.itemCode,
+                              inv.itemCode === 'CHAOS_BANANA' ? targetUserId : undefined,
+                            )
+                          }
                           className="mt-4 w-full py-2 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-600/20"
                         >
                           {isUsing ? 'Ativando...' : 'Usar Item'}

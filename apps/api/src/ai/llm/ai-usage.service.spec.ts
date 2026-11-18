@@ -141,6 +141,7 @@ describe('AiUsageService — registro de uso', () => {
     await service.recordUsage({
       userId: 'user-9',
       provider: 'gemini',
+      pricingProvider: 'google',
       model: 'gemini-3.5-flash-lite',
       purpose: 'hint',
       usage: { promptTokens: 100, completionTokens: 40, totalTokens: 190, thoughtsTokens: 50 },
@@ -153,6 +154,7 @@ describe('AiUsageService — registro de uso', () => {
     expect(arg.data.props).toMatchObject({
       userId: 'user-9',
       provider: 'gemini',
+      pricingProvider: 'google',
       model: 'gemini-3.5-flash-lite',
       purpose: 'hint',
       totalTokens: 190,
@@ -198,6 +200,95 @@ describe('AiUsageService — evento de bloqueio (ai_llm_blocked)', () => {
       purpose: 'hint',
       used: 20,
       limit: 20,
+    });
+  });
+
+  describe('AiUsageService — observabilidade diária', () => {
+    it('estima custos apenas para modelos com tarifa pública conhecida', async () => {
+      const prisma = makePrisma();
+      prisma.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            model: 'gemini-3.5-flash-lite',
+            pricing_provider: 'google',
+            calls: 2,
+            failed_calls: 0,
+            missing_usage: 0,
+            prompt_tokens: 1_000_000,
+            completion_tokens: 1_000_000,
+            total_tokens: 2_200_000,
+            thoughts_tokens: 200_000,
+          },
+          {
+            model: 'gpt-4o-mini',
+            pricing_provider: 'openai',
+            calls: 2,
+            failed_calls: 0,
+            missing_usage: 0,
+            prompt_tokens: 1_000_000,
+            completion_tokens: 1_000_000,
+            total_tokens: 2_000_000,
+            thoughts_tokens: 0,
+          },
+          {
+            model: 'local-model',
+            pricing_provider: null,
+            calls: 1,
+            failed_calls: 1,
+            missing_usage: 1,
+            prompt_tokens: null,
+            completion_tokens: null,
+            total_tokens: null,
+            thoughts_tokens: null,
+          },
+        ])
+        .mockResolvedValueOnce([{
+          blocked_calls: 3,
+          latency_samples: 5,
+          average_latency_ms: 800,
+          p95_latency_ms: 1200,
+        }]);
+      const service = new AiUsageService(makeConfig(), prisma, makeCache() as any);
+
+      await expect(service.getDailyOperations('2026-10-23')).resolves.toEqual({
+        calls: 5,
+        failedCalls: 1,
+        blockedCalls: 3,
+        fallbackCalls: 4,
+        fallbackRate: 0.5,
+        latencySamples: 5,
+        averageLatencyMs: 800,
+        p95LatencyMs: 1200,
+        promptTokens: 2_000_000,
+        completionTokens: 2_000_000,
+        totalTokens: 4_200_000,
+        pricedCalls: 4,
+        unpricedCalls: 1,
+        estimatedCostUsd: 4.05,
+        pricingCheckedAt: '2026-11-14',
+      });
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    });
+
+    it('retorna zeros quando o armazenamento de telemetria não está configurado', async () => {
+      const service = new AiUsageService(makeConfig(), undefined, makeCache() as any);
+      await expect(service.getDailyOperations('2026-10-23')).resolves.toEqual({
+        calls: 0,
+        failedCalls: 0,
+        blockedCalls: 0,
+        fallbackCalls: 0,
+        fallbackRate: null,
+        latencySamples: 0,
+        averageLatencyMs: null,
+        p95LatencyMs: null,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        pricedCalls: 0,
+        unpricedCalls: 0,
+        estimatedCostUsd: null,
+        pricingCheckedAt: '2026-11-14',
+      });
     });
   });
 

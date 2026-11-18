@@ -16,4 +16,9 @@ export class GamificationController {
   async claimDailyBonus(@CurrentUser() user: JwtPayload) {
     return this.gamification.claimDailyBonus(user.sub);
   }
+
+  @Get('xp-history')
+  async getXpHistory(@CurrentUser() user: JwtPayload) {
+    return this.gamification.getXpHistory(user.sub);
+  }
 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import './dashboard.css';
 import Logo from '../../components/Logo';
 import { MaterialIcon } from '../../components/MaterialIcon';
@@ -20,6 +21,7 @@ import { StudentDashboardData } from './types';
 import { StudentSidebar } from '../../components/StudentSidebar';
 import { StudentHeader } from '../../components/StudentHeader';
 import { useSidebar } from '../../context/SidebarContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface CourseActivity {
   id: string;
@@ -34,6 +36,20 @@ interface CourseSummary {
 }
 
 export default function StudentDashboardPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
+  const needsProfile = user?.role === 'student' && user.learningProfilePending === true;
+  useEffect(() => {
+    if (!isLoading && needsProfile) router.replace('/perfil-inicial');
+  }, [isLoading, needsProfile, router]);
+
+  if (isLoading || needsProfile) {
+    return <p role="status" className="p-6">Preparando seu acesso…</p>;
+  }
+  return <DashboardContent />;
+}
+
+function DashboardContent() {
   const { isCollapsed, toggleMobileOpen, toggleCollapsed } = useSidebar();
   const [data, setData] = useState<StudentDashboardData | null>(null);
   const [courses, setCourses] = useState<CourseSummary[]>([]);

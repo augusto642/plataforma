@@ -4,6 +4,10 @@ import { Prisma } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { ErrorCodes } from '../common/errors/error-codes';
 import { OAuthProfile } from './oauth.config';
+import {
+  AGE_ELIGIBILITY_POLICY_VERSION,
+  LEGAL_DOCUMENT_VERSIONS,
+} from '@plataforma/contracts';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -21,7 +25,7 @@ describe('AuthService — OAuth loginWithOAuth', () => {
   let auth: AuthService;
   let tx: any;
   let prisma: any;
-  let jwt: { signAsync: jest.Mock };
+  let jwt: { signAsync: jest.Mock; verifyAsync: jest.Mock };
   let config: { get: jest.Mock };
   let mailer: { sendVerificationCode: jest.Mock };
 
@@ -29,6 +33,7 @@ describe('AuthService — OAuth loginWithOAuth', () => {
     accessToken: 'access.jwt.token',
     refreshToken: '***',
   };
+  const legalConsentToken = 'valid-legal-consent';
 
   beforeEach(() => {
     tx = {
@@ -50,7 +55,16 @@ describe('AuthService — OAuth loginWithOAuth', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    jwt = { signAsync: jest.fn().mockResolvedValue(tokens.accessToken) };
+    jwt = {
+      signAsync: jest.fn().mockResolvedValue(tokens.accessToken),
+      verifyAsync: jest.fn().mockResolvedValue({
+        purpose: 'signup-legal-consent',
+        termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+        privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+        ageEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+        acceptedAt: new Date().toISOString(),
+      }),
+    } as any;
     config = {
       get: jest.fn((key: string, def?: any) => {
         if (key === 'JWT_ACCESS_SECRET') return 'test-access-secret';
@@ -82,12 +96,20 @@ describe('AuthService — OAuth loginWithOAuth', () => {
       email: 'augusto@example.com',
       name: 'Augusto Fortes',
       role: 'student',
+      termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+      privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+      adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
     };
     tx.oAuthAccount.findUnique.mockResolvedValue({
       user: existingUser,
     });
     const result = await auth.loginWithOAuth(googleProfile());
-    expect(result.user).toEqual(existingUser);
+    expect(result.user).toEqual({
+      id: 'u1',
+      email: 'augusto@example.com',
+      name: 'Augusto Fortes',
+      role: 'student',
+    });
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(tx.oAuthAccount.create).not.toHaveBeenCalled();
     expect(tx.user.findUnique).not.toHaveBeenCalled();
@@ -102,7 +124,7 @@ describe('AuthService — OAuth loginWithOAuth', () => {
       emailVerifiedAt: null,
     };
     tx.user.findUnique.mockResolvedValue(byEmail);
-    const result = await auth.loginWithOAuth(googleProfile());
+    const result = await auth.loginWithOAuth(googleProfile(), legalConsentToken);
     expect(result.user.id).toBe('u2');
     expect(tx.oAuthAccount.create).toHaveBeenCalledWith({
       data: { provider: 'google', providerId: 'google-123', userId: 'u2' },
@@ -110,7 +132,15 @@ describe('AuthService — OAuth loginWithOAuth', () => {
     // O provedor afirmou o e-mail: a conta vinculada passa a verificada.
     expect(tx.user.update).toHaveBeenCalledWith({
       where: { id: 'u2' },
-      data: { emailVerifiedAt: expect.any(Date) },
+      data: {
+        emailVerifiedAt: expect.any(Date),
+        termsAcceptedAt: expect.any(Date),
+        termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+        privacyAcknowledgedAt: expect.any(Date),
+        privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+        adultEligibilityAcceptedAt: expect.any(Date),
+        adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
+      },
     });
     expect(tx.user.create).not.toHaveBeenCalled();
   });
@@ -125,6 +155,7 @@ describe('AuthService — OAuth loginWithOAuth', () => {
     tx.user.create.mockResolvedValue(created);
     const result = await auth.loginWithOAuth(
       googleProfile({ email: 'novo@example.com', name: 'Novo' }),
+      legalConsentToken,
     );
     expect(result.user.id).toBe('u3');
     expect(tx.user.create).toHaveBeenCalledWith({
@@ -133,6 +164,12 @@ describe('AuthService — OAuth loginWithOAuth', () => {
         name: 'Novo',
         passwordHash: null,
         role: 'student',
+        termsAcceptedAt: expect.any(Date),
+        termsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+        privacyAcknowledgedAt: expect.any(Date),
+        privacyVersion: LEGAL_DOCUMENT_VERSIONS.privacy,
+        adultEligibilityAcceptedAt: expect.any(Date),
+        adultEligibilityVersion: AGE_ELIGIBILITY_POLICY_VERSION,
         emailVerifiedAt: expect.any(Date),
         oAuthAccounts: {
           create: { provider: 'google', providerId: 'google-123' },
@@ -166,10 +203,13 @@ describe('AuthService — OAuth loginWithOAuth', () => {
     );
     tx.user.create.mockRejectedValue(p2002);
     await expect(
-      auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' })),
+      auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' }), legalConsentToken),
     ).rejects.toThrow(ConflictException);
     try {
-      await auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' }));
+      await auth.loginWithOAuth(
+        googleProfile({ email: 'novo@example.com' }),
+        legalConsentToken,
+      );
       throw new Error('deveria ter rejeitado');
     } catch (err: any) {
       expect(err).toBeInstanceOf(ConflictException);
@@ -194,16 +234,32 @@ describe('AuthService — OAuth loginWithOAuth', () => {
         { code: 'P2002', clientVersion: '7.9.1' },
       ),
     );
-    await expect(auth.loginWithOAuth(googleProfile())).rejects.toThrow(
-      ConflictException,
-    );
+    await expect(
+      auth.loginWithOAuth(googleProfile(), legalConsentToken),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('erro de banco que não é P2002 continua sendo relançado (não vira Conflict)', async () => {
     tx.user.create.mockRejectedValue(new Error('connection refused'));
     await expect(
-      auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' })),
+      auth.loginWithOAuth(
+        googleProfile({ email: 'novo@example.com' }),
+        legalConsentToken,
+      ),
     ).rejects.toThrow('connection refused');
+  });
+
+  it('rejects new OAuth accounts when legal acceptance is absent or invalid', async () => {
+    jwt.verifyAsync.mockRejectedValue(new Error('invalid token'));
+
+    await expect(
+      auth.loginWithOAuth(googleProfile({ email: 'novo@example.com' })),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        errorCode: ErrorCodes.AUTH_LEGAL_CONSENT_REQUIRED,
+      }),
+    });
+    expect(tx.user.create).not.toHaveBeenCalled();
   });
 
   it('login por senha rejeita conta só-OAuth (passwordHash NULL) sem comparar hash', async () => {

@@ -90,6 +90,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       badgeColor: 'bg-[#FFA116]/15 text-[#FFA116] border border-[#FFA116]/30',
     },
     {
+      id: 'aiRooms',
+      label: 'Salas de IA',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 3.75h4.5a2.25 2.25 0 012.25 2.25v.75h.75A2.25 2.25 0 0119.5 9v8.25A2.25 2.25 0 0117.25 19.5h-10.5A2.25 2.25 0 014.5 17.25V9a2.25 2.25 0 012.25-2.25h.75V6a2.25 2.25 0 012.25-2.25zM9 11.25h.008v.008H9v-.008zm6 0h.008v.008H15v-.008zm-5.25 4.5c.62.47 1.37.75 2.25.75s1.63-.28 2.25-.75" />
+        </svg>
+      ),
+      badge: 'Real',
+      badgeColor: 'bg-[#8257E5]/15 text-[#996DFF] border border-[#8257E5]/30',
+    },
+    {
       id: 'knowledge',
       label: 'Conhecimento (KMS)',
       icon: (

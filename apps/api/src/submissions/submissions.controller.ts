@@ -12,6 +12,7 @@ import {
   Sse,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { ActivityAccessService } from '../activities/activity-access.service';
 import {
   Observable,
   expand,
@@ -27,6 +28,9 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { BattleRunDto } from './dto/battle-run.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { PracticeRunDto } from './dto/practice-run.dto';
+import { PlaygroundRunDto } from './dto/playground-run.dto';
+import { ProjectRunDto } from './dto/project-run.dto';
 import { SubmissionEventsService } from './submission-events.service';
 import { SubmissionsService } from './submissions.service';
 
@@ -64,6 +68,7 @@ export class SubmissionsController {
   constructor(
     private readonly submissions: SubmissionsService,
     private readonly events: SubmissionEventsService,
+    private readonly access: ActivityAccessService,
   ) {}
 
   /**
@@ -74,20 +79,44 @@ export class SubmissionsController {
   @Post('battle-run')
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  battleRun(
+  async battleRun(
     @CurrentUser() user: JwtPayload,
     @Body() dto: BattleRunDto,
   ) {
+    await this.access.requireActivity(dto.activityId, user.sub, user.role);
     return this.submissions.battleRun(user.sub, dto);
   }
 
   @Post()
   @Throttle({ default: { limit: 15, ttl: 60_000 } })
-  create(
+  async create(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateSubmissionDto,
   ) {
+    await this.access.requireActivity(dto.activityId, user.sub, user.role);
     return this.submissions.create(user.sub, dto);
+  }
+
+  @Post('practice')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  async practice(@CurrentUser() user: JwtPayload, @Body() dto: PracticeRunDto) {
+    await this.access.requireActivity(dto.activityId, user.sub, user.role);
+    return this.submissions.practice(dto);
+  }
+
+  @Post('playground')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  playground(@Body() dto: PlaygroundRunDto) {
+    return this.submissions.playground(dto);
+  }
+
+  @Post('project-run')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  runProject(@Body() dto: ProjectRunDto) {
+    return this.submissions.runProject(dto);
   }
 
   @Get()

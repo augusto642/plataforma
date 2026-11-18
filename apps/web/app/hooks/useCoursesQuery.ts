@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, API_BASE } from '../lib/apiClient';
 import { queryKeys } from '../lib/queryKeys';
+import {
+  clearGuestAgeEligibility,
+  getGuestAgeEligibilityToken,
+} from '../lib/ageEligibility';
 
 export function useCoursesQuery() {
   return useQuery({
@@ -23,7 +27,17 @@ export function usePublicCatalogQuery() {
   return useQuery({
     queryKey: [...queryKeys.courses.all, 'public-catalog'],
     queryFn: async () => {
-      const res = await apiFetch(`${API_BASE}/courses/public-catalog`);
+      const token = getGuestAgeEligibilityToken();
+      if (!token) {
+        throw new Error('Confirme sua elegibilidade para acessar o catálogo de cursos.');
+      }
+      const res = await fetch(`${API_BASE}/courses/public-catalog`, {
+        headers: { 'x-age-eligibility-token': token },
+      });
+      if (res.status === 401) {
+        clearGuestAgeEligibility();
+        throw new Error('AGE_ELIGIBILITY_REQUIRED');
+      }
       if (!res.ok) throw new Error('Falha ao carregar o catálogo de cursos.');
       return res.json();
     },

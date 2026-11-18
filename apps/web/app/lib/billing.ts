@@ -2,10 +2,8 @@ import { apiFetch } from './apiClient';
 import { PLAN_PRICES, annualTotal, formatBRL } from '../components/landing/pricing-data';
 
 /**
- * Fase 1 premium — client do checkout em MODO TESTE.
- * Nenhuma cobrança real: o checkout roda contra o provedor simulado
- * da API e a página exibe o selo "Ambiente de testes" enquanto
- * BILLING_MODE=test. Preços lidos da fonte única da landing.
+ * Client do checkout em MODO TESTE. O servidor seleciona o provedor
+ * configurado; preços vêm da fonte única da landing.
  */
 export type CheckoutPlan = 'pro' | 'career';
 export type BillingCycle = 'monthly' | 'annual';
@@ -62,14 +60,24 @@ export async function createCheckout(
   return (await res.json()) as CheckoutResponse;
 }
 
-export async function fetchMySubscription(): Promise<MySubscription | null> {
-  try {
-    const res = await apiFetch('/billing/subscription/me');
-    if (!res.ok) return null;
-    return (await res.json()) as MySubscription;
-  } catch {
-    return null;
+export async function cancelPendingCheckout(): Promise<void> {
+  const res = await apiFetch('/billing/checkout/cancel', { method: 'POST' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { message?: string }).message || 'Não foi possível cancelar o checkout pendente.');
   }
+}
+
+export async function fetchMySubscription(): Promise<MySubscription | null> {
+  const res = await apiFetch('/billing/subscription/me');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { message?: string }).message ||
+        `Não foi possível consultar a assinatura (HTTP ${res.status}).`,
+    );
+  }
+  return (await res.json()) as MySubscription;
 }
 
 export async function cancelMySubscription(): Promise<{ message?: string }> {

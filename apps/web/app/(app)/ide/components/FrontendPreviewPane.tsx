@@ -1,6 +1,19 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+
+const SandpackReactPreview = dynamic(
+  () => import('./SandpackReactPreview').then((module) => module.SandpackReactPreview),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#181a20] text-sm text-slate-400">
+        Carregando ambiente React...
+      </div>
+    ),
+  }
+);
 
 interface FrontendPreviewPaneProps {
   code: string;
@@ -8,23 +21,11 @@ interface FrontendPreviewPaneProps {
   autoRefresh?: boolean;
 }
 
-export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
-  code,
-  language = 'html',
-  autoRefresh = true,
-}) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [viewportSize, setViewportSize] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
-  const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
+const generateDocumentHtml = (userCode: string) => {
+  let bodyContent = userCode;
 
-  // Gera o HTML sandboxed injetando Tailwind CSS e script de captura de logs
-  const generateDocumentHtml = (userCode: string) => {
-    let bodyContent = userCode;
-
-    // Se for apenas Javascript ou React, envolve em container básico se não tiver tags HTML
-    if (!userCode.includes('<html') && !userCode.includes('<!DOCTYPE')) {
-      bodyContent = `
+  if (!userCode.includes('<html') && !userCode.includes('<!DOCTYPE')) {
+    bodyContent = `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -35,7 +36,6 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
     body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #ffffff; color: #0f172a; }
   </style>
   <script>
-    // Captura segura de console.log para o parent
     const origLog = console.log;
     console.log = function(...args) {
       origLog.apply(console, args);
@@ -50,12 +50,23 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
   ${userCode}
 </body>
 </html>`;
-    }
+  }
 
-    return bodyContent;
-  };
+  return bodyContent;
+};
 
-  const updateIframeContent = () => {
+export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
+  code,
+  language = 'html',
+  autoRefresh = true,
+}) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [viewportSize, setViewportSize] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [previewMode, setPreviewMode] = useState<'html' | 'react'>('html');
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
+  const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
+
+  const updateIframeContent = useCallback(() => {
     if (!iframeRef.current) return;
     const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
     if (!doc) return;
@@ -64,16 +75,16 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
     doc.write(generateDocumentHtml(code));
     doc.close();
     setLastRefreshedAt(new Date());
-  };
+  }, [code]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || previewMode !== 'html') return;
     const timer = setTimeout(() => {
       updateIframeContent();
     }, 400); // 400ms debounce
 
     return () => clearTimeout(timer);
-  }, [code, autoRefresh]);
+  }, [code, autoRefresh, previewMode, updateIframeContent]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -109,8 +120,30 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-bold text-white tracking-wide">Live Preview</span>
           <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-mono text-[10px]">
-            Tailwind CSS 3.4
+            {previewMode === 'html' ? 'Tailwind CSS 3.4' : 'React · Sandpack'}
           </span>
+          <div className="flex items-center gap-1 rounded-lg border border-slate-800 bg-[#07090E] p-1">
+            <button
+              type="button"
+              onClick={() => setPreviewMode('html')}
+              aria-pressed={previewMode === 'html'}
+              className={`rounded px-2 py-1 text-[11px] font-medium transition-all ${
+                previewMode === 'html' ? 'bg-indigo-600 font-bold text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              HTML
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewMode('react')}
+              aria-pressed={previewMode === 'react'}
+              className={`rounded px-2 py-1 text-[11px] font-medium transition-all ${
+                previewMode === 'react' ? 'bg-indigo-600 font-bold text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              React
+            </button>
+          </div>
         </div>
 
         {/* Viewport switcher */}
@@ -145,13 +178,15 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={updateIframeContent}
-            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
-          >
-            ↻ Atualizar
-          </button>
+          {previewMode === 'html' && (
+            <button
+              type="button"
+              onClick={updateIframeContent}
+              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+            >
+              ↻ Atualizar
+            </button>
+          )}
         </div>
       </div>
 
@@ -160,17 +195,21 @@ export const FrontendPreviewPane: React.FC<FrontendPreviewPaneProps> = ({
         <div
           className={`${getViewportWidthClass()} h-full bg-white rounded-lg shadow-2xl transition-all duration-300 overflow-hidden border border-slate-700 flex flex-col`}
         >
-          <iframe
-            ref={iframeRef}
-            title="Frontend Preview Sandbox"
-            sandbox="allow-scripts allow-modals allow-forms"
-            className="w-full h-full border-0 bg-white"
-          />
+          {previewMode === 'react' ? (
+            <SandpackReactPreview code={code} />
+          ) : (
+            <iframe
+              ref={iframeRef}
+              title="Frontend Preview Sandbox"
+              sandbox="allow-scripts allow-modals allow-forms"
+              className="w-full h-full border-0 bg-white"
+            />
+          )}
         </div>
       </div>
 
       {/* Mini console de logs do iframe */}
-      {consoleLogs.length > 0 && (
+      {previewMode === 'html' && consoleLogs.length > 0 && (
         <div className="border-t border-slate-800 bg-[#07090E] p-2.5 max-h-24 overflow-y-auto text-[11px] font-mono space-y-1">
           <div className="flex items-center justify-between text-slate-500 pb-1 border-b border-slate-800">
             <span>CONSOLE DO PREVIEW ({consoleLogs.length})</span>

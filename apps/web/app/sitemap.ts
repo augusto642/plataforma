@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/contato', priority: 0.5, changeFrequency: 'monthly' },
     { path: '/termos', priority: 0.3, changeFrequency: 'monthly' },
     { path: '/privacidade', priority: 0.3, changeFrequency: 'monthly' },
+    { path: '/politica-de-idade', priority: 0.3, changeFrequency: 'monthly' },
   ];
 
   return routes.map((route) => ({

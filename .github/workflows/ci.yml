@@ -65,6 +65,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit Production Dependencies
+        run: pnpm audit --prod --audit-level critical
+
       - name: Generate Prisma Client
         run: pnpm --filter @plataforma/api exec prisma generate
         env:
@@ -72,6 +75,53 @@ jobs:
 
       - name: Run Linter
         run: pnpm -r lint
+
+      - name: Validate Prometheus Alert Rules
+        run: |
+          docker run --rm \
+            --volume "$PWD/infra/monitoring:/rules:ro" \
+            --entrypoint promtool \
+            prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            check rules /rules/nexus-alerts.yml
+          docker run --rm \
+            --volume "$PWD/infra/monitoring:/rules:ro" \
+            --entrypoint promtool \
+            prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            test rules /rules/nexus-alerts.test.yml
+          docker run --rm \
+            --volume "$PWD/infra/monitoring:/rules:ro" \
+            --entrypoint promtool \
+            prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            check config /rules/prometheus.yml
+
+      - name: Test alpha preflight and Alertmanager configuration
+        run: node --test scripts/__tests__/alpha-preflight.test.mjs scripts/monitoring/__tests__/render-alertmanager-config.test.mjs
+
+      - name: Validate Alertmanager webhook configuration
+        env:
+          ALERTMANAGER_WEBHOOK_URL: https://alerts.example.com/incoming
+          ALERTMANAGER_TEMPLATE_PATH: infra/monitoring/alertmanager.yml
+          ALERTMANAGER_CONFIG_OUTPUT: ${{ runner.temp }}/alertmanager.yml
+        run: |
+          node scripts/monitoring/render-alertmanager-config.mjs
+          docker run --rm \
+            --volume "$RUNNER_TEMP/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
+            --entrypoint /bin/amtool \
+            prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba \
+            check-config /etc/alertmanager/alertmanager.yml
+
+      - name: Validate Caddy public edge configuration
+        env:
+          ACME_EMAIL: ops@example.com
+          WEB_DOMAIN: app.example.com
+          API_DOMAIN: api.example.com
+          GITEA_DOMAIN: git.example.com
+        run: |
+          docker run --rm \
+            --env ACME_EMAIL --env WEB_DOMAIN --env API_DOMAIN --env GITEA_DOMAIN \
+            --volume "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Run Backend Unit & Integration Tests (with coverage thresholds)
         run: pnpm --filter @plataforma/api test:coverage
@@ -97,6 +147,9 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000
           NODE_ENV: production
+
+      - name: Verify Open Badges cryptography
+        run: pnpm --filter @plataforma/api test:credentials
 
   # Smoke E2E com Playwright (apps/web/e2e): sobe Postgres/Redis, aplica
   # migrations, roda o seed (usuário aluno@plataforma.local), constrói
@@ -232,6 +285,17 @@ jobs:
           context: .
           file: ${{ matrix.file }}
           push: false
+          load: true
           tags: plataforma-${{ matrix.name }}:latest
           build-args: |
             NEXT_PUBLIC_API_URL=http://localhost:3000
+
+      - name: Scan Docker Image for Critical Vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: plataforma-${{ matrix.name }}:latest
+          format: table
+          vuln-type: os,library
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: '1'

@@ -252,12 +252,6 @@ const suiteIt = typeof g.it === 'function' ? g.it : typeof g.test === 'function'
   }
   void fn();
 };
-// B04: skip quando o runner suporta (Vitest/Jest); no runner custom embutido
-// o teste é ignorado. Usado apenas para bug conhecido da engine (ver TODO no
-// teste do SceneTransitionManager) — nunca para esconder falha de spec.
-const suiteItSkip: (name: string, fn: TestFn) => void =
-  (suiteIt as unknown as { skip?: (name: string, fn: TestFn) => void }).skip ??
-  (() => undefined);
 const suiteExpect = typeof g.expect === 'function' ? g.expect : customExpect;
 
 // Mocks para Canvas Rendering Context
@@ -1705,13 +1699,7 @@ suiteDescribe('PR #08 - Multi-Bioma & Portais Holográficos', () => {
   });
 
   suiteDescribe('SceneTransitionManager & Interiors', () => {
-    // TODO(B04): bug real da engine — SceneTransitionManager.startTransition
-    // sobrescreve a duração com `request.durationMs || 250`, ignorando o
-    // defaultDurationMs passado ao construtor (que vira código morto: um
-    // manager criado com 200ms transiciona em 250ms). O comportamento
-    // esperado é o fallback ser a duração da instância. Teste pulado até a
-    // engine ser corrigida (fora do escopo do B04); NÃO é falha deste spec.
-    suiteItSkip('deve transicionar por FADING_OUT, SWAPPING_SCENE e FADING_IN', () => {
+    suiteIt('deve transicionar por FADING_OUT, SWAPPING_SCENE e FADING_IN', () => {
       const manager = new SceneTransitionManager(200);
       suiteExpect(manager.state).toBe('IDLE');
       suiteExpect(manager.isBlockingInput()).toBe(false);
@@ -1741,6 +1729,23 @@ suiteDescribe('PR #08 - Multi-Bioma & Portais Holográficos', () => {
       suiteExpect(manager.state).toBe('IDLE');
       suiteExpect(manager.alpha).toBe(0);
       suiteExpect(manager.isBlockingInput()).toBe(false);
+    });
+
+    suiteIt('restaura a duração padrão depois de uma transição customizada', () => {
+      const manager = new SceneTransitionManager(200);
+      const request = { targetSceneId: 'interior_lab', spawnPosition: { x: 100, y: 100 } };
+      const onSwap = () => undefined;
+
+      manager.startTransition({ ...request, durationMs: 100 }, onSwap);
+      manager.update(100);
+      manager.update(100);
+      suiteExpect(manager.state).toBe('IDLE');
+
+      manager.startTransition(request, onSwap);
+      manager.update(100);
+
+      suiteExpect(manager.alpha).toBeCloseTo(0.5, 1);
+      suiteExpect(manager.state).toBe('FADING_OUT');
     });
 
     suiteIt('createLaboratoryInteriorScene deve gerar mapa interno com saída e bancadas', () => {

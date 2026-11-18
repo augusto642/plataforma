@@ -1,0 +1,45 @@
+rule_files:
+  - nexus-alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'nexus_dependency_up{service="redis"}'
+        values: '0+0x5'
+      - series: 'nexus_runner_enabled'
+        values: '1+0x5'
+      - series: 'nexus_runner_diagnostic_success{language="python"}'
+        values: '0+0x5'
+      - series: 'nexus_runner_diagnostic_timestamp_seconds{language="python"}'
+        values: '1+0x5'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NexusDependencyUnavailable
+        exp_alerts:
+          - exp_labels:
+              service: redis
+              severity: critical
+            exp_annotations:
+              summary: Nexus dependency is unavailable
+              description: The API cannot reach redis.
+      - eval_time: 5m
+        alertname: NexusRunnerDiagnosticFailed
+        exp_alerts:
+          - exp_labels:
+              language: python
+              severity: warning
+            exp_annotations:
+              summary: Runner diagnostic failed
+              description: The latest python runner diagnostic failed; investigate the private gateway and runner.
+  - interval: 1m
+    input_series:
+      - series: 'nexus_runner_enabled'
+        values: '0+0x5'
+      - series: 'nexus_runner_diagnostic_success{language="python"}'
+        values: '0+0x5'
+      - series: 'nexus_runner_diagnostic_timestamp_seconds{language="python"}'
+        values: '1+0x5'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NexusRunnerDiagnosticFailed
+        exp_alerts: []

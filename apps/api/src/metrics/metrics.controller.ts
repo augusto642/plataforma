@@ -26,7 +26,7 @@ export class MetricsController {
   @Public()
   @UseGuards(MetricsTokenGuard)
   @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
-  prometheusMetrics(): string {
+  prometheusMetrics(): Promise<string> {
     return this.metrics.toPrometheusFormat();
   }
 }

@@ -8,8 +8,8 @@
  * Regra: só lições reviewStatus='approved' chegam à tutora (draft nunca).
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface KnowledgeLessonView {
@@ -72,15 +72,48 @@ function toView(raw: any): KnowledgeLessonView {
 }
 
 export class FileKnowledgeRepository implements KnowledgeRepository {
+  private readonly logger = new Logger(FileKnowledgeRepository.name);
+  private readonly cache = new Map<string, { signature: string; value: unknown }>();
+
   constructor(private readonly contentDir: string) {}
+
+  private readJson(path: string): unknown {
+    try {
+      const stat = statSync(path);
+      const signature = `${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
+      const cached = this.cache.get(path);
+      if (cached?.signature === signature) return cached.value;
+      const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
+      this.cache.set(path, { signature, value });
+      return value;
+    } catch (error) {
+      this.cache.delete(path);
+      this.logger.warn(`knowledge: arquivo inválido ou ilegível: ${path}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  private discardDeleted(dir: string, paths: Set<string>) {
+    for (const path of this.cache.keys()) {
+      if (path.startsWith(`${dir}${sep}`) && !paths.has(path)) this.cache.delete(path);
+    }
+  }
 
   private allEntries(): any[] {
     const dir = join(this.contentDir, 'knowledge', 'entries');
     const out: any[] = [];
-    if (!existsSync(dir)) return out;
-    for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
-      try { out.push(JSON.parse(readFileSync(join(dir, f), 'utf8'))); } catch { /* entrada inválida: o validador a reprova; o repositório a ignora */ }
+    const paths = new Set<string>();
+    if (!existsSync(dir)) {
+      this.discardDeleted(dir, paths);
+      return out;
     }
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+      const path = join(dir, f);
+      paths.add(path);
+      const entry = this.readJson(path);
+      if (entry) out.push(entry);
+    }
+    this.discardDeleted(dir, paths);
     return out;
   }
 
@@ -127,17 +160,24 @@ export class FileKnowledgeRepository implements KnowledgeRepository {
   private all(): any[] {
     const dir = join(this.contentDir, 'knowledge', 'lessons');
     const out: any[] = [];
-    if (!existsSync(dir)) return out;
+    const paths = new Set<string>();
+    if (!existsSync(dir)) {
+      this.discardDeleted(dir, paths);
+      return out;
+    }
     const walk = (d: string) => {
       for (const e of readdirSync(d, { withFileTypes: true })) {
         const p = join(d, e.name);
         if (e.isDirectory()) walk(p);
         else if (e.name.endsWith('.json')) {
-          try { out.push(JSON.parse(readFileSync(p, 'utf8'))); } catch { /* lição inválida: o validador a reprova; o repositório a ignora */ }
+          paths.add(p);
+          const lesson = this.readJson(p);
+          if (lesson) out.push(lesson);
         }
       }
     };
     walk(dir);
+    this.discardDeleted(dir, paths);
     return out;
   }
 

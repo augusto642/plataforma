@@ -5,7 +5,6 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
-  InternalServerErrorException,
   Logger,
   Optional,
   Post,
@@ -101,6 +100,29 @@ function isPrismaP2002(error: unknown): boolean {
 
 function normalizeSignature(signature: string): string {
   return signature.replace(/^sha256=/i, '').toLowerCase();
+}
+
+function parseSonarRating(
+  value: string | undefined,
+): SonarMetrics['maintainabilityRating'] {
+  switch (value) {
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
+    case 'E':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function parseSonarNumber(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 @Controller('webhooks')
@@ -398,24 +420,35 @@ export class WebhooksController {
     @Headers('x-sonar-webhook-hmac-sha256') signature?: string,
   ) {
     const sonarSecret = this.config.get<string>('SONAR_WEBHOOK_SECRET');
-    if (sonarSecret && signature) {
-      const rawBody = (req as any).rawBody;
-      if (Buffer.isBuffer(rawBody)) {
-        const computedHmac = crypto
-          .createHmac('sha256', sonarSecret)
-          .update(rawBody)
-          .digest('hex');
-        const received = normalizeSignature(signature);
-        const sigBuffer = Buffer.from(received, 'utf8');
-        const compBuffer = Buffer.from(computedHmac, 'utf8');
-        if (
-          sigBuffer.length !== compBuffer.length ||
-          !crypto.timingSafeEqual(sigBuffer, compBuffer)
-        ) {
-          this.logger.warn('Invalid SonarQube webhook HMAC signature');
-          throw new UnauthorizedException('Assinatura do webhook SonarQube inválida');
-        }
-      }
+    if (!sonarSecret) {
+      this.logger.error('SONAR_WEBHOOK_SECRET is not configured; refusing webhook request');
+      throw new ConfigError('Missing required environment variable: SONAR_WEBHOOK_SECRET');
+    }
+
+    const rawBody = (req as any).rawBody;
+    if (!Buffer.isBuffer(rawBody) || rawBody.length === 0) {
+      throw new BadRequestException(
+        'Raw body is required for webhook signature verification',
+      );
+    }
+    if (!signature) {
+      this.logger.warn('SonarQube webhook request missing HMAC signature');
+      throw new UnauthorizedException('Assinatura do webhook SonarQube ausente');
+    }
+
+    const computedHmac = crypto
+      .createHmac('sha256', sonarSecret)
+      .update(rawBody)
+      .digest('hex');
+    const received = normalizeSignature(signature);
+    const sigBuffer = Buffer.from(received, 'utf8');
+    const compBuffer = Buffer.from(computedHmac, 'utf8');
+    if (
+      sigBuffer.length !== compBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, compBuffer)
+    ) {
+      this.logger.warn('Invalid SonarQube webhook HMAC signature');
+      throw new UnauthorizedException('Assinatura do webhook SonarQube inválida');
     }
 
     this.logger.log(`Received SonarQube webhook for project ${payload?.project?.key}`);
@@ -446,13 +479,13 @@ export class WebhooksController {
 
     const metrics: SonarMetrics = {
       qualityGateStatus: qgStatus,
-      maintainabilityRating: (conditionMap.get('sqale_rating') as any) || 'A',
-      reliabilityRating: (conditionMap.get('reliability_rating') as any) || 'A',
-      securityRating: (conditionMap.get('security_rating') as any) || 'A',
-      coveragePercent: Number(conditionMap.get('coverage') || 80),
-      codeSmellsCount: Number(conditionMap.get('code_smells') || 0),
-      bugsCount: Number(conditionMap.get('bugs') || 0),
-      vulnerabilitiesCount: Number(conditionMap.get('vulnerabilities') || 0),
+      maintainabilityRating: parseSonarRating(conditionMap.get('sqale_rating')),
+      reliabilityRating: parseSonarRating(conditionMap.get('reliability_rating')),
+      securityRating: parseSonarRating(conditionMap.get('security_rating')),
+      coveragePercent: parseSonarNumber(conditionMap.get('coverage')),
+      codeSmellsCount: parseSonarNumber(conditionMap.get('code_smells')),
+      bugsCount: parseSonarNumber(conditionMap.get('bugs')),
+      vulnerabilitiesCount: parseSonarNumber(conditionMap.get('vulnerabilities')),
     };
 
     let evaluation = null;
@@ -461,14 +494,25 @@ export class WebhooksController {
     }
 
     let xpResult = null;
-    if (this.gamification && evaluation) {
+    const sonarEventId =
+      typeof payload?.revision === 'string'
+        ? payload.revision
+        : typeof payload?.analysisId === 'string'
+          ? payload.analysisId
+          : typeof payload?.taskId === 'string'
+            ? payload.taskId
+            : null;
+    if (this.gamification && evaluation && sonarEventId) {
       xpResult = await this.gamification.awardGiteaProjectXp(user.id, {
         projectSlug,
         basePassed: evaluation.qualityGatePassed,
+        idempotencyKey: `sonar:${projectKey}:${sonarEventId}`,
         baseXp: evaluation.baseXp,
         sonarBonusMultiplier: evaluation.totalMultiplier,
         qualityGatePassed: evaluation.qualityGatePassed,
       });
+    } else if (this.gamification && evaluation) {
+      this.logger.warn(`Skipping Sonar XP award without a stable analysis id for ${projectKey}`);
     }
 
     return {
@@ -509,24 +553,35 @@ export class WebhooksController {
       this.config.get<string>('CI_WEBHOOK_SECRET') ||
       this.config.get<string>('GITEA_WEBHOOK_SECRET');
 
-    // Validação de token/assinatura se configurado
-    if (expectedSecret && (ciToken || ciSignature)) {
-      const provided = ciToken || ciSignature || '';
-      const providedBuffer = Buffer.from(provided);
-      const expectedBuffer = Buffer.from(expectedSecret);
+    if (!expectedSecret) {
+      this.logger.error('CI_WEBHOOK_SECRET is not configured; refusing webhook request');
+      throw new ConfigError(
+        'Missing required environment variable: CI_WEBHOOK_SECRET or GITEA_WEBHOOK_SECRET',
+      );
+    }
 
-      if (
-        providedBuffer.length !== expectedBuffer.length ||
-        !crypto.timingSafeEqual(providedBuffer, expectedBuffer)
-      ) {
-        this.logger.warn('Token ou assinatura de CI Runner inválida');
-        throw new UnauthorizedException('Token de CI Runner inválido');
-      }
+    const provided = ciToken || ciSignature;
+    if (!provided) {
+      this.logger.warn('CI Runner webhook request missing token or signature');
+      throw new UnauthorizedException('Token de CI Runner ausente');
+    }
+
+    const providedBuffer = Buffer.from(provided);
+    const expectedBuffer = Buffer.from(expectedSecret);
+
+    if (
+      providedBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(providedBuffer, expectedBuffer)
+    ) {
+      this.logger.warn('Token ou assinatura de CI Runner inválida');
+      throw new UnauthorizedException('Token de CI Runner inválido');
     }
 
     const runner = payload.runnerType || 'gitea_actions';
     const repo = payload.repoName || payload.projectName || 'unknown-repo';
     const isSuccess = payload.status === 'SUCCESS' && (payload.testsFailed ?? 0) === 0;
+    const commitSha =
+      typeof payload.commitSha === 'string' ? payload.commitSha.trim() : '';
 
     this.logger.log(
       `Received CI pipeline result from ${runner} for repo ${repo}: status=${payload.status}, passed=${payload.testsPassed}/${payload.testsTotal}`,
@@ -548,15 +603,18 @@ export class WebhooksController {
     }
 
     let xpResult = null;
-    if (user && isSuccess && this.gamification) {
+    if (user && isSuccess && this.gamification && commitSha) {
       // Credita bônus pela esteira de testes verde
       xpResult = await this.gamification.awardGiteaProjectXp(user.id, {
         projectSlug: repo,
         basePassed: true,
+        idempotencyKey: `ci:${runner}:${repo}:${commitSha}`,
         baseXp: 150,
         sonarBonusMultiplier: 1.0,
         qualityGatePassed: true,
       });
+    } else if (user && isSuccess && this.gamification) {
+      this.logger.warn(`Skipping CI XP award without a commit SHA for ${repo}`);
     }
 
     return {
@@ -567,7 +625,7 @@ export class WebhooksController {
       testsPassed: payload.testsPassed ?? 0,
       testsFailed: payload.testsFailed ?? 0,
       testsTotal: payload.testsTotal ?? 0,
-      xpAwarded: !!xpResult,
+      xpAwarded: xpResult?.awarded === true,
       userId: user?.id ?? null,
     };
   }

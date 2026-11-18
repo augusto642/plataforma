@@ -39,6 +39,7 @@ describe('GamificationService', () => {
         userBadge: {
           createMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
+        xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
       };
       return callback(mockTx);
     }),
@@ -69,6 +70,7 @@ describe('GamificationService', () => {
       'activity-1',
       true,
       100, // perfect score
+      'submission:test-perfect',
     );
 
     expect(result).toBeDefined();
@@ -84,11 +86,54 @@ describe('GamificationService', () => {
       'activity-1',
       false,
       30,
+      'submission:test-partial',
     );
 
     expect(result).toBeDefined();
     expect(result?.xpGained).toBe(20);
     expect(result?.totalXp).toBe(170);
+  });
+
+  it('records Tower objective XP separately and does not award code-submission badges', async () => {
+    const createLedgerEntry = jest.fn().mockResolvedValue({ count: 1 });
+    const createBadge = jest.fn();
+    const tx = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(mockUser),
+        update: jest.fn().mockImplementation(({ data }: any) =>
+          Promise.resolve({
+            ...mockUser,
+            xp: mockUser.xp + (data.xp?.increment ?? 0),
+            level: data.level ?? mockUser.level,
+            streakDays: data.streakDays ?? mockUser.streakDays,
+            lastActiveAt: data.lastActiveAt ?? mockUser.lastActiveAt,
+          }),
+        ),
+      },
+      xpLedgerEntry: { createMany: createLedgerEntry },
+      userBadge: { createMany: createBadge },
+    };
+
+    const result = await service.awardTowerObjectiveXp(
+      mockUser.id,
+      'bug_hunt:1:6',
+      true,
+      100,
+      'tower-objective:move-1',
+      tx as any,
+    );
+
+    expect(result?.xpGained).toBe(120);
+    expect(createLedgerEntry).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          source: 'tower_objective',
+          description: 'Recompensa pelo desafio da Torre bug_hunt:1:6',
+        }),
+      ],
+      skipDuplicates: true,
+    });
+    expect(createBadge).not.toHaveBeenCalled();
   });
 
   it('calls user.update with xp increment delta instead of absolute value', async () => {
@@ -109,10 +154,17 @@ describe('GamificationService', () => {
         }),
       },
       userBadge: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(txWithCapture));
 
-    const result = await service.awardSubmissionXp(mockUser.id, 'activity-1', true, 100);
+    const result = await service.awardSubmissionXp(
+      mockUser.id,
+      'activity-1',
+      true,
+      100,
+      'submission:capture',
+    );
 
     expect(result?.xpGained).toBe(120);
     // 1º update: só o increment (nunca valor absoluto) + lastActiveAt.
@@ -143,11 +195,18 @@ describe('GamificationService', () => {
           return Promise.resolve({ count: 1 });
         }),
       },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(txWithCapture));
 
     // Score 100 + streak 3: first_step + perfectionist + streak_3
-    await service.awardSubmissionXp(mockUser.id, 'activity-1', true, 100);
+    await service.awardSubmissionXp(
+      mockUser.id,
+      'activity-1',
+      true,
+      100,
+      'submission:badges',
+    );
 
     expect(capturedCreateMany.skipDuplicates).toBe(true);
     expect(capturedCreateMany.data.map((b: any) => b.badgeCode)).toEqual(
@@ -162,16 +221,76 @@ describe('GamificationService', () => {
         update: jest.fn().mockRejectedValue(new Error('db down')),
       },
       userBadge: { createMany: jest.fn() },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
 
     await expect(
-      service.awardSubmissionXp(mockUser.id, 'activity-1', true, 100, failingTx as any),
+      service.awardSubmissionXp(
+        mockUser.id,
+        'activity-1',
+        true,
+        100,
+        'submission:failure',
+        failingTx as any,
+      ),
     ).rejects.toThrow('db down');
     // Sem tx externa, o comportamento antigo (catch -> null) é preservado.
     (prisma as any).$transaction.mockRejectedValueOnce(new Error('db down'));
     await expect(
-      service.awardSubmissionXp(mockUser.id, 'activity-1', true, 100),
+      service.awardSubmissionXp(mockUser.id, 'activity-1', true, 100, 'submission:failure'),
     ).resolves.toBeNull();
+  });
+
+  it('does not award XP again when the ledger already contains the event key', async () => {
+    const tx = {
+    user: {
+      findUnique: jest.fn().mockResolvedValue(mockUser),
+      update: jest.fn(),
+    },
+    xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    };
+
+    const result = await service.awardSubmissionXp(
+    mockUser.id,
+    'activity-1',
+    true,
+    100,
+    'submission:already-recorded',
+    tx as any,
+    );
+
+    expect(result).toMatchObject({ duplicate: true, xpGained: 0, totalXp: mockUser.xp });
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('claims a daily bonus only when its ledger entry is new', async () => {
+    const tx = {
+    userBadge: { findUnique: jest.fn().mockResolvedValue(null) },
+    xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    user: { update: jest.fn() },
+    };
+    (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(tx));
+
+    await expect(service.claimDailyBonus(mockUser.id)).resolves.toMatchObject({
+    claimed: false,
+    xpAwarded: 0,
+    });
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it('returns only the authenticated user’s latest XP ledger entries', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    (prisma as any).xpLedgerEntry = { findMany };
+
+    await service.getXpHistory(mockUser.id);
+
+    expect(findMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: { userId: mockUser.id },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+    }),
+    );
   });
 });
 
@@ -209,6 +328,7 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
         }),
       },
       userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     const mockPrisma: any = {
       $transaction: jest.fn(async (cb: any) => cb(tx)),
@@ -244,11 +364,12 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
         }),
       },
       userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     }));
 
     const [first, second] = await Promise.all([
-      service.awardSubmissionXp('user-1', 'act-1', true, 100),
-      service.awardSubmissionXp('user-1', 'act-1', true, 100),
+      service.awardSubmissionXp('user-1', 'act-1', true, 100, 'submission:race-1'),
+      service.awardSubmissionXp('user-1', 'act-1', true, 100, 'submission:race-2'),
     ]);
 
     // Cada prêmio é 70 + 50 (score 100) = 120. A 1ª corrida vê 310
@@ -262,33 +383,35 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
     expect(db.level).toBe(3);
   });
 
-  it('streak resets to 1 after 3+ calendar days without activity (B15: 1-day grace preserved)', async () => {
-    const user3DaysAgo = {
+  it('streak resets to 1 after four calendar days without activity', async () => {
+    const now = new Date();
+    const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const userFourDaysAgo = {
       id: 'user-1',
       xp: 0,
       level: 1,
       streakDays: 5,
-      // 73h atrás = 3+ dias de calendário atrás em qualquer horário:
-      // gap > 2 dias -> quebra (a regra antiga de 48h foi substituída pela B15).
-      lastActiveAt: new Date(Date.now() - 73 * 60 * 60 * 1000),
+      // Quatro dias de calendário atrás sempre excedem o limite semanal.
+      lastActiveAt: new Date(todayUtc - 4 * 86_400_000 + 10 * 3_600_000),
       badges: [],
     };
     const tx = {
       user: {
-        findUnique: jest.fn().mockResolvedValue(user3DaysAgo),
+        findUnique: jest.fn().mockResolvedValue(userFourDaysAgo),
         update: jest.fn().mockImplementation(({ data }: any) => {
-          const next: any = { ...user3DaysAgo };
-          if (data.xp?.increment) next.xp = user3DaysAgo.xp + data.xp.increment;
+          const next: any = { ...userFourDaysAgo };
+          if (data.xp?.increment) next.xp = userFourDaysAgo.xp + data.xp.increment;
           if (typeof data.level === 'number') next.level = data.level;
           if (typeof data.streakDays === 'number') next.streakDays = data.streakDays;
           return Promise.resolve(next);
         }),
       },
       userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     (prisma as any).$transaction.mockImplementation(async (cb: any) => cb(tx));
 
-    const result = await service.awardSubmissionXp('user-1', 'act-1', true, 80);
+    const result = await service.awardSubmissionXp('user-1', 'act-1', true, 80, 'submission:streak');
 
     expect(result?.streak).toBe(1);
     expect(result?.totalXp).toBe(70);
@@ -328,10 +451,17 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
         }),
       },
       userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     (prisma as any).$transaction.mockImplementation(async (cb: any) => cb(tx));
 
-    const result = await service.awardSubmissionXp('user-1', 'act-1', false, 30);
+    const result = await service.awardSubmissionXp(
+      'user-1',
+      'act-1',
+      false,
+      30,
+      'submission:same-day',
+    );
 
     expect(result?.streak).toBe(4);
     // Nível (1) e streak (4) não mudaram: só o update do increment roda.
@@ -366,9 +496,16 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
           ),
         },
         userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+        xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
       };
       (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(tx));
-      return service.awardSubmissionXp(scenarioUser.id, 'activity-1', true, 50);
+      return service.awardSubmissionXp(
+        scenarioUser.id,
+        'activity-1',
+        true,
+        50,
+        `submission:streak-${lastActiveAt?.toISOString() ?? 'first'}`,
+      );
     }
 
     it('atividade no dia seguinte mantém e soma +1', async () => {
@@ -386,9 +523,66 @@ describe('GamificationService level/streak under concurrency (M4)', () => {
       expect(result?.streak).toBe(5);
     });
 
-    it('2 dias pulados quebram a sequência (recomeça em 1)', async () => {
-      const result = await awardWithUser(daysAgoAt(3), 4);
-      expect(result?.streak).toBe(1);
+    it('persists the UTC week when the rest day is consumed', async () => {
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date(Date.UTC(2026, 9, 20, 12)));
+        const scenarioUser = {
+          id: 'user-1',
+          xp: 0,
+          level: 1,
+          streakDays: 4,
+          lastActiveAt: new Date(Date.UTC(2026, 9, 18, 10)),
+          streakRestWeekStart: null,
+          badges: [],
+        };
+        const updates: any[] = [];
+        const tx = {
+          user: {
+            findUnique: jest.fn().mockResolvedValue(scenarioUser),
+            update: jest.fn().mockImplementation(({ data }: any) => {
+              updates.push(data);
+              return Promise.resolve({
+                ...scenarioUser,
+                streakDays: data.streakDays ?? scenarioUser.streakDays,
+                streakRestWeekStart:
+                  'streakRestWeekStart' in data
+                    ? data.streakRestWeekStart
+                    : scenarioUser.streakRestWeekStart,
+              });
+            }),
+          },
+          userBadge: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          xpLedgerEntry: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        };
+        (prisma as any).$transaction.mockImplementationOnce(async (cb: any) => cb(tx));
+
+        const result = await service.awardSubmissionXp(
+          scenarioUser.id,
+          'activity-1',
+          true,
+          50,
+          'submission:weekly-rest-marker',
+        );
+
+        expect(result?.streak).toBe(5);
+        expect(updates[1].streakRestWeekStart).toEqual(
+          new Date(Date.UTC(2026, 9, 19)),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('2 dias pulados na mesma semana quebram a sequência', async () => {
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date(Date.UTC(2026, 9, 19, 12)));
+        const result = await awardWithUser(new Date(Date.UTC(2026, 9, 16, 10)), 4);
+        expect(result?.streak).toBe(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('primeira atividade (sem lastActiveAt) começa em 1', async () => {

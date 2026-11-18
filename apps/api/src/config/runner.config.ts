@@ -1,5 +1,7 @@
 export interface RunnerConfig {
+  enabled: boolean;
   url: string;
+  authToken?: string;
   /**
    * M7 (Lote 4) — TIMEOUT CANÔNICO DO PISTON. `timeoutMs`
    * (`PISTON_TIMEOUT_MS`, default 30 s) é o ÚNICO valor de timeout de
@@ -55,12 +57,46 @@ function parsePositiveInt(
 export function buildRunnerConfig(
   env: Record<string, string | undefined>,
 ): RunnerConfig {
+  const enabledValue = env.PISTON_ENABLED;
+  if (
+    enabledValue !== undefined &&
+    enabledValue !== 'true' &&
+    enabledValue !== 'false'
+  ) {
+    throw new Error('Invalid PISTON_ENABLED: expected true or false');
+  }
+
   const rawUrl = (env.PISTON_URL || PISTON_DEFAULT_URL).trim();
   if (!rawUrl) {
     throw new Error('Invalid PISTON_URL: must not be empty');
   }
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    throw new Error('Invalid PISTON_URL: expected an absolute HTTP(S) URL');
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    throw new Error('Invalid PISTON_URL: only HTTP(S) URLs are supported');
+  }
+
+  const authToken = env.PISTON_AUTH_TOKEN?.trim() || undefined;
+  if (authToken && !/^[a-f0-9]{64}$/i.test(authToken)) {
+    throw new Error(
+      'Invalid PISTON_AUTH_TOKEN: expected 32 random bytes encoded as 64 hex characters',
+    );
+  }
+  const localHosts = new Set(['piston', 'localhost', '127.0.0.1', '[::1]']);
+  if (!localHosts.has(parsedUrl.hostname.toLowerCase()) && !authToken) {
+    throw new Error(
+      'PISTON_AUTH_TOKEN is required when PISTON_URL points to a remote runner',
+    );
+  }
+
   return {
+    enabled: enabledValue === 'true',
     url: rawUrl.replace(/\/+$/, ''),
+    authToken,
     timeoutMs: parsePositiveInt(
       env.PISTON_TIMEOUT_MS,
       PISTON_DEFAULT_TIMEOUT_MS,

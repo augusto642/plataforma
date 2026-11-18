@@ -1,21 +1,21 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PlansModule } from '../plans/plans.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { BILLING_PROVIDER_TOKEN } from './billing-provider.interface';
 import { BillingController } from './billing.controller';
 import { BillingEventsProcessor } from './billing-events.processor';
 import { BillingService, BILLING_EVENTS_QUEUE } from './billing.service';
+import { MercadoPagoTestProvider } from './providers/mercadopago-test.provider';
 import { SimulatedTestProvider } from './providers/simulated-test.provider';
 import { TestModeGuard } from './test-mode.guard';
+import { AlphaFreeBillingGuard } from './alpha-free.guard';
 
 /**
  * Fase 1 premium (desenho §2.1) — módulo de billing.
- * Provedor ativo: `SimulatedTestProvider` (sandbox simulado, sem
- * credencial, sem rede de pagamento real). O adapter Mercado Pago
- * existe no código mas NÃO é registrado aqui — está desativado até
- * decisão do Augusto (e o boot falha com BILLING_PROVIDER != simulated).
+ * `BILLING_PROVIDER` escolhe entre simulação e Mercado Pago sandbox;
+ * a validação de configuração impede qualquer chave live.
  * Registrado no AppModule; força o registro explícito do PlansModule
  * (hoje só entra via AiModule).
  */
@@ -31,10 +31,20 @@ import { TestModeGuard } from './test-mode.guard';
     BillingService,
     BillingEventsProcessor,
     TestModeGuard,
+    AlphaFreeBillingGuard,
     SimulatedTestProvider,
+    MercadoPagoTestProvider,
     {
       provide: BILLING_PROVIDER_TOKEN,
-      useExisting: SimulatedTestProvider,
+      inject: [ConfigService, SimulatedTestProvider, MercadoPagoTestProvider],
+      useFactory: (
+        config: ConfigService,
+        simulated: SimulatedTestProvider,
+        mercadopago: MercadoPagoTestProvider,
+      ) =>
+        config.get<string>('BILLING_PROVIDER', 'simulated') === 'mercadopago'
+          ? mercadopago
+          : simulated,
     },
   ],
   exports: [BillingService],

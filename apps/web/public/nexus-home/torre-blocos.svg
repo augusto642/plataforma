@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 620">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#101b18"/><stop offset=".6" stop-color="#294b3b"/><stop offset="1" stop-color="#101b18"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#93d9ab" stop-opacity=".25"/><stop offset="1" stop-color="#93d9ab" stop-opacity="0"/></radialGradient>
+    <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#244239"/><stop offset="1" stop-color="#101b18"/></linearGradient>
+    <g id="layer">
+      <path d="M0 12 140 0l60 25-140 12Z" fill="currentColor"/>
+      <path d="M0 12 140 0l60 25-140 12Z" fill="#fff" opacity=".22"/>
+      <path d="M0 12 60 37v24L0 36Z" fill="currentColor"/>
+      <path d="M0 12 60 37v24L0 36Z" fill="#050b16" opacity=".28"/>
+      <path d="m60 37 140-12v24L60 61Z" fill="currentColor"/>
+      <path d="m60 37 140-12v24L60 61Z" fill="#050b16" opacity=".12"/>
+      <path d="M0 12 140 0l60 25v24L60 61 0 36ZM0 12l60 25 140-12M60 37v24" fill="none" stroke="#d7f8f2" stroke-opacity=".28" stroke-width="1.2" stroke-linejoin="round"/>
+    </g>
+    <g id="across">
+      <use href="#layer"/>
+      <path d="m20 20 140-12m-120 20 140-11M20 20v24m20-16v24" fill="none" stroke="#0c1726" stroke-opacity=".7" stroke-width="2"/>
+      <path d="m22 21 135-11m-115 20 135-11" fill="none" stroke="#fff" stroke-opacity=".15"/>
+    </g>
+    <g id="along">
+      <use href="#layer"/>
+      <path d="M47 8 107 33v24M94 4l60 25v24" fill="none" stroke="#0c1726" stroke-opacity=".7" stroke-width="2"/>
+      <path d="m49 8 58 24m-11-28 58 24" fill="none" stroke="#fff" stroke-opacity=".15"/>
+    </g>
+  </defs>
+  <rect width="520" height="620" fill="url(#sky)"/>
+  <circle cx="260" cy="275" r="220" fill="url(#halo)"/>
+  <g fill="none" stroke="#9beadd" opacity=".13"><circle cx="260" cy="300" r="176"/><circle cx="260" cy="300" r="208"/><path d="M47 488 260 555 475 488M58 534l202 67 202-67M260 555v46"/></g>
+  <g fill="#c6fff0" opacity=".7"><circle cx="86" cy="169" r="2"/><circle cx="430" cy="234" r="2"/><circle cx="115" cy="361" r="1.5"/><circle cx="409" cy="132" r="1.5"/></g>
+  <g fill="none" stroke="#bce9f4" opacity=".55"><path d="m87 255 3-10 3 10 10 3-10 3-3 10-3-10-10-3Z"/><path d="m411 352 2-8 2 8 8 2-8 2-2 8-2-8-8-2Z"/></g>
+  <ellipse cx="260" cy="503" rx="154" ry="38" fill="#04d361" opacity=".09"/>
+  <ellipse cx="260" cy="492" rx="132" ry="27" fill="url(#floor)" stroke="#59c7a6" stroke-opacity=".6"/>
+  <g transform="translate(160 106)">
+    <use href="#along" transform="translate(0 328)" style="color:#244239"/>
+    <use href="#across" transform="translate(-3 297)" style="color:#456b5c"/>
+    <use href="#along" transform="translate(1 266)" style="color:#8c7caa"/>
+    <use href="#across" transform="translate(-2 235)" style="color:#93d9ab"/>
+    <use href="#along" transform="translate(2 204)" style="color:#456b5c"/>
+    <use href="#across" transform="translate(-1 173)" style="color:#244239"/>
+    <use href="#along" transform="translate(2 142)" style="color:#93d9ab"/>
+    <use href="#across" transform="translate(-1 111)" style="color:#456b5c"/>
+    <use href="#along" transform="translate(2 80)" style="color:#8c7caa"/>
+    <use href="#across" transform="translate(-2 49)" style="color:#244239"/>
+    <use href="#along" transform="translate(0 18)" style="color:#93d9ab"/>
+  </g>
+  <g fill="none" stroke="#a9fbe1" stroke-width="1.4" opacity=".5"><path d="M112 123h25m-12-12v24M398 419h20m-10-10v20"/></g>
+</svg>

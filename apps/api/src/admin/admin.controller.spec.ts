@@ -1,4 +1,4 @@
-import { Role } from '@prisma/client';
+import { Plan, Role } from '@prisma/client';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { KmsService } from '../knowledge/kms.service';
@@ -29,6 +29,7 @@ describe('AdminController', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
+      updateUserPlan: jest.fn().mockResolvedValue({ id: 'u1', plan: Plan.pro }),
       createInstructor: jest.fn().mockResolvedValue({
         id: 'u2',
         email: 'prof@nexus.code',
@@ -43,6 +44,9 @@ describe('AdminController', () => {
         uptime: 100,
         services: { database: 'up', redis: 'up' },
       }),
+      controlAiQueue: jest.fn().mockResolvedValue({ id: 'audit-1', status: 'succeeded' }),
+      listAiOperatorAudit: jest.fn().mockResolvedValue([]),
+      listAdminAudit: jest.fn().mockResolvedValue([]),
     };
 
     controller = new AdminController(service as AdminService);
@@ -51,6 +55,59 @@ describe('AdminController', () => {
   it('delegates getMetrics to service', async () => {
     await controller.getMetrics();
     expect(service.getMetrics).toHaveBeenCalled();
+  });
+
+  it('passes the authenticated administrator to queue controls', async () => {
+    const dto = { queue: 'ai-reviews', action: 'pause', reason: 'Pausing during provider incident' } as const;
+    await controller.controlAiQueue(dto, { sub: 'admin-1' } as any);
+    expect(service.controlAiQueue).toHaveBeenCalledWith(dto, 'admin-1');
+  });
+
+  it('delegates operator audit listing', async () => {
+    await controller.listAiOperatorAudit();
+    expect(service.listAiOperatorAudit).toHaveBeenCalled();
+  });
+
+  it('passes the authenticated administrator to role and plan updates', async () => {
+    await controller.updateUserRole('u1', { role: Role.instructor }, { sub: 'admin-1' } as any);
+    expect(service.updateUserRole).toHaveBeenCalledWith('u1', Role.instructor, 'admin-1');
+
+    await controller.updateUserPlan('u1', { plan: Plan.pro }, { sub: 'admin-1' } as any);
+    expect(service.updateUserPlan).toHaveBeenCalledWith('u1', Plan.pro, 'admin-1');
+  });
+
+  it('delegates general administrative audit listing', async () => {
+    await controller.listAdminAudit();
+    expect(service.listAdminAudit).toHaveBeenCalled();
+  });
+
+  it('passes the authenticated administrator to specialized room mutations', async () => {
+    const aiRooms = {
+      create: jest.fn().mockResolvedValue({ id: 'room-1' }),
+      update: jest.fn().mockResolvedValue({ id: 'room-1' }),
+    };
+    const roomsController = new AdminController(
+      service as AdminService,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      aiRooms as any,
+    );
+    const roomDto = {
+      activityId: 'activity-1',
+      title: 'Depuração',
+      slug: 'depuracao',
+      description: 'Investigue falhas de teste.',
+      systemInstructions: 'Faça perguntas.',
+      model: 'approved-model',
+    };
+
+    await roomsController.createAiRoom(roomDto, { sub: 'admin-1' } as any);
+    await roomsController.updateAiRoom('room-1', { isPublished: true }, { sub: 'admin-1' } as any);
+
+    expect(aiRooms.create).toHaveBeenCalledWith(roomDto, 'admin-1');
+    expect(aiRooms.update).toHaveBeenCalledWith('room-1', { isPublished: true }, 'admin-1');
   });
 
   it('delegates getUsers to service with parsed params', async () => {
@@ -64,8 +121,8 @@ describe('AdminController', () => {
   });
 
   it('delegates updateUserRole to service', async () => {
-    await controller.updateUserRole('u1', { role: Role.admin });
-    expect(service.updateUserRole).toHaveBeenCalledWith('u1', Role.admin);
+    await controller.updateUserRole('u1', { role: Role.admin }, { sub: 'admin-1' } as any);
+    expect(service.updateUserRole).toHaveBeenCalledWith('u1', Role.admin, 'admin-1');
   });
 
   it('delegates createInstructor to service', async () => {

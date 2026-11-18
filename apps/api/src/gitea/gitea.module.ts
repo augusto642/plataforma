@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
+import { GiteaDeletionService } from './gitea-deletion.service';
 import { GiteaService } from './gitea.service';
 
 @Module({
-  providers: [GiteaService],
-  exports: [GiteaService],
+  imports: [PrismaModule],
+  providers: [GiteaService, GiteaDeletionService],
+  exports: [GiteaService, GiteaDeletionService],
 })
 export class GiteaModule {}

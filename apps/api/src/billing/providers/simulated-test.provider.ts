@@ -11,7 +11,7 @@ import type {
 } from '../billing-provider.interface';
 
 /**
- * Fase 1 premium — provedor v1 ATIVO: sandbox SIMULADO.
+ * Fase 1 premium — provedor de desenvolvimento padrão: sandbox SIMULADO.
  * Não usa credencial, não chama rede externa de pagamento real e nunca
  * move dinheiro: `createCheckoutSession` só devolve uma URL de retorno
  * para a página de sucesso do próprio web (modo teste), e a aprovação
@@ -33,6 +33,7 @@ const KNOWN_TYPES: readonly string[] = [
   'subscription_canceled',
   'subscription_expired',
   'payment_refunded',
+  'payment_pending',
 ];
 
 @Injectable()
@@ -62,7 +63,10 @@ export class SimulatedTestProvider implements BillingProvider {
     };
   }
 
-  parseWebhook(rawBody: Buffer, signature: string | undefined): NormalizedBillingEvent {
+  async parseWebhook(
+    rawBody: Buffer,
+    signature: string | undefined,
+  ): Promise<NormalizedBillingEvent> {
     // C1 (Lote 1 P0) — fail-closed: sem segredo não há webhook válido.
     // O boot já exige BILLING_WEBHOOK_SECRET; este ramo é defesa em
     // profundidade para uso fora do boot (ex.: testes, construção manual).

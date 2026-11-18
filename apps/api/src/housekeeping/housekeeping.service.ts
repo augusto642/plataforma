@@ -1,10 +1,11 @@
-import { BullModule, InjectQueue } from '@nestjs/bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisLockService } from '../cache/redis-lock.service';
 import { LeagueService } from '../challenges/league.service';
+import { GiteaDeletionService } from '../gitea/gitea-deletion.service';
 
 @Injectable()
 export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
@@ -18,6 +19,7 @@ export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
     // Fase 3 premium (desenho §4.1): fechamento de seasons vencidas
     // (badge do campeão) no job existente — sem scheduler novo.
     private readonly league: LeagueService,
+    private readonly giteaDeletion: GiteaDeletionService,
   ) {}
 
   onModuleInit() {
@@ -141,11 +143,19 @@ export class HousekeepingService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn(`Fechamento de ligas falhou: ${err.message}`);
         }
 
+        let completedGiteaDeletions = 0;
+        try {
+          completedGiteaDeletions = await this.giteaDeletion.processPending();
+        } catch (err: any) {
+          this.logger.warn(`Retentativa de exclusão Gitea falhou: ${err.message}`);
+        }
+
         this.logger.log(
           `Limpeza concluída: ${deletedTokens.count} tokens expirados, ` +
             `${deletedWebhooks.count} webhooks antigos expurgados, ` +
             `${requeued} submissões zumbis re-enfileiradas, ${errored} marcadas como erro, ` +
-            `${closedSeasons} seasons de liga vencidas fechadas.`,
+            `${closedSeasons} seasons de liga vencidas fechadas, ` +
+            `${completedGiteaDeletions} exclusões Gitea concluídas.`,
         );
       },
       async () => {

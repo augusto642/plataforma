@@ -16,7 +16,10 @@ import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminService } from './admin.service';
+import { AiQueueControlDto } from './dto/ai-queue-control.dto';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
@@ -25,6 +28,14 @@ import { KnowledgeService } from '../knowledge/knowledge.service';
 import { KmsService } from '../knowledge/kms.service';
 import { ResearchService } from '../knowledge/research/research.service';
 import { TrackGenerationService } from '../knowledge/track-generation/track-generation.service';
+import { AiSpecializedRoomsService } from '../ai/ai-specialized-rooms.service';
+import { CreateAiSpecializedRoomDto } from '../ai/dto/create-ai-specialized-room.dto';
+import { UpdateAiSpecializedRoomDto } from '../ai/dto/update-ai-specialized-room.dto';
+import { RunnerDiagnosticsService } from './runner-diagnostics.service';
+import { Throttle } from '@nestjs/throttler';
+import { KnowledgeReferencesService } from './knowledge-references.service';
+import { CreateKnowledgeReferenceDto, PublishKnowledgeReferenceDto, ReviewKnowledgeReferenceDto } from './dto/knowledge-reference.dto';
+import { JobResearchPreflightService } from './job-research-preflight.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,6 +47,10 @@ export class AdminController {
     @Optional() private readonly research?: ResearchService,
     @Optional() private readonly kms?: KmsService,
     @Optional() private readonly tracks?: TrackGenerationService,
+    @Optional() private readonly aiRooms?: AiSpecializedRoomsService,
+    @Optional() private readonly runnerDiagnostics?: RunnerDiagnosticsService,
+    @Optional() private readonly references?: KnowledgeReferencesService,
+    @Optional() private readonly jobResearchPreflight?: JobResearchPreflightService,
   ) {}
 
   @Get('metrics')
@@ -43,6 +58,49 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   getMetrics() {
     return this.adminService.getMetrics();
+  }
+
+  @Post('ai/queue-control')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  controlAiQueue(@Body() dto: AiQueueControlDto, @CurrentUser() user: JwtPayload) {
+    return this.adminService.controlAiQueue(dto, user.sub);
+  }
+
+  @Get('ai/operator-audit')
+  @Roles(Role.admin)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  listAiOperatorAudit() {
+    return this.adminService.listAiOperatorAudit();
+  }
+
+  @Get('ai/model-configuration')
+  getAiModelConfiguration() {
+    return this.aiRooms!.getModelConfiguration();
+  }
+
+  @Get('ai/rooms/activities')
+  listAiRoomActivities() {
+    return this.aiRooms!.listActivityOptions();
+  }
+
+  @Get('ai/rooms')
+  listAiRooms() {
+    return this.aiRooms!.listAdminRooms();
+  }
+
+  @Post('ai/rooms')
+  createAiRoom(@Body() dto: CreateAiSpecializedRoomDto, @CurrentUser() user: JwtPayload) {
+    return this.aiRooms!.create(dto, user.sub);
+  }
+
+  @Patch('ai/rooms/:id')
+  updateAiRoom(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAiSpecializedRoomDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.aiRooms!.update(id, dto, user.sub);
   }
 
   @Get('users')
@@ -68,8 +126,9 @@ export class AdminController {
   updateUserRole(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserRoleDto,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateUserRole(id, dto.role);
+    return this.adminService.updateUserRole(id, dto.role, user.sub);
   }
 
   // B32 (Sprint 10) — plano do usuário (free/pro), gestão manual do
@@ -80,8 +139,14 @@ export class AdminController {
   updateUserPlan(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserPlanDto,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.adminService.updateUserPlan(id, dto.plan);
+    return this.adminService.updateUserPlan(id, dto.plan, user.sub);
+  }
+
+  @Get('audit')
+  listAdminAudit() {
+    return this.adminService.listAdminAudit();
   }
 
   @Post('instructors')
@@ -99,7 +164,84 @@ export class AdminController {
     return this.adminService.getHealth();
   }
 
+  @Get('runner/diagnostics')
+  listRunnerDiagnostics() {
+    return this.runnerDiagnostics!.list();
+  }
+
+  @Post('runner/diagnostics')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  runRunnerDiagnostics(@CurrentUser() user: JwtPayload) {
+    return this.runnerDiagnostics!.run(user.sub);
+  }
+
   // ── Sistema de conhecimento (DESIGN §3.5) — mesmas guardas admin ──────
+  @Get('knowledge/references')
+  listKnowledgeReferences(@Query('status') status?: string) {
+    return this.references!.list(status);
+  }
+
+  @Post('knowledge/references')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  createKnowledgeReference(@Body() dto: CreateKnowledgeReferenceDto, @CurrentUser() user: JwtPayload) {
+    return this.references!.create(dto, user.sub);
+  }
+
+  @Post('knowledge/references/:id/review')
+  reviewKnowledgeReference(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviewKnowledgeReferenceDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.references!.review(id, dto, user.sub);
+  }
+
+  @Get('knowledge/curation-candidates')
+  listCurationCandidates(@Query('status') status?: string) {
+    return this.references!.listCuration(status);
+  }
+
+  @Get('knowledge/job-research-preflight')
+  jobResearchConfiguration() {
+    return this.jobResearchPreflight!.getStatus();
+  }
+
+  @Post('knowledge/job-research-diagnostics')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  runJobResearchDiagnostic(@CurrentUser() user: JwtPayload) {
+    return this.jobResearchPreflight!.runDiagnostic(user.sub);
+  }
+
+  @Post('knowledge/references/:id/curation')
+  queueReferenceForCuration(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.references!.queueForCuration(id, user.sub);
+  }
+
+  @Post('knowledge/curation-candidates/:id/archive')
+  archiveCurationCandidate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.references!.archiveCuration(id, user.sub);
+  }
+
+  @Post('knowledge/curation-candidates/:id/research')
+  async createCurationResearch(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    if (!this.research || !this.references) throw new Error('Serviço de curadoria indisponível.');
+    const candidate = await this.references.requestResearchDraft(id, user.sub);
+    const reference = candidate.reference;
+    return this.research.createReferenceDraft({
+      candidateId: candidate.id, kind: reference.kind, title: reference.title,
+      url: reference.url, author: reference.author, license: reference.license,
+    });
+  }
+
+  @Post('knowledge/curation-candidates/:id/publish')
+  publishCuration(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PublishKnowledgeReferenceDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.references!.publishCuration(id, dto, user.sub);
+  }
+
   @Post('knowledge/research')
   @Roles(Role.admin)
   @UseGuards(JwtAuthGuard, RolesGuard)

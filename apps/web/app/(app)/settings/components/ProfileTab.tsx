@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { apiFetch, API_BASE } from '../../../lib/apiClient';
 
@@ -186,6 +187,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ onNotify }) => {
         </div>
       </div>
 
+      {user.role === 'student' && (
+        <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 space-y-2">
+          <h3 className="text-base font-bold text-white font-heading">Perfil de aprendizagem</h3>
+          <p className="text-sm text-zinc-400">Informe seu objetivo, sua experiência e seu tempo de estudo.</p>
+          <Link className="inline-flex min-h-11 items-center text-[#88efb7] underline" href="/perfil-inicial">
+            Preencher perfil de aprendizagem
+          </Link>
+        </div>
+      )}
       {/* Visibilidade no Portal de Talentos */}
       <div className="bg-[#0C0F17] border border-[#1C2338] rounded-2xl p-6 space-y-4 shadow-sm">
         <h3 className="text-base font-bold text-white font-heading">

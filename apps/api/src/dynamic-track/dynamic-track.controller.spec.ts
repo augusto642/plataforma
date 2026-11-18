@@ -3,6 +3,7 @@ import { DynamicTrackController } from './dynamic-track.controller';
 function buildController() {
   const service = {
     getMyInvestigation: jest.fn(),
+    getImmediateMiniTrack: jest.fn(),
     startForUser: jest.fn(),
     refreshForUser: jest.fn(),
     markSeen: jest.fn(),
@@ -10,7 +11,7 @@ function buildController() {
     reenqueueAdmin: jest.fn(),
   };
   return {
-    controller: new DynamicTrackController(service as never),
+    controller: new DynamicTrackController(service as never, {} as never),
     service,
   };
 }
@@ -18,12 +19,30 @@ function buildController() {
 const user = { sub: 'user-1', email: 'a@b.c', role: 'student' } as never;
 
 describe('DynamicTrackController', () => {
+  it('scopes goals and private evidence to the authenticated user', async () => {
+    const evidence = { goals: jest.fn(), portfolio: jest.fn() };
+    const controller = new DynamicTrackController({} as never, evidence as never);
+    controller.getSkillGoals(user);
+    controller.getEvidence(user);
+    expect(evidence.goals).toHaveBeenCalledWith('user-1');
+    expect(evidence.portfolio).toHaveBeenCalledWith('user-1');
+  });
+
   it('GET /me devolve a investigação do aluno logado', async () => {
     const { controller, service } = buildController();
     service.getMyInvestigation.mockResolvedValue({ status: 'investigating' });
     const out = await controller.getMine(user);
     expect(out).toEqual({ investigation: { status: 'investigating' } });
     expect(service.getMyInvestigation).toHaveBeenCalledWith('user-1');
+  });
+
+  it('GET /me/mini-track delegates to the authenticated user', async () => {
+    const { controller, service } = buildController();
+    const miniTrack = { available: true, track: 'frontend', activities: [] };
+    service.getImmediateMiniTrack.mockResolvedValue(miniTrack);
+
+    await expect(controller.getMiniTrack(user)).resolves.toEqual(miniTrack);
+    expect(service.getImmediateMiniTrack).toHaveBeenCalledWith('user-1');
   });
 
   it('POST /me/start delega ao service com o sub do token', async () => {
@@ -60,6 +79,35 @@ describe('DynamicTrackController', () => {
     expect(out).toEqual({
       investigation: { status: 'ready', suggestedTrack: 'ai' },
     });
+  });
+
+  it('GET /me/immersion reports real status without fabricated progress or market data', async () => {
+    const { controller, service } = buildController();
+    service.getMyInvestigation.mockResolvedValue({
+      status: 'investigating',
+      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000 - 60_000),
+      careerGoals: ['fullstack'],
+    });
+
+    const result = await controller.getImmersionModule(user);
+
+    expect(result.investigationStatus).toBe('investigating');
+    expect(result.hoursElapsed).toBe(3);
+    expect(result.marketDataAvailable).toBe(false);
+    expect(result.marketXRay).toBeNull();
+    expect(result).not.toHaveProperty('progressPercentage');
+    expect(result).not.toHaveProperty('workersActive');
+    expect(result.miningStage).toContain('não há telemetria');
+  });
+
+  it('GET /me/immersion does not invent an age when the investigation has no timestamp', async () => {
+    const { controller, service } = buildController();
+    service.getMyInvestigation.mockResolvedValue({ status: 'investigating' });
+
+    const result = await controller.getImmersionModule(user);
+
+    expect(result.hoursElapsed).toBeNull();
+    expect(result.investigationStatus).toBe('investigating');
   });
 
   it('GET /admin/investigations lista para o admin', async () => {

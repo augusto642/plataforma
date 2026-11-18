@@ -17,6 +17,7 @@ interface ChatMessage {
   provider?: string;
   model?: string;
   fallbackReason?: string;
+  responseId?: string;
 }
 
 interface ComplexityResult {
@@ -26,6 +27,13 @@ interface ComplexityResult {
   bottlenecks: string[];
   recommendations: string[];
   score: number;
+}
+
+interface AiRoomOption {
+  id: string;
+  title: string;
+  description: string;
+  model: string;
 }
 
 interface AITutorPanelProps {
@@ -51,9 +59,38 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isAnalyzingBigO, setIsAnalyzingBigO] = useState(false);
   const [complexityResult, setComplexityResult] = useState<ComplexityResult | null>(null);
+  const [feedbackStates, setFeedbackStates] = useState<Record<string, 'select' | 'submitting' | 'submitted' | 'error'>>({});
+  const [aiRooms, setAiRooms] = useState<AiRoomOption[]>([]);
+  const [selectedAiRoomId, setSelectedAiRoomId] = useState('');
+  const [aiRoomsError, setAiRoomsError] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const abortStreamRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAiRooms([]);
+    setSelectedAiRoomId('');
+    setAiRoomsError(null);
+    fetch(`${API_BASE}/ai/rooms?activityId=${encodeURIComponent(activityId)}`, {
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Não foi possível carregar as salas (${res.status}).`);
+        return (await res.json()) as AiRoomOption[];
+      })
+      .then((rooms) => {
+        if (!cancelled) setAiRooms(rooms);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAiRoomsError(err instanceof Error ? err.message : 'Falha ao carregar salas especializadas.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activityId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +100,10 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
       setIsLoadingHistory(true);
       try {
         // Cookie-only: sem Authorization — sessão vem do cookie httpOnly.
-        const res = await fetch(`${API_BASE}/ai/history/${activityId}`, {
+        const roomQuery = selectedAiRoomId
+          ? `?aiRoomId=${encodeURIComponent(selectedAiRoomId)}`
+          : '';
+        const res = await fetch(`${API_BASE}/ai/history/${activityId}${roomQuery}`, {
           signal: controller.signal,
           credentials: 'include',
         });
@@ -75,7 +115,9 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
             setChatMessages([
               {
                 role: 'assistant',
-                content: `Olá! Sou a Lumi, sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
+                content: selectedRoom
+                  ? `Olá! Sou a Lumi, sua tutora na sala "${selectedRoom.title}". ${selectedRoom.description} Como posso te orientar no raciocínio?`
+                  : `Olá! Sou a Lumi, sua Tutora de IA da NEXUS CODE. Estou acompanhando sua resolução de "${activityTitle}". Como posso te orientar no raciocínio?`,
               },
             ]);
           }
@@ -110,7 +152,9 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
       controller.abort();
       abortStreamRef.current?.abort();
     };
-  }, [activityId, activityTitle, token]);
+  }, [activityId, activityTitle, token, selectedAiRoomId, aiRooms]);
+
+  const selectedRoom = aiRooms.find((room) => room.id === selectedAiRoomId);
 
   useEffect(() => {
     if (chatBottomRef.current && !isLoadingHistory) {
@@ -127,6 +171,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
 
     const userMsg: ChatMessage = { role: 'user', content: promptText.trim() };
     const baseMessages = [...chatMessages, userMsg];
+    const responseId = crypto.randomUUID();
     
     // Add temporary empty assistant message to receive stream
     setChatMessages([...baseMessages, { role: 'assistant', content: '' }]);
@@ -143,6 +188,7 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
         headers,
         body: JSON.stringify({
           activityId,
+          aiRoomId: selectedAiRoomId || undefined,
           code,
           testFailure,
           messages: baseMessages,
@@ -156,12 +202,15 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
         const fallbackRes = await fetch(`${API_BASE}/ai/chat`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ activityId, code, testFailure, messages: baseMessages }),
+          body: JSON.stringify({ activityId, aiRoomId: selectedAiRoomId || undefined, code, testFailure, messages: baseMessages }),
           credentials: 'include',
         });
         if (fallbackRes.ok) {
           const reply = await fallbackRes.json();
-          setChatMessages([...baseMessages, reply]);
+          setChatMessages([
+            ...baseMessages,
+            { ...reply, responseId: reply.content?.trim() ? responseId : undefined },
+          ]);
         } else {
           setChatMessages([
             ...baseMessages,
@@ -217,6 +266,15 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
             } catch {}
           }
         }
+        setChatMessages([
+          ...baseMessages,
+          {
+            role: 'assistant',
+            content: accumulatedContent,
+            ...(streamSource ?? {}),
+            responseId: accumulatedContent.trim() ? responseId : undefined,
+          },
+        ]);
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -234,12 +292,35 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
     } finally {
       setIsStreaming(false);
     }
-  }, [activityId, chatMessages, code, isStreaming, token]);
+  }, [activityId, chatMessages, code, isStreaming, selectedAiRoomId, testFailure]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
       sendStreamMessage(chatInput);
+    }
+  };
+
+  const submitTutorFeedback = async (
+    responseId: string,
+    helpful: boolean,
+    concern?: 'too_much_answer' | 'incorrect' | 'unclear',
+  ) => {
+    setFeedbackStates((current) => ({ ...current, [responseId]: 'submitting' }));
+    try {
+      const res = await fetch(`${API_BASE}/ai/tutor-feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responseId, activityId, helpful, concern }),
+        credentials: 'include',
+      });
+      if (res.ok || res.status === 409) {
+        setFeedbackStates((current) => ({ ...current, [responseId]: 'submitted' }));
+      } else {
+        setFeedbackStates((current) => ({ ...current, [responseId]: 'error' }));
+      }
+    } catch {
+      setFeedbackStates((current) => ({ ...current, [responseId]: 'error' }));
     }
   };
 
@@ -353,6 +434,38 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
           ✕
         </button>
       </div>
+
+      {(aiRooms.length > 0 || aiRoomsError) && (
+        <div style={{ padding: '9px 14px', background: '#101014', borderBottom: '1px solid #1E1E24' }}>
+          {aiRooms.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#A1A1AA', fontSize: 11 }}>
+              Sala de aprendizagem
+              <select
+                aria-label="Sala de aprendizagem"
+                value={selectedAiRoomId}
+                disabled={isStreaming}
+                onChange={(event) => setSelectedAiRoomId(event.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: '#18181B',
+                  border: '1px solid #3F3F46',
+                  borderRadius: 7,
+                  padding: '6px 8px',
+                  color: '#E4E4E7',
+                  fontSize: 11,
+                }}
+              >
+                <option value="">Tutora geral</option>
+                {aiRooms.map((room) => (
+                  <option key={room.id} value={room.id}>{room.title} · {room.model}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {aiRoomsError && <p role="status" style={{ color: '#FBBF24', fontSize: 10 }}>{aiRoomsError}</p>}
+        </div>
+      )}
 
       {/* Quick Action Chips Strip */}
       <div style={{
@@ -517,6 +630,29 @@ export default function AITutorPanel({ activityId, activityTitle, code, testFail
             {msg.role === 'assistant' && msg.source === 'llm' && msg.model && (
               <div style={{ marginTop: 8, fontSize: 10, color: '#71717A', fontFamily: 'monospace' }}>
                 Tutora de IA · {msg.model}
+              </div>
+            )}
+            {msg.role === 'assistant' && msg.responseId && msg.content && (
+              <div className="mt-3 border-t border-[#27272A] pt-2 text-[11px] text-[#A1A1AA]">
+                {feedbackStates[msg.responseId] === 'submitted' ? (
+                  <span>Obrigado pelo feedback.</span>
+                ) : feedbackStates[msg.responseId] === 'submitting' ? (
+                  <span>Enviando feedback…</span>
+                ) : feedbackStates[msg.responseId] === 'select' ? (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="w-full">O que não funcionou?</span>
+                    <button type="button" onClick={() => submitTutorFeedback(msg.responseId!, false, 'too_much_answer')}>Entregou a resposta</button>
+                    <button type="button" onClick={() => submitTutorFeedback(msg.responseId!, false, 'incorrect')}>Pareceu incorreta</button>
+                    <button type="button" onClick={() => submitTutorFeedback(msg.responseId!, false, 'unclear')}>Ficou confusa</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>Esta orientação ajudou?</span>
+                    <button type="button" onClick={() => submitTutorFeedback(msg.responseId!, true)}>👍 Sim</button>
+                    <button type="button" onClick={() => setFeedbackStates((current) => ({ ...current, [msg.responseId!]: 'select' }))}>👎 Não</button>
+                    {feedbackStates[msg.responseId] === 'error' && <span>Não foi possível registrar. Tente novamente.</span>}
+                  </div>
+                )}
               </div>
             )}
           </div>

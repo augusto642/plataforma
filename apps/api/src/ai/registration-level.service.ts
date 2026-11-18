@@ -51,7 +51,6 @@ export interface EvaluateRegistrationLevelInput {
   language?: string;
   challengeId?: string;
   explanation: string;
-  tabSwitchCount?: number;
   followUpQuestion?: string;
   followUpAnswer?: string;
 }
@@ -740,7 +739,7 @@ export class RegistrationLevelService {
 
   /**
    * Pacote 1.1 — Follow-up Relâmpago de 60s
-   * Gera uma pergunta curta e desafiadora baseada na explicação do aluno para mitigar cheat/copy-paste.
+   * Gera uma pergunta curta baseada na explicação para confirmar entendimento.
    */
   async generateFollowUpQuestion(input: {
     challengeId?: string;
@@ -776,7 +775,7 @@ export class RegistrationLevelService {
           purpose: 'registration-followup',
         });
 
-        if (raw && raw.trim().length > 10) {
+        if (raw && raw.trim().length > 10 && raw.trim().length <= 500) {
           return {
             question: raw.trim().replace(/^"|"$/g, ''),
             timeLimitSeconds: 60,
@@ -849,24 +848,10 @@ export class RegistrationLevelService {
       finalLevel = 'mid';
     }
 
-    // Validação Anti-Cheat: se houve muitas trocas de aba (tabSwitchCount > 2)
-    // e o follow-up relâmpago não foi respondido satisfatoriamente, reduz o nível/confiança.
-    let finalConfidence = result.confidence;
-    const tabSwitches = input.tabSwitchCount ?? 0;
-    const followUpLen = (input.followUpAnswer ?? '').trim().length;
-
-    if (tabSwitches >= 3 && followUpLen < 6) {
-      finalConfidence = 'low';
-      if (finalLevel === 'mid') {
-        finalLevel = 'junior';
-      }
-    }
-
     return {
       ...result,
       detectedLevel: finalLevel,
       levelLabel: LEVEL_LABELS[finalLevel],
-      confidence: finalConfidence,
     };
   }
 

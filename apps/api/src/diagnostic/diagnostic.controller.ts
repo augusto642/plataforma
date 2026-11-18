@@ -1,7 +1,19 @@
-import { Body, Controller, Get, Param, Post, Headers, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { ErrorCodes, withErrorCode } from '../common/errors/error-codes';
 import { FeatureGuard } from '../plans/guards/feature.guard';
 import { DiagnosticService } from './diagnostic.service';
 import { SkillDiagnosticService } from './skill-diagnostic.service';
@@ -16,26 +28,36 @@ export class DiagnosticController {
   constructor(
     private readonly diagnostic: DiagnosticService,
     private readonly skillDiagnostic: SkillDiagnosticService,
+    private readonly auth: AuthService,
   ) {}
 
   @Public()
   @Get('quiz')
-  getQuiz() {
+  async getQuiz(
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
+  ) {
+    await this.assertGuestEligibility(eligibilityToken);
     return this.diagnostic.getPublicQuiz();
   }
 
   @Public()
   @Post('submit')
-  submit(
+  async submit(
     @Body() dto: SubmitDiagnosticDto,
     @Headers('authorization') authorization?: string,
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
   ) {
+    await this.assertGuestEligibility(eligibilityToken);
     return this.diagnostic.submit(dto, authorization);
   }
 
   @Public()
   @Get('result/:sessionToken')
-  getResult(@Param('sessionToken') sessionToken: string) {
+  async getResult(
+    @Param('sessionToken') sessionToken: string,
+    @Headers('x-age-eligibility-token') eligibilityToken?: string,
+  ) {
+    await this.assertGuestEligibility(eligibilityToken);
     return this.diagnostic.getResult(sessionToken);
   }
 
@@ -55,5 +77,15 @@ export class DiagnosticController {
   @Post('skills/refresh')
   refreshSkillMap(@CurrentUser() user: JwtPayload) {
     return this.skillDiagnostic.refreshSkillMap(user.sub);
+  }
+
+  private async assertGuestEligibility(token?: string): Promise<void> {
+    if (await this.auth.verifyGuestAgeEligibilityToken(token)) return;
+    throw new UnauthorizedException(
+      withErrorCode(
+        'Confirme que você tem 18 anos ou mais para acessar o diagnóstico.',
+        ErrorCodes.AUTH_ADULT_ELIGIBILITY_REQUIRED,
+      ),
+    );
   }
 }

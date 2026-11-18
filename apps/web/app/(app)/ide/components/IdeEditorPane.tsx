@@ -25,11 +25,12 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
 
 interface IdeEditorPaneProps {
   language: string;
+  fileName?: string;
   code: string;
   onChange: (val: string) => void;
   onRun: () => void;
   isSubmitting: boolean;
-  onFormat?: () => void;
+  showFormat?: boolean;
   fontSize?: number;
   onChangeFontSize?: (size: 13 | 14 | 16) => void;
   isFocusMode?: boolean;
@@ -43,22 +44,32 @@ interface IdeEditorPaneProps {
    * são duplicação visual. O atalho Ctrl/Cmd+Enter continua ativo.
    */
   hideChromeBar?: boolean;
+  appearance?: 'default' | 'learning';
+  onSubmit?: () => void;
+  isRunning?: boolean;
 }
 
 export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
   language,
+  fileName,
   code,
   onChange,
   onRun,
   isSubmitting,
-  onFormat,
+  showFormat = false,
   fontSize = 14,
   onChangeFontSize,
   isFocusMode = false,
   onToggleFocusMode,
   hideChromeBar = false,
+  appearance = 'default',
+  onSubmit,
+  isRunning = false,
 }) => {
   const editorRef = useRef<any>(null);
+  const runRef = useRef(onRun);
+  runRef.current = onRun;
+  const learning = appearance === 'learning';
 
   const fileExtensions: Record<string, string> = {
     javascript: 'js',
@@ -79,17 +90,17 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#070A13] border-l border-[#1E222D]">
+    <div className={`flex flex-col h-full ${learning ? 'bg-[#0d1513]' : 'bg-[#070A13] border-l border-[#1E222D]'}`}>
       {/* Editor Toolbar — omitida com hideChromeBar (D14). */}
       {!hideChromeBar && (
-      <div className="h-11 px-4 bg-[#0D1017] border-b border-[#1E222D] flex items-center justify-between backdrop-blur-md">
+      <div className={`min-h-11 px-4 py-2 flex flex-wrap gap-2 items-center justify-between border-b ${learning ? 'bg-[#151f1c] border-[#2a3935]' : 'bg-[#0D1017] border-[#1E222D]'}`}>
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="font-mono text-xs text-zinc-400">
-            solution.{fileExtensions[language] || 'txt'}
+            {fileName || `solution.${fileExtensions[language] || 'txt'}`}
           </span>
-          {onFormat && (
+          {showFormat && (
             <button
-              onClick={onFormat}
+              onClick={() => editorRef.current?.getAction('editor.action.formatDocument')?.run()}
               className="px-2.5 py-1 text-xs text-zinc-400 hover:text-white border border-[#232738] rounded hover:bg-[#151821] transition-colors"
             >
               Formatar Código
@@ -128,19 +139,22 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
           )}
         </div>
 
+        <div className="flex items-center gap-2">
         <button
           onClick={onRun}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isRunning}
           className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
-            isSubmitting
+            isSubmitting || isRunning
               ? 'bg-[#151821] border border-[#8257E5] text-zinc-400 cursor-not-allowed shadow-[0_0_20px_rgba(130,87,229,0.35)]'
-              : 'bg-gradient-to-r from-[#04D361] to-[#00E5FF] text-black hover:opacity-95 shadow-[0_4px_14px_rgba(4,211,97,0.35)] cursor-pointer'
+              : learning
+                ? 'bg-[#a1e5b7] text-[#10261a] hover:bg-[#c1f1cc]'
+                : 'bg-gradient-to-r from-[#04D361] to-[#00E5FF] text-black hover:opacity-95 shadow-[0_4px_14px_rgba(4,211,97,0.35)] cursor-pointer'
           }`}
         >
-          {isSubmitting ? (
+          {isRunning || isSubmitting ? (
             <>
               <span className="animate-spin text-[#996DFF]">⚡</span>
-              <span>Executando no Sandbox...</span>
+              <span>{isRunning ? 'Executando...' : 'Enviando...'}</span>
             </>
           ) : (
             <>
@@ -152,6 +166,13 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
             </>
           )}
         </button>
+        {onSubmit && (
+          <button type="button" onClick={onSubmit} disabled={isSubmitting || isRunning}
+            className="rounded-lg border border-[#769e82] px-4 py-1.5 text-xs font-bold text-[#dceae0] hover:bg-[#2a3c30] disabled:opacity-50">
+            Enviar para avaliação
+          </button>
+        )}
+        </div>
       </div>
       )}
 
@@ -160,7 +181,7 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
         <MonacoEditor
           height="100%"
           language={monacoLangs[language] || 'plaintext'}
-          theme="dark-obsidian"
+          theme={learning ? 'dark-nexus-learning' : 'dark-obsidian'}
           value={code}
           onMount={(editor, monaco) => {
             editorRef.current = editor;
@@ -184,9 +205,26 @@ export const IdeEditorPane: React.FC<IdeEditorPaneProps> = ({
                 'editor.selectionBackground': '#8257E540',
               },
             });
-            monaco.editor.setTheme('dark-obsidian');
+            monaco.editor.defineTheme('dark-nexus-learning', {
+              base: 'vs-dark',
+              inherit: true,
+              rules: [
+                { token: 'comment', foreground: '82998A', fontStyle: 'italic' },
+                { token: 'keyword', foreground: '9ADDB3' },
+                { token: 'string', foreground: 'D6DDA4' },
+                { token: 'number', foreground: 'E4BF82' },
+              ],
+              colors: {
+                'editor.background': '#0D1513',
+                'editor.foreground': '#E0EDE3',
+                'editor.lineHighlightBackground': '#18251F',
+                'editorLineNumber.foreground': '#768A7F',
+                'editorCursor.foreground': '#A1E5B7',
+              },
+            });
+            monaco.editor.setTheme(learning ? 'dark-nexus-learning' : 'dark-obsidian');
             // Atalho de execução ⌘+Enter / Ctrl+Enter (2048 = CtrlCmd, 3 = Enter)
-            editor.addCommand(2048 | 3, () => onRun());
+            editor.addCommand(2048 | 3, () => runRef.current());
           }}
           onChange={(val) => onChange(val || '')}
           options={{

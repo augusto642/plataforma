@@ -1,0 +1,64 @@
+.page {
+  width: min(1120px, calc(100% - 40px));
+  margin-inline: auto;
+  padding-bottom: 64px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding-block: 20px;
+}
+
+.header a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.header a:last-child { color: #d7c5ff; text-decoration: underline; text-underline-offset: 4px; }
+.page a:focus-visible { outline: 2px solid #d7c5ff; outline-offset: 4px; }
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .85fr);
+  align-items: center;
+  gap: 24px;
+  padding: clamp(20px, 5vw, 56px);
+  border: 1px solid #3c4650;
+  border-radius: 20px;
+  background: #171922;
+}
+
+.hero h1 {
+  font-size: clamp(2.4rem, 6vw, 4.7rem);
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -.05em;
+}
+
+.page p { color: #d0cfd9; line-height: 1.6; }
+.hero p { margin-top: 18px; max-width: 40ch; }
+.tower { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; }
+.section { margin-top: clamp(32px, 6vw, 68px); }
+.section h2 { font-size: clamp(1.65rem, 3.5vw, 2.45rem); font-weight: 700; margin-bottom: 18px; }
+
+.steps,
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.steps { list-style: decimal; padding-inline-start: 1.4rem; }
+.steps li { padding-inline-start: .25rem; }
+.steps li::marker { color: #82e9ad; font-weight: 700; }
+.steps p { margin-top: 6px; }
+.card { padding: 18px; border: 1px solid #3c3a49; border-radius: 14px; background: #181920; }
+.card h3 { font-weight: 700; font-size: 1.1rem; margin-block: 14px 6px; }
+.diagram { display: block; width: 100%; border-radius: 8px; background: #11291f; color: #82e9ad; }
+.card:nth-child(2) .diagram { background: #251b39; color: #d7c5ff; }
+.card:nth-child(3) .diagram { background: #302719; color: #ffd28b; }
+
+@media (max-width: 700px) {
+  .hero, .steps, .cards { grid-template-columns: 1fr; }
+  .tower { max-height: 290px; }
+}

@@ -2,7 +2,27 @@ import { validate } from 'class-validator';
 import { RegisterDto } from './register.dto';
 
 describe('RegisterDto (self-service roles — B1 regression)', () => {
-  const base = { email: 'a@b.com', name: 'Aluno Teste', password: '12345678' };
+  const base = {
+    email: 'a@b.com',
+    name: 'Aluno Teste',
+    password: '12345678',
+    adultConfirmed: true,
+    termsAccepted: true,
+    privacyAcknowledged: true,
+  };
+
+  it('accepts email and password registration without a display name', async () => {
+    const dto = Object.assign(new RegisterDto(), {
+      email: base.email,
+      password: base.password,
+      adultConfirmed: true,
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      deferLearningProfile: true,
+    });
+
+    expect(await validate(dto)).toHaveLength(0);
+  });
 
   function dto(role?: string) {
     return Object.assign(new RegisterDto(), role ? { ...base, role } : base);
@@ -26,6 +46,39 @@ describe('RegisterDto (self-service roles — B1 regression)', () => {
   it('rejects arbitrary strings as role', async () => {
     const errors = await validate(dto('superadmin'));
     expect(errors.some((e) => e.property === 'role')).toBe(true);
+  });
+
+  it('requires explicit acceptance of the Terms and acknowledgment of the Privacy Policy', async () => {
+    const missing = await validate(
+      Object.assign(new RegisterDto(), {
+        email: base.email,
+        name: base.name,
+        password: base.password,
+      }),
+    );
+    expect(missing.map((error) => error.property)).toEqual(
+      expect.arrayContaining([
+        'adultConfirmed',
+        'termsAccepted',
+        'privacyAcknowledged',
+      ]),
+    );
+
+    const rejected = await validate(
+      Object.assign(new RegisterDto(), {
+        ...base,
+        termsAccepted: false,
+      }),
+    );
+    expect(rejected.some((error) => error.property === 'termsAccepted')).toBe(true);
+
+    const underage = await validate(
+      Object.assign(new RegisterDto(), {
+        ...base,
+        adultConfirmed: false,
+      }),
+    );
+    expect(underage.some((error) => error.property === 'adultConfirmed')).toBe(true);
   });
 
   describe('UTM fields (B07)', () => {

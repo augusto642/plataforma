@@ -9,6 +9,11 @@ import Logo from '../../components/Logo';
 import { captureUtmFromUrl } from '../../lib/attribution';
 import { track, trackPageview } from '../../lib/analytics';
 import { apiFetch } from '../../lib/apiClient';
+import { AdultEligibilityGate } from '../../components/AdultEligibilityGate';
+import {
+  clearGuestAgeEligibility,
+  getGuestAgeEligibilityToken,
+} from '../../lib/ageEligibility';
 
 // B09 — Quiz diagnóstico público (sem cadastro): a API devolve as questões,
 // pontua 6 eixos, sugere um arquétipo e uma trilha. O sessionToken permite
@@ -165,6 +170,29 @@ function RadarChart({ scores }: { scores: DiagnosticScores }) {
 }
 
 export default function DiagnosticoPage() {
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
+
+  if (!adultConfirmed) {
+    return (
+      <AdultEligibilityGate
+        onConfirm={() => setAdultConfirmed(true)}
+        requireServerToken
+      />
+    );
+  }
+
+  return (
+    <DiagnosticQuizPage
+      onEligibilityExpired={() => setAdultConfirmed(false)}
+    />
+  );
+}
+
+function DiagnosticQuizPage({
+  onEligibilityExpired,
+}: {
+  onEligibilityExpired: () => void;
+}) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('loading');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -180,8 +208,21 @@ export default function DiagnosticoPage() {
 
   const loadQuiz = useCallback(async () => {
     setPhase('loading');
+    const eligibilityToken = getGuestAgeEligibilityToken();
+    if (!eligibilityToken) {
+      clearGuestAgeEligibility();
+      onEligibilityExpired();
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE}/diagnostic/quiz`);
+      const res = await fetch(`${API_BASE}/diagnostic/quiz`, {
+        headers: { 'x-age-eligibility-token': eligibilityToken },
+      });
+      if (res.status === 401) {
+        clearGuestAgeEligibility();
+        onEligibilityExpired();
+        return;
+      }
       if (!res.ok) throw new Error('quiz unavailable');
       const data = (await res.json()) as QuizResponse;
       if (!data.questions || data.questions.length === 0) {
@@ -192,7 +233,7 @@ export default function DiagnosticoPage() {
     } catch {
       setPhase('error');
     }
-  }, []);
+  }, [onEligibilityExpired]);
 
   useEffect(() => {
     captureUtmFromUrl();
@@ -216,9 +257,22 @@ export default function DiagnosticoPage() {
       token = null;
     }
     if (!token) return;
+    const eligibilityToken = getGuestAgeEligibilityToken();
+    if (!eligibilityToken) {
+      clearGuestAgeEligibility();
+      onEligibilityExpired();
+      return;
+    }
     setPhase('loading');
     try {
-      const res = await fetch(`${API_BASE}/diagnostic/result/${token}`);
+      const res = await fetch(`${API_BASE}/diagnostic/result/${token}`, {
+        headers: { 'x-age-eligibility-token': eligibilityToken },
+      });
+      if (res.status === 401) {
+        clearGuestAgeEligibility();
+        onEligibilityExpired();
+        return;
+      }
       if (!res.ok) throw new Error('result unavailable');
       const data = (await res.json()) as DiagnosticResult;
       sessionTokenRef.current = data.sessionToken;
@@ -234,7 +288,7 @@ export default function DiagnosticoPage() {
       setHasStoredResult(false);
       setPhase('intro');
     }
-  }, []);
+  }, [onEligibilityExpired]);
 
   const submitAnswers = useCallback(
     async (finalAnswers: Record<string, string>) => {
@@ -260,12 +314,26 @@ export default function DiagnosticoPage() {
         answers: payload,
       };
       if (knownToken) body.sessionToken = knownToken;
+      const eligibilityToken = getGuestAgeEligibilityToken();
+      if (!eligibilityToken) {
+        clearGuestAgeEligibility();
+        onEligibilityExpired();
+        return;
+      }
       try {
         const res = await fetch(`${API_BASE}/diagnostic/submit`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-age-eligibility-token': eligibilityToken,
+          },
           body: JSON.stringify(body),
         });
+        if (res.status === 401) {
+          clearGuestAgeEligibility();
+          onEligibilityExpired();
+          return;
+        }
         if (!res.ok) throw new Error('submit failed');
         const data = (await res.json()) as DiagnosticResult;
         sessionTokenRef.current = data.sessionToken;
@@ -283,7 +351,7 @@ export default function DiagnosticoPage() {
         );
       }
     },
-    [questions, result],
+    [questions, result, onEligibilityExpired],
   );
 
   const selectOption = (questionId: string, optionId: string) => {

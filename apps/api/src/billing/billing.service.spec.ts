@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { Plan } from '@prisma/client';
+import { Plan, SubscriptionStatus } from '@prisma/client';
 import { createHmac } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { BILLING_PROVIDER_TOKEN } from './billing-provider.interface';
@@ -34,11 +34,14 @@ describe('BillingService', () => {
     sessionId: 'sim_1',
     providerSubscriptionId: 'sim_1',
     userId: 'user-1',
+    provider: 'simulated',
     plan: Plan.pro,
     billingCycle: 'monthly',
   };
 
   const mockPrisma = {
+    $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
     user: { findUnique: jest.fn(), update: jest.fn() },
     subscription: {
       findFirst: jest.fn(),
@@ -46,7 +49,13 @@ describe('BillingService', () => {
       update: jest.fn(),
     },
     paymentEvent: { create: jest.fn(), findUnique: jest.fn() },
-    checkoutSession: { create: jest.fn(), findUnique: jest.fn() },
+    checkoutSession: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    checkoutReservation: { findUnique: jest.fn(), upsert: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   };
   const mockQueue = { add: jest.fn() };
   const mockProvider = {
@@ -93,6 +102,10 @@ describe('BillingService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.$queryRaw.mockResolvedValue([{ locked: true }]);
+    mockPrisma.$transaction.mockImplementation(async (callback) => callback(mockPrisma));
+    mockPrisma.checkoutReservation.findUnique.mockResolvedValue(null);
+    mockPrisma.checkoutReservation.updateMany.mockResolvedValue({ count: 1 });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BillingService,
@@ -111,6 +124,69 @@ describe('BillingService', () => {
       service.createCheckout('user-1', Plan.career, 'monthly'),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(mockProvider.createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('rejeita uma chamada concorrente antes de contatar o provedor', async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ locked: false }]);
+    await expect(service.createCheckout('user-1', Plan.pro, 'monthly'))
+      .rejects.toThrow('checkout em andamento');
+    expect(mockProvider.createCheckoutSession).not.toHaveBeenCalled();
+    expect(mockPrisma.checkoutSession.create).not.toHaveBeenCalled();
+  });
+
+  it('mantém o bloqueio até persistir o checkout em andamento', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ locked: true }]).mockResolvedValueOnce([{ locked: false }]);
+    let finish!: (value: { sessionId: string; checkoutUrl: string; providerSubscriptionId: string }) => void;
+    mockProvider.createCheckoutSession.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const first = service.createCheckout('user-1', Plan.pro, 'monthly');
+    await new Promise((resolve) => setImmediate(resolve));
+    await expect(service.createCheckout('user-1', Plan.pro, 'monthly')).rejects.toBeInstanceOf(ConflictException);
+    finish({ sessionId: 'sim_1', checkoutUrl: 'https://example.test', providerSubscriptionId: 'sim_1' });
+    await expect(first).resolves.toMatchObject({ sessionId: 'sim_1' });
+    expect(mockProvider.createCheckoutSession).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.checkoutSession.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('reutiliza checkout pendente e recusa um ciclo diferente', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+    mockPrisma.checkoutReservation.findUnique.mockResolvedValue({
+      status: 'open', sessionId: 'sim_1', provider: 'simulated', plan: Plan.pro,
+      billingCycle: 'monthly', amountCents: 3990, checkoutUrl: 'https://example.test/checkout',
+    });
+    await expect(service.createCheckout('user-1', Plan.pro, 'monthly'))
+      .resolves.toMatchObject({ sessionId: 'sim_1', checkoutUrl: 'https://example.test/checkout' });
+    await expect(service.createCheckout('user-1', Plan.pro, 'annual')).rejects.toThrow('Cancele o checkout pendente');
+    expect(mockProvider.createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('retém a reserva quando o provedor falha e bloqueia uma nova tentativa', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+    mockProvider.createCheckoutSession.mockRejectedValueOnce(new Error('timeout'));
+    await expect(service.createCheckout('user-1', Plan.pro, 'monthly')).rejects.toThrow('timeout');
+    expect(mockPrisma.checkoutReservation.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ status: 'creating' }),
+    }));
+    mockPrisma.checkoutReservation.findUnique.mockResolvedValue({ status: 'creating' });
+    await expect(service.createCheckout('user-1', Plan.pro, 'monthly')).rejects.toThrow('resultado desconhecido');
+    expect(mockProvider.createCheckoutSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('só libera a reserva após confirmação de cancelamento do provedor', async () => {
+    mockPrisma.checkoutReservation.findUnique.mockResolvedValue({
+      status: 'open', sessionId: 'sim_1', provider: 'simulated', providerSubscriptionId: 'sim_1',
+    });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+    mockProvider.cancelSubscription.mockRejectedValueOnce(new Error('indisponível')).mockResolvedValueOnce(undefined);
+    await expect(service.cancelPendingCheckout('user-1')).rejects.toThrow('indisponível');
+    expect(mockPrisma.checkoutReservation.update).not.toHaveBeenCalled();
+    await expect(service.cancelPendingCheckout('user-1')).resolves.toEqual({ canceled: true });
+    expect(mockPrisma.checkoutSession.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ sessionId: 'sim_1' }), data: { canceledAt: expect.any(Date) },
+    }));
   });
 
   it('cria checkout Pro em modo teste com o preço da landing e persiste a sessão', async () => {
@@ -142,6 +218,30 @@ describe('BillingService', () => {
         }),
       }),
     );
+  });
+
+  it('bloqueia novo checkout enquanto a conta tem assinatura com acesso vigente', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+    mockPrisma.subscription.findFirst.mockResolvedValueOnce({ id: 'sub-active' });
+
+    await expect(
+      service.createCheckout('user-1', Plan.pro, 'monthly'),
+    ).rejects.toThrow('assinatura com acesso vigente');
+
+    expect(mockPrisma.subscription.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: 'user-1',
+          OR: expect.arrayContaining([
+            { status: SubscriptionStatus.active },
+            expect.objectContaining({ status: SubscriptionStatus.trialing }),
+            expect.objectContaining({ status: SubscriptionStatus.canceled }),
+          ]),
+        }),
+      }),
+    );
+    expect(mockProvider.createCheckoutSession).not.toHaveBeenCalled();
+    expect(mockPrisma.checkoutSession.create).not.toHaveBeenCalled();
   });
 
   it('replay de webhook não enfileira de novo (alreadyProcessed)', async () => {
@@ -179,6 +279,45 @@ describe('BillingService', () => {
     await service.applyPaymentEvent(event);
     expect(mockPrisma.subscription.create).toHaveBeenCalledTimes(1);
     expect(mockPrisma.subscription.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalida checkout cancelado pelo provedor mesmo antes da assinatura ser criada', async () => {
+    mockPrisma.checkoutSession.findFirst.mockResolvedValueOnce(SESSION);
+    mockPrisma.subscription.findFirst.mockResolvedValueOnce(null);
+    await service.applyPaymentEvent({
+      providerEventId: 'cancel-1', type: 'subscription_canceled', providerSubscriptionId: 'sim_1',
+    });
+    expect(mockPrisma.checkoutSession.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', providerSubscriptionId: 'sim_1', provider: 'simulated', canceledAt: null },
+      data: { canceledAt: expect.any(Date) },
+    });
+    expect(mockPrisma.checkoutReservation.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', providerSubscriptionId: 'sim_1', provider: 'simulated', status: 'open' },
+      data: { status: 'closed', checkoutUrl: null },
+    });
+    expect(mockPrisma.subscription.create).not.toHaveBeenCalled();
+  });
+
+  it('não libera aprovação enfileirada se o checkout foi cancelado enquanto esperava o lock', async () => {
+    mockPrisma.checkoutSession.findUnique
+      .mockResolvedValueOnce(SESSION)
+      .mockResolvedValueOnce({ ...SESSION, canceledAt: new Date() });
+    await expect(service.applyPaymentEvent(approvalEvent)).rejects.toBeInstanceOf(BadRequestException);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('não remove acesso de outra assinatura ao processar reembolso antigo', async () => {
+    mockPrisma.checkoutSession.findFirst.mockResolvedValueOnce(SESSION);
+    mockPrisma.subscription.findFirst
+      .mockResolvedValueOnce({ id: 'old-sub', userId: 'user-1' })
+      .mockResolvedValueOnce({ id: 'new-sub' });
+    await service.applyPaymentEvent({
+      providerEventId: 'refund-1', type: 'payment_refunded', providerSubscriptionId: 'sim_1',
+    });
+    expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+      where: { id: 'old-sub' }, data: { status: SubscriptionStatus.expired },
+    });
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
   it('aprovação para Carreira via webhook é ignorada (tier sem preço)', async () => {
@@ -303,6 +442,71 @@ describe('BillingService', () => {
         service.recordWebhook('simulated', event, Buffer.from('{}')),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(mockPrisma.paymentEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('vincula evento Mercado Pago à sessão sem confiar em userId do webhook', async () => {
+      mockProvider.name = 'mercadopago';
+      mockPrisma.checkoutSession.findFirst.mockResolvedValue({
+        ...SESSION,
+        provider: 'mercadopago',
+        providerSubscriptionId: 'preapproval-123',
+        amountCents: 3990,
+      });
+      mockPrisma.paymentEvent.create.mockResolvedValue({ id: 'evt-mp' });
+
+      try {
+        const result = await service.recordWebhook(
+          'mercadopago',
+          {
+            providerEventId: 'subscription:1:updated',
+            type: 'subscription_active',
+            providerSubscriptionId: 'preapproval-123',
+            amountCents: 3990,
+            currencyId: 'BRL',
+          },
+          Buffer.from('mercadopago'),
+        );
+
+        expect(result).toEqual({ alreadyProcessed: false, paymentEventId: 'evt-mp' });
+        expect(mockPrisma.checkoutSession.findFirst).toHaveBeenCalledWith({
+          where: {
+            providerSubscriptionId: 'preapproval-123',
+            provider: 'mercadopago',
+          },
+        });
+        expect(mockQueue.add).toHaveBeenCalledTimes(1);
+      } finally {
+        mockProvider.name = 'simulated';
+      }
+    });
+
+    it('rejeita evento Mercado Pago com valor diferente da sessão', async () => {
+      mockProvider.name = 'mercadopago';
+      mockPrisma.checkoutSession.findFirst.mockResolvedValue({
+        ...SESSION,
+        provider: 'mercadopago',
+        providerSubscriptionId: 'preapproval-123',
+        amountCents: 3990,
+      });
+
+      try {
+        await expect(
+          service.recordWebhook(
+            'mercadopago',
+            {
+              providerEventId: 'subscription:2:updated',
+              type: 'subscription_active',
+              providerSubscriptionId: 'preapproval-123',
+              amountCents: 1990,
+              currencyId: 'BRL',
+            },
+            Buffer.from('mercadopago'),
+          ),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(mockPrisma.paymentEvent.create).not.toHaveBeenCalled();
+      } finally {
+        mockProvider.name = 'simulated';
+      }
     });
 
     it('applyPaymentEvent (worker) rejeita sem sessão: plano NÃO muda', async () => {

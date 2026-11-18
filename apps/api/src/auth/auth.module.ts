@@ -8,6 +8,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { MailModule } from '../mail/mail.module';
 import { DynamicTrackModule } from '../dynamic-track/dynamic-track.module';
 import { AiModule } from '../ai/ai.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GitHubStrategy } from './strategies/github.strategy';
@@ -50,6 +51,7 @@ function oauthStrategyProvider(
     MailModule,
     DynamicTrackModule,
     AiModule,
+    MetricsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

@@ -2,7 +2,7 @@
  * KnowledgeService / FileKnowledgeRepository — só lições approved chegam à
  * tutora; base vazia => comportamento inalterado (regressão zero).
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileKnowledgeRepository } from './knowledge.service';
@@ -40,6 +40,25 @@ function kmsFixtureDir() {
 }
 
 describe('FileKnowledgeRepository', () => {
+  it('updates cached results when approval changes or a lesson is removed', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'knowledge-cache-'));
+    try {
+      const dir = join(root, 'knowledge', 'lessons');
+      mkdirSync(dir, { recursive: true });
+      const file = join(dir, 'lesson.json');
+      const lesson = { id: 'one', lessonTitle: 'Lesson', courseName: 'Course', summary: 'Summary', topics: ['loops'], reviewStatus: 'approved' };
+      writeFileSync(file, JSON.stringify(lesson));
+      const repo = new FileKnowledgeRepository(root);
+      expect(await repo.findById('one')).not.toBeNull();
+      writeFileSync(file, JSON.stringify({ ...lesson, reviewStatus: 'draft' }));
+      expect(await repo.findByTopics(['loops'])).toEqual([]);
+      unlinkSync(file);
+      expect(await repo.findById('one')).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('só approved por tópico; draft nunca vaza para a tutora', async () => {
     const repo = new FileKnowledgeRepository(fixtureDir());
     const found = await repo.findByTopics(['funcoes']);

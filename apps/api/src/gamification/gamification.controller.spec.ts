@@ -6,12 +6,14 @@ describe('GamificationController', () => {
   let service: {
     claimDailyBonus: jest.Mock;
     getDailyBonusStatus: jest.Mock;
+    getXpHistory: jest.Mock;
   };
 
   beforeEach(() => {
     service = {
       claimDailyBonus: jest.fn(),
       getDailyBonusStatus: jest.fn(),
+      getXpHistory: jest.fn(),
     };
     controller = new GamificationController(service as unknown as GamificationService);
   });
@@ -41,5 +43,14 @@ describe('GamificationController', () => {
     expect(service.claimDailyBonus).toHaveBeenCalledWith('user-1');
     expect(res.claimed).toBe(true);
     expect(res.xpAwarded).toBe(50);
+  });
+
+  it('deve delegar a consulta do extrato ao serviço usando o usuário autenticado', async () => {
+    const history = [{ id: 'entry-1', amount: 50, source: 'daily_bonus' }];
+    service.getXpHistory.mockResolvedValueOnce(history);
+    const user: any = { sub: 'user-1' };
+
+    await expect(controller.getXpHistory(user)).resolves.toEqual(history);
+    expect(service.getXpHistory).toHaveBeenCalledWith('user-1');
   });
 });

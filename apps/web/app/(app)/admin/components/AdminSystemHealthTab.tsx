@@ -3,6 +3,7 @@
 import React from 'react';
 import { AdminHealth, AdminMetrics } from '../types';
 import { formatNumber, formatUptime } from '../utils';
+import { AdminRunnerDiagnostics } from './AdminRunnerDiagnostics';
 
 // B40/A4 (Sprint 13) — Saúde do sistema REAL.
 // Antes: "cluster Piston" com 4 nós inventados (us-east/sa-east/eu),
@@ -10,8 +11,8 @@ import { formatNumber, formatUptime } from '../utils';
 // ações SRE simuladas (reciclar pool, purgar cache, benchmark) que só
 // exibiam toast. Agora a tela mostra apenas o que a API mede de
 // verdade: GET /admin/health (banco, Redis, uptime) e o bloco system/
-// cache de GET /admin/metrics (processo da API). Não existe endpoint
-// de nós de execução nem das ações SRE: foram removidos.
+// cache de GET /admin/metrics (processo da API). O diagnóstico do executor
+// usa testes reais, sem inventar métricas de nós.
 
 interface AdminSystemHealthTabProps {
   metrics: AdminMetrics | null;
@@ -128,12 +129,10 @@ export const AdminSystemHealthTab: React.FC<AdminSystemHealthTabProps> = ({
         </div>
       </div>
 
-      <div className="bg-[#181820] border border-[#27272A] rounded-xl p-4 text-xs text-zinc-300">
-        <span className="font-bold text-white">O que esta tela não mostra mais:</span> nós de um
-        “cluster Piston” com latências e CPUs inventados, logs de console escritos no código e
-        botões de reciclar pool, purgar cache e rodar benchmark — nenhum desses dados ou ações
-        tem endpoint na API. A observabilidade do executor de código (Piston) não é exposta ao
-        painel hoje.
+      <AdminRunnerDiagnostics />
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
+        Backups ainda não são executados nem monitorados por esta plataforma. Google Drive e retenção
+        de 30 dias foram escolhidos; falta configurar a criptografia, automatizar e validar a restauração.
       </div>
     </div>
   );

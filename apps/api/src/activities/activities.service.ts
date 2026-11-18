@@ -9,6 +9,7 @@ import { computeCoursePath } from '../adaptation/adaptation.rules';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { calculateNextReview } from './spaced-review';
 
 /** Mesmo padrão de `SubmissionsService`: P2002 por duck-typing (code). */
 function isPrismaP2002(error: unknown): boolean {
@@ -306,8 +307,22 @@ export class ActivitiesService {
       }
     }
 
+    const now = new Date();
+    const dueReviews = await this.prisma.activityReviewState.findMany({
+      where: {
+        userId,
+        activityId: { in: activities.map((activity) => activity.id) },
+        dueAt: { lte: now },
+      },
+      orderBy: [{ dueAt: 'asc' }, { activityId: 'asc' }],
+      select: { activityId: true, dueAt: true, intervalDays: true },
+    });
+    const dueReview = dueReviews[0];
     const pending = activities.find((a) => !effectiveCompletedIds.has(a.id));
-    const chosen = pending ?? activities[activities.length - 1];
+    const chosen =
+      (dueReview && activities.find((activity) => activity.id === dueReview.activityId)) ||
+      pending ||
+      activities[activities.length - 1];
 
     return {
       activity: {
@@ -316,6 +331,12 @@ export class ActivitiesService {
         language: chosen.language,
         description: chosen.description,
         course: chosen.course,
+        review: dueReview
+          ? {
+              dueAt: dueReview.dueAt,
+              intervalDays: dueReview.intervalDays,
+            }
+          : null,
       },
     };
   }
@@ -420,18 +441,31 @@ export class ActivitiesService {
       return { synced: true, deduped: true, submissionId: existing.id };
     }
     try {
-      const created = await this.prisma.submission.create({
-        data: {
-          activityId,
-          userId,
-          commitSha,
-          status: dto.passed ? 'passed' : 'failed',
-          score: dto.score,
-          maxScore: 100,
-          xpAwarded: false,
-        },
+      return await this.prisma.$transaction(async (tx) => {
+        const created = await tx.submission.create({
+          data: {
+            activityId,
+            userId,
+            commitSha,
+            status: dto.passed ? 'passed' : 'failed',
+            score: dto.score,
+            maxScore: 100,
+            xpAwarded: false,
+          },
+        });
+        const previous = await tx.activityReviewState.findUnique({
+          where: { userId_activityId: { userId, activityId } },
+          select: { repetitions: true, intervalDays: true, lastPassed: true },
+        });
+        const schedule = calculateNextReview(previous, dto.passed, new Date());
+        await tx.activityReviewState.upsert({
+          where: { userId_activityId: { userId, activityId } },
+          create: { userId, activityId, ...schedule },
+          update: schedule,
+        });
+
+        return { synced: true, deduped: false, submissionId: created.id };
       });
-      return { synced: true, deduped: false, submissionId: created.id };
     } catch (error: unknown) {
       if (isPrismaP2002(error)) {
         // Corrida: o outro envio venceu e criou o registro. Devolve-o

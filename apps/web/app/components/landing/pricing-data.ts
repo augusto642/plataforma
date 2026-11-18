@@ -1,3 +1,5 @@
+import { BILLING_PRICES_CENTS } from '@plataforma/contracts';
+
 /* B52/P5 (Sprint 16) — fonte ÚNICA de verdade dos preços da landing.
    Até aqui os valores viviam como literais espalhados em JSX (hero,
    pricing) e qualquer reajuste precisava caçar string por string —
@@ -36,8 +38,8 @@ export const PLAN_PRICES: Record<PlanPrice['id'], PlanPrice> = {
     id: 'pro',
     name: 'Nexus Code Pro',
     displayName: 'Pro',
-    monthly: 39.9,
-    annualMonthly: 29.9,
+    monthly: BILLING_PRICES_CENTS.pro.monthly / 100,
+    annualMonthly: BILLING_PRICES_CENTS.pro.annual / 12 / 100,
   },
   staff: {
     id: 'staff',

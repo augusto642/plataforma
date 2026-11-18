@@ -42,7 +42,7 @@ builda a imagem deste diretório, copia a árvore para o volume
 `piston-packages` e termina; o serviço `piston` só sobe depois
 (`depends_on: service_completed_successfully`). Para reprovisionar
 (ex.: troca de versão), suba a versão em `metadata.json`/diretório e
-rode `docker compose up --build piston-portugol-init`.
+rode `docker compose --profile local-piston up --build piston-portugol-init`.
 
 ## Contrato de execução (verificado no spike da Sprint 23)
 
@@ -107,7 +107,7 @@ Classpath Exception, também executado como processo separado.
 
 ## Smoke (deploy — item B11)
 
-Com a stack no ar (`docker compose up`), conferir:
+Com a stack local no ar (`docker compose --profile local-piston up`), conferir:
 
 1. `GET http://piston:2000/api/v2/runtimes` lista `portugol 2.7.5`.
 2. `POST /api/v2/execute` com `language: "portugol"`,

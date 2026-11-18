@@ -11,6 +11,7 @@ export type AdminTab =
   | 'users'
   | 'instructors'
   | 'courses'
+  | 'aiRooms'
   | 'system'
   | 'audit'
   | 'knowledge';
@@ -99,6 +100,41 @@ export interface AdminMetrics {
       passRate: number;
     };
   };
+  ai: {
+    calls: number;
+    failedCalls: number;
+    blockedCalls: number;
+    fallbackCalls: number;
+    fallbackRate: number | null;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    pricedCalls: number;
+    unpricedCalls: number;
+    estimatedCostUsd: number | null;
+    pricingCheckedAt: string;
+  };
+  aiQuality: {
+    windowDays: number;
+    total: number;
+    helpful: number;
+    notHelpful: number;
+    concerns: {
+      tooMuchAnswer: number;
+      incorrect: number;
+      unclear: number;
+    };
+  };
+  queues: Array<{
+    name: string;
+    available: boolean;
+    waiting?: number;
+    active?: number;
+    completed?: number;
+    failed?: number;
+    delayed?: number;
+    headWaitingAgeSeconds?: number;
+  }>;
   cache: { status: string; pingLatencyMs: number };
 }
 

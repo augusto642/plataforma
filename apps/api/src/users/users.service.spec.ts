@@ -14,6 +14,7 @@ describe('UsersService', () => {
   let service: UsersService;
   let prisma: any;
   let gitea: any;
+  let giteaDeletion: any;
 
   const userRow = {
     id: 'user-1',
@@ -70,6 +71,10 @@ describe('UsersService', () => {
       },
       refreshToken: { deleteMany: jest.fn() },
       activity: { findMany: jest.fn().mockResolvedValue([]) },
+      giteaDeletionJob: {
+        create: jest.fn().mockResolvedValue({ id: 'deletion-job-1' }),
+      },
+      $transaction: jest.fn(async (callback) => callback(prisma)),
       talentProfile: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     gitea = {
@@ -82,7 +87,10 @@ describe('UsersService', () => {
         reposFailed: [],
       }),
     };
-    service = new UsersService(prisma, gitea);
+    giteaDeletion = {
+      processJob: jest.fn().mockResolvedValue(true),
+    };
+    service = new UsersService(prisma, gitea, giteaDeletion);
   });
 
   describe('exportUserData', () => {
@@ -160,26 +168,31 @@ describe('UsersService', () => {
   });
 
   describe('delete', () => {
-    it('deletes local data first, then propagates to Gitea, in order', async () => {
+    it('atomically queues Gitea cleanup with local deletion, then attempts it', async () => {
       prisma.user.findUnique.mockResolvedValue(userRow);
 
       await service.delete('user-1');
 
       expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
       expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
-      expect(gitea.propagateDeletion).toHaveBeenCalledWith('aluno', expect.any(Array));
+      expect(prisma.giteaDeletionJob.create).toHaveBeenCalledWith({
+        data: { username: 'aluno', candidateRepoNames: [] },
+        select: { id: true },
+      });
+      expect(giteaDeletion.processJob).toHaveBeenCalledWith('deletion-job-1');
 
       const order = [
         prisma.refreshToken.deleteMany.mock.invocationCallOrder[0],
         prisma.user.delete.mock.invocationCallOrder[0],
-        gitea.propagateDeletion.mock.invocationCallOrder[0],
+        prisma.giteaDeletionJob.create.mock.invocationCallOrder[0],
+        giteaDeletion.processJob.mock.invocationCallOrder[0],
       ];
       expect(order).toEqual([...order].sort((a, b) => a - b));
     });
 
-    it('does not throw when Gitea propagation fails', async () => {
+    it('does not fail account deletion if the immediate outbox attempt is unavailable', async () => {
       prisma.user.findUnique.mockResolvedValue(userRow);
-      gitea.propagateDeletion.mockRejectedValue(new Error('gitea unreachable'));
+      giteaDeletion.processJob.mockRejectedValue(new Error('database unavailable'));
 
       await expect(service.delete('user-1')).resolves.toBeUndefined();
       expect(prisma.user.delete).toHaveBeenCalledTimes(1);
@@ -197,25 +210,12 @@ describe('UsersService', () => {
       await expect(service.delete('user-1')).rejects.toThrow(ConflictException);
     });
 
-    it('does not throw when Gitea reports pending deletion', async () => {
-      prisma.user.findUnique.mockResolvedValue(userRow);
-      gitea.propagateDeletion.mockResolvedValue({
-        ok: false,
-        pending: true,
-        userStatus: 'failed',
-        reposDeleted: [],
-        reposRenamed: [],
-        reposFailed: ['plataforma/soma-aluno'],
-      });
-
-      await expect(service.delete('user-1')).resolves.toBeUndefined();
-    });
-
     it('throws NotFoundException when the user does not exist and skips Gitea', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.delete('missing')).rejects.toThrow(NotFoundException);
       expect(gitea.propagateDeletion).not.toHaveBeenCalled();
+      expect(giteaDeletion.processJob).not.toHaveBeenCalled();
     });
 
     it('skips Gitea propagation when no username can be derived', async () => {
@@ -223,6 +223,16 @@ describe('UsersService', () => {
 
       await expect(service.delete('user-1')).resolves.toBeUndefined();
       expect(gitea.propagateDeletion).not.toHaveBeenCalled();
+      expect(prisma.giteaDeletionJob.create).not.toHaveBeenCalled();
+    });
+
+    it('preserves the account when repo discovery fails before a deletion can be queued', async () => {
+      prisma.user.findUnique.mockResolvedValue(userRow);
+      prisma.activity.findMany.mockRejectedValue(new Error('database unavailable'));
+
+      await expect(service.delete('user-1')).rejects.toThrow('database unavailable');
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(prisma.giteaDeletionJob.create).not.toHaveBeenCalled();
     });
   });
 
@@ -472,7 +482,11 @@ describe('UsersService', () => {
           ]),
         },
       };
-      const localService = new UsersService(localPrisma, {} as any);
+      const localService = new UsersService(
+        localPrisma,
+        {} as any,
+        { processJob: jest.fn() } as any,
+      );
       return { service: localService, prisma: localPrisma };
     }
 

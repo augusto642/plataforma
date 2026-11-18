@@ -48,13 +48,14 @@ async function fetchCertificate(code: string): Promise<VerifyResult> {
 export const dynamic = 'force-dynamic';
 
 interface VerifyPageProps {
-  params: {
+  params: Promise<{
     hash: string;
-  };
+  }>;
 }
 
 export default async function VerifyCertificatePage({ params }: VerifyPageProps) {
-  const result = await fetchCertificate(params.hash);
+  const { hash } = await params;
+  const result = await fetchCertificate(hash);
 
   return (
     <div className="min-h-screen bg-[#08080B] text-[#EDEDED] font-sans pb-24">
@@ -89,7 +90,7 @@ export default async function VerifyCertificatePage({ params }: VerifyPageProps)
 
       <main className="max-w-[860px] mx-auto px-5 pt-10">
         {result.kind === 'found' && <FoundCertificate record={result.record} />}
-        {result.kind === 'not-found' && <NotFound code={params.hash} />}
+        {result.kind === 'not-found' && <NotFound code={hash} />}
         {result.kind === 'unavailable' && <Unavailable />}
       </main>
     </div>

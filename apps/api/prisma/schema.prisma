@@ -64,74 +64,92 @@ enum CertificateKind {
 }
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  email        String    @unique
-  nickname     String?   @unique @db.VarChar(30)
-  name         String
-  passwordHash String?   @map("password_hash")
+  id                  String     @id @default(uuid()) @db.Uuid
+  email               String     @unique
+  nickname            String?    @unique @db.VarChar(30)
+  name                String
+  passwordHash        String?    @map("password_hash")
+  passwordResetHash   String?    @unique @map("password_reset_hash")
+  passwordResetUntil  DateTime?  @map("password_reset_until")
   // OAuth 2.0 (Google/GitHub): conta criada SÓ via OAuth nasce sem senha
   // (NULL) — o login por senha rejeita conta sem hash (AuthService.login).
   // A senha nunca é NULL para conta criada por e-mail/senha (register).
-  role         Role      @default(student)
-  emailVerifiedAt DateTime? @map("email_verified_at")
-  plan         Plan      @default(free)
-  careerTier   CareerTier @default(beginner) @map("career_tier")
-  giteaUserId  Int?      @unique @map("gitea_user_id")
-  xp           Int       @default(0)
-  level        Int       @default(1)
-  streakDays   Int       @default(0) @map("streak_days")
-  bitsBalance  Int       @default(420) @map("bits_balance")
-  coins        Int       @default(0)
-  streakFreezes Int      @default(0) @map("streak_freezes")
-  talentVisible Boolean  @default(false) @map("talent_visible")
-  lastActiveAt DateTime? @map("last_active_at")
-  utmSource    String?   @map("utm_source") @db.VarChar(255)
-  utmMedium    String?   @map("utm_medium") @db.VarChar(255)
-  utmCampaign  String?   @map("utm_campaign") @db.VarChar(255)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  role                Role       @default(student)
+  emailVerifiedAt     DateTime?  @map("email_verified_at")
+  plan                Plan       @default(free)
+  careerTier          CareerTier @default(beginner) @map("career_tier")
+  giteaUserId         Int?       @unique @map("gitea_user_id")
+  xp                  Int        @default(0)
+  level               Int        @default(1)
+  streakDays          Int        @default(0) @map("streak_days")
+  bitsBalance         Int        @default(420) @map("bits_balance")
+  coins               Int        @default(0)
+  streakFreezes       Int        @default(0) @map("streak_freezes")
+  talentVisible       Boolean    @default(false) @map("talent_visible")
+  learningProfilePending Boolean @default(false) @map("learning_profile_pending")
+  lastActiveAt        DateTime?  @map("last_active_at")
+  streakRestWeekStart DateTime?  @map("streak_rest_week_start")
+  utmSource           String?    @map("utm_source") @db.VarChar(255)
+  utmMedium           String?    @map("utm_medium") @db.VarChar(255)
+  utmCampaign         String?    @map("utm_campaign") @db.VarChar(255)
+  termsAcceptedAt      DateTime?  @map("terms_accepted_at")
+  termsVersion         String?    @map("terms_version") @db.VarChar(32)
+  privacyAcknowledgedAt DateTime? @map("privacy_acknowledged_at")
+  privacyVersion       String?    @map("privacy_version") @db.VarChar(32)
+  adultEligibilityAcceptedAt DateTime? @map("adult_eligibility_accepted_at")
+  adultEligibilityVersion   String?    @map("adult_eligibility_version") @db.VarChar(32)
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
 
-  companion         UserCompanion?
-  planInterest      PlanInterest?
-  subscriptions     Subscription[]
-  checkoutSessions  CheckoutSession[]
-  certificates      Certificate[]
-  interviewSessions InterviewSession[]
-  refreshTokens     RefreshToken[]
-  oAuthAccounts     OAuthAccount[]
+  companion              UserCompanion?
+  planInterest           PlanInterest?
+  subscriptions          Subscription[]
+  checkoutSessions       CheckoutSession[]
+  checkoutReservation    CheckoutReservation?
+  certificates           Certificate[]
+  badgeCredentials       BadgeCredential[]
+  interviewSessions      InterviewSession[]
+  refreshTokens          RefreshToken[]
+  oAuthAccounts          OAuthAccount[]
   emailVerificationCodes EmailVerificationCode[]
-  diagnosticResults DiagnosticResult[]
-  instructedCourses Course[]        @relation("InstructedCourses")
-  enrollments       Enrollment[]
-  submissions       Submission[]
-  badges            UserBadge[]
+  diagnosticResults      DiagnosticResult[]
+  instructedCourses      Course[]                    @relation("InstructedCourses")
+  enrollments            Enrollment[]
+  submissions            Submission[]
+  badges                 UserBadge[]
+  xpLedgerEntries        XpLedgerEntry[]
+  activityReviewStates   ActivityReviewState[]
+  activityDrafts         ActivityDraft[]
+  playgroundDrafts       PlaygroundDraft[]
+  playgroundProjects     PlaygroundProject[]
+  transferAttempts       TransferAttempt[]
   // Fase 3 premium (desenho §4): desafios/ligas + comunidade.
-  leagueEntries        LeagueEntry[]
-  challengeParticipants ChallengeParticipant[]
-  forumThreads         ForumThread[]
-  forumPosts           ForumPost[]
-  solutionShares       SolutionShare[]
-  peerReviewsGiven     CodeReview[]       @relation("PeerReviews")
+  leagueEntries          LeagueEntry[]
+  challengeParticipants  ChallengeParticipant[]
+  forumThreads           ForumThread[]
+  forumPosts             ForumPost[]
+  solutionShares         SolutionShare[]
+  peerReviewsGiven       CodeReview[]                @relation("PeerReviews")
   // Fase 4 premium (desenho §5): Talent Match + B2B.
-  talentProfile        TalentProfile?
-  talentIntroductions  TalentIntroduction[]
-  orgMemberships       OrgMember[]
+  talentProfile          TalentProfile?
+  talentIntroductions    TalentIntroduction[]
+  orgMemberships         OrgMember[]
   // Fase 5 premium (desenho §6): diagnóstico por skill, modelo do aluno, cert-prep.
   diagnosticSkillResults DiagnosticSkillResult[]
   learnerSkillMastery    LearnerSkillMastery[]
   certAttempts           CertAttempt[]
-  chatMessages      AiChatMessage[]
-  studentRepos      StudentRepo[]
-  towerProgress     TowerProgress?
-  towerMoves        TowerMove[]
+  chatMessages           AiChatMessage[]
+  studentRepos           StudentRepo[]
+  towerProgress          TowerProgress?
+  towerMoves             TowerMove[]
   // Trilha dinâmica v1 (Central 209): 1 investigação por usuário.
-  trackInvestigation TrackInvestigation?
+  trackInvestigation     TrackInvestigation?
   // Pacotes Finais do PRD
-  hintUsages            ActivityHintUsage[]
-  guidedProjectProgress UserGuidedProjectProgress[]
-  towerInventory        UserTowerInventory[]
-  towerEffects          TowerActiveEffect[]
-  towerPartiesLed       TowerParty[] @relation("TowerPartyLeader")
+  hintUsages             ActivityHintUsage[]
+  guidedProjectProgress  UserGuidedProjectProgress[]
+  towerInventory         UserTowerInventory[]
+  towerEffects           TowerActiveEffect[]
+  towerPartiesLed        TowerParty[]                @relation("TowerPartyLeader")
 
   @@index([role])
   @@index([createdAt])
@@ -154,6 +172,22 @@ model UserBadge {
   @@map("user_badges")
 }
 
+model XpLedgerEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(191)
+  source         String   @db.VarChar(40)
+  amount         Int
+  description    String   @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@map("xp_ledger_entries")
+}
+
 // Torre de Desafios (Fase 0): progresso do jogador na torre.
 // square = 0 significa "antes da casa 1" (início do andar).
 model TowerProgress {
@@ -163,9 +197,9 @@ model TowerProgress {
   square          Int      @default(0)
   previousSquare  Int      @default(0) @map("previous_square")
   dailyRollsCount Int      @default(0) @map("daily_rolls_count")
-  lastRollDate    DateTime @default(now()) @db.Date @map("last_roll_date")
+  lastRollDate    DateTime @default(now()) @map("last_roll_date") @db.Date
   movesLeftToday  Int      @default(3) @map("moves_left_today")
-  movesResetDate  DateTime @default(now()) @db.Date @map("moves_reset_date")
+  movesResetDate  DateTime @default(now()) @map("moves_reset_date") @db.Date
   powers          Json     @default("[]")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -175,21 +209,22 @@ model TowerProgress {
 }
 
 // Torre de Desafios (Fase 0): log de jogadas. result:
-// 'pending' = desafio de código aguardando submissão;
+// 'pending' = desafio de código ou objetivo aguardando resposta;
 // 'passed' | 'failed' | 'timeout' = jogada resolvida;
-// 'skipped' = casa sem desafio (quiz/mini-game/item na Fase 1).
+// 'skipped' = casa sem desafio (item ou movimento sem avanço).
 model TowerMove {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  floor      Int
-  fromSquare Int      @map("from_square")
-  roll       Int
-  toSquare   Int      @map("to_square")
-  squareType String   @map("square_type")
-  activityId String?  @map("activity_id") @db.Uuid
-  result     String?
-  xpGained   Int      @default(0) @map("xp_gained")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  floor            Int
+  fromSquare       Int      @map("from_square")
+  roll             Int
+  toSquare         Int      @map("to_square")
+  squareType       String   @map("square_type")
+  activityId       String?  @map("activity_id") @db.Uuid
+  result           String?
+  xpGained         Int      @default(0) @map("xp_gained")
+  timeBonusSeconds Int      @default(0) @map("time_bonus_seconds")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -215,16 +250,39 @@ model AiChatMessage {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @map("user_id") @db.Uuid
   activityId String   @map("activity_id") @db.Uuid
+  aiRoomId   String?  @map("ai_room_id") @db.Uuid
   role       String
   content    String
   createdAt  DateTime @default(now()) @map("created_at")
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity           @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  aiRoom   AiSpecializedRoom? @relation(fields: [aiRoomId], references: [id], onDelete: SetNull)
 
   @@index([userId, activityId])
+  @@index([userId, activityId, aiRoomId, createdAt])
   @@index([createdAt])
   @@map("ai_chat_messages")
+}
+
+model AiSpecializedRoom {
+  id                 String   @id @default(uuid()) @db.Uuid
+  activityId         String   @map("activity_id") @db.Uuid
+  title              String   @db.VarChar(120)
+  slug               String   @db.VarChar(80)
+  description        String   @db.VarChar(500)
+  systemInstructions String   @map("system_instructions") @db.Text
+  model              String   @db.VarChar(120)
+  isPublished        Boolean  @default(false) @map("is_published")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  activity     Activity        @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  chatMessages AiChatMessage[]
+
+  @@unique([activityId, slug])
+  @@index([activityId, isPublished])
+  @@map("ai_specialized_rooms")
 }
 
 model EmailVerificationCode {
@@ -293,9 +351,9 @@ model Course {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  instructor   User         @relation("InstructedCourses", fields: [instructorId], references: [id], onDelete: Restrict)
-  enrollments  Enrollment[]
-  activities   Activity[]
+  instructor  User         @relation("InstructedCourses", fields: [instructorId], references: [id], onDelete: Restrict)
+  enrollments Enrollment[]
+  activities  Activity[]
 
   @@index([instructorId])
   @@map("courses")
@@ -348,48 +406,95 @@ model Activity {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  course       Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course       Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
   submissions  Submission[]
   chatMessages AiChatMessage[]
+  aiRooms      AiSpecializedRoom[]
   studentRepos StudentRepo[]
   // Fase 3 premium (desenho §4.1): a Activity vira o problema do desafio.
   challenges   Challenge[]
   hintUsages   ActivityHintUsage[]
+  reviewStates ActivityReviewState[]
+  drafts       ActivityDraft[]
 
   @@unique([courseId, slug])
   @@index([courseId, order])
   @@map("activities")
 }
 
-model Submission {
-  id           String           @id @default(uuid()) @db.Uuid
-  activityId   String           @map("activity_id") @db.Uuid
-  userId       String           @map("user_id") @db.Uuid
-  codeSnapshot String?          @map("code_snapshot")
-  commitSha    String?          @map("commit_sha")
-  status       SubmissionStatus @default(pending)
-  score        Float?
-  maxScore     Float?           @default(100) @map("max_score")
-  durationMs   Int?             @map("duration_ms")
-  errorMessage String?          @map("error_message")
-  logs         String?
-  aiFeedback   String?          @map("ai_feedback")
-  aiHints      String?          @map("ai_hints")
-  aiLineFeedback String?        @map("ai_line_feedback")
-  xpAwarded    Boolean          @default(false) @map("xp_awarded")
-  isBattleRun  Boolean          @default(false) @map("is_battle_run")
-  battleResult Json?            @map("battle_result")
-  requeueCount Int              @default(0) @map("requeue_count")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
+model ActivityDraft {
+  userId     String   @map("user_id") @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  code       String
+  revision   Int      @default(1)
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  activity    Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  testResults TestCaseResult[]
-  codeReviews CodeReview[]
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, activityId])
+  @@map("activity_drafts")
+}
+
+model PlaygroundProject {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String   @db.VarChar(80)
+  language  Language
+  files     Json
+  revision  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+  @@map("playground_projects")
+}
+
+model PlaygroundDraft {
+  userId    String   @map("user_id") @db.Uuid
+  language  Language
+  code      String
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, language])
+  @@map("playground_drafts")
+}
+
+model Submission {
+  id             String           @id @default(uuid()) @db.Uuid
+  activityId     String           @map("activity_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  codeSnapshot   String?          @map("code_snapshot")
+  commitSha      String?          @map("commit_sha")
+  status         SubmissionStatus @default(pending)
+  score          Float?
+  maxScore       Float?           @default(100) @map("max_score")
+  durationMs     Int?             @map("duration_ms")
+  errorMessage   String?          @map("error_message")
+  logs           String?
+  aiFeedback     String?          @map("ai_feedback")
+  aiHints        String?          @map("ai_hints")
+  aiLineFeedback String?          @map("ai_line_feedback")
+  xpAwarded      Boolean          @default(false) @map("xp_awarded")
+  isBattleRun    Boolean          @default(false) @map("is_battle_run")
+  battleResult   Json?            @map("battle_result")
+  requeueCount   Int              @default(0) @map("requeue_count")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  activity        Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testResults     TestCaseResult[]
+  transferAttempt TransferAttempt?
+  codeReviews     CodeReview[]
   // Fase 3 premium (desenho §4.2): galeria de soluções (opt-in, 1 por
   // submissão — o lado oposto da relação única de SolutionShare).
-  solutionShare SolutionShare?
+  solutionShare   SolutionShare?
 
   @@unique([activityId, userId, commitSha])
   @@index([activityId, userId])
@@ -399,6 +504,26 @@ model Submission {
   @@index([status])
   @@index([commitSha])
   @@map("submissions")
+}
+
+model ActivityReviewState {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  activityId     String   @map("activity_id") @db.Uuid
+  repetitions    Int      @default(0)
+  intervalDays   Int      @default(1) @map("interval_days")
+  dueAt          DateTime @map("due_at")
+  lastReviewedAt DateTime @map("last_reviewed_at")
+  lastPassed     Boolean  @default(false) @map("last_passed")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId])
+  @@index([userId, dueAt])
+  @@map("activity_review_states")
 }
 
 model TestCaseResult {
@@ -417,6 +542,23 @@ model TestCaseResult {
 
   @@index([submissionId])
   @@map("test_case_results")
+}
+
+model TransferAttempt {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  submissionId String   @unique @map("submission_id") @db.Uuid
+  taskVersion  String   @map("task_version")
+  score        Int
+  maxScore     Int      @map("max_score")
+  passed       Boolean
+  assessedAt   DateTime @default(now()) @map("assessed_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, assessedAt])
+  @@map("transfer_attempts")
 }
 
 model WebhookDelivery {
@@ -462,6 +604,7 @@ model Company {
 
   @@map("companies")
 }
+
 model DiagnosticResult {
   id           String   @id @default(uuid()) @db.Uuid
   userId       String?  @map("user_id") @db.Uuid
@@ -488,7 +631,7 @@ model DiagnosticSkillResult {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String   @map("user_id") @db.Uuid
   skillTag   String   @map("skill_tag") // concept-spine tag
-  score      Float    // 0..1, calibrado por nível
+  score      Float // 0..1, calibrado por nível
   level      String   @db.VarChar(16) // missing | developing | proficient
   assessedAt DateTime @default(now()) @map("assessed_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -511,7 +654,7 @@ model LearnerSkillMastery {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid
   skillTag  String   @map("skill_tag")
-  mastery   Float    // 0..1, derivado das fontes existentes
+  mastery   Float // 0..1, derivado das fontes existentes
   updatedAt DateTime @updatedAt @map("updated_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -526,10 +669,10 @@ model LearnerSkillMastery {
 // (direito autoral das certificadoras). CertAttempt registra o score por
 // domínio e a prontidão derivada; não guarda gabarito nem questão.
 model CertExam {
-  id       String       @id @default(uuid()) @db.Uuid
-  provider String       @db.VarChar(32) // aws | azure | gcp
+  id       String        @id @default(uuid()) @db.Uuid
+  provider String        @db.VarChar(32) // aws | azure | gcp
   name     String
-  domains  String[]     @default([]) // domínios do formato da prova
+  domains  String[]      @default([]) // domínios do formato da prova
   attempts CertAttempt[]
 
   @@map("cert_exams")
@@ -539,8 +682,8 @@ model CertAttempt {
   id        String   @id @default(uuid()) @db.Uuid
   examId    String   @map("exam_id") @db.Uuid
   userId    String   @map("user_id") @db.Uuid
-  scores    Json     // por domínio: { dominio: { correct, total, score } }
-  readiness Float    // 0..1
+  scores    Json // por domínio: { dominio: { correct, total, score } }
+  readiness Float // 0..1
   createdAt DateTime @default(now()) @map("created_at")
   exam      CertExam @relation(fields: [examId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -648,30 +791,30 @@ model PlanInterestLead {
 // NÃO rodar `prisma migrate deploy` em produção sem ordem explícita do
 // Augusto. Até lá, a tutora usa o adaptador de arquivo (KNOWLEDGE_STORE=file).
 model KnowledgeSource {
-  id        String   @id @default(uuid()) @db.Uuid
-  slug      String   @unique
+  id        String            @id @default(uuid()) @db.Uuid
+  slug      String            @unique
   name      String
-  kind      String   @default("drive-course") @db.VarChar(32)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  kind      String            @default("drive-course") @db.VarChar(32)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
   lessons   KnowledgeLesson[]
 
   @@map("knowledge_sources")
 }
 
 model KnowledgeLesson {
-  id               String   @id @default(uuid()) @db.Uuid
-  stableId         String   @unique @map("stable_id")
-  sourceId         String   @map("source_id") @db.Uuid
-  driveFileId      String   @unique @map("drive_file_id")
+  id               String          @id @default(uuid()) @db.Uuid
+  stableId         String          @unique @map("stable_id")
+  sourceId         String          @map("source_id") @db.Uuid
+  driveFileId      String          @unique @map("drive_file_id")
   title            String
-  summary          String   @db.Text
+  summary          String          @db.Text
   topics           String[]
   prerequisites    String[]
-  difficulty       String   @db.VarChar(16)
-  reviewStatus     String   @default("draft") @map("review_status") @db.VarChar(16)
-  extractedAt      DateTime @map("extracted_at")
-  extractorVersion String   @map("extractor_version")
+  difficulty       String          @db.VarChar(16)
+  reviewStatus     String          @default("draft") @map("review_status") @db.VarChar(16)
+  extractedAt      DateTime        @map("extracted_at")
+  extractorVersion String          @map("extractor_version")
   source           KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
 
   @@index([sourceId])
@@ -679,14 +822,14 @@ model KnowledgeLesson {
 }
 
 model KnowledgeResearch {
-  id         String    @id @default(uuid()) @db.Uuid
-  stableId   String    @unique @map("stable_id")
-  goal       String
-  status     String    @default("draft") @db.VarChar(16)
-  payload    Json
-  approvedBy String?   @map("approved_by") @db.Uuid
-  approvedAt DateTime? @map("approved_at")
-  collectedAt DateTime @map("collected_at")
+  id          String    @id @default(uuid()) @db.Uuid
+  stableId    String    @unique @map("stable_id")
+  goal        String
+  status      String    @default("draft") @db.VarChar(16)
+  payload     Json
+  approvedBy  String?   @map("approved_by") @db.Uuid
+  approvedAt  DateTime? @map("approved_at")
+  collectedAt DateTime  @map("collected_at")
 
   @@map("knowledge_research")
 }
@@ -698,33 +841,33 @@ model KnowledgeResearch {
 // versão aprovada, D12). Aprovação de versão registra approvedBy via
 // changelog (actor admin:<id>), não via coluna na versão.
 model KnowledgeEntry {
-  id              String   @id @default(uuid()) @db.Uuid
-  slug            String   @unique
-  title           String
-  topicIds        String[] @map("topic_ids")
-  status          String   @default("active") @db.VarChar(16)
-  currentVersion  Int      @default(1) @map("current_version")
-  supersededByEntry String? @map("superseded_by_entry")
-  supersededAt    DateTime? @map("superseded_at")
-  supersedeReason String?  @map("supersede_reason") @db.Text
-  versions        KnowledgeEntryVersion[]
+  id                String                  @id @default(uuid()) @db.Uuid
+  slug              String                  @unique
+  title             String
+  topicIds          String[]                @map("topic_ids")
+  status            String                  @default("active") @db.VarChar(16)
+  currentVersion    Int                     @default(1) @map("current_version")
+  supersededByEntry String?                 @map("superseded_by_entry")
+  supersededAt      DateTime?               @map("superseded_at")
+  supersedeReason   String?                 @map("supersede_reason") @db.Text
+  versions          KnowledgeEntryVersion[]
 
   @@map("knowledge_entries")
 }
 
 model KnowledgeEntryVersion {
-  id              String   @id @default(uuid()) @db.Uuid
-  entryId         String   @map("entry_id") @db.Uuid
+  id              String         @id @default(uuid()) @db.Uuid
+  entryId         String         @map("entry_id") @db.Uuid
   version         Int
-  status          String   @default("draft") @db.VarChar(16)
-  summary         String   @db.Text
-  keyExamples     String[] @map("key_examples")
+  status          String         @default("draft") @db.VarChar(16)
+  summary         String         @db.Text
+  keyExamples     String[]       @map("key_examples")
   contributions   Json
-  marketContext   Json?    @map("market_context")
-  supersededBy    Int?     @map("superseded_by")
-  supersededAt    DateTime? @map("superseded_at")
-  supersedeReason String?  @map("supersede_reason") @db.Text
-  createdAt       DateTime @default(now()) @map("created_at")
+  marketContext   Json?          @map("market_context")
+  supersededBy    Int?           @map("superseded_by")
+  supersededAt    DateTime?      @map("superseded_at")
+  supersedeReason String?        @map("supersede_reason") @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
   entry           KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
 
   @@unique([entryId, version])
@@ -747,17 +890,17 @@ model KnowledgeChangelog {
 }
 
 model KnowledgeReviewItem {
-  id         String   @id @default(uuid()) @db.Uuid
-  stableId   String   @unique @map("stable_id")
-  kind       String   @db.VarChar(32)
-  sourceRef  Json     @map("source_ref")
+  id         String    @id @default(uuid()) @db.Uuid
+  stableId   String    @unique @map("stable_id")
+  kind       String    @db.VarChar(32)
+  sourceRef  Json      @map("source_ref")
   candidates Json
   confidence Float
-  status     String   @default("open") @db.VarChar(16)
+  status     String    @default("open") @db.VarChar(16)
   decision   Json?
-  resolvedBy String?  @map("resolved_by") @db.Uuid
+  resolvedBy String?   @map("resolved_by") @db.Uuid
   resolvedAt DateTime? @map("resolved_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   @@map("knowledge_review_items")
 }
@@ -787,11 +930,11 @@ model Subscription {
 
 // C1 (Lote 1 P0) — vínculo checkout → webhook: a sessão criada em
 // `createCheckout` é a única prova de que um `payment_approved` pode
-// liberar um plano para um usuário. Sem linha aqui com
-// (`providerSubscriptionId`, `userId`), o evento é rejeitado (4xx) e
-// nada é liberado — o corpo do webhook nunca é confiado sozinho.
-// `providerSubscriptionId` é a chave que o webhook traz (no provedor
-// simulado, igual ao `sessionId`).
+// liberar um plano para um usuário. O `providerSubscriptionId` e o
+// provedor precisam corresponder à sessão; quando o evento também traz
+// `userId`, ele é validado contra a sessão. Sem correspondência, o
+// evento é rejeitado e nada é liberado — o corpo nunca decide plano,
+// ciclo ou usuário. No provedor simulado, o id é igual ao `sessionId`.
 model CheckoutSession {
   id                     String   @id @default(uuid()) @db.Uuid
   sessionId              String   @unique @map("session_id")
@@ -803,12 +946,29 @@ model CheckoutSession {
   provider               String   @db.VarChar(32)
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
+  canceledAt             DateTime? @map("canceled_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([providerSubscriptionId, userId])
   @@index([userId])
   @@map("checkout_sessions")
+}
+
+model CheckoutReservation {
+  userId                 String    @id @map("user_id") @db.Uuid
+  status                 String    @db.VarChar(16)
+  provider               String    @db.VarChar(32)
+  plan                   Plan
+  billingCycle           String    @map("billing_cycle") @db.VarChar(16)
+  amountCents            Int       @map("amount_cents")
+  sessionId              String?   @map("session_id")
+  providerSubscriptionId String?   @map("provider_subscription_id")
+  checkoutUrl            String?   @map("checkout_url") @db.Text
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("checkout_reservations")
 }
 
 // Idempotência do webhook de pagamento: (provider, providerEventId) é
@@ -844,6 +1004,19 @@ model Certificate {
   @@map("certificates")
 }
 
+model BadgeCredential {
+  id           String    @id @default(uuid()) @db.Uuid
+  listIndex    Int       @unique @default(autoincrement()) @map("list_index")
+  userId       String?   @map("user_id") @db.Uuid
+  submissionId String    @map("submission_id") @db.Uuid
+  issuedAt     DateTime  @default(now()) @map("issued_at")
+  revokedAt    DateTime? @map("revoked_at")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, submissionId])
+  @@map("badge_credentials")
+}
+
 // Fase 2 premium (desenho §3.1/§3.2) — simulador de entrevista + revisão
 // de código por IA. Ambos são modos da tutora existente: nenhuma tabela
 // de conteúdo paralela, nenhum cliente de LLM novo. A revisão COMPLEMENTA
@@ -869,7 +1042,7 @@ model InterviewSession {
   createdAt DateTime        @default(now()) @map("created_at")
   endedAt   DateTime?       @map("ended_at")
 
-  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   turns  InterviewTurn[]
   report InterviewReport?
 
@@ -878,15 +1051,15 @@ model InterviewSession {
 }
 
 model InterviewTurn {
-  id      String   @id @default(uuid()) @db.Uuid
-  sessionId String @map("session_id") @db.Uuid
-  role    String   @db.VarChar(16) // interviewer | candidate
-  content String   @db.Text
+  id         String   @id @default(uuid()) @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  role       String   @db.VarChar(16) // interviewer | candidate
+  content    String   @db.Text
   // Avaliação do turno pela rubrica (§3.1): { criterio: { score, evidence } }.
   // Extensão sobre o desenho (que não previa onde guardar a avaliação por
   // turno): sem ela o relatório final seria gerado sem lastro por turno.
   evaluation Json?
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -956,16 +1129,16 @@ enum LeagueTier {
 }
 
 model Challenge {
-  id         String   @id @default(uuid()) @db.Uuid
-  activityId String   @map("activity_id") @db.Uuid
-  title      String
-  startsAt   DateTime @map("starts_at")
-  endsAt     DateTime @map("ends_at")
+  id           String                 @id @default(uuid()) @db.Uuid
+  activityId   String                 @map("activity_id") @db.Uuid
+  title        String
+  startsAt     DateTime               @map("starts_at")
+  endsAt       DateTime               @map("ends_at")
   // Participação opt-in, nunca automática (desenho §4.1). O registro de
   // quem optou vive em ChallengeParticipant; a liga é só para planos
   // com challengesFull (matriz §1.1) — o desafio em si é aberto a todos.
-  optIn      Boolean  @default(true) @map("opt_in")
-  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  optIn        Boolean                @default(true) @map("opt_in")
+  activity     Activity               @relation(fields: [activityId], references: [id], onDelete: Restrict)
   participants ChallengeParticipant[]
 
   @@index([startsAt, endsAt])
@@ -989,10 +1162,10 @@ model ChallengeParticipant {
 }
 
 model LeagueSeason {
-  id       String     @id @default(uuid()) @db.Uuid
+  id       String        @id @default(uuid()) @db.Uuid
   tier     LeagueTier
-  startsAt DateTime   @map("starts_at")
-  endsAt   DateTime   @map("ends_at")
+  startsAt DateTime      @map("starts_at")
+  endsAt   DateTime      @map("ends_at")
   entries  LeagueEntry[]
 
   @@map("league_seasons")
@@ -1087,7 +1260,7 @@ model JobPosting {
   postedAt    DateTime  @map("posted_at")
   expiresAt   DateTime  @map("expires_at")
 
-  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  company       Company?             @relation(fields: [companyId], references: [id], onDelete: SetNull)
   introductions TalentIntroduction[]
 
   @@index([level, expiresAt])
@@ -1120,14 +1293,14 @@ enum IntroductionStatus {
 }
 
 model TalentIntroduction {
-  id           String             @id @default(uuid()) @db.Uuid
-  companyId    String             @map("company_id") @db.Uuid
-  userId       String             @map("user_id") @db.Uuid
-  jobPostingId String?            @map("job_posting_id") @db.Uuid
-  status       IntroductionStatus @default(pending)
-  companyMessage String?          @map("company_message") @db.Text
-  createdAt    DateTime           @default(now()) @map("created_at")
-  decidedAt    DateTime?          @map("decided_at")
+  id             String             @id @default(uuid()) @db.Uuid
+  companyId      String             @map("company_id") @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  jobPostingId   String?            @map("job_posting_id") @db.Uuid
+  status         IntroductionStatus @default(pending)
+  companyMessage String?            @map("company_message") @db.Text
+  createdAt      DateTime           @default(now()) @map("created_at")
+  decidedAt      DateTime?          @map("decided_at")
 
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1144,10 +1317,10 @@ enum OrgRole {
 }
 
 model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  companyId String?  @map("company_id") @db.Uuid // liga com Company existente, quando houver
+  id        String      @id @default(uuid()) @db.Uuid
+  companyId String?     @map("company_id") @db.Uuid // liga com Company existente, quando houver
   name      String
-  seats     Int      @default(0) // licenças contratadas; 0 = sem assento
+  seats     Int         @default(0) // licenças contratadas; 0 = sem assento
   members   OrgMember[]
 
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -1223,29 +1396,29 @@ model TrackInvestigation {
 }
 
 model MarketSignal {
-  id           String   @id @default(uuid()) @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
   // Nulo = sinal avulso (ex.: coleta admin sem investigação vinculada).
-  investigationId String? @map("investigation_id") @db.Uuid
+  investigationId String?  @map("investigation_id") @db.Uuid
   // Campos obrigatórios da spec last30days §6.
-  titulo         String
-  tecnologia     String   @db.VarChar(64)
-  tipo           String   @db.VarChar(32)
-  publishedAt    DateTime @map("published_at")
-  retrievedAt    DateTime @default(now()) @map("retrieved_at")
-  sourceName     String   @map("source_name")
-  sourceUrl      String   @map("source_url")
-  evidencia      String?
-  objetivoAfetado String? @map("objetivo_afetado") @db.VarChar(32)
-  passoAfetado   String?  @map("passo_afetado")
+  titulo          String
+  tecnologia      String   @db.VarChar(64)
+  tipo            String   @db.VarChar(32)
+  publishedAt     DateTime @map("published_at")
+  retrievedAt     DateTime @default(now()) @map("retrieved_at")
+  sourceName      String   @map("source_name")
+  sourceUrl       String   @map("source_url")
+  evidencia       String?
+  objetivoAfetado String?  @map("objetivo_afetado") @db.VarChar(32)
+  passoAfetado    String?  @map("passo_afetado")
   // Pontuação da spec §7 (default): oficial 50 + 2ª fonte 25 + afeta
   // objetivo 15 + versão estável em uso 10; >= 70 vira evidência.
   // Beta/RC/rumor = 0, sempre ignorado.
-  score          Int      @default(0)
-  isBetaOrRumor  Boolean  @default(false) @map("is_beta_or_rumor")
+  score           Int      @default(0)
+  isBetaOrRumor   Boolean  @default(false) @map("is_beta_or_rumor")
   // URL da 2ª fonte independente que confirmou o sinal (dedupe: mesma
   // URL = confirmação, não sinal novo).
-  confirmedByUrl String?  @map("confirmed_by_url")
-  createdAt      DateTime @default(now()) @map("created_at")
+  confirmedByUrl  String?  @map("confirmed_by_url")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   investigation TrackInvestigation? @relation(fields: [investigationId], references: [id], onDelete: Cascade)
 
@@ -1369,7 +1542,7 @@ model UserTowerInventory {
 model TowerActiveEffect {
   id         String    @id @default(uuid()) @db.Uuid
   userId     String    @map("user_id") @db.Uuid
-  effectType String    @map("effect_type") // SHIELD | DOUBLE_DICE | EXTRA_TIME | ORACLE
+  effectType String    @map("effect_type") // SHIELD | DOUBLE_DICE | CHAOS_BANANA
   charges    Int       @default(1)
   expiresAt  DateTime? @map("expires_at")
   createdAt  DateTime  @default(now()) @map("created_at")
@@ -1397,3 +1570,120 @@ model TowerParty {
   @@map("tower_parties")
 }
 
+model AiTutorFeedback {
+  id         String   @id @default(uuid()) @db.Uuid
+  responseId String   @unique @map("response_id") @db.Uuid
+  activityId String   @map("activity_id") @db.Uuid
+  helpful    Boolean
+  concern    String?  @db.VarChar(32)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([activityId, createdAt])
+  @@map("ai_tutor_feedback")
+}
+
+model AiOperatorAuditEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  adminId     String    @map("admin_id") @db.Uuid
+  action      String    @db.VarChar(16)
+  queue       String    @db.VarChar(64)
+  reason      String    @db.VarChar(500)
+  status      String    @default("started") @db.VarChar(16)
+  errorCode   String?   @map("error_code") @db.VarChar(64)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([createdAt])
+  @@index([queue, createdAt])
+  @@map("ai_operator_audit_events")
+}
+
+model AdminAuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  adminId       String   @map("admin_id") @db.Uuid
+  action        String   @db.VarChar(64)
+  targetType    String   @map("target_type") @db.VarChar(32)
+  targetId      String   @map("target_id") @db.Uuid
+  previousValue String?  @map("previous_value") @db.VarChar(32)
+  newValue      String?  @map("new_value") @db.VarChar(32)
+  changedFields String[] @default([]) @map("changed_fields")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@map("admin_audit_events")
+}
+
+model RunnerDiagnostic {
+  id         String   @id @default(uuid()) @db.Uuid
+  adminId    String?  @map("admin_id") @db.Uuid
+  language   Language
+  status     String   @db.VarChar(16)
+  kind       String?  @db.VarChar(32)
+  durationMs Int?     @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at")
+  finishedAt DateTime? @map("finished_at")
+
+  @@index([createdAt])
+  @@map("runner_diagnostics")
+}
+
+model KnowledgeReference {
+  id          String    @id @default(uuid()) @db.Uuid
+  kind        String    @db.VarChar(16)
+  title       String    @db.VarChar(200)
+  url         String    @unique @db.VarChar(512)
+  author      String?   @db.VarChar(200)
+  license     String?   @db.VarChar(200)
+  status      String    @default("pending") @db.VarChar(16)
+  submittedBy String?   @map("submitted_by") @db.Uuid
+  source      String    @default("admin") @db.VarChar(16)
+  reviewedBy  String?   @map("reviewed_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  reviewedAt  DateTime? @map("reviewed_at")
+  curation    KnowledgeCurationCandidate?
+
+  @@index([status, createdAt])
+  @@map("knowledge_references")
+}
+
+model KnowledgeCurationCandidate {
+  id          String             @id @default(uuid()) @db.Uuid
+  referenceId String             @unique @map("reference_id") @db.Uuid
+  reference   KnowledgeReference @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  status      String             @default("pending") @db.VarChar(16)
+  createdBy   String             @map("created_by") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at")
+  archivedBy  String?            @map("archived_by") @db.Uuid
+  archivedAt  DateTime?          @map("archived_at")
+  topics      String[]           @default([])
+  publishedBy String?            @map("published_by") @db.Uuid
+  publishedAt DateTime?          @map("published_at")
+
+  @@index([status, createdAt])
+  @@map("knowledge_curation_candidates")
+}
+
+enum GiteaDeletionJobStatus {
+  pending
+  processing
+  completed
+}
+
+model GiteaDeletionJob {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  username           String                 @db.VarChar(100)
+  candidateRepoNames String[]               @default([]) @map("candidate_repo_names")
+  status             GiteaDeletionJobStatus @default(pending)
+  attempts           Int                    @default(0)
+  nextAttemptAt      DateTime               @default(now()) @map("next_attempt_at")
+  lockedUntil        DateTime?              @map("locked_until")
+  completedAt        DateTime?              @map("completed_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedUntil])
+  @@map("gitea_deletion_jobs")
+}

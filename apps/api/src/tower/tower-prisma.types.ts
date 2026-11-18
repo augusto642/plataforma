@@ -11,10 +11,12 @@
  */
 export interface TowerUserRow {
   id: string;
+  nickname?: string | null;
   // T1 — enum Plan da main é {free, pro, career} (superset do {free, pro}
   // da Torre); 'career' é plano pago e cai no limite de assinante.
   plan: 'free' | 'pro' | 'career';
   careerTier: string;
+  coins?: number;
 }
 
 export interface TowerProgressRow {
@@ -39,11 +41,13 @@ export interface TowerMoveRow {
   activityId: string | null;
   result: string | null;
   xpGained: number;
+  timeBonusSeconds: number;
   createdAt: Date;
 }
 
 export interface TowerActivityRow {
   id: string;
+  title: string;
   language: string;
   testCode: string | null;
   hiddenTests: string | null;
@@ -87,6 +91,10 @@ export interface TowerPrismaClient {
   };
   submission: {
     create(args: { data: Record<string, unknown> }): Promise<{ id: string }>;
+    update(args: {
+      where: { id: string };
+      data: Record<string, unknown>;
+    }): Promise<{ id: string }>;
   };
   testCaseResult: {
     createMany(args: { data: Record<string, unknown>[] }): Promise<{ count: number }>;

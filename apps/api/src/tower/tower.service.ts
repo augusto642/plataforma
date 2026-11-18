@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   HttpException,
@@ -8,7 +9,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { Language } from '@prisma/client';
+import type { Language, Prisma } from '@prisma/client';
 import { GamificationService } from '../gamification/gamification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -24,6 +25,7 @@ import {
   TOWER_PRO_DAILY_MOVES,
   TOWER_SQUARES_PER_FLOOR,
 } from './tower.constants';
+import { getTowerObjectiveQuestion, type TowerObjectiveKind } from './tower-objectives';
 import type {
   TowerMoveRow,
   TowerPrismaClient,
@@ -38,13 +40,28 @@ const NO_XP_KINDS: ReadonlySet<SandboxResultKind> = new Set([
   'compile_error',
 ]);
 
+const DIRECTLY_ACTIVATABLE_TOWER_ITEMS = new Set([
+  'SHIELD',
+  'DOUBLE_DICE',
+  'EXTRA_TIME',
+  'CHAOS_BANANA',
+]);
+const EXTRA_TIME_SECONDS = 60;
+
 export interface TowerPendingChallenge {
-  activityId: string;
+  activityId: string | null;
   floor: number;
   toSquare: number;
   squareType: string;
   timeLimitSeconds: number;
   deadlineAt: string;
+  objective?: {
+    kind: TowerObjectiveKind;
+    title: string;
+    prompt: string;
+    options: string[];
+    codeSnippet?: string;
+  };
 }
 
 export interface TowerProgressView {
@@ -64,16 +81,41 @@ export interface TowerRollResult {
   fromSquare: number;
   toSquare: number;
   floor: number;
-  square: TowerSquareInfo;
+  square: TowerSquareInfo | null;
   movesLeftToday: number;
+  sabotageApplied: boolean;
   pendingChallenge: TowerPendingChallenge | null;
 }
+
+export interface TowerPartyView {
+  id: string;
+  name: string;
+  floor: number;
+  leaderId: string;
+  members: Array<{
+    id: string;
+    nickname: string;
+    floor: number;
+    square: number;
+    isLeader: boolean;
+    isCurrentUser: boolean;
+  }>;
+  recentAdvances: Array<{
+    id: string;
+    nickname: string;
+    floor: number;
+    createdAt: string;
+  }>;
+}
+
+type TowerPartyMember = TowerPartyView['members'][number];
 
 export type TowerSubmitResultKind = 'passed' | 'failed' | 'timeout';
 
 export interface TowerSubmitResult {
   result: TowerSubmitResultKind;
   score: number | null;
+  feedback?: string;
   xpGained: number;
   totalXp: number | null;
   level: number | null;
@@ -86,17 +128,17 @@ export interface TowerSubmitResult {
 }
 
 /**
- * Loop principal da Torre de Desafios (Fase 1 — MVP jogável).
+ * Loop principal da Torre de Desafios (código, quiz, bug-hunt e lacunas).
  *
  * rolar → mover → resolver a casa de código via Activity + Piston.
  * - Acerto: avança para a casa sorteada.
  * - Erro ou tempo esgotado: volta para a última casa − 1.
  * - Guardião (casa 30): passar avança de andar (ou completa o nível).
  * - Limite diário: 5 jogadas/dia (grátis) / 10 (assinante), reset à meia-noite (UTC).
- * - XP: reusa GamificationService (70 passou / 20 errou / +50 nota 100).
+ * - XP de código e objetivos usa fluxos idempotentes separados.
  *
- * Casas de quiz/mini-game/item (Fase 1): o jogador apenas atravessa a casa —
- * o desafio em si é Fase 2. O movimento dessas casas é aplicado na rolagem.
+ * Quiz and mini-game squares create timed multiple-choice objectives. Item
+ * squares are traversed immediately.
  *
  * Concorrência: rolar/submeter travam a linha de TowerProgress
  * (`SELECT ... FOR UPDATE`) dentro da transação, para duas rolagens
@@ -203,31 +245,49 @@ export class TowerService {
       }
 
       let roll = this.dice.roll();
-      try {
-        const doubleDiceEffect = await (tx as any).towerActiveEffect.findFirst({
-          where: { userId, effectType: 'DOUBLE_DICE', charges: { gt: 0 } },
-        });
-        if (doubleDiceEffect) {
-          roll += this.dice.roll();
-          if (doubleDiceEffect.charges <= 1) {
-            await (tx as any).towerActiveEffect.delete({ where: { id: doubleDiceEffect.id } });
-          } else {
-            await (tx as any).towerActiveEffect.update({
-              where: { id: doubleDiceEffect.id },
-              data: { charges: doubleDiceEffect.charges - 1 },
-            });
-          }
+      const doubleDiceEffect = await (tx as any).towerActiveEffect.findFirst({
+        where: { userId, effectType: 'DOUBLE_DICE', charges: { gt: 0 } },
+      });
+      if (doubleDiceEffect) {
+        roll += this.dice.roll();
+        if (doubleDiceEffect.charges <= 1) {
+          await (tx as any).towerActiveEffect.delete({ where: { id: doubleDiceEffect.id } });
+        } else {
+          await (tx as any).towerActiveEffect.update({
+            where: { id: doubleDiceEffect.id },
+            data: { charges: doubleDiceEffect.charges - 1 },
+          });
         }
-      } catch {}
+      }
+
+      const bananaEffect = await (tx as any).towerActiveEffect.findFirst({
+        where: { userId, effectType: 'CHAOS_BANANA', charges: { gt: 0 } },
+      });
+      if (bananaEffect) {
+        if (bananaEffect.charges <= 1) {
+          await (tx as any).towerActiveEffect.delete({ where: { id: bananaEffect.id } });
+        } else {
+          await (tx as any).towerActiveEffect.update({
+            where: { id: bananaEffect.id },
+            data: { charges: bananaEffect.charges - 1 },
+          });
+        }
+      }
 
       const fromSquare = progress.square;
-      const toSquare = Math.min(fromSquare + roll, TOWER_SQUARES_PER_FLOOR);
-      const info = this.board.getSquare(progress.floor, toSquare);
+      const toSquare = Math.max(
+        fromSquare,
+        Math.min(
+          fromSquare + roll - (bananaEffect ? 1 : 0),
+          TOWER_SQUARES_PER_FLOOR,
+        ),
+      );
+      const info = toSquare > 0 ? this.board.getSquare(progress.floor, toSquare) : null;
 
       // Casa de código/guardião precisa da Activity semeada — sem ela, a
       // jogada NÃO é consumida (fail-closed).
       let activityId: string | null = null;
-      if (this.isCodeChallenge(info)) {
+      if (toSquare > fromSquare && info && this.isCodeChallenge(info)) {
         activityId = await this.board.resolveActivityId(tx, progress.floor, toSquare);
         if (!activityId) {
           throw new ServiceUnavailableException(
@@ -236,9 +296,11 @@ export class TowerService {
         }
       }
 
-      // Casa sem desafio (quiz/mini-game/item): atravessa na hora. Casa de
-      // código: o avanço só acontece quando o desafio for resolvido.
-      const newSquare = activityId ? fromSquare : toSquare;
+      const hasChallenge =
+        toSquare > fromSquare &&
+        info !== null &&
+        (Boolean(activityId) || this.isObjectiveChallenge(info.type));
+      const newSquare = hasChallenge ? fromSquare : toSquare;
       progress = await tx.towerProgress.update({
         where: { id: progress.id },
         data: {
@@ -255,9 +317,9 @@ export class TowerService {
           fromSquare,
           roll,
           toSquare,
-          squareType: info.type,
+          squareType: info?.type ?? 'none',
           activityId,
-          result: activityId ? 'pending' : 'skipped',
+          result: hasChallenge ? 'pending' : 'skipped',
           xpGained: 0,
         },
       });
@@ -269,7 +331,9 @@ export class TowerService {
         floor: progress.floor,
         square: info,
         movesLeftToday: progress.movesLeftToday,
-        pendingChallenge: activityId ? this.toPendingChallenge(move, info) : null,
+        sabotageApplied: Boolean(bananaEffect),
+        pendingChallenge:
+          hasChallenge && info ? this.toPendingChallenge(move, info) : null,
       };
     });
   }
@@ -283,70 +347,12 @@ export class TowerService {
       throw new ConflictException('Nenhum desafio pendente na torre.');
     }
     const info = this.board.getSquare(pending.floor, pending.toSquare);
-    const deadlineAt = new Date(
-      pending.createdAt.getTime() + info.timeLimitSeconds * 1000,
-    );
+    if (!pending.activityId || !['code', 'final'].includes(pending.squareType)) {
+      throw new ConflictException('Este desafio não aceita submissão de código.');
+    }
 
-    // Tempo esgotado: volta para a última casa − 1, sem XP e sem submissão
-    // (nada foi executado).
-    if (Date.now() > deadlineAt.getTime()) {
-      const timedOut = await db.$transaction(async (tx) => {
-        const stillPending = await this.findPendingMoveById(tx, pending.id);
-        if (!stillPending) {
-          throw new ConflictException('O desafio pendente já foi resolvido.');
-        }
-        await this.lockProgress(tx, userId);
-        const progress = await tx.towerProgress.findUnique({ where: { userId } });
-
-        // Checagem de Escudo Protetor (SHIELD) no timeout
-        let shieldActive = false;
-        try {
-          const shield = await (tx as any).towerActiveEffect.findFirst({
-            where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
-          });
-          if (shield) {
-            shieldActive = true;
-            if (shield.charges <= 1) {
-              await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
-            } else {
-              await (tx as any).towerActiveEffect.update({
-                where: { id: shield.id },
-                data: { charges: shield.charges - 1 },
-              });
-            }
-          }
-        } catch {}
-
-        const newSquare = shieldActive ? pending.fromSquare : Math.max(0, pending.fromSquare - 1);
-        const updated = progress
-          ? await tx.towerProgress.update({
-              where: { id: progress.id },
-              data: { square: newSquare },
-            })
-          : null;
-        await tx.towerMove.update({
-          where: { id: pending.id },
-          data: { result: 'timeout', xpGained: 0 },
-        });
-        return {
-          floor: pending.floor,
-          square: newSquare,
-          movesLeftToday: updated?.movesLeftToday ?? 0,
-        };
-      });
-      return {
-        result: 'timeout',
-        score: null,
-        xpGained: 0,
-        totalXp: null,
-        level: null,
-        streakDays: null,
-        floor: timedOut.floor,
-        square: timedOut.square,
-        movesLeftToday: timedOut.movesLeftToday,
-        guardianDefeated: false,
-        tierComplete: false,
-      };
+    if (this.isTimedOut(pending, info.timeLimitSeconds)) {
+      return this.timeoutPendingMove(userId, pending);
     }
 
     const activity = await db.activity.findUnique({
@@ -382,11 +388,11 @@ export class TowerService {
     const canAwardXp = !NO_XP_KINDS.has(kind);
 
     const outcome = await db.$transaction(async (tx) => {
+      await this.lockProgress(tx, userId);
       const stillPending = await this.findPendingMoveById(tx, pending.id);
       if (!stillPending) {
         throw new ConflictException('O desafio pendente já foi resolvido.');
       }
-      await this.lockProgress(tx, userId);
       const progress = await tx.towerProgress.findUnique({ where: { userId } });
       if (!progress) {
         throw new ConflictException('Progresso da torre não encontrado.');
@@ -404,7 +410,7 @@ export class TowerService {
           durationMs: evaluation.durationMs,
           errorMessage: evaluation.errorMessage ?? null,
           logs: evaluation.logs ?? null,
-          xpAwarded: canAwardXp,
+          xpAwarded: false,
         },
       });
       if (evaluation.testCases.length > 0) {
@@ -429,22 +435,20 @@ export class TowerService {
       // Checagem de Escudo Protetor (SHIELD) em caso de erro
       let shieldActive = false;
       if (!passed) {
-        try {
-          const shield = await (tx as any).towerActiveEffect.findFirst({
-            where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
-          });
-          if (shield) {
-            shieldActive = true;
-            if (shield.charges <= 1) {
-              await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
-            } else {
-              await (tx as any).towerActiveEffect.update({
-                where: { id: shield.id },
-                data: { charges: shield.charges - 1 },
-              });
-            }
+        const shield = await (tx as any).towerActiveEffect.findFirst({
+          where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
+        });
+        if (shield) {
+          shieldActive = true;
+          if (shield.charges <= 1) {
+            await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
+          } else {
+            await (tx as any).towerActiveEffect.update({
+              where: { id: shield.id },
+              data: { charges: shield.charges - 1 },
+            });
           }
-        } catch {}
+        }
       }
 
       const penaltySquare = shieldActive ? pending.fromSquare : Math.max(0, pending.fromSquare - 1);
@@ -462,21 +466,41 @@ export class TowerService {
       }
 
       if (passed) {
-        try {
-          await (tx as any).user.update({
-            where: { id: userId },
-            data: { coins: { increment: 15 } },
-          });
-        } catch {}
+        await (tx as any).user.update({
+          where: { id: userId },
+          data: { coins: { increment: 15 } },
+        });
+      }
+
+      let xpAward: Awaited<ReturnType<GamificationService['awardSubmissionXp']>> = null;
+      if (canAwardXp) {
+        xpAward = await this.gamification.awardSubmissionXp(
+          userId,
+          pending.activityId as string,
+          passed,
+          evaluation.score,
+          `submission:${submission.id}`,
+          tx as unknown as Prisma.TransactionClient,
+        );
+        if (!xpAward) {
+          throw new ConflictException('Não foi possível registrar a recompensa de XP.');
+        }
+        await tx.submission.update({
+          where: { id: submission.id },
+          data: { xpAwarded: true },
+        });
       }
 
       const updated = await tx.towerProgress.update({
         where: { id: progress.id },
         data: { floor: newFloor, square: newSquare },
       });
+      if (guardianDefeated) {
+        await this.updatePartyFloor(tx, userId, newFloor);
+      }
       await tx.towerMove.update({
         where: { id: pending.id },
-        data: { result: passed ? 'passed' : 'failed', xpGained: 0 },
+        data: { result: passed ? 'passed' : 'failed', xpGained: xpAward?.xpGained ?? 0 },
       });
       return {
         floor: newFloor,
@@ -484,44 +508,17 @@ export class TowerService {
         movesLeftToday: updated.movesLeftToday,
         guardianDefeated,
         tierComplete,
+        xpAward,
       };
     });
-
-    // XP depois da transação, como no EvaluatorService.
-    let xpGained = 0;
-    let totalXp: number | null = null;
-    let level: number | null = null;
-    let streakDays: number | null = null;
-    if (canAwardXp) {
-      const awarded = await this.gamification.awardSubmissionXp(
-        userId,
-        pending.activityId as string,
-        passed,
-        evaluation.score,
-      );
-      if (awarded) {
-        xpGained = awarded.xpGained;
-        totalXp = awarded.totalXp;
-        level = awarded.level;
-        streakDays = awarded.streak;
-        await db.towerMove.update({
-          where: { id: pending.id },
-          data: { xpGained },
-        });
-      } else {
-        this.logger.warn(
-          `XP da torre não foi premiado (user ${userId}, activity ${pending.activityId}).`,
-        );
-      }
-    }
 
     return {
       result: passed ? 'passed' : 'failed',
       score: evaluation.score,
-      xpGained,
-      totalXp,
-      level,
-      streakDays,
+      xpGained: outcome.xpAward?.xpGained ?? 0,
+      totalXp: outcome.xpAward?.totalXp ?? null,
+      level: outcome.xpAward?.level ?? null,
+      streakDays: outcome.xpAward?.streak ?? null,
       floor: outcome.floor,
       square: outcome.square,
       movesLeftToday: outcome.movesLeftToday,
@@ -530,7 +527,392 @@ export class TowerService {
     };
   }
 
+  /** Responde a quiz/minigame sem expor a resposta correta antes da tentativa. */
+  async submitObjective(userId: string, choiceIndex: number): Promise<TowerSubmitResult> {
+    if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex > 3) {
+      throw new BadRequestException('Alternativa inválida.');
+    }
+
+    const db = this.db();
+    const pending = await this.findPendingMove(db, userId);
+    if (!pending || !this.isObjectiveChallenge(pending.squareType)) {
+      throw new ConflictException('Nenhum quiz ou minigame pendente na torre.');
+    }
+
+    const question = getTowerObjectiveQuestion(pending.floor, pending.toSquare);
+    const info = this.board.getSquare(pending.floor, pending.toSquare);
+    if (this.isTimedOut(pending, info.timeLimitSeconds)) {
+      return this.timeoutPendingMove(userId, pending);
+    }
+
+    const outcome = await db.$transaction(async (tx) => {
+      await this.lockProgress(tx, userId);
+      const stillPending = await this.findPendingMoveById(tx, pending.id);
+      if (!stillPending || !this.isObjectiveChallenge(stillPending.squareType)) {
+        throw new ConflictException('O desafio pendente já foi resolvido.');
+      }
+
+      const progress = await tx.towerProgress.findUnique({ where: { userId } });
+      if (!progress) {
+        throw new ConflictException('Progresso da torre não encontrado.');
+      }
+      if (this.isTimedOut(stillPending, info.timeLimitSeconds)) {
+        return {
+          kind: 'timeout' as const,
+          timedOut: await this.applyTimeoutInTransaction(tx, userId, stillPending),
+        };
+      }
+
+      const passed = choiceIndex === question.correctOption;
+      let shieldActive = false;
+      if (!passed) {
+        const shield = await (tx as any).towerActiveEffect.findFirst({
+          where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
+        });
+        if (shield) {
+          shieldActive = true;
+          if (shield.charges <= 1) {
+            await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
+          } else {
+            await (tx as any).towerActiveEffect.update({
+              where: { id: shield.id },
+              data: { charges: shield.charges - 1 },
+            });
+          }
+        }
+      }
+
+      const score = passed ? 100 : 0;
+      const newSquare = passed
+        ? stillPending.toSquare
+        : shieldActive
+          ? stillPending.fromSquare
+          : Math.max(0, stillPending.fromSquare - 1);
+
+      if (passed) {
+        await (tx as any).user.update({
+          where: { id: userId },
+          data: { coins: { increment: 15 } },
+        });
+      }
+
+      const xpAward = await this.gamification.awardTowerObjectiveXp(
+        userId,
+        `tower-objective:${question.kind}:${stillPending.floor}:${stillPending.toSquare}`,
+        passed,
+        score,
+        `tower-objective:${stillPending.id}`,
+        tx as unknown as Prisma.TransactionClient,
+      );
+      if (!xpAward) {
+        throw new ConflictException('Não foi possível registrar a recompensa de XP.');
+      }
+
+      const updated = await tx.towerProgress.update({
+        where: { id: progress.id },
+        data: { square: newSquare },
+      });
+      await tx.towerMove.update({
+        where: { id: stillPending.id },
+        data: { result: passed ? 'passed' : 'failed', xpGained: xpAward.xpGained },
+      });
+
+      return {
+        kind: 'resolved' as const,
+        passed,
+        score,
+        feedback: passed
+          ? question.explanation
+          : `Resposta correta: ${question.options[question.correctOption]}. ${question.explanation}`,
+        floor: progress.floor,
+        square: newSquare,
+        movesLeftToday: updated.movesLeftToday,
+        xpAward,
+      };
+    });
+
+    if (outcome.kind === 'timeout') {
+      return this.toTimeoutResult(outcome.timedOut);
+    }
+
+    return {
+      result: outcome.passed ? 'passed' : 'failed',
+      score: outcome.score,
+      feedback: outcome.feedback,
+      xpGained: outcome.xpAward.xpGained,
+      totalXp: outcome.xpAward.totalXp,
+      level: outcome.xpAward.level,
+      streakDays: outcome.xpAward.streak,
+      floor: outcome.floor,
+      square: outcome.square,
+      movesLeftToday: outcome.movesLeftToday,
+      guardianDefeated: false,
+      tierComplete: false,
+    };
+  }
+
+  async getParty(userId: string): Promise<TowerPartyView | null> {
+    const db = this.db();
+    const party = await this.findUserParty(db, userId);
+    if (!party) return null;
+
+    const memberIds = this.partyMemberIds(party.members);
+    const members = await Promise.all(
+      memberIds.map(async (memberId) => {
+        const [user, progress] = await Promise.all([
+          db.user.findUnique({
+            where: { id: memberId },
+            select: { id: true, nickname: true },
+          }),
+          db.towerProgress.findUnique({ where: { userId: memberId } }),
+        ]);
+        if (!user) return null;
+        return {
+          id: user.id,
+          nickname: user.nickname || 'Aventureiro',
+          floor: progress?.floor ?? 1,
+          square: progress?.square ?? 0,
+          isLeader: memberId === party.leaderId,
+          isCurrentUser: memberId === userId,
+        };
+      }),
+    );
+    const visibleMembers = members.filter(
+      (member): member is TowerPartyMember => member !== null,
+    );
+    const nicknameById = new Map(
+      visibleMembers.map((member) => [member.id, member.nickname]),
+    );
+    const recentMoves = memberIds.length
+      ? await (db as any).towerMove.findMany({
+          where: {
+            userId: { in: memberIds },
+            toSquare: TOWER_SQUARES_PER_FLOOR,
+            result: 'passed',
+            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        })
+      : [];
+
+    return {
+      id: party.id,
+      name: party.name,
+      floor: party.floor,
+      leaderId: party.leaderId,
+      members: visibleMembers,
+      recentAdvances: recentMoves.map((move: TowerMoveRow) => ({
+        id: move.id,
+        nickname: nicknameById.get(move.userId) ?? 'Aventureiro',
+        floor: move.floor,
+        createdAt: move.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async createParty(userId: string, name?: string): Promise<TowerPartyView> {
+    const db = this.db();
+    const trimmedName = name?.trim();
+    if (trimmedName && (trimmedName.length < 2 || trimmedName.length > 40)) {
+      throw new BadRequestException('O nome da party deve ter entre 2 e 40 caracteres.');
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId}::uuid FOR UPDATE`;
+      const currentParty = await this.findUserParty(tx, userId);
+      if (currentParty) {
+        throw new ConflictException('Você já participa de uma party ativa.');
+      }
+
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, nickname: true },
+      });
+      if (!user) throw new NotFoundException('Usuário não encontrado.');
+      const progress = await tx.towerProgress.findUnique({ where: { userId } });
+      await (tx as any).towerParty.create({
+        data: {
+          name: trimmedName || `Torre de ${user.nickname || 'Aventureiro'}`,
+          floor: progress?.floor ?? 1,
+          leaderId: userId,
+          members: [userId],
+          status: 'active',
+        },
+      });
+    });
+
+    return this.getRequiredPartyView(userId);
+  }
+
+  async joinParty(userId: string, partyId: string): Promise<TowerPartyView> {
+    const db = this.db();
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId}::uuid FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+      const currentParty = await this.findUserParty(tx, userId);
+      if (currentParty?.id === partyId) return;
+      if (currentParty) {
+        throw new ConflictException('Você já participa de outra party ativa.');
+      }
+
+      let party = await (tx as any).towerParty.findUnique({ where: { id: partyId } });
+      if (!party || party.status !== 'active') {
+        throw new NotFoundException('Party não encontrada ou encerrada.');
+      }
+      await this.lockParty(tx, partyId);
+      party = await (tx as any).towerParty.findUnique({ where: { id: partyId } });
+      if (!party || party.status !== 'active') {
+        throw new NotFoundException('Party não encontrada ou encerrada.');
+      }
+
+      const members = this.partyMemberIds(party.members);
+      if (members.includes(userId)) return;
+      if (members.length >= 4) {
+        throw new ConflictException('Esta party já atingiu o limite de 4 participantes.');
+      }
+      await (tx as any).towerParty.update({
+        where: { id: partyId },
+        data: { members: [...members, userId] },
+      });
+    });
+    return this.getRequiredPartyView(userId);
+  }
+
+  async leaveParty(userId: string): Promise<{ success: true }> {
+    const db = this.db();
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId}::uuid FOR UPDATE`;
+      const party = await this.findUserParty(tx, userId);
+      if (!party) throw new ConflictException('Você não participa de uma party ativa.');
+      await this.lockParty(tx, party.id);
+      const currentParty = await (tx as any).towerParty.findUnique({
+        where: { id: party.id },
+      });
+      if (!currentParty || currentParty.status !== 'active') {
+        throw new ConflictException('A party não está mais ativa.');
+      }
+
+      const members = this.partyMemberIds(currentParty.members).filter(
+        (memberId) => memberId !== userId,
+      );
+      if (members.length === 0) {
+        await (tx as any).towerParty.delete({ where: { id: currentParty.id } });
+        return;
+      }
+      await (tx as any).towerParty.update({
+        where: { id: currentParty.id },
+        data: {
+          members,
+          ...(currentParty.leaderId === userId ? { leaderId: members[0] } : {}),
+        },
+      });
+    });
+    return { success: true };
+  }
+
+  private async getRequiredPartyView(userId: string): Promise<TowerPartyView> {
+    const party = await this.getParty(userId);
+    if (!party) {
+      throw new ConflictException('A party foi salva, mas não pôde ser carregada.');
+    }
+    return party;
+  }
+
   // ---- helpers ----
+
+  private isTimedOut(move: TowerMoveRow, timeLimitSeconds: number): boolean {
+    return (
+      Date.now() >
+      move.createdAt.getTime() +
+        (timeLimitSeconds + move.timeBonusSeconds) * 1000
+    );
+  }
+
+  private async timeoutPendingMove(
+    userId: string,
+    pending: TowerMoveRow,
+  ): Promise<TowerSubmitResult> {
+    const timedOut = await this.db().$transaction(async (tx) => {
+      await this.lockProgress(tx, userId);
+      const stillPending = await this.findPendingMoveById(tx, pending.id);
+      if (!stillPending) {
+        throw new ConflictException('O desafio pendente já foi resolvido.');
+      }
+      const info = this.board.getSquare(stillPending.floor, stillPending.toSquare);
+      if (!this.isTimedOut(stillPending, info.timeLimitSeconds)) {
+        throw new ConflictException(
+          'O prazo do desafio foi estendido. Envie sua resposta novamente.',
+        );
+      }
+      return this.applyTimeoutInTransaction(tx, userId, stillPending);
+    });
+    return this.toTimeoutResult(timedOut);
+  }
+
+  private async applyTimeoutInTransaction(
+    tx: TowerPrismaClient,
+    userId: string,
+    pending: TowerMoveRow,
+  ) {
+    const progress = await tx.towerProgress.findUnique({ where: { userId } });
+    let shieldActive = false;
+    const shield = await (tx as any).towerActiveEffect.findFirst({
+      where: { userId, effectType: 'SHIELD', charges: { gt: 0 } },
+    });
+    if (shield) {
+      shieldActive = true;
+      if (shield.charges <= 1) {
+        await (tx as any).towerActiveEffect.delete({ where: { id: shield.id } });
+      } else {
+        await (tx as any).towerActiveEffect.update({
+          where: { id: shield.id },
+          data: { charges: shield.charges - 1 },
+        });
+      }
+    }
+
+    const newSquare = shieldActive
+      ? pending.fromSquare
+      : Math.max(0, pending.fromSquare - 1);
+    const updated = progress
+      ? await tx.towerProgress.update({
+          where: { id: progress.id },
+          data: { square: newSquare },
+        })
+      : null;
+    await tx.towerMove.update({
+      where: { id: pending.id },
+      data: { result: 'timeout', xpGained: 0 },
+    });
+    return {
+      floor: pending.floor,
+      square: newSquare,
+      movesLeftToday: updated?.movesLeftToday ?? 0,
+    };
+  }
+
+  private toTimeoutResult(timedOut: {
+    floor: number;
+    square: number;
+    movesLeftToday: number;
+  }): TowerSubmitResult {
+    return {
+      result: 'timeout',
+      score: null,
+      xpGained: 0,
+      totalXp: null,
+      level: null,
+      streakDays: null,
+      floor: timedOut.floor,
+      square: timedOut.square,
+      movesLeftToday: timedOut.movesLeftToday,
+      guardianDefeated: false,
+      tierComplete: false,
+    };
+  }
 
   /** Cast documentado em tower-prisma.types.ts (client ainda sem `prisma generate`). */
   private db(): TowerPrismaClient {
@@ -567,6 +949,10 @@ export class TowerService {
     return info.type === 'code' || info.type === 'final';
   }
 
+  private isObjectiveChallenge(squareType: string): boolean {
+    return squareType === 'quiz' || squareType === 'minigame';
+  }
+
   private isGuardian(info: TowerSquareInfo): boolean {
     return info.type === 'final';
   }
@@ -593,6 +979,53 @@ export class TowerService {
     await tx.$queryRaw`SELECT "id" FROM "tower_progress" WHERE "user_id" = ${userId} FOR UPDATE`;
   }
 
+  private async lockParty(tx: TowerPrismaClient, partyId: string): Promise<void> {
+    await tx.$queryRaw`SELECT "id" FROM "tower_parties" WHERE "id" = ${partyId}::uuid FOR UPDATE`;
+  }
+
+  private partyMemberIds(members: unknown): string[] {
+    return Array.isArray(members)
+      ? [...new Set(members.filter((member): member is string => typeof member === 'string'))]
+      : [];
+  }
+
+  private async findUserParty(db: TowerPrismaClient, userId: string) {
+    const parties = await (db as any).towerParty.findMany({
+      where: { status: 'active' },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return parties.find((party: { members: unknown }) =>
+      this.partyMemberIds(party.members).includes(userId),
+    ) ?? null;
+  }
+
+  private async updatePartyFloor(
+    tx: TowerPrismaClient,
+    userId: string,
+    floor: number,
+  ): Promise<void> {
+    const parties = await (tx as any).towerParty.findMany({
+      where: { status: 'active' },
+    });
+    for (const candidate of parties) {
+      if (!this.partyMemberIds(candidate.members).includes(userId)) continue;
+      await this.lockParty(tx, candidate.id);
+      const party = await (tx as any).towerParty.findUnique({
+        where: { id: candidate.id },
+      });
+      if (
+        party?.status === 'active' &&
+        this.partyMemberIds(party.members).includes(userId) &&
+        party.floor < floor
+      ) {
+        await (tx as any).towerParty.update({
+          where: { id: party.id },
+          data: { floor },
+        });
+      }
+    }
+  }
+
   private async findPendingMove(
     db: TowerPrismaClient,
     userId: string,
@@ -613,15 +1046,30 @@ export class TowerService {
   }
 
   private toPendingChallenge(move: TowerMoveRow, info: TowerSquareInfo): TowerPendingChallenge {
+    const objective = this.isObjectiveChallenge(move.squareType)
+      ? getTowerObjectiveQuestion(move.floor, move.toSquare)
+      : null;
     return {
-      activityId: move.activityId as string,
+      activityId: move.activityId,
       floor: move.floor,
       toSquare: move.toSquare,
       squareType: move.squareType,
-      timeLimitSeconds: info.timeLimitSeconds,
+      timeLimitSeconds: info.timeLimitSeconds + move.timeBonusSeconds,
       deadlineAt: new Date(
-        move.createdAt.getTime() + info.timeLimitSeconds * 1000,
+        move.createdAt.getTime() +
+          (info.timeLimitSeconds + move.timeBonusSeconds) * 1000,
       ).toISOString(),
+      ...(objective
+        ? {
+            objective: {
+              kind: objective.kind,
+              title: objective.title,
+              prompt: objective.prompt,
+              options: objective.options,
+              ...(objective.codeSnippet ? { codeSnippet: objective.codeSnippet } : {}),
+            },
+          }
+        : {}),
     };
   }
 
@@ -646,14 +1094,10 @@ export class TowerService {
   // ── Mercador, Economia e Inventário (Pacote 4) ───────────────────────
 
   async listMerchantItems() {
-    try {
-      const items = await (this.prisma as any).towerItem.findMany({
-        orderBy: { costCoins: 'asc' },
-      });
-      return items.length > 0 ? items : TOWER_DEFAULT_ITEMS;
-    } catch {
-      return TOWER_DEFAULT_ITEMS;
-    }
+    const items = await (this.prisma as any).towerItem.findMany({
+      orderBy: { costCoins: 'asc' },
+    });
+    return items.length > 0 ? items : TOWER_DEFAULT_ITEMS;
   }
 
   async getUserInventory(userId: string) {
@@ -661,49 +1105,44 @@ export class TowerService {
       where: { id: userId },
       select: { id: true, coins: true },
     });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
 
-    try {
-      const [inventory, activeEffects] = await Promise.all([
-        (this.prisma as any).userTowerInventory.findMany({
-          where: { userId, quantity: { gt: 0 } },
-          include: { item: true },
-        }),
-        (this.prisma as any).towerActiveEffect.findMany({
-          where: { userId, charges: { gt: 0 } },
-        }),
-      ]);
+    const [inventory, activeEffects] = await Promise.all([
+      (this.prisma as any).userTowerInventory.findMany({
+        where: { userId, quantity: { gt: 0 } },
+        include: { item: true },
+      }),
+      (this.prisma as any).towerActiveEffect.findMany({
+        where: { userId, charges: { gt: 0 } },
+      }),
+    ]);
 
-      return {
-        coins: user?.coins ?? 0,
-        inventory: inventory.map((inv: any) => ({
-          itemCode: inv.itemCode,
-          name: inv.item?.name || inv.itemCode,
-          description: inv.item?.description,
-          icon: inv.item?.icon,
-          quantity: inv.quantity,
-        })),
-        activeEffects: activeEffects.map((eff: any) => ({
-          effectType: eff.effectType,
-          charges: eff.charges,
-          expiresAt: eff.expiresAt,
-        })),
-      };
-    } catch {
-      return {
-        coins: user?.coins ?? 0,
-        inventory: [],
-        activeEffects: [],
-      };
-    }
+    return {
+      coins: user.coins ?? 0,
+      inventory: inventory.map((inv: any) => ({
+        itemCode: inv.itemCode,
+        name: inv.item?.name || inv.itemCode,
+        description: inv.item?.description,
+        icon: inv.item?.icon,
+        quantity: inv.quantity,
+      })),
+      activeEffects: activeEffects.map((eff: any) => ({
+        effectType: eff.effectType,
+        charges: eff.charges,
+        expiresAt: eff.expiresAt,
+      })),
+    };
   }
 
   async buyItem(userId: string, itemCode: string) {
     const item = TOWER_DEFAULT_ITEMS.find((i) => i.code === itemCode);
-    const cost = item ? item.costCoins : 50;
+    if (!item) throw new NotFoundException('Item não encontrado.');
+    const cost = item.costCoins;
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId }, select: { coins: true } });
-      const currentCoins = user?.coins ?? 0;
+      if (!user) throw new NotFoundException('Usuário não encontrado.');
+      const currentCoins = user.coins ?? 0;
       if (currentCoins < cost) {
         throw new ConflictException(`Nexus Coins insuficientes. Você tem ${currentCoins} e o item custa ${cost}.`);
       }
@@ -736,21 +1175,147 @@ export class TowerService {
     });
   }
 
-  async useItem(userId: string, itemCode: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const inv = await (tx as any).userTowerInventory.findUnique({
-        where: { userId_itemCode: { userId, itemCode } },
-      });
+  async useItem(userId: string, itemCode: string, targetUserId?: string) {
+    const item = TOWER_DEFAULT_ITEMS.find((candidate) => candidate.code === itemCode);
+    if (!item) throw new NotFoundException('Item não encontrado.');
+    if (!DIRECTLY_ACTIVATABLE_TOWER_ITEMS.has(itemCode)) {
+      throw new ConflictException(
+        'Este item não possui uma ação de ativação disponível.',
+      );
+    }
+    if (itemCode === 'CHAOS_BANANA' && (!targetUserId || targetUserId === userId)) {
+      throw new BadRequestException('Selecione outro integrante da sua party.');
+    }
+    if (itemCode !== 'CHAOS_BANANA' && targetUserId) {
+      throw new BadRequestException('Este item não aceita um alvo.');
+    }
 
-      if (!inv || inv.quantity <= 0) {
-        throw new ConflictException('Você não possui este item em seu inventário.');
+    return this.prisma.$transaction(async (tx) => {
+      if (itemCode === 'CHAOS_BANANA') {
+        const rivalId = targetUserId;
+        if (!rivalId || rivalId === userId) {
+          throw new BadRequestException('Selecione outro integrante da sua party.');
+        }
+        const party = await this.findUserParty(
+          tx as unknown as TowerPrismaClient,
+          userId,
+        );
+        if (!party) {
+          throw new ConflictException(
+            'A Armadilha Competitiva só pode ser usada contra alguém da sua party.',
+          );
+        }
+        if (!this.partyMemberIds(party.members).includes(rivalId)) {
+          throw new ForbiddenException(
+            'O alvo precisa ser outro integrante da sua party ativa.',
+          );
+        }
+        const target = await tx.user.findUnique({
+          where: { id: rivalId },
+          select: { id: true, nickname: true },
+        });
+        if (!target) throw new NotFoundException('Integrante não encontrado.');
+        const targetProgress = await tx.towerProgress.findUnique({
+          where: { userId: rivalId },
+        });
+        if (!targetProgress) {
+          throw new ConflictException('O alvo precisa iniciar a Torre antes de ser sabotado.');
+        }
+        await this.lockProgress(
+          tx as unknown as TowerPrismaClient,
+          rivalId,
+        );
+        await this.lockParty(tx as unknown as TowerPrismaClient, party.id);
+        const currentParty = await (tx as any).towerParty.findUnique({
+          where: { id: party.id },
+        });
+        const currentMembers = this.partyMemberIds(currentParty?.members);
+        if (
+          !currentParty ||
+          currentParty.status !== 'active' ||
+          !currentMembers.includes(userId) ||
+          !currentMembers.includes(rivalId)
+        ) {
+          throw new ForbiddenException(
+            'O alvo precisa ser outro integrante da sua party ativa.',
+          );
+        }
+
+        const consumed = await (tx as any).userTowerInventory.updateMany({
+          where: { userId, itemCode, quantity: { gt: 0 } },
+          data: { quantity: { decrement: 1 } },
+        });
+        if (consumed.count !== 1) {
+          throw new ConflictException('Você não possui este item em seu inventário.');
+        }
+
+        await (tx as any).towerActiveEffect.create({
+          data: {
+            userId: rivalId,
+            effectType: itemCode,
+            charges: 1,
+          },
+        });
+        return {
+          success: true,
+          activatedEffect: itemCode,
+          target: target.nickname || 'Aventureiro',
+        };
       }
 
-      // Decrementa inventário
-      await (tx as any).userTowerInventory.update({
-        where: { id: inv.id },
-        data: { quantity: inv.quantity - 1 },
+      if (itemCode === 'EXTRA_TIME') {
+        await this.lockProgress(tx as unknown as TowerPrismaClient, userId);
+        const pending = await this.findPendingMove(
+          tx as unknown as TowerPrismaClient,
+          userId,
+        );
+        if (!pending) {
+          throw new ConflictException(
+            'A Ampulheta só pode ser usada durante um desafio pendente.',
+          );
+        }
+        const info = this.board.getSquare(pending.floor, pending.toSquare);
+        if (this.isTimedOut(pending, info.timeLimitSeconds)) {
+          throw new ConflictException(
+            'O tempo do desafio acabou; não é possível estendê-lo.',
+          );
+        }
+
+        const consumed = await (tx as any).userTowerInventory.updateMany({
+          where: { userId, itemCode, quantity: { gt: 0 } },
+          data: { quantity: { decrement: 1 } },
+        });
+        if (consumed.count !== 1) {
+          throw new ConflictException(
+            'Você não possui este item em seu inventário.',
+          );
+        }
+
+        const updated = await (tx as any).towerMove.update({
+          where: { id: pending.id },
+          data: {
+            timeBonusSeconds: pending.timeBonusSeconds + EXTRA_TIME_SECONDS,
+          },
+        });
+        return {
+          success: true,
+          itemCode,
+          secondsAdded: EXTRA_TIME_SECONDS,
+          timeLimitSeconds: info.timeLimitSeconds + updated.timeBonusSeconds,
+          deadlineAt: new Date(
+            updated.createdAt.getTime() +
+              (info.timeLimitSeconds + updated.timeBonusSeconds) * 1000,
+          ).toISOString(),
+        };
+      }
+
+      const consumed = await (tx as any).userTowerInventory.updateMany({
+        where: { userId, itemCode, quantity: { gt: 0 } },
+        data: { quantity: { decrement: 1 } },
       });
+      if (consumed.count !== 1) {
+        throw new ConflictException('Você não possui este item em seu inventário.');
+      }
 
       // Cria/adiciona efeito ativo
       const effect = await (tx as any).towerActiveEffect.create({
@@ -771,82 +1336,32 @@ export class TowerService {
 
   async askOracleHint(userId: string) {
     const db = this.db();
-    const pending = await this.findPendingMove(db, userId);
-    if (!pending || !pending.activityId) {
-      throw new ConflictException('Nenhum desafio pendente na torre para receber dica.');
-    }
+    return db.$transaction(async (tx) => {
+      const pending = await this.findPendingMove(tx, userId);
+      if (!pending || !pending.activityId) {
+        throw new ConflictException('Nenhum desafio pendente na torre para receber dica.');
+      }
 
-    // Verifica se possui item ORACLE_SCROLL ou efeito ativo
-    const inv = await (this.prisma as any).userTowerInventory.findUnique({
-      where: { userId_itemCode: { userId, itemCode: 'ORACLE_SCROLL' } },
-    });
-
-    if (!inv || inv.quantity <= 0) {
-      throw new ForbiddenException(
-        'A IA Socrática na Torre exige o Pergaminho do Oráculo (ORACLE_SCROLL). Adquira-o no Mercador.',
-      );
-    }
-
-    // Consome 1 pergaminho
-    await (this.prisma as any).userTowerInventory.update({
-      where: { id: inv.id },
-      data: { quantity: inv.quantity - 1 },
-    });
-
-    const activity = await this.prisma.activity.findUnique({
-      where: { id: pending.activityId as string },
-    });
-
-    return {
-      success: true,
-      hint: `[Oráculo da Torre]: Observe atentamente as estruturas condicionais e o escopo de variáveis deste desafio (${activity?.title || 'Casa Atual'}). Qual caso base garante a terminação correta?`,
-      consumedItem: 'ORACLE_SCROLL',
-    };
-  }
-
-  // ── Modo Party nas Torres Altas (Pacote 4.1) ─────────────────────────
-
-  async createParty(userId: string, name: string) {
-    const party = await (this.prisma as any).towerParty.create({
-      data: {
-        name,
-        leaderId: userId,
-        members: [{ userId, joinedAt: new Date().toISOString() }],
-        floor: 10,
-        subtasks: [
-          { id: 'task-1', title: 'Implementar Algoritmo de Otimização', status: 'pending' },
-          { id: 'task-2', title: 'Cobrir Testes de Resiliência', status: 'pending' },
-        ],
-      },
-    });
-
-    return party;
-  }
-
-  async getParty(partyId: string) {
-    const party = await (this.prisma as any).towerParty.findUnique({
-      where: { id: partyId },
-      include: { leader: { select: { id: true, name: true, email: true } } },
-    });
-    if (!party) throw new NotFoundException('Party não encontrada');
-    return party;
-  }
-
-  async joinParty(userId: string, partyId: string) {
-    const party = await (this.prisma as any).towerParty.findUnique({
-      where: { id: partyId },
-    });
-    if (!party) throw new NotFoundException('Party não encontrada');
-
-    const members: any[] = Array.isArray(party.members) ? party.members : [];
-    if (!members.some((m) => m.userId === userId)) {
-      members.push({ userId, joinedAt: new Date().toISOString() });
-      await (this.prisma as any).towerParty.update({
-        where: { id: partyId },
-        data: { members },
+      const activity = await tx.activity.findUnique({
+        where: { id: pending.activityId },
       });
-    }
 
-    return { success: true, partyId, membersCount: members.length };
+      const consumed = await (tx as any).userTowerInventory.updateMany({
+        where: { userId, itemCode: 'ORACLE_SCROLL', quantity: { gt: 0 } },
+        data: { quantity: { decrement: 1 } },
+      });
+      if (consumed.count !== 1) {
+        throw new ForbiddenException(
+          'A IA Socrática na Torre exige o Pergaminho do Oráculo (ORACLE_SCROLL). Adquira-o no Mercador.',
+        );
+      }
+
+      return {
+        success: true,
+        hint: `[Oráculo da Torre]: Observe atentamente as estruturas condicionais e o escopo de variáveis deste desafio (${activity?.title || 'Casa Atual'}). Qual caso base garante a terminação correta?`,
+        consumedItem: 'ORACLE_SCROLL',
+      };
+    });
   }
+
 }

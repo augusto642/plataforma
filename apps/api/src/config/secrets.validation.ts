@@ -15,8 +15,11 @@ export interface RequiredSecretsEnv {
   GITEA_WEBHOOK_SECRET?: string;
   BILLING_MODE?: string;
   BILLING_PROVIDER?: string;
+  ALPHA_FREE_MODE?: string;
   BILLING_WEBHOOK_SECRET?: string;
+  METRICS_TOKEN?: string;
   MP_TEST_ACCESS_TOKEN?: string;
+  MP_TEST_PAYER_EMAIL?: string;
   MP_ACCESS_TOKEN?: string;
   STRIPE_SECRET_KEY?: string;
 }
@@ -40,11 +43,10 @@ const REQUIRED_AUTH_SECRETS = [
  *   nunca um "ligar" em runtime.
  * - Chave live de provedor (Mercado Pago `APP_USR-`, Stripe `sk_live_`)
  *   enquanto `BILLING_MODE=test` impede o boot.
- * - Provedor diferente de `simulated` impede o boot: Mercado Pago e
- *   Stripe existem como adapters, mas estão DESATIVADOS até o Augusto
- *   escolher o provedor v1 e as credenciais de teste.
+ * - Só `simulated` e Mercado Pago com credenciais explicitamente de teste
+ *   podem iniciar; Stripe permanece desativado.
  */
-export const BILLING_TEST_MODE_PROVIDERS = ['simulated'] as const;
+export const BILLING_TEST_MODE_PROVIDERS = ['simulated', 'mercadopago'] as const;
 
 /**
  * Segredos que precisam de alta entropia (>= 32 chars). Finding BAIXA —
@@ -57,6 +59,7 @@ const STRONG_SECRETS = [
   'JWT_REFRESH_SECRET',
   'CERTIFICATE_HMAC_SECRET',
   'GITEA_WEBHOOK_SECRET',
+  'METRICS_TOKEN',
 ] as const;
 const MIN_STRONG_SECRET_LENGTH = 32;
 
@@ -181,11 +184,45 @@ export function validateRequiredSecrets(
     !(BILLING_TEST_MODE_PROVIDERS as readonly string[]).includes(billingProvider)
   ) {
     throw new ConfigError(
-      `BILLING_PROVIDER='${billingProvider}' está desativado: o único provedor ativo em modo teste é 'simulated'. A escolha do provedor v1 é decisão pendente do Augusto.`,
+      `BILLING_PROVIDER='${billingProvider}' está desativado. Em modo teste, use 'simulated' ou 'mercadopago'.`,
     );
+  }
+  if (env.ALPHA_FREE_MODE !== undefined && !['true', 'false'].includes(env.ALPHA_FREE_MODE)) {
+    throw new ConfigError('ALPHA_FREE_MODE must be either true or false.');
+  }
+  if (
+    env.ALPHA_FREE_MODE === 'true' &&
+    (billingMode !== 'test' || billingProvider !== 'simulated')
+  ) {
+    throw new ConfigError(
+      'ALPHA_FREE_MODE=true requires BILLING_MODE=test and BILLING_PROVIDER=simulated.',
+    );
+  }
+  if (billingProvider === 'mercadopago') {
+    const missingMercadoPago: string[] = [];
+    if (!env.MP_TEST_ACCESS_TOKEN) missingMercadoPago.push('MP_TEST_ACCESS_TOKEN');
+    if (!env.MP_TEST_PAYER_EMAIL) missingMercadoPago.push('MP_TEST_PAYER_EMAIL');
+    if (missingMercadoPago.length > 0) {
+      throw new ConfigError(
+        `Mercado Pago sandbox requer: ${missingMercadoPago.join(', ')}.`,
+      );
+    }
+    if (!env.MP_TEST_ACCESS_TOKEN?.startsWith('TEST-')) {
+      throw new ConfigError(
+        'MP_TEST_ACCESS_TOKEN deve ser uma credencial de teste com prefixo TEST-.',
+      );
+    }
+    if (!/^[^\s@]+@testuser\.com$/i.test(env.MP_TEST_PAYER_EMAIL as string)) {
+      throw new ConfigError(
+        'MP_TEST_PAYER_EMAIL deve ser o e-mail de uma conta de teste Mercado Pago (@testuser.com).',
+      );
+    }
   }
   const liveKeys: string[] = [];
   if (env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) liveKeys.push('MP_ACCESS_TOKEN');
+  if (env.MP_TEST_ACCESS_TOKEN?.startsWith('APP_USR-')) {
+    liveKeys.push('MP_TEST_ACCESS_TOKEN');
+  }
   if (env.STRIPE_SECRET_KEY?.startsWith('sk_live_')) liveKeys.push('STRIPE_SECRET_KEY');
   if (liveKeys.length > 0) {
     throw new ConfigError(

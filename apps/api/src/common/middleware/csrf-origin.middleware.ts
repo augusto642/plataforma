@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
+import { parseCorsOrigins } from '../origin.util';
 
 /**
  * M15 (Lote 4) — defesa CSRF por Origin/Referer nas mutações.
@@ -26,22 +27,12 @@ import { Request, Response, NextFunction } from 'express';
  */
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function parseAllowedOrigins(value: string | undefined): string[] {
-  const raw = value ?? 'http://localhost:3001';
-  return raw
-    .split(',')
-    .map((s) => s.trim().replace(/\/+$/, ''))
-    .filter(Boolean);
-}
-
 @Injectable()
 export class CsrfOriginMiddleware implements NestMiddleware {
   private readonly allowedOrigins: string[];
 
   constructor(config: ConfigService) {
-    this.allowedOrigins = parseAllowedOrigins(
-      config.get<string>('CORS_ORIGIN'),
-    );
+    this.allowedOrigins = parseCorsOrigins(config.get<string>('CORS_ORIGIN'));
   }
 
   use(req: Request, res: Response, next: NextFunction): void {

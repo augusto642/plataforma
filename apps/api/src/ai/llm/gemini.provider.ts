@@ -54,14 +54,28 @@ export class GeminiProvider implements LlmProvider {
 
   constructor(private readonly cfg: GeminiConfig) {}
 
+  get publicPricingProvider(): 'google' | undefined {
+    try {
+      const url = new URL(this.cfg.baseUrl);
+      return url.protocol === 'https:' && url.hostname === 'generativelanguage.googleapis.com'
+        ? 'google'
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   get model(): string {
     return this.cfg.model;
   }
 
-  private endpoint(action: 'generateContent' | 'streamGenerateContent'): string {
+  private endpoint(
+    action: 'generateContent' | 'streamGenerateContent',
+    model = this.cfg.model,
+  ): string {
     const base = this.cfg.baseUrl.replace(/\/+$/, '');
     const streamSuffix = action === 'streamGenerateContent' ? '?alt=sse' : '';
-    return `${base}/models/${this.cfg.model}:${action}${streamSuffix}`;
+    return `${base}/models/${model}:${action}${streamSuffix}`;
   }
 
   private headers(): Record<string, string> {
@@ -139,8 +153,9 @@ export class GeminiProvider implements LlmProvider {
 
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResult> {
     const timeout = req.timeoutMs ?? this.cfg.timeoutMs;
+    const model = req.model ?? this.cfg.model;
     const body = this.buildBody(req);
-    const url = this.endpoint('generateContent');
+    const url = this.endpoint('generateContent', model);
 
     let lastError: LlmRequestError | null = null;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -163,7 +178,7 @@ export class GeminiProvider implements LlmProvider {
           );
           lastError = new LlmRequestError(
             kind === 'model-unavailable'
-              ? `Gemini model unavailable (404): '${this.cfg.model}' may be retired — change the configured model`
+              ? `Gemini model unavailable (404): '${model}' may be retired — change the configured model`
               : `Gemini request failed with status ${res.status}`,
             res.status,
             retryable,
@@ -188,7 +203,7 @@ export class GeminiProvider implements LlmProvider {
             'invalid-response',
           );
         }
-        return { content, model: this.cfg.model, usage: this.parseUsage(data) };
+        return { content, model, usage: this.parseUsage(data) };
       } catch (err) {
         if (err instanceof LlmRequestError) {
           if (err.retryable && attempt < MAX_ATTEMPTS - 1) {
@@ -219,8 +234,9 @@ export class GeminiProvider implements LlmProvider {
     req: LlmCompletionRequest,
   ): AsyncGenerator<string, void, unknown> {
     const timeout = req.timeoutMs ?? this.cfg.timeoutMs;
+    const model = req.model ?? this.cfg.model;
     const body = this.buildBody(req);
-    const url = this.endpoint('streamGenerateContent');
+    const url = this.endpoint('streamGenerateContent', model);
 
     let res: Response | null = null;
     let controller: AbortController | null = null;
@@ -258,7 +274,7 @@ export class GeminiProvider implements LlmProvider {
             );
             lastError = new LlmRequestError(
               kind === 'model-unavailable'
-                ? `Gemini model unavailable (404): '${this.cfg.model}' may be retired — change the configured model`
+                ? `Gemini model unavailable (404): '${model}' may be retired — change the configured model`
                 : `Gemini stream failed with status ${candidate.status}`,
               candidate.status,
               retryable,

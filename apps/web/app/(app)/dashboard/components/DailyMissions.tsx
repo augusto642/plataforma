@@ -10,10 +10,44 @@ import {
   type DailyMission,
 } from '../utils/daily-missions';
 
+interface XpHistoryEntry {
+  id: string;
+  source: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+}
+
+function isXpHistoryEntry(value: unknown): value is XpHistoryEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const entry = value as Record<string, unknown>;
+  return (
+    typeof entry.id === 'string' &&
+    typeof entry.source === 'string' &&
+    typeof entry.amount === 'number' &&
+    Number.isSafeInteger(entry.amount) &&
+    entry.amount > 0 &&
+    typeof entry.description === 'string' &&
+    typeof entry.createdAt === 'string' &&
+    Number.isFinite(Date.parse(entry.createdAt))
+  );
+}
+
+const XP_SOURCE_LABELS: Record<string, string> = {
+  submission: 'Desafio',
+  battle_run: 'Combate',
+  daily_bonus: 'Missões diárias',
+  gitea_project: 'Projeto',
+};
+
 export function DailyMissions() {
   const [missions, setMissions] = useState<DailyMission[] | null>(null);
   const [isClaimed, setIsClaimed] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [history, setHistory] = useState<XpHistoryEntry[] | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +108,32 @@ export function DailyMissions() {
       // Silêncio fail-closed
     } finally {
       setIsClaiming(false);
+    }
+  };
+
+  const handleHistoryToggle = async () => {
+    if (historyOpen) {
+      setHistoryOpen(false);
+      return;
+    }
+
+    setHistoryOpen(true);
+    if (history !== null || historyLoading) return;
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await apiFetch(`${API_BASE}/gamification/xp-history`);
+      if (!res.ok) throw new Error('Failed to load XP history');
+      const data: unknown = await res.json();
+      if (!Array.isArray(data) || !data.every(isXpHistoryEntry)) {
+        throw new Error('Invalid XP history response');
+      }
+      setHistory(data);
+    } catch {
+      setHistoryError('Não foi possível carregar o extrato de XP. Tente novamente.');
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -152,6 +212,56 @@ export function DailyMissions() {
           )}
         </div>
       )}
+
+      <div className="border-t border-[#1C2338] pt-3">
+        <button
+          type="button"
+          onClick={() => void handleHistoryToggle()}
+          aria-expanded={historyOpen}
+          className="flex w-full items-center justify-between bg-transparent p-0 text-left text-xs font-mono text-[#94A3B8] hover:text-white cursor-pointer border-0"
+        >
+          <span className="flex items-center gap-2">
+            <MaterialIcon name="history" className="text-[16px]" />
+            Extrato de XP
+          </span>
+          <span aria-hidden="true">{historyOpen ? '−' : '+'}</span>
+        </button>
+        {historyOpen && (
+          <div className="mt-3 space-y-2" aria-live="polite">
+            {historyLoading && (
+              <p className="m-0 text-xs text-[#64748B]">Carregando extrato...</p>
+            )}
+            {historyError && (
+              <p role="alert" className="m-0 text-xs text-[#FCA5A5]">
+                {historyError}
+              </p>
+            )}
+            {history && history.length === 0 && (
+              <p className="m-0 text-xs text-[#64748B]">Nenhuma recompensa registrada ainda.</p>
+            )}
+            {history?.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-start justify-between gap-3 rounded-lg bg-[#121624] px-3 py-2 text-xs"
+              >
+                <div className="min-w-0">
+                  <p className="m-0 truncate text-[#E2E8F0]">{entry.description}</p>
+                  <p className="m-0 mt-1 text-[10px] text-[#64748B]">
+                    {XP_SOURCE_LABELS[entry.source] ?? entry.source} ·{' '}
+                    {new Intl.DateTimeFormat('pt-BR', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    }).format(new Date(entry.createdAt))}
+                  </p>
+                </div>
+                <span className="shrink-0 font-mono font-bold text-[#00E676]">
+                  +{entry.amount} XP
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

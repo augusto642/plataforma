@@ -10,8 +10,11 @@ import { randomBytes } from 'node:crypto';
 import { CacheService } from '../cache/cache.service';
 import { MetricsService } from '../metrics/metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiUsageService } from '../ai/llm/ai-usage.service';
+import { AiTutorFeedbackService } from '../ai/ai-tutor-feedback.service';
 import { AdminMetricsResponseDto } from './dto/admin-metrics.dto';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
+import { AiQueueControlDto } from './dto/ai-queue-control.dto';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -30,6 +33,8 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
     private readonly metrics: MetricsService,
+    private readonly aiUsage: AiUsageService,
+    private readonly aiTutorFeedback: AiTutorFeedbackService,
   ) {}
 
   async getUsers(options: GetUsersQueryOptions = {}) {
@@ -113,29 +118,44 @@ export class AdminService {
     };
   }
 
-  async updateUserRole(id: string, role: Role) {
-    const existing = await this.prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true, email: true },
-    });
+  async updateUserRole(id: string, role: Role, adminId: string) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { id },
+        select: { id: true, role: true },
+      });
 
-    if (!existing) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
 
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        xp: true,
-        level: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      const user = await tx.user.update({
+        where: { id },
+        data: { role },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          xp: true,
+          level: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      await tx.adminAuditEvent.create({
+        data: {
+          adminId,
+          action: 'user.role.updated',
+          targetType: 'user',
+          targetId: id,
+          previousValue: existing.role,
+          newValue: role,
+        },
+      });
+
+      return { user, previousRole: existing.role };
     });
 
     try {
@@ -145,8 +165,8 @@ export class AdminService {
       this.logger.warn(`Failed to invalidate cache after role update for user ${id}: ${err.message}`);
     }
 
-    this.logger.log(`User ${id} role updated from ${existing.role} to ${role}`);
-    return updated;
+    this.logger.log(`User ${id} role updated from ${updated.previousRole} to ${role}`);
+    return updated.user;
   }
 
   /**
@@ -155,31 +175,46 @@ export class AdminService {
    * vira Pro de verdade — o campo existe, é legível e tem efeito
    * (entitlement da tutora). Espelha updateUserRole.
    */
-  async updateUserPlan(id: string, plan: Plan) {
-    const existing = await this.prisma.user.findUnique({
-      where: { id },
-      select: { id: true, plan: true, email: true },
+  async updateUserPlan(id: string, plan: Plan, adminId: string) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { id },
+        select: { id: true, plan: true },
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      const user = await tx.user.update({
+        where: { id },
+        data: { plan },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          plan: true,
+          updatedAt: true,
+        },
+      });
+
+      await tx.adminAuditEvent.create({
+        data: {
+          adminId,
+          action: 'user.plan.updated',
+          targetType: 'user',
+          targetId: id,
+          previousValue: existing.plan,
+          newValue: plan,
+        },
+      });
+
+      return { user, previousPlan: existing.plan };
     });
 
-    if (!existing) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { plan },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        plan: true,
-        updatedAt: true,
-      },
-    });
-
-    this.logger.log(`User ${id} plan updated from ${existing.plan} to ${plan}`);
-    return updated;
+    this.logger.log(`User ${id} plan updated from ${updated.previousPlan} to ${plan}`);
+    return updated.user;
   }
 
   async createInstructor(dto: CreateInstructorDto) {
@@ -239,7 +274,14 @@ export class AdminService {
     const cached = await this.cache
       .get<AdminMetricsResponseDto>('admin:metrics:snapshot')
       .catch(() => null);
-    if (cached && typeof cached === 'object' && (cached as any).platform) {
+    if (
+      cached &&
+      typeof cached === 'object' &&
+      (cached as any).platform &&
+      (cached as any).ai &&
+      (cached as any).aiQuality &&
+      Array.isArray((cached as any).queues)
+    ) {
       return cached;
     }
 
@@ -361,6 +403,11 @@ export class AdminService {
 
     const memory = process.memoryUsage();
     const metricsSnapshot = this.metrics.snapshot();
+    const [ai, queues, aiQuality] = await Promise.all([
+      this.aiUsage.getDailyOperations(now.toISOString().slice(0, 10)),
+      this.metrics.queueMetrics(),
+      this.aiTutorFeedback.getQualitySummary(now),
+    ]);
 
     let cacheStatus: 'connected' | 'degraded' | 'unavailable' = 'connected';
     let pingLatencyMs = 0;
@@ -414,6 +461,9 @@ export class AdminService {
           passRate,
         },
       },
+      ai,
+      aiQuality,
+      queues,
       cache: {
         status: cacheStatus,
         pingLatencyMs,
@@ -425,6 +475,78 @@ export class AdminService {
       .catch(() => {});
 
     return response;
+  }
+
+  async controlAiQueue(dto: AiQueueControlDto, adminId: string) {
+    const audit = await this.prisma.aiOperatorAuditEvent.create({
+      data: {
+        adminId,
+        queue: dto.queue,
+        action: dto.action,
+        reason: dto.reason.trim(),
+      },
+      select: { id: true },
+    });
+
+    try {
+      await this.metrics.controlQueue(dto.queue, dto.action);
+    } catch (error) {
+      await this.prisma.aiOperatorAuditEvent.update({
+        where: { id: audit.id },
+        data: { status: 'failed', errorCode: 'QUEUE_CONTROL_FAILED', completedAt: new Date() },
+      });
+      throw error;
+    }
+
+    return this.prisma.aiOperatorAuditEvent.update({
+      where: { id: audit.id },
+      data: { status: 'succeeded', completedAt: new Date() },
+      select: {
+        id: true,
+        queue: true,
+        action: true,
+        reason: true,
+        status: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    });
+  }
+
+  listAiOperatorAudit() {
+    return this.prisma.aiOperatorAuditEvent.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 25,
+      select: {
+        id: true,
+        adminId: true,
+        queue: true,
+        action: true,
+        reason: true,
+        status: true,
+        errorCode: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    });
+  }
+
+  listAdminAudit() {
+    return this.prisma.adminAuditEvent.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        adminId: true,
+        action: true,
+        targetType: true,
+        targetId: true,
+        previousValue: true,
+        newValue: true,
+        changedFields: true,
+        createdAt: true,
+      },
+    });
   }
 
   async getHealth() {

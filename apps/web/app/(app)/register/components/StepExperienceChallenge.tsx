@@ -3,6 +3,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { API_BASE } from '../../../lib/apiClient';
 import {
+  clearGuestAgeEligibility,
+  getGuestAgeEligibilityToken,
+} from '../../../lib/ageEligibility';
+import {
   AssessedLevel,
   LevelEvaluationResult,
   PRIOR_LANGUAGES,
@@ -27,6 +31,7 @@ interface StepExperienceChallengeProps {
   setEvaluation: (result: LevelEvaluationResult | null) => void;
   onPrev: () => void;
   onNext: () => void;
+  onEligibilityExpired: () => void;
 }
 
 const MIN_EXPLANATION_CHARS = 15;
@@ -196,40 +201,21 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
   setEvaluation,
   onPrev,
   onNext,
+  onEligibilityExpired,
 }) => {
   const [isLoadingChallenge, setIsLoadingChallenge] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
-  const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [copyPasteWarning, setCopyPasteWarning] = useState(false);
 
   // Pacote 1.1: Follow-up Relâmpago (60 segundos)
   const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null);
+  const [followUpToken, setFollowUpToken] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState('');
   const [followUpTimer, setFollowUpTimer] = useState(60);
   const [isRequestingFollowUp, setIsRequestingFollowUp] = useState(false);
   const [isFollowUpCompleted, setIsFollowUpCompleted] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
-
-  // Listener para contabilizar trocas de aba (Anti-Cheat)
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        setTabSwitchCount((prev) => prev + 1);
-      }
-    };
-    const handleBlur = () => {
-      setTabSwitchCount((prev) => prev + 1);
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('blur', handleBlur);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, []);
 
   // Cronômetro regressivo de 60 segundos do Follow-up Relâmpago
   useEffect(() => {
@@ -266,6 +252,12 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
 
       const fallbackLang: PriorLanguageId | undefined =
         hasProgrammedBefore && priorLanguage ? priorLanguage : undefined;
+      const eligibilityToken = getGuestAgeEligibilityToken();
+      if (!eligibilityToken) {
+        clearGuestAgeEligibility();
+        onEligibilityExpired();
+        return;
+      }
 
       try {
         const params = new URLSearchParams({
@@ -277,12 +269,18 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
           `${API_BASE}/auth/registration-challenge?${params.toString()}`,
           {
             method: 'GET',
+            headers: { 'x-age-eligibility-token': eligibilityToken },
             credentials: 'include',
             signal: controller.signal,
           },
         );
 
         if (!isActive) return;
+        if (res.status === 401) {
+          clearGuestAgeEligibility();
+          onEligibilityExpired();
+          return;
+        }
 
         if (res.ok) {
           const data: unknown = await res.json().catch(() => null);
@@ -309,7 +307,13 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
       isActive = false;
       controller.abort();
     };
-  }, [hasProgrammedBefore, priorLanguage, shouldLoadChallenge, setChallenge]);
+  }, [
+    hasProgrammedBefore,
+    priorLanguage,
+    shouldLoadChallenge,
+    setChallenge,
+    onEligibilityExpired,
+  ]);
 
   const handleSelectProgrammed = (value: boolean) => {
     if (hasProgrammedBefore === value) return;
@@ -319,6 +323,10 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
     }
     setEvaluation(null);
     setEvalError(null);
+    setFollowUpQuestion(null);
+    setFollowUpToken(null);
+    setFollowUpAnswer('');
+    setIsFollowUpCompleted(false);
   };
 
   const handleSelectLanguage = (langId: PriorLanguageId) => {
@@ -326,12 +334,23 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
     setPriorLanguage(langId);
     setEvaluation(null);
     setEvalError(null);
+    setFollowUpQuestion(null);
+    setFollowUpToken(null);
+    setFollowUpAnswer('');
+    setIsFollowUpCompleted(false);
   };
 
   const handleExplanationChange = (nextText: string) => {
     setExplanation(nextText);
     if (evaluation) {
       setEvaluation(null);
+    }
+    if (followUpQuestion) {
+      setFollowUpQuestion(null);
+      setFollowUpToken(null);
+      setFollowUpAnswer('');
+      setFollowUpTimer(60);
+      setIsFollowUpCompleted(false);
     }
     if (evalError) {
       setEvalError(null);
@@ -357,21 +376,34 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
         language: hasProgrammedBefore && priorLanguage ? priorLanguage : undefined,
         challengeId: challenge.id,
         explanation: explanation.trim(),
-        tabSwitchCount,
-        followUpQuestion: followUpQuestion || undefined,
+        followUpToken: followUpToken || undefined,
         followUpAnswer: currentFollowUpAnswer.trim() || undefined,
       };
 
       let result: LevelEvaluationResult | null = null;
+      const eligibilityToken = getGuestAgeEligibilityToken();
+      if (!eligibilityToken) {
+        clearGuestAgeEligibility();
+        onEligibilityExpired();
+        return;
+      }
 
       try {
         const res = await fetch(`${API_BASE}/auth/evaluate-level`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-age-eligibility-token': eligibilityToken,
+          },
           credentials: 'include',
           body: JSON.stringify(payload),
         });
 
+        if (res.status === 401) {
+          clearGuestAgeEligibility();
+          onEligibilityExpired();
+          return;
+        }
         if (res.ok) {
           const data: unknown = await res.json().catch(() => null);
           result = normalizeApiEvaluation(data, hasProgrammedBefore, explanation);
@@ -400,9 +432,9 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
       hasProgrammedBefore,
       priorLanguage,
       explanation,
-      tabSwitchCount,
-      followUpQuestion,
+      followUpToken,
       setEvaluation,
+      onEligibilityExpired,
     ],
   );
 
@@ -419,10 +451,19 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
     if (hasProgrammedBefore && !followUpQuestion && !isFollowUpCompleted) {
       setIsRequestingFollowUp(true);
       setEvalError(null);
+      const eligibilityToken = getGuestAgeEligibilityToken();
+      if (!eligibilityToken) {
+        clearGuestAgeEligibility();
+        onEligibilityExpired();
+        return;
+      }
       try {
         const res = await fetch(`${API_BASE}/auth/registration-follow-up`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-age-eligibility-token': eligibilityToken,
+          },
           credentials: 'include',
           body: JSON.stringify({
             challengeId: challenge.id,
@@ -431,10 +472,20 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
           }),
         });
 
+        if (res.status === 401) {
+          clearGuestAgeEligibility();
+          onEligibilityExpired();
+          return;
+        }
         if (res.ok) {
-          const data = (await res.json()) as { question?: string; timeLimitSeconds?: number };
-          if (data?.question) {
+          const data = (await res.json()) as {
+            question?: string;
+            followUpToken?: string;
+            timeLimitSeconds?: number;
+          };
+          if (data?.question && data.followUpToken) {
             setFollowUpQuestion(data.question);
+            setFollowUpToken(data.followUpToken);
             setFollowUpTimer(data.timeLimitSeconds ?? 60);
             setIsRequestingFollowUp(false);
             return;
@@ -456,6 +507,7 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
     priorLanguage,
     followUpAnswer,
     runEvaluationFinal,
+    onEligibilityExpired,
   ]);
 
   const handleFooterNext = async () => {
@@ -645,20 +697,7 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                 {/* Código com numeração e destaque sintático */}
                 <pre
                   aria-label={`Código do desafio: ${challenge.title}`}
-                  onCopy={(e) => {
-                    e.preventDefault();
-                    setCopyPasteWarning(true);
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    setCopyPasteWarning(true);
-                  }}
-                  onCut={(e) => {
-                    e.preventDefault();
-                    setCopyPasteWarning(true);
-                  }}
-                  onContextMenu={(e) => e.preventDefault()}
-                  className="m-0 p-4 overflow-x-auto font-mono text-xs sm:text-sm text-[#F1F5F9] leading-relaxed select-none"
+                  className="m-0 p-4 overflow-x-auto font-mono text-xs sm:text-sm text-[#F1F5F9] leading-relaxed"
                 >
                   <code className="block space-y-1">
                     {codeLines.map((line, index) => (
@@ -675,15 +714,6 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                   </code>
                 </pre>
               </div>
-
-              {copyPasteWarning && (
-                <div className="rounded-xl p-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2.5 animate-fadeIn">
-                  <span className="text-base">🛡️</span>
-                  <span>
-                    <strong>Digitação manual obrigatória:</strong> Cópia e cola estão desativadas neste desafio para garantir uma avaliação de nível real e justa.
-                  </span>
-                </div>
-              )}
 
               {challenge.hint && (
                 <div className="flex flex-col items-start gap-2">
@@ -723,19 +753,6 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                   rows={3}
                   value={explanation}
                   onChange={(e) => handleExplanationChange(e.target.value)}
-                  onCopy={(e) => {
-                    e.preventDefault();
-                    setCopyPasteWarning(true);
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    setCopyPasteWarning(true);
-                  }}
-                  onCut={(e) => {
-                    e.preventDefault();
-                    setCopyPasteWarning(true);
-                  }}
-                  onContextMenu={(e) => e.preventDefault()}
                   onKeyDown={(e) => {
                     // Garante que Enter dentro da textarea insere quebra de linha e nunca avança o wizard
                     if (e.key === 'Enter') {
@@ -776,10 +793,6 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
                       type="text"
                       value={followUpAnswer}
                       onChange={(e) => setFollowUpAnswer(e.target.value)}
-                      onPaste={(e) => {
-                        e.preventDefault();
-                        setCopyPasteWarning(true);
-                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -872,7 +885,9 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
               </div>
               <div>
                 <div className="text-[11px] font-mono uppercase tracking-wider font-semibold text-[#94A3B8]">
-                  Nível identificado pelo modelo
+                  {evaluation.source === 'llm'
+                    ? 'Nível identificado pela IA'
+                    : 'Estimativa heurística'}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap mt-0.5">
                   <span className="text-lg font-brand font-extrabold text-white">
@@ -913,7 +928,11 @@ export const StepExperienceChallenge: React.FC<StepExperienceChallengeProps> = (
               className="w-6 h-6 rounded-md object-cover border border-[#8257E5]/50 shrink-0 mt-0.5"
             />
             <div>
-              <strong className="text-[#00E676]">Feedback da Lumi (IA): </strong>
+              <strong className="text-[#00E676]">
+                {evaluation.source === 'llm'
+                  ? 'Feedback da Lumi (IA): '
+                  : 'Feedback automatizado: '}
+              </strong>
               {evaluation.feedback}
             </div>
           </div>

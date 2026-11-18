@@ -22,7 +22,7 @@ export const IdeHeader: React.FC<IdeHeaderProps> = ({
   isInstructor,
 }) => {
   return (
-    <header className="h-14 px-4 bg-[#0A0C10] border-b border-[#1E222D] flex items-center justify-between select-none">
+    <header className="min-h-14 px-4 py-2 bg-[#101916] border-b border-[#2a3935] flex flex-wrap gap-3 items-center justify-between select-none">
       <div className="flex items-center gap-6">
         <Link href="/" className="hover:opacity-90 transition-opacity">
           <Logo />
@@ -64,7 +64,7 @@ export const IdeHeader: React.FC<IdeHeaderProps> = ({
 
         <div className="h-4 w-px bg-[#1E222D]" />
 
-        <span className="text-xs font-bold text-zinc-500 bg-[#151821] px-2.5 py-1 rounded-md border border-[#1E222D]">
+        <span className="text-xs font-bold text-[#b1e6bf] bg-[#1b2922] px-2.5 py-1 rounded-md border border-[#41534a]">
           {language.toUpperCase()}
         </span>
       </div>

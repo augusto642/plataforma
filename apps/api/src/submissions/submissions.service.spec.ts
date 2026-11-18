@@ -31,7 +31,7 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
       $transaction: jest.fn((cb) => cb(prisma)),
     };
     evaluator = { processSubmission: jest.fn() };
-    runner = { executeInSandbox: jest.fn() };
+    runner = { executeInSandbox: jest.fn(), executePractice: jest.fn() };
     queue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
     // Lock mock que simula o lock real: concede se a chave não estiver em uso
     redisLock = {
@@ -54,6 +54,55 @@ describe('SubmissionsService - create idempotency / IDOR / pagination', () => {
       delPattern: jest.fn().mockResolvedValue(undefined),
     };
     service = new SubmissionsService(prisma, evaluator, runner, queue, redisLock, cache);
+  });
+
+  describe('practice', () => {
+    it('runs a multi-file project with its entry file first without creating a submission', async () => {
+      runner.executePractice.mockResolvedValue({ kind: 'passed', stdout: 'ok' });
+      await service.runProject({
+        language: 'python',
+        files: [{ name: 'helper.py', content: 'x = 1' }, { name: 'main.py', content: 'print(1)' }],
+        stdin: '2',
+      });
+      expect(runner.executePractice).toHaveBeenCalledWith('python', 'print(1)', {
+        files: [{ name: 'main.py', content: 'print(1)' }, { name: 'helper.py', content: 'x = 1' }],
+        stdin: '2', timeLimitMs: 5000, memoryLimitMb: 256,
+      });
+      expect(prisma.submission.create).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+    it('runs using the activity language and limits without creating a submission', async () => {
+      prisma.activity.findUnique.mockResolvedValue({
+        language: 'python', timeLimitMs: 2000, memoryLimitMb: 128,
+      });
+
+      runner.executePractice.mockResolvedValue({ kind: 'passed', stdout: 'ok' });
+
+      const result = await service.practice({ activityId: 'act-1', code: 'print(1)', stdin: '2' });
+
+      expect(result.stdout).toBe('ok');
+      expect(runner.executePractice).toHaveBeenCalledWith('python', 'print(1)', {
+        stdin: '2', timeLimitMs: 2000, memoryLimitMb: 128,
+      });
+      expect(prisma.submission.create).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('does not execute when the activity does not exist', async () => {
+      prisma.activity.findUnique.mockResolvedValue(null);
+      await expect(service.practice({ activityId: 'missing', code: 'x' })).rejects.toThrow(NotFoundException);
+      expect(runner.executePractice).not.toHaveBeenCalled();
+    });
+
+    it('runs the playground with fixed limits without creating a submission', async () => {
+      runner.executePractice.mockResolvedValue({ kind: 'passed', stdout: 'ok' });
+      await service.playground({ language: 'python', code: 'print(1)', stdin: '' });
+      expect(runner.executePractice).toHaveBeenCalledWith('python', 'print(1)', {
+        stdin: '', timeLimitMs: 5000, memoryLimitMb: 256,
+      });
+      expect(prisma.submission.create).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
   });
 
   describe('create (enqueue dedupe + idempotency)', () => {

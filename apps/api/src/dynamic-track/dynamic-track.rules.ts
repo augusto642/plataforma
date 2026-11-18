@@ -22,42 +22,20 @@
 // pode virar decider numa revisão futura com lastro.
 
 import { TRACK_NAMES, type TrackId } from '../diagnostic/data/quiz-v1';
+import {
+  CAREER_GOALS,
+  CAREER_GOAL_LABELS,
+  type CareerGoal,
+  type ExperienceLevel,
+  type WeeklyTimeCommitment,
+} from '@plataforma/contracts';
 
 export type { TrackId };
 export { TRACK_NAMES };
+export { CAREER_GOALS, CAREER_GOAL_LABELS };
+export type { CareerGoal, ExperienceLevel };
 
-export type ExperienceLevel = 'beginner' | 'junior' | 'mid' | 'senior';
-export type TimeCommitment = '5h' | '10h' | '20h';
-
-export const CAREER_GOALS = [
-  'frontend',
-  'backend',
-  'ai',
-  'fullstack',
-  'architect',
-  'devops',
-  'data_science',
-  'data_engineering',
-  'design',
-  'freelancer',
-  'mobile',
-  'security',
-  'qa',
-  'global',
-  'lead',
-  'startup',
-  'hackathons',
-  'mlops',
-  'platform_engineering',
-  'cloud_architect',
-  'gamedev',
-  'blockchain',
-  'embedded_iot',
-  'automation_rpa',
-  'product_manager',
-] as const;
-
-export type CareerGoal = (typeof CAREER_GOALS)[number];
+export type TimeCommitment = WeeklyTimeCommitment;
 
 export function isCareerGoal(value: unknown): value is CareerGoal {
   return typeof value === 'string' && (CAREER_GOALS as readonly string[]).includes(value);
@@ -150,34 +128,6 @@ export const CAREER_GOAL_TO_TRACK: Record<CareerGoal, TrackId> = {
   embedded_iot: 'backend',
   automation_rpa: 'ai',
   product_manager: 'frontend',
-};
-
-export const CAREER_GOAL_LABELS: Record<CareerGoal, string> = {
-  frontend: 'Front-end',
-  backend: 'Back-end',
-  ai: 'Inteligência Artificial',
-  fullstack: 'Full-stack',
-  architect: 'Arquitetura de Software',
-  devops: 'DevOps & Infraestrutura',
-  data_science: 'Ciência de Dados',
-  data_engineering: 'Engenharia de Dados',
-  design: 'Design & Tecnologia',
-  freelancer: 'Freelancer',
-  mobile: 'Desenvolvimento Mobile',
-  security: 'Segurança da Informação',
-  qa: 'Qualidade & QA',
-  global: 'Vaga Internacional',
-  lead: 'Liderança Técnica',
-  startup: 'Startup',
-  hackathons: 'Hackathons',
-  mlops: 'MLOps',
-  platform_engineering: 'Platform Engineering',
-  cloud_architect: 'Cloud Architect',
-  gamedev: 'Game Developer',
-  blockchain: 'Blockchain / Web3',
-  embedded_iot: 'Sistemas Embarcados & IoT',
-  automation_rpa: 'Automação, Bots & RPA',
-  product_manager: 'Product Manager',
 };
 
 /**

@@ -29,14 +29,19 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/apps/web/node_modules ./apps/web/node_modules
 
 COPY .npmrc pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/api/package.json ./apps/api/package.json
 COPY packages/contracts ./packages/contracts
 COPY apps/web ./apps/web
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ARG API_URL=http://api:3000
+ENV API_URL=${API_URL}
 
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_ALPHA_FREE_MODE=false
+ENV NEXT_PUBLIC_ALPHA_FREE_MODE=${NEXT_PUBLIC_ALPHA_FREE_MODE}
 
 RUN pnpm --filter @plataforma/web build
 

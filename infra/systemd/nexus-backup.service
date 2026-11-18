@@ -1,0 +1,9 @@
+[Unit]
+Description=Nexus encrypted maintenance backup
+
+[Service]
+Type=oneshot
+User=nexus-backup
+WorkingDirectory=/opt/nexus
+EnvironmentFile=/etc/nexus/backup.env
+ExecStart=/usr/bin/node /opt/nexus/scripts/backup-maintenance.mjs
