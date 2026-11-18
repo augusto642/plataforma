@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { passarPeloPortaoDeIdade } from './age-gate.helper';
 
 test.describe('NEXUS CODE — WCAG 2.1 AA & Critical Flow E2E Audits', () => {
   test('Landing page should render semantic landmarks and have accessible title', async ({ page }) => {
@@ -21,12 +22,15 @@ test.describe('NEXUS CODE — WCAG 2.1 AA & Critical Flow E2E Audits', () => {
     // vem do setup de autenticação (storageState) — logar aqui de novo
     // somaria logins via UI e bateria no throttler da API.
     await page.goto('/courses');
+    await passarPeloPortaoDeIdade(page);
     await expect(page.locator('h1, h2').first()).toBeVisible();
 
-    // Verify course cards and buttons are present
-    const courseCards = page.locator('button:has-text("Ver Ementa")');
-    await expect(courseCards.first()).toBeVisible({ timeout: 10000 });
-    const count = await courseCards.count();
+    // Verify course cards and links are present (o card virou link
+    // "Acessar curso" para /courses/[slug] no merge do PR #2 — não há
+    // mais botão "Ver Ementa" nem modal de ementa).
+    const courseLinks = page.getByRole('link', { name: 'Acessar curso' });
+    await expect(courseLinks.first()).toBeVisible({ timeout: 10000 });
+    const count = await courseLinks.count();
     expect(count).toBeGreaterThan(0);
   });
 

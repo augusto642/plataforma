@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { passarPeloPortaoDeIdade } from './age-gate.helper';
 
 test.describe('Smoke tests', () => {
   test('homepage loads nexus code landing page', async ({ page }) => {
@@ -32,22 +33,28 @@ test.describe('Smoke tests', () => {
     await page.goto('/login');
     await page.fill('input[type="email"]', 'inexistente@teste.local');
     await page.fill('input[type="password"]', 'senha-invalida-teste-123');
-    await page.click('button:has-text("Entrar na Plataforma")');
+    // Texto do botão mudou no merge do PR #2 (b10d3a9): era
+    // "Entrar na Plataforma", agora "Entrar" / "Entrar no jogo".
+    await page.click('button[type="submit"]');
 
     await expect(page).toHaveURL(/.*login/);
     await expect(page.locator('body')).toBeVisible();
   });
 
-  test('authenticated student can view courses and open course modal', async ({ page }) => {
+  test('authenticated student can view courses and open course detail', async ({ page }) => {
     // /courses é auth-gated desde a B41. A sessão vem do setup de
     // autenticação (storageState); o login via UI é exercido pelo
     // próprio teste de login do smoke.
     await page.goto('/courses');
-    const firstCourseBtn = page.locator('button:has-text("Ver Ementa")').first();
-    await expect(firstCourseBtn).toBeVisible({ timeout: 10000 });
-    await firstCourseBtn.click();
+    await passarPeloPortaoDeIdade(page);
+    // O card virou link "Acessar curso" para /courses/[slug] no merge do
+    // PR #2 (b10d3a9) — não há mais botão "Ver Ementa" nem modal.
+    const firstCourseLink = page.getByRole('link', { name: 'Acessar curso' }).first();
+    await expect(firstCourseLink).toBeVisible({ timeout: 10000 });
+    await firstCourseLink.click();
 
-    await expect(page.locator('text=Ementa Completa').or(page.locator('text=Iniciar Trilha')).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/courses\/.+/);
+    await expect(page.getByText('Voltar aos Cursos')).toBeVisible();
   });
 
   // O /ide abre com a sessão do setup (storageState). O ramo demo

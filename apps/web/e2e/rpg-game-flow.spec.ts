@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { passarPeloPortaoDeIdade } from './age-gate.helper';
 
 test.describe('NEXUS CODE - Pokémon RPG Platform E2E Flow', () => {
   test('Complete Onboarding Flow: Career Tier Lock, 3 Canonical Starters & 4-Tab Avatar Studio', async ({ page }) => {
     await page.goto('/onboarding');
+    await passarPeloPortaoDeIdade(page);
 
     // 1. Fase 1: Retro CRT PC Mascot (Nexi)
     await expect(page.locator('text=NEXUS-8086 // BIOS REV 1.4')).toBeVisible({ timeout: 10000 });
@@ -79,6 +81,7 @@ test.describe('NEXUS CODE - Pokémon RPG Platform E2E Flow', () => {
 
   test('Overworld Exploration, Minimap Radar & Black Cat HUD Companion', async ({ page }) => {
     await page.goto('/game');
+    await passarPeloPortaoDeIdade(page);
 
     // 1. Canvas 2D renderizado
     const canvas = page.locator('canvas').first();
@@ -104,6 +107,7 @@ test.describe('NEXUS CODE - Pokémon RPG Platform E2E Flow', () => {
 
   test('Virtual D-Pad and Touch Controls', async ({ page }) => {
     await page.goto('/game');
+    await passarPeloPortaoDeIdade(page);
 
     // Verifica presença dos botões direcionais acessíveis via aria-label
     const btnUp = page.locator('button[aria-label="Mover para Cima"]');

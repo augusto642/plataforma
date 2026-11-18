@@ -9,6 +9,7 @@ overrides:
   dompurify: 3.4.17
   deepmerge-ts: 8.0.2
   fast-uri: 3.1.9
+  handlebars: 4.7.10
   lodash: 4.18.1
   multer: 2.5.0
   mysql2: 3.23.1
@@ -3391,8 +3392,8 @@ packages:
   gsap@3.15.1:
     resolution: {integrity: sha512-63yjWRFWj3QRP1UOuD8kcidCcy3nxb1mMRpwHr/xJRvPfm9GtWOXFAYUiL0ro1fgPq2nY53LR+98pAgy9BumBg==}
 
-  handlebars@4.7.9:
-    resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
+  handlebars@4.7.10:
+    resolution: {integrity: sha512-P5VJMVM7qgBn6vjXMw8WG9uVI+ncf2pi72j4de4yz5ZULLj2RGqLYaKOYGsgyrViQ0tePOVlN1tDCCXXtFqXKg==}
     engines: {node: '>=0.4.7'}
     hasBin: true
 
@@ -9178,7 +9179,7 @@ snapshots:
 
   gsap@3.15.1: {}
 
-  handlebars@4.7.9:
+  handlebars@4.7.10:
     dependencies:
       minimist: 1.2.8
       neo-async: 2.6.2
@@ -11235,7 +11236,7 @@ snapshots:
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
-      handlebars: 4.7.9
+      handlebars: 4.7.10
       jest: 30.4.2(@types/node@22.20.5)(supports-color@8.1.1)
       json5: 2.2.3
       lodash.memoize: 4.1.2

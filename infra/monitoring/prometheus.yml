@@ -3,7 +3,10 @@ global:
   evaluation_interval: 30s
 
 rule_files:
-  - /etc/prometheus/nexus-alerts.yml
+  # Caminho relativo: resolvido em relação ao diretório do prometheus.yml.
+  # Vale nos dois layouts: CI monta infra/monitoring em /rules e a produção
+  # (docker-compose, profile monitoring) monta em /etc/prometheus.
+  - nexus-alerts.yml
 
 alerting:
   alertmanagers:

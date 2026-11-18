@@ -127,7 +127,7 @@ jobs:
         run: pnpm --filter @plataforma/api test:coverage
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://plataforma:***@localhost:5432/plataforma?schema=public
+          DATABASE_URL: postgresql://plataforma:password@localhost:5432/plataforma?schema=public
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_ACCESS_SECRET: test_access_secret_super_secure_123456789
@@ -165,7 +165,8 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: plataforma
-          POSTGRES_PASSWORD: <redacted>
+          # Senha de TESTE do CI: identica a DATABASE_URL deste job e a do job validate. Nunca colocar segredo real aqui.
+          POSTGRES_PASSWORD: password
           POSTGRES_DB: plataforma
         ports:
           - 5432:5432
@@ -189,9 +190,16 @@ jobs:
       DATABASE_URL: postgresql://plataforma:password@localhost:5432/plataforma?schema=public
       REDIS_HOST: localhost
       REDIS_PORT: 6379
-      JWT_ACCESS_SECRET: <redacted>
-      JWT_REFRESH_SECRET: <redacted>
-      GITEA_WEBHOOK_SECRET: <redacted>
+      JWT_ACCESS_SECRET: test_access_secret_super_secure_123456789
+      JWT_REFRESH_SECRET: test_refresh_secret_super_secure_987654321
+      GITEA_WEBHOOK_SECRET: test_webhook_secret_super_secure_12345
+      # Segredos exigidos pelo boot fail-closed da API (secrets.validation):
+      # sem eles o step "Start API" morre com ConfigError. Valores de TESTE,
+      # mesmo padrao dos demais segredos deste job. Gitea desativado: nao ha
+      # servico Gitea no CI e o smoke nao o utiliza.
+      CERTIFICATE_HMAC_SECRET: test_certificate_hmac_secret_super_secure_123456789
+      BILLING_WEBHOOK_SECRET: test_billing_webhook_secret_super_secure_123456789
+      GITEA_ENABLED: 'false'
       NEXT_PUBLIC_API_URL: http://localhost:3000
 
     steps:
@@ -291,8 +299,13 @@ jobs:
             NEXT_PUBLIC_API_URL=http://localhost:3000
 
       - name: Scan Docker Image for Critical Vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
+          # Trivy fixado: o default do trivy-action@v0.31.0 (v0.63.0) teve
+          # a release APAGADA no GitHub (tag existe, releases/tags 404) e
+          # o setup-trivy falhava com 404 no asset. v0.76.2 verificado
+          # vivo (release + asset Linux-64bit 200) em 18/11/2026.
+          version: v0.76.2
           image-ref: plataforma-${{ matrix.name }}:latest
           format: table
           vuln-type: os,library

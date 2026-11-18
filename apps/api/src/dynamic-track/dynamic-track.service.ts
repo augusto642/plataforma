@@ -768,7 +768,7 @@ export class DynamicTrackService {
     // Sem fonte disponível (hoje: sem chave de busca web — jobs
     // indisponível), segue só com o perfil, com basis 'profile-only'.
     let basis: SuggestionBasis = 'profile-only';
-    let evidence: MarketEvidenceItem[] = [];
+    const evidence: MarketEvidenceItem[] = [];
     let researchDocId: string | undefined;
     let researchSourcesAvailable: string[] | undefined;
     let researchSourcesUnavailable: string[] | undefined;
