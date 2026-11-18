@@ -7,6 +7,8 @@ overrides:
   dompurify: 3.4.17
   deepmerge-ts: 8.0.2
   fast-uri: 3.1.9
+  # CVE-2026-106445 (CRITICAL, handlebars 4.7.9 via ts-jest): fix em 4.7.10.
+  handlebars: 4.7.10
   lodash: 4.18.1
   multer: 2.5.0
   mysql2: 3.23.1
